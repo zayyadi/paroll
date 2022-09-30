@@ -3,6 +3,7 @@ from django.db import models
 
 from payroll.utils import *
 from employee.models import Employee
+from monthyear.models import MonthField
 
 from autoslug import AutoSlugField
 
@@ -148,7 +149,8 @@ class PayT(models.Model):
             return super().get_queryset().filter(is_active=True)
     name = models.CharField(max_length=50, unique=True, default="test")
     slug = AutoSlugField(populate_from="name",editable=True,always_update=True)
-    paydays = models.DateField()
+    paydays = MonthField("Month Value", help_text="some help...", null=True)
+    # month = MonthField()
     payroll_payday= models.ManyToManyField(VariableCalc, related_name="payroll_payday", through='Payday')
     is_active = models.BooleanField(default=False)
     
@@ -164,6 +166,5 @@ class PayT(models.Model):
         return str(self.paydays)
 
 class Payday(models.Model):
-    date = models.DateField(auto_now_add=True)
     paydays_id = models.ForeignKey(PayT, on_delete=models.CASCADE, related_name="pay")
     payroll_id = models.ForeignKey(VariableCalc, on_delete=models.CASCADE, related_name="payroll_paydays")

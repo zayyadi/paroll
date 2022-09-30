@@ -36,6 +36,7 @@ class CustomMMCF(forms.ModelMultipleChoiceField):
 
 class PaydayForm(forms.ModelForm):
 
+    paydays = MonthField()
     class Meta:
         model = PayT
         fields = ('name','slug','paydays','payroll_payday')
