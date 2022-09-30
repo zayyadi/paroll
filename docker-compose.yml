@@ -1,0 +1,21 @@
+version: "3.8"
+
+services:
+
+  web:
+    restart: always
+    container_name: payroll_v1
+    build:
+      context: .
+    command: python manage.py runserver 0.0.0.0:8002
+    volumes:
+      - .:/usr/src/app/
+    ports:
+      - "8002:8002"
+
+  redis:
+    container_name: redis_payroll
+    restart: always
+    image: redis:alpine
+    ports:
+      - "6379:6379"
