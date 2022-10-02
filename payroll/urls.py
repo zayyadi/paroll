@@ -13,5 +13,11 @@ urlpatterns = [
     path("varview/<int:pay_id>", views.varview, name="varview"),
     path("payday", views.AddPay.as_view()),
     path("payslip/<int:id>/", views.payslip, name="payslip"),
-    path("payslip/pdf/<int:id>/", views.payslip_pdf, name="payslip_pdf")
+    path("payslip/pdf/<int:id>/", views.payslip_pdf, name="payslip_pdf"),
+    path("bank", views.bank_reports, name="bank"),
+    path('bank/<int:pay_id>/', views.bank_report, name='bankReport'),
+    path("bank/<int:pay_id>/download/", views.bank_report_download, name="bankReportDownload"),
+    path("payee", views.payee_reports, name="payee"),
+    path("payee/<int:pay_id>/", views.payee_report, name="payeeReport" ),
+    path("payee/<int:pay_id>/download/", views.payee_report_download, name="payeeReportDownload")
 ]

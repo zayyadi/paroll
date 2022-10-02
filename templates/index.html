@@ -4,4 +4,67 @@
 
 <h1>HOME</h1>
 
+<div class="row"><div class="row">
+
+    <!-- Earnings (Monthly) Card Example -->
+    <div class="col-xl-4 col-md-6 mb-4">
+        <a href="{% url 'payroll:dashboard' %}">
+            <div class="card border-left-primary shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                                Employees
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{emp}}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-user-friends fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </a>
+    </div><div class="row"><div class="row">
+
+    <!-- Earnings (Monthly) Card Example -->
+    <
+    <div class="col-xl-4 col-md-6 mb-4">
+        <a href="{% url 'payroll:bank' %}">
+            <div class="card border-left-primary shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                                Bank Report
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{allowance_count}}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-user-plus fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </a>
+    </div>
+
+    {% comment %} <table class="table">
+        <thead class="thead-light">
+            <tr>
+                <th scope="col">#</th>
+                <th scope="col">Year-Month</th>
+                <th scope="col">Report</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for payrol in pay  %}
+                <tr>
+                    <th scope="row">{{ forloop.counter }}</th>
+                    <td>{{ payrol.month_year }}</td>
+                    <td><a href="{{ payrol.month_year }}" class="btn btn-info">View Report</a></td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table> {% endcomment %}
 {% endblock %}

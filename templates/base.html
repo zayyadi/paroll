@@ -14,4 +14,31 @@
         {% endblock  %}
     </body>
 
+    
+
+
+    <script>
+      $(function() {
+        $( ".datepicker" ).datepicker({
+          changeMonth: true,
+          changeYear: true,
+          maxDate: 0
+          // You can put more options here.
+
+        });
+      });
+
+    </script>
+    <script>
+     $(document).ready(function() {
+        $('#employees').DataTable();
+    });
+
+    </script>
+    <script>
+     $(document).ready(function() {
+        $('#allowances').DataTable();
+    });
+    </script>
+
 </html>

@@ -165,6 +165,9 @@ class PayT(models.Model):
     def __str__(self):
         return str(self.paydays)
 
+    # def __unicode__(self):
+    #     return unicode(self.month_year)
+
 class Payday(models.Model):
     paydays_id = models.ForeignKey(PayT, on_delete=models.CASCADE, related_name="pay")
     payroll_id = models.ForeignKey(VariableCalc, on_delete=models.CASCADE, related_name="payroll_paydays")

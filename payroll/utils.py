@@ -108,7 +108,7 @@ def get_payee(self):
     if self.calculate_taxable_income <= 88000:
             return first_taxable(self)
     elif self.calculate_taxable_income <= 300000:
-        return second_taxable(self)
+        return second_taxable(self) / 12
     elif self.calculate_taxable_income >= 300000 and self.calculate_taxable_income < 600000:
         return Decimal(second_taxable(self)) + Decimal(third_taxable(self)) / 12
     elif (
@@ -120,7 +120,7 @@ def get_payee(self):
             Decimal(second_taxable(self))
             + Decimal(third_taxable(self))
             + Decimal(fourth_taxable(self))
-        ) // 12
+        ) / 12
     elif (
         self.calculate_taxable_income >= 1100000
         and self.calculate_taxable_income < 1600000

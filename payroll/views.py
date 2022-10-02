@@ -6,6 +6,7 @@ from django.core.cache import cache
 from django.template.loader import get_template, render_to_string
 from django.http import HttpResponse
 from django.core.files.storage import FileSystemStorage
+from employee.models import Employee
 
 
 from payroll.forms import PaydayForm, PayrollForm, VariableForm
@@ -15,11 +16,18 @@ from num2words import num2words
 
 import xhtml2pdf.pisa as pisa
 from weasyprint import HTML
+import xlwt
 
 
 def index(request):
-    ...
-    return render(request, 'index.html')
+    pay = PayT.objects.all()
+    emp = Employee.objects.all().count()
+
+    context = {
+        "pay":pay,
+        "emp": emp
+    }
+    return render(request, 'index.html', context)
 
 def add_pay(request):
 
@@ -160,4 +168,116 @@ def payslip_pdf(request, id):
         response = HttpResponse(pdf, content_type="application/pdf")
         response["Content-Disposition"] = 'attachment; filename="mypayslip.pdf"'
         return response
+    return response
+
+def bank_reports(request):
+    payroll = PayT.objects.order_by("paydays").distinct("paydays")
+    return render(request, "pay/bank_reports.html", {"payroll": payroll})
+
+def bank_report(request, pay_id):
+    payroll = Payday.objects.filter(paydays_id_id=pay_id)
+    return render(
+        request,
+        "pay/bank_report.html",
+        {"payroll": payroll},
+    )
+
+def bank_report_download(request,pay_id):
+    response = HttpResponse(content_type="application/ms-excel")
+    response["Content-Disposition"] = 'attachment; filename="bank_report.xlsx"'
+
+    wb = xlwt.Workbook(encoding="utf-8")
+    ws = wb.add_sheet("Bank Report")
+
+    row_num = 0
+
+    font_style = xlwt.XFStyle()
+    font_style.font.bold = True
+
+    columns = [
+        "EmpNo",
+        "Emp First_Name",
+        "Last Name",
+        "Bank Name",
+        "Account No.",
+        "Net Pay",
+    ]
+
+    for col_num in range(len(columns)):
+        ws.write(row_num, col_num, columns[col_num], font_style)
+
+    font_style = xlwt.XFStyle()
+
+    rows = Payday.objects.filter(paydays_id_id=pay_id).values_list(
+        "payroll_id__payr__employee__emp_id",
+        "payroll_id__payr__employee__first_name",
+        "payroll_id__payr__employee__last_name",
+        "payroll_id__payr__employee__bank",
+        "payroll_id__payr__employee__bank_account_number",
+        "payroll_id__net_pay"
+    )
+
+    for row in rows:
+        row_num += 1
+        for col_num in range(len(row)):
+            ws.write(row_num, col_num, row[col_num], font_style)
+
+    wb.save(response)
+
+    return response
+
+def payee_reports(request):
+    payroll = PayT.objects.order_by("paydays").distinct("paydays")
+    return render(request, "pay/payee_reports.html", {"payroll": payroll})
+
+def payee_report(request, pay_id):
+    payroll = Payday.objects.filter(paydays_id_id=pay_id)
+    return render(
+        request,
+        "pay/payee_report.html",
+        {"payroll": payroll}, 
+    )
+
+def payee_report_download(request,pay_id):
+    response = HttpResponse(content_type="application/ms-excel")
+    response["Content-Disposition"] = 'attachment; filename="bank_report.xlsx"'
+
+    wb = xlwt.Workbook(encoding="utf-8")
+    ws = wb.add_sheet("Bank Report")
+
+    row_num = 0
+
+    font_style = xlwt.XFStyle()
+    font_style.font.bold = True
+
+    columns = [
+        "EmpNo",
+        "Employee First_Name",
+        "Employee Last Name",
+        "Tax Number",
+        "Gross Pay",
+        "Payee Amount",
+    ]
+
+    for col_num in range(len(columns)):
+        ws.write(row_num, col_num, columns[col_num], font_style)
+
+    font_style = xlwt.XFStyle()
+
+    rows = Payday.objects.filter(paydays_id_id=pay_id).values_list(
+        "payroll_id__payr__employee__emp_id",
+        "payroll_id__payr__employee__first_name",
+        "payroll_id__payr__employee__last_name",
+        "payroll_id__payr__employee__tin_no",
+        "payroll_id__payr__basic_salary",
+        "payroll_id__payr__payee"
+    )
+
+    for row in rows:
+        row_num += 1
+        for col_num in range(len(row)):
+            ws.write(row_num, col_num, row[col_num], font_style)
+
+    wb.save(response)
+
     return response

@@ -1,0 +1,47 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load bootstrap4 %}
+
+
+{% block content %}
+
+
+    <div class="container container-fluid">
+        <!-- Page Heading -->
+    {% if payroll %}
+        <div class="d-sm-flex align-items-center justify-content-between mb-4">
+            <h1 class="h3 mb-0 text-gray-800">Bank Report for {{ payroll.paydays_id.paydays }}</h1>
+            <a href="" class="d-none d-sm-inline-block btn btn-sm btn-info shadow-sm">
+                <i class="fas fa-download fa-sm text-white-50"></i> Generate Report</a>
+        </div>
+
+        <table class="table table-striped">
+            <thead class="thead-dark">
+                <tr>
+                    <th scope="col">EmpNo</th>
+                    <th scope="col">EmpName</th>
+                    <th scope="col">Bank Name</th>
+                    <th scope="col">Branch Name</th>
+                    <th scope="col">Account No.</th>
+                    <th scope="col">Net Pay</th>
+                </tr>
+            </thead>
+            <tbody>
+          
+            
+                 {% for payrol in payroll %}
+                     <tr>
+                        <th scope="row">{{ payrol.payroll_id.payr.employee.emp_id }}</th>
+                        <td>{{ payrol.payroll_id.payr.employee.first_name }} {{ payrol.payroll_id.payr.employee.last_name }}</td>
+                        <td>{{ payrol.payroll_id.payr.employee.get_bank_display}}</td>
+                        <td>{{ payrol.payroll_id.payr.employee.bank_account_name }}</td>
+                        <td>{{ payrol.payroll_id.payr.employee.bank_account_number }}</td>
+                        <td>{{ payrol.payroll_id.net_pay}}</td>
+                     </tr>
+                 {% endfor %}
+            </tbody>
+        </table>
+       {% comment %} <a href="download" class="btn btn-outline-info"> Download</a>  {% endcomment %}
+    {% endif %}
+    </div>
+{% endblock %}

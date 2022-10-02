@@ -1,7 +1,21 @@
 from django.contrib import admin
+from import_export import resources
+from import_export.admin import ImportExportModelAdmin
 
 # Register your models here.
 from payroll.models import Payroll, VariableCalc, PayT
+
+class PayrollResource(resources.ModelResource):
+    class Meta:
+        model = Payroll
+
+class VarResource(resources.ModelResource):
+    class Meta:
+        model = Payroll
+        
+class PayResource(resources.ModelResource):
+    class Meta:
+        model = PayT
 
 class PayrollInline(admin.StackedInline):
     model= PayT.payroll_payday.through
@@ -18,5 +32,6 @@ class PayrollAdmin(admin.ModelAdmin):
 
 
 admin.site.register(PayT, PayrollAdmin)
-admin.site.register(Payroll)
-admin.site.register(VariableCalc)
+admin.site.register(Payroll, ImportExportModelAdmin)
+# admin.site.register(PayT, ImportExportModelAdmin)
+admin.site.register(VariableCalc, ImportExportModelAdmin)
