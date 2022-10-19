@@ -45,6 +45,8 @@ def get_consolidated_calc(self):
 
 
 def get_consolidated_relief(self):
+    if self.basic_salary <= 30000:
+        return 0
     return get_consolidated_calc(self) + (self.get_gross_income * 20/100)
 
 
@@ -57,7 +59,7 @@ def get_consolidated_relief(self):
 
 
 def first_taxable(self) -> Decimal:
-    if self.calculate_taxable_income <= 88000:
+    if self.basic_salary <= 30000:
         return 0
 
 
@@ -102,10 +104,12 @@ def sixth_taxable(self) -> Decimal:
 def seventh_taxable(self) -> Decimal:
     if self.calculate_taxable_income - 3200000 > 3200000:
         return 3200000 * 24 / 100
+    elif (self.calculate_taxable_income - 3200000)> 0 and (self.calculate_taxable_income-3200000) < 3200000:
+        return (self.calculate_taxable_income - 3200000) * 24 / 100
     
 
 def get_payee(self):
-    if self.calculate_taxable_income <= 88000:
+    if self.basic_salary <= 30000:
             return first_taxable(self)
     elif self.calculate_taxable_income <= 300000:
         return second_taxable(self) / 12
@@ -161,19 +165,12 @@ def get_water_rate(self):
     return 200
 
 def get_net_pay(self):
-    return (self.payr.get_gross_income/ 12) - (self.payr.payee/12) - (self.payr.water_rate) \
-    + Decimal(self.leave_allowance ) + \
-    Decimal(self.overtime) - Decimal(self.lateness) - Decimal(self.absent) - Decimal(self.damage)
+    return (self.employee_pay.get_gross_income/ 12) - (self.employee_pay.payee)\
+         - (self.employee_pay.water_rate) + (self.ad.leave_allowance) \
+        + self.ad.overtime - (self.ad.absent) \
+        - (self.ad.lateness) - (self.ad.damage)
 
 # Number Logic
-
-ones = ('Zero', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine')
-
-twos = ('Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen')
-
-tens = ('Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety', 'Hundred')
-
-suffixes = ('', 'Thousand', 'Million', 'Billion')
 
 def get_num2words(self):
     return num2words(self.net_pay)

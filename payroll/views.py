@@ -1,24 +1,98 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse_lazy
-from django.views.generic import CreateView, TemplateView
+from django.contrib.auth.decorators import login_required
+from django.db.models import Sum
+from django.views.generic import CreateView
 from django.contrib import messages
 from django.core.cache import cache
-from django.template.loader import get_template, render_to_string
+from django.template.loader import render_to_string
 from django.http import HttpResponse
 from django.core.files.storage import FileSystemStorage
-from employee.models import Employee
 
-
-from payroll.forms import PaydayForm, PayrollForm, VariableForm
-from payroll.models import PayT, Payday, Payroll, VariableCalc
+from payroll.forms import PaydayForm, PayrollForm, VariableForm, EmployeeForm
+from payroll.models import EmployeeProfile, PayT, Payday, Payroll, VariableCalc, Employee
 
 from num2words import num2words
 
-import xhtml2pdf.pisa as pisa
+# import xhtml2pdf.pisa as pisa
 from weasyprint import HTML
 import xlwt
 
 
+
+def add_employee(request):
+    form = EmployeeForm(request.POST or None)
+
+    if form.is_valid():
+        form.save()
+
+        messages.success(request, "Added employee!")
+        return redirect("payroll:index")
+
+    return render(request, 'employee/add_employee.html', {'form': form})
+
+def update_employee(request, id):
+    employee = get_object_or_404(Employee, id=id)
+    form = EmployeeForm(request.POST or None, instance=employee)
+
+    if form.is_valid():
+        form.save()
+        messages.success(request, "Employee updated successfully!!")
+        return redirect("payroll:index")
+
+    else:
+        form = EmployeeForm()
+    
+    return render(request, 'employee/update_employee.html', {'form': form})
+
+def delete_employee(request, id):
+    pay = get_object_or_404(Employee,id=id)
+    pay.delete()
+    messages.success(request,"Employee deleted Successfully!!")
+    
+def add_employee(request):
+    form = EmployeeForm(request.POST or None)
+
+    if form.is_valid():
+        form.save()
+
+        messages.success(request, "Added employee!")
+        return redirect("payroll:index")
+
+    return render(request, 'employee/add_employee.html', {'form': form})
+
+def update_employee(request, id):
+    employee = get_object_or_404(Employee, id=id)
+    form = EmployeeForm(request.POST or None, instance=employee)
+
+    if form.is_valid():
+        form.save()
+        messages.success(request, "Employee updated successfully!!")
+        return redirect("payroll:index")
+
+    else:
+        form = EmployeeForm()
+    
+    return render(request, 'employee/update_employee.html', {'form': form})
+
+def delete_employee(request, id):
+    pay = get_object_or_404(Employee,id=id)
+    pay.delete()
+    messages.success(request,"Employee deleted Successfully!!")
+
+
+def employee(request, id):
+    emp = get_object_or_404(EmployeeProfile,id=id)
+    pay = Payday.objects.all().filter(payroll_id_id=id)
+
+    context = {
+        "emp": emp,
+        "pay":pay
+
+    }
+    return render(request,"employee/employee.html", context)
+
+@login_required
 def index(request):
     pay = PayT.objects.all()
     emp = Employee.objects.all().count()
@@ -49,12 +123,12 @@ def delete_pay(request, id):
     messages.success(request,"Pay deleted Successfully!!")
 
 def dashboard(request):
-    payroll = Payroll.objects.all()
-    payt = VariableCalc.objects.all()
+    emp = Employee.objects.all()
 
     context = {
-        "payroll":payroll,
-        "payt": payt
+        # "payroll":payroll,
+        # "payt": payt
+        "emp": emp
     }
     return render(request,"pay/dashboard.html", context)
 
@@ -102,14 +176,14 @@ class AddPay(CreateView):
     success_url = reverse_lazy('payroll:index')
 
 def payslip(request, id):
-    pay_id = VariableCalc.objects.filter(id=id).first()
+    pay_id = Employee.objects.filter(id=id).first()
     num2word = num2words(pay_id.net_pay)
     if cache.get(pay_id):
         payr = cache.get(pay_id)
         print("hit the cache")
         return payr
     else:
-        payroll = VariableCalc.objects.get(id=id)
+        payroll = Employee.objects.get(id=id)
         cache.set(
             id,
             payroll
@@ -124,6 +198,9 @@ def payslip(request, id):
 def varview(request,pay_id):
     
     var = Payday.objects.filter(paydays_id_id=pay_id)
+    var_total = var.aggregate(
+        Sum("payroll_id__net_pay")
+    )
     # var_sum = Payday.objects.filter(paydays_id_id=pay_id)
     # pay = PayT.objects.filter(is_active=True,payroll_payday=var)
 #     # pay = None
@@ -137,25 +214,14 @@ def varview(request,pay_id):
 
     context = {
         "pay_var":var,
-        # "var":pay
+        "var_total": var_total["payroll_id__net_pay__sum"]
     }
 
     return render(request, "pay/var_view.html", context)
 
-# class VarView(TemplateView):
-#     template_name = 'pay/var_view.html'
-
-#     def get_context_data(self, **kwargs):
-#         context = super().get_context_data(**kwargs)
-
-#         context['pay'] = PayT.objects.all()
-#         context['var' ] = VariableCalc.objects.all()
-#         context['pay_var'] = Payday.objects.all()
-
-#         return context
 
 def payslip_pdf(request, id):
-    payroll = VariableCalc.objects.filter(id=id)
+    payroll = Employee.objects.filter(id=id)
     pre_total = payroll.first().net_pay
     template_path = "pay/payslip_pdf.html"
     html_string = render_to_string(
@@ -209,11 +275,11 @@ def bank_report_download(request,pay_id):
     font_style = xlwt.XFStyle()
 
     rows = Payday.objects.filter(paydays_id_id=pay_id).values_list(
-        "payroll_id__payr__employee__emp_id",
-        "payroll_id__payr__employee__first_name",
-        "payroll_id__payr__employee__last_name",
-        "payroll_id__payr__employee__bank",
-        "payroll_id__payr__employee__bank_account_number",
+        "payroll_id__emp_id",
+        "payroll_id__first_name",
+        "payroll_id__last_name",
+        "payroll_id__bank",
+        "payroll_id__bank_account_number",
         "payroll_id__net_pay"
     )
 
@@ -240,10 +306,10 @@ def payee_report(request, pay_id):
 
 def payee_report_download(request,pay_id):
     response = HttpResponse(content_type="application/ms-excel")
-    response["Content-Disposition"] = 'attachment; filename="bank_report.xlsx"'
+    response["Content-Disposition"] = 'attachment; filename="payee_report.xlsx"'
 
     wb = xlwt.Workbook(encoding="utf-8")
-    ws = wb.add_sheet("Bank Report")
+    ws = wb.add_sheet("Payee Report")
 
     row_num = 0
 
@@ -265,14 +331,120 @@ def payee_report_download(request,pay_id):
     font_style = xlwt.XFStyle()
 
     rows = Payday.objects.filter(paydays_id_id=pay_id).values_list(
-        "payroll_id__payr__employee__emp_id",
-        "payroll_id__payr__employee__first_name",
-        "payroll_id__payr__employee__last_name",
-        "payroll_id__payr__employee__tin_no",
-        "payroll_id__payr__basic_salary",
-        "payroll_id__payr__payee"
+        "payroll_id__emp_id",
+        "payroll_id__first_name",
+        "payroll_id__last_name",
+        "payroll_id__tin_no",
+        "payroll_id__employee_pay__basic_salary",
+        "payroll_id__employee_pay__payee"
     )
 
+    for row in rows:
+        row_num += 1
+        for col_num in range(len(row)):
+            ws.write(row_num, col_num, row[col_num], font_style)
+
+    wb.save(response)
+
+    return response
+
+
+def pension_reports(request):
+    payroll = PayT.objects.order_by("paydays").distinct("paydays")
+    return render(request, "pay/pension_reports.html", {"payroll": payroll})
+
+def pension_report(request, pay_id):
+    payroll = Payday.objects.filter(paydays_id_id=pay_id)
+    return render(
+        request,
+        "pay/pension_report.html",
+        {"payroll": payroll}, 
+    )
+
+
+def pension_report_download(request,pay_id):
+    response = HttpResponse(content_type="application/ms-excel")
+    response["Content-Disposition"] = 'attachment; filename="pension_report.xlsx"'
+
+    wb = xlwt.Workbook(encoding="utf-8")
+    ws = wb.add_sheet("Pension Report")
+
+    row_num = 0
+
+    font_style = xlwt.XFStyle()
+    font_style.font.bold = True
+
+    columns = [
+        "EmpNo",
+        "Employee First_Name",
+        "Employee Last Name",
+        "Tax Number",
+        "Gross Pay",
+        "Pension Contribution",
+    ]
+
+    for col_num in range(len(columns)):
+        ws.write(row_num, col_num, columns[col_num], font_style)
+
+    font_style = xlwt.XFStyle()
+
+    rows = Payday.objects.filter(paydays_id_id=pay_id).values_list(
+        "payroll_id__emp_id",
+        "payroll_id__first_name",
+        "payroll_id__last_name",
+        "payroll_id__employee_pay__basic_salary",
+        # "payroll_id__payr__pension_employer",
+        # "payroll_id__payr__pension_employee",
+        "payroll_id__payr__pension",
+    )
+
+    for row in rows:
+        row_num += 1
+        for col_num in range(len(row)):
+            ws.write(row_num, col_num, row[col_num], font_style)
+
+    wb.save(response)
+
+    return response
+
+
+def varview_download(request, pay_id):
+
+    response = HttpResponse(content_type="application/ms-excel")
+    response["Content-Disposition"] = 'attachment; filename="payroll_report.xlsx"'
+
+    wb = xlwt.Workbook(encoding="utf-8")
+    ws = wb.add_sheet("Payroll Report")
+
+    row_num = 0
+
+    font_style = xlwt.XFStyle()
+    font_style.font.bold = True
+
+    columns = [
+        "Employee First_Name",
+        "Employee Last Name",
+        "Gross Salary",
+        "Water Fee",
+        "Payee",
+        "Pension Contribution",
+        "Net Pay",
+    ]
+
+    for col_num in range(len(columns)):
+        ws.write(row_num, col_num, columns[col_num], font_style)
+
+    font_style = xlwt.XFStyle()
+
+    rows = Payday.objects.filter(paydays_id_id=pay_id).values_list(
+        "payroll_id__first_name",
+        "payroll_id__last_name",
+        "payroll_id__employee_pay__basic_salary",
+        "payroll_id__employee_pay__water_rate",
+        "payroll_id__employee_pay__payee",
+        "payroll_id__employee_pay__pension_employee",
+        "payroll_id__net_pay",
+    )
     for row in rows:
         row_num += 1
         for col_num in range(len(row)):

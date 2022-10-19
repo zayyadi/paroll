@@ -6,8 +6,10 @@ from django.conf.urls.static import static
 
 urlpatterns = [
     path("admin/", admin.site.urls),
+    path('account/', include('accounts.urls', namespace='accounts')),
+    path('account/', include('django.contrib.auth.urls')),
     path("", include("payroll.urls", namespace="payroll")),
-    path("employee", include("employee.urls", namespace="employee")),
+    # path("employee", include("employee.urls", namespace="employee")),
 ]
 
 if settings.DEBUG:

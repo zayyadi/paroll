@@ -9,7 +9,7 @@
 <hr>
 <a class = "btn btn-info" href = "{% url 'payroll:add_pay' %}">Add Pay </a>
 <hr>
-{% if payt %}
+{% if emp %}
 <table class="table">
         <thead>
           <tr>
@@ -22,13 +22,13 @@
           </tr>
         </thead>
         <tbody>
-          {% for pay in payt %}
+          {% for pay in emp %}
           <tr>
             <th scope="row">{{pay.id}}</th>
-            <td><a href="{% url 'payroll:payslip' pay.id %}">{{pay.payr.employee.first_name}}</a></td>
-            <td>{{pay.payr.basic_salary}}</td>
-            <td>{{pay.payr.pension}}</td>
-            <td>{{pay.payr.payee}}</td>
+            <td><a href="{% url 'payroll:payslip' pay.id %}">{{pay.first_name}}</a></td>
+            <td>{{pay.employee_pay.basic_salary}}</td>
+            <td>{{pay.employee_pay.pension}}</td>
+            <td>{{pay.employee_pay.payee}}</td>
             <td>{{pay.net_pay}}</a> </td>
               
           </tr>

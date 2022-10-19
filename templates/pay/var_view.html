@@ -9,16 +9,13 @@
             <div class="text-center lh-1 mb-2">
                 <h6 class="fw-bold">PayDay</h6> <span class="fw-normal">Payment roaster for the month of {% now "F Y" %}</span>
             </div>
-                    {% if var %}
-                    <div class="col-md-6">
-                        <div> <span class="fw-bolder">Date</span> <small class="ms-3">{{var.date}}</small> </div>
-                    </div>
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div> <span class="fw-bolder">Name</span> <small class="ms-3">{{var.name}}</small> </div>
-                        </div>
-                    {% endif %}
-                </div>
+            {% if pay_var %}
+            <div class="d-sm-flex align-items-center justify-content-between mb-4">
+                <h1 class="h3 mb-0 text-gray-800">Bank Report for {{ pay_var.paydays_id.paydays|date:"M, Y" }}</h1>
+                <a href="download/" class="d-none d-sm-inline-block btn btn-sm btn-info shadow-sm">
+                    <i class="fas fa-download fa-sm text-white-50"></i> Generate Report</a>
+            </div>
+            {% endif %}
                 <table class="mt-4 table table-bordered">
                     <thead class="bg-dark text-white">
                         <tr>
@@ -38,17 +35,27 @@
                             <tr>
                                 <th scope="row">{{pays.id}}</th>
                                 <td>{{pays.payroll_id.payr.employee.first_name}}</td>
-                                <td>{{pays.payroll_id.payr.basic_salary}}</td>
+                                <td class="text-right">{{pays.payroll_id.payr.basic_salary}}</td>
                                 {% comment %} <td>{{pays.payroll_id.pension}}</td> {% endcomment %}
-                                <td>{{pays.payroll_id.payr.payee}}</td>
-                                <td>{{pays.payroll_id.net_pay}}</a> </td>
+                                <td class="text-right">{{pays.payroll_id.payr.payee}}</td>
+                                <td class="text-right">{{pays.payroll_id.net_pay}}</a> </td>
+                                
                                 {% comment %} {{pay}} {% endcomment %}
                             </tr>
                       {% comment %} {% endif %} {% endcomment %}
                     
                     {% endfor %}
+                    <td ><b>Total Netpay:</b></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td class="text-right">{{var_total}}</td>
                 {% endif %}
                     </tbody>
+
+                <div class="container container-md">
+                    <p class="text"> </p>
+                </div>
         
 
 {% endblock  %}

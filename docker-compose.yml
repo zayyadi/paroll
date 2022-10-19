@@ -12,6 +12,8 @@ services:
       - .:/usr/src/app/
     ports:
       - "8002:8002"
+    networks:
+      - develop-net
 
   redis:
     container_name: redis_payroll
@@ -19,3 +21,10 @@ services:
     image: redis:alpine
     ports:
       - "6379:6379"
+
+    networks:
+      - develop-net
+
+networks:
+  develop-net:
+    driver: bridge
