@@ -8,6 +8,7 @@ from django.core.cache import cache
 from django.template.loader import render_to_string
 from django.http import HttpResponse
 from django.core.files.storage import FileSystemStorage
+from django.contrib.auth.decorators import user_passes_test
 
 from payroll.forms import PaydayForm, PayrollForm, VariableForm, EmployeeForm
 from payroll.models import EmployeeProfile, PayT, Payday, Payroll, VariableCalc, Employee
@@ -18,8 +19,10 @@ from num2words import num2words
 from weasyprint import HTML
 import xlwt
 
+def check_super(user):
+    return user.is_superuser
 
-
+@user_passes_test(check_super)
 def add_employee(request):
     form = EmployeeForm(request.POST or None)
 
@@ -31,6 +34,7 @@ def add_employee(request):
 
     return render(request, 'employee/add_employee.html', {'form': form})
 
+@user_passes_test(check_super)
 def update_employee(request, id):
     employee = get_object_or_404(Employee, id=id)
     form = EmployeeForm(request.POST or None, instance=employee)
@@ -45,36 +49,7 @@ def update_employee(request, id):
     
     return render(request, 'employee/update_employee.html', {'form': form})
 
-def delete_employee(request, id):
-    pay = get_object_or_404(Employee,id=id)
-    pay.delete()
-    messages.success(request,"Employee deleted Successfully!!")
-    
-def add_employee(request):
-    form = EmployeeForm(request.POST or None)
-
-    if form.is_valid():
-        form.save()
-
-        messages.success(request, "Added employee!")
-        return redirect("payroll:index")
-
-    return render(request, 'employee/add_employee.html', {'form': form})
-
-def update_employee(request, id):
-    employee = get_object_or_404(Employee, id=id)
-    form = EmployeeForm(request.POST or None, instance=employee)
-
-    if form.is_valid():
-        form.save()
-        messages.success(request, "Employee updated successfully!!")
-        return redirect("payroll:index")
-
-    else:
-        form = EmployeeForm()
-    
-    return render(request, 'employee/update_employee.html', {'form': form})
-
+@user_passes_test(check_super)
 def delete_employee(request, id):
     pay = get_object_or_404(Employee,id=id)
     pay.delete()
@@ -92,6 +67,7 @@ def employee(request, id):
     }
     return render(request,"employee/employee.html", context)
 
+
 @login_required
 def index(request):
     pay = PayT.objects.all()
@@ -103,8 +79,8 @@ def index(request):
     }
     return render(request, 'index.html', context)
 
+@user_passes_test(check_super)
 def add_pay(request):
-
     form = PayrollForm(request.POST or None)
 
     if form.is_valid():
@@ -117,13 +93,14 @@ def add_pay(request):
 
     return render(request, "pay/add_pay.html", {"form":form})
 
+@user_passes_test(check_super)
 def delete_pay(request, id):
     pay = get_object_or_404(Payroll,id=id)
     pay.delete()
     messages.success(request,"Pay deleted Successfully!!")
 
 def dashboard(request):
-    emp = Employee.objects.all()
+    emp = EmployeeProfile.objects.all()
 
     context = {
         # "payroll":payroll,
@@ -132,6 +109,7 @@ def dashboard(request):
     }
     return render(request,"pay/dashboard.html", context)
 
+@user_passes_test(check_super)
 def add_var(request):
     form = VariableForm(request.POST or None)
 
@@ -145,6 +123,7 @@ def add_var(request):
 
     return render(request, "pay/var.html", {'form': form})
 
+@user_passes_test(check_super)
 def edit_var(request, id):
     var = get_object_or_404(VariableCalc, id=id)
     form = VariableForm(request.POST or None, instance=var)
@@ -163,6 +142,7 @@ def edit_var(request, id):
     }
     return render(request, "pay/var.html", context)
 
+@user_passes_test(check_super)
 def delete_var(request, id):
     pay = get_object_or_404(VariableCalc,id=id)
     pay.delete()
@@ -175,8 +155,9 @@ class AddPay(CreateView):
     template_name = 'pay/add_payday.html'
     success_url = reverse_lazy('payroll:index')
 
+@login_required
 def payslip(request, id):
-    pay_id = Employee.objects.filter(id=id).first()
+    pay_id = EmployeeProfile.objects.filter(id=id).first()
     num2word = num2words(pay_id.net_pay)
     if cache.get(pay_id):
         payr = cache.get(pay_id)
@@ -201,16 +182,6 @@ def varview(request,pay_id):
     var_total = var.aggregate(
         Sum("payroll_id__net_pay")
     )
-    # var_sum = Payday.objects.filter(paydays_id_id=pay_id)
-    # pay = PayT.objects.filter(is_active=True,payroll_payday=var)
-#     # pay = None
-    # for id in pay_id:
-    # if id in var.payroll_id_id:
-    #     print(pay_id)
-    #     return id
-#     # if pay_id:
-#     #     pay = get_object_or_404(VariableCalc, var_id=pay_id)
-#     #     var = PayT.objects.filter(payroll_payday__in[pay])
 
     context = {
         "pay_var":var,

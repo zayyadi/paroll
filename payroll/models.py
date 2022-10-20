@@ -1,4 +1,5 @@
 from decimal import Decimal
+# from types import NoneType
 
 from django.db import models
 from django.core.validators import RegexValidator
@@ -30,30 +31,28 @@ class Employee(models.Model):
     #     return self.first_na
 
 class EmployeeQuerySet(models.QuerySet):
-    def search(self, query=None):
-        if query is None or query == "":
-            return self.none()
-        lookups = (
-            Q(first_name__icontains=query) | 
-            Q(email__icontains=query) 
-        )
-        return self.filter(lookups)
+    # def search(self, query=None):
+    #     if query is None or query == "":
+    #         return self.none()
+    #     lookups = (
+    #         Q(first_name__icontains=query) | 
+    #         Q(email__icontains=query) 
+    #     )
+    #     return self.filter(lookups)
+    def active(self):
+        return self.filter(active=True)
 
 class EmployeeManager(models.Manager):
     def get_queryset(self):
         return EmployeeQuerySet(self.model, using=self._db)
 
-    def search(self, query=None):
-        return self.get_queryset().search(query=query)
+    # def search(self, query=None):
+    #     return self.get_queryset().search(query=query)
 
 
 class EmployeeProfile(models.Model):
     employee = models.OneToOneField(Employee, related_name="employee", on_delete=models.CASCADE)
     employee_pay = models.ForeignKey("Payroll", on_delete=models.CASCADE, related_name="employee_pay", null=True, blank=True)
-    ad = models.ForeignKey("VariableCalc", on_delete=models.CASCADE, related_name="ad", null=True, blank=True)
-    first_name = models.CharField(max_length=50)
-    last_name = models.CharField(max_length=50)
-    email= models.EmailField(max_length=50, unique=True)
     created = models.DateTimeField(default=timezone.now, blank=False)
     photo = models.FileField(blank=True, null=True)
     nin = models.CharField(default=nin_no, unique = True,max_length=255, editable=False)
@@ -61,14 +60,13 @@ class EmployeeProfile(models.Model):
     date_of_birth = models.DateField(blank=True, null=True)
     date_of_employment = models.DateField(blank=True, null=True)
     contract_type = models.CharField(choices=CONTRACT_TYPE, max_length=1, blank=True, null=True)
-    phone_regex = RegexValidator(
-        regex=r"^\+?1?\d{3}\d{9,11}$",
-        message="Phone number must be entered in the format: '+999999999'. Up to 11 digits allowed.",
-    )
+    # phone_regex = RegexValidator(
+    #     regex=r"^\+?1?\d{3}\d{9,13}$",
+    #     message="Phone number must be entered in the format: '+999999999'. Up to 11 digits allowed.",
+    # )
     phone = models.CharField(
-        validators=[phone_regex],
         default=1234567890,
-        max_length=11,
+        max_length=15,
         blank=True,
         unique=True,
         verbose_name="phone number",
@@ -100,9 +98,12 @@ class EmployeeProfile(models.Model):
     bank_account_number = models.CharField(
         max_length=10, verbose_name="Bank Account Number", unique=True, blank=True, null=True
     )
-    # net_pay = models.DecimalField(max_digits=12, default=0.0,decimal_places=2,blank=True)
+    net_pay = models.DecimalField(max_digits=12, default=0.0,decimal_places=2,blank=True)
     is_active = models.BooleanField(default=False)
     objects = EmployeeManager()
+
+    def __str__(self):
+        return self.employee.first_name
 
 
     class Meta:
@@ -124,8 +125,6 @@ class PayrollManager(models.Manager):
         return AccountModelQuerySet(self.model, using=self._db)
 
 class Payroll(models.Model):
-    # employee = models.ForeignKey(Employee, related_name='employee_payroll', on_delete=models.CASCADE)
-    # var = models.ForeignKey("VariableCalc", on_delete=models.CASCADE, related_name="var_pay")
     basic_salary = models.DecimalField(max_digits=12, decimal_places=2, null=False, blank=False)
     basic = models.DecimalField(max_digits=12, default=Decimal(0.0), decimal_places=2, blank=True)
     housing = models.DecimalField(max_digits=12, default=Decimal(0.0), decimal_places=2, blank=True)
@@ -195,8 +194,8 @@ class Payroll(models.Model):
 
 
 class VariableCalc(models.Model):
-    # payr = models.ForeignKey(Employee, on_delete=models.CASCADE, related_name='variable_payroll')
-    basic_salary = models.DecimalField(max_digits=12, decimal_places=2, blank=False, null=False)
+    payr = models.ForeignKey(EmployeeProfile, on_delete=models.CASCADE, related_name='variable_payroll')
+    # basic_salary = models.DecimalField(max_digits=12, decimal_places=2, blank=False, null=False)
     is_leave = models.BooleanField(default=False)
     is_overtime = models.BooleanField(default=False)
     is_absent = models.BooleanField(default=False)
@@ -212,12 +211,12 @@ class VariableCalc(models.Model):
         verbose_name_plural = "Payroll Variable"
 
     def __str__(self):
-        return str(self.basic_salary)
+        return f"Allowance for {self.payr.employee.first_name}"
     
     @property
     def get_leave_allowance(self):
         if self.is_leave:
-            return (self.basic_salary * 12) * Decimal(3.6) / 100
+            return (self.payr.employee_pay.basic_salary * 12) * Decimal(3.6) / 100
         return 0.0
 
     @property
@@ -229,19 +228,19 @@ class VariableCalc(models.Model):
     @property
     def get_late(self):
         if self.is_late:
-            return self.basic_salary * Decimal(0.05) / 100
+            return self.payr.employee_pay.basic_salary * Decimal(0.05) / 100
         return 0
     
     @property
     def get_absent(self):
         if self.is_late:
-            return self.basic_salary * Decimal(0.5) / 100
+            return self.payr.employee_pay.basic_salary * Decimal(0.5) / 100
         return 0
     
     @property
     def get_damage(self):
         if self.is_late:
-            return self.basic_salary * 10 / 100
+            return self.payr.employee_pay.basic_salary * 10 / 100
         return 0
 
 
@@ -254,10 +253,32 @@ class VariableCalc(models.Model):
         # self.total_net_pay = self.get_total_netpay
         super(VariableCalc, self).save(*args, **kwargs)
 
-# class PayVar(models.Model):
-#     pays = models.ForeignKey(Payroll, related_name="pays", on_delete=models.CASCADE)
-#     var = models.ForeignKey(VariableCalc, on_delete=models.CASCADE, related_name="var")
-#     net_pay = models.
+
+class PayVar(models.Model):
+    pays = models.ForeignKey(EmployeeProfile, related_name="pays", on_delete=models.CASCADE)
+    var = models.ForeignKey(VariableCalc, on_delete=models.CASCADE, related_name="var", blank=True, null=True)
+    netpay = models.DecimalField(max_digits=12, default=0.0, decimal_places=2, blank=True)
+
+    def __str__(self):
+        return self.pays.employee.first_name
+
+    @property
+    def get_netpay(self):
+        vars = self.var 
+        if not vars:
+            vars = Decimal(0)
+        return (
+            self.pays.net_pay 
+            + Decimal(vars.leave_allowance)
+            +Decimal(vars.overtime)
+            -Decimal(vars.lateness)
+            -Decimal(vars.absent)
+            -Decimal(vars.damage)
+        )
+    def save(self, *args, **kwargs):
+        self.netpay = self.get_netpay
+        super(PayVar, self).save(*args, **kwargs)
+
 
 class PayT(models.Model):
     class PayTManager(models.Model):
@@ -267,7 +288,7 @@ class PayT(models.Model):
     slug = AutoSlugField(populate_from="name",editable=True,always_update=True)  # type: ignore
     paydays = MonthField("Month Value", help_text="some help...", null=True)
     # month = MonthField()
-    payroll_payday= models.ManyToManyField(Employee, related_name="payroll_payday", through='Payday')
+    payroll_payday= models.ManyToManyField(PayVar, related_name="payroll_payday", through='Payday')
     is_active = models.BooleanField(default=False)
     objects = PayTManager()
     
@@ -282,13 +303,7 @@ class PayT(models.Model):
     def __str__(self):
         return str(self.paydays)
 
-    # def __unicode__(self):
-    #     return unicode(self.month_year)
 
 class Payday(models.Model):
     paydays_id = models.ForeignKey(PayT, on_delete=models.CASCADE, related_name="pay")
-    payroll_id = models.ForeignKey(Employee, on_delete=models.CASCADE, related_name="payroll_paydays")
-
-
-# class Employee_pay(models.Model):
-#     employee_id = models.ForeignKey(Employee, on_delete=models.CASCADE, related_name="employee_id")
+    payroll_id = models.ForeignKey(PayVar, on_delete=models.CASCADE, related_name="payroll_paydays")

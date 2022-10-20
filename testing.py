@@ -220,6 +220,17 @@
 #         total = amt + 'and %s/100 Dollars' % cents
 #         print (total)
 
+# var_sum = Payday.objects.filter(paydays_id_id=pay_id)
+    # pay = PayT.objects.filter(is_active=True,payroll_payday=var)
+#     # pay = None
+    # for id in pay_id:
+    # if id in var.payroll_id_id:
+    #     print(pay_id)
+    #     return id
+#     # if pay_id:
+#     #     pay = get_object_or_404(VariableCalc, var_id=pay_id)
+#     #     var = PayT.objects.filter(payroll_payday__in[pay])
+
 ls1 = [12,1,2,3,4,5,6,7]
 ls2 = [12,3,4,78,1,4]
 

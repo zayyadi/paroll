@@ -114,7 +114,10 @@ def get_payee(self):
     elif self.calculate_taxable_income <= 300000:
         return second_taxable(self) / 12
     elif self.calculate_taxable_income >= 300000 and self.calculate_taxable_income < 600000:
-        return Decimal(second_taxable(self)) + Decimal(third_taxable(self)) / 12
+        return (
+            Decimal(second_taxable(self))
+            + Decimal(third_taxable(self))
+        ) / 12
     elif (
         self.calculate_taxable_income >= 300000
         and self.calculate_taxable_income >= 600000
@@ -166,9 +169,10 @@ def get_water_rate(self):
 
 def get_net_pay(self):
     return (self.employee_pay.get_gross_income/ 12) - (self.employee_pay.payee)\
-         - (self.employee_pay.water_rate) + (self.ad.leave_allowance) \
-        + self.ad.overtime - (self.ad.absent) \
-        - (self.ad.lateness) - (self.ad.damage)
+         - (self.employee_pay.water_rate) 
+""" + (self.ad.leave_allowance)
++ self.ad.overtime - (self.ad.absent) 
+- (self.ad.lateness) - (self.ad.damage) """
 
 # Number Logic
 
