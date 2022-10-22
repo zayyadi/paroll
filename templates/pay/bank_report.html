@@ -11,7 +11,7 @@
     {% if payroll %}
         <div class="d-sm-flex align-items-center justify-content-between mb-4">
             <h1 class="h3 mb-0 text-gray-800">Bank Report for {{ payroll.paydays_id.paydays }}</h1>
-            <a href="" class="d-none d-sm-inline-block btn btn-sm btn-info shadow-sm">
+            <a href="download/" class="d-none d-sm-inline-block btn btn-sm btn-info shadow-sm">
                 <i class="fas fa-download fa-sm text-white-50"></i> Generate Report</a>
         </div>
 
@@ -31,12 +31,12 @@
             
                  {% for payrol in payroll %}
                      <tr>
-                        <th scope="row">{{ payrol.payroll_id.payr.employee.emp_id }}</th>
-                        <td>{{ payrol.payroll_id.payr.employee.first_name }} {{ payrol.payroll_id.payr.employee.last_name }}</td>
-                        <td>{{ payrol.payroll_id.payr.employee.get_bank_display}}</td>
-                        <td>{{ payrol.payroll_id.payr.employee.bank_account_name }}</td>
-                        <td>{{ payrol.payroll_id.payr.employee.bank_account_number }}</td>
-                        <td>{{ payrol.payroll_id.net_pay}}</td>
+                        <th scope="row">{{ payrol.payroll_id.pays.employee.emp_id }}</th>
+                        <td>{{ payrol.payroll_id.pays.employee.first_name }} {{ payrol.payroll_id.pays.employee.last_name }}</td>
+                        <td>{{ payrol.payroll_id.pays.get_bank_display}}</td>
+                        <td>{{ payrol.payroll_id.pays.bank_account_name }}</td>
+                        <td>{{ payrol.payroll_id.pays.bank_account_number }}</td>
+                        <td>{{ payrol.payroll_id.netpay}}</td>
                      </tr>
                  {% endfor %}
             </tbody>

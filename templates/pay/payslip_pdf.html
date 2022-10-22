@@ -109,78 +109,78 @@
   <body>
     {% block content %}
         <header style="top: -200px">
-            <a><img style="height: 50px; width: 80px; float:left; top: -100px;" src="{% static "images/logo.jpg" %}" alt="Logo"></a>
+            <a><img style="height: 50px; width: 80px; float:left; top: -100px;" src="{% static "images/logo.png" %}" alt="Logo"></a>
             <h3>Zayyad development agency</h3>
         </header>
         <table>
             <thead>
             <tr>
                 <th scope="col">Name:</th>
-                <th scope="col">{{ payroll.payr.employee.first_name }} {{ payroll.payr.employee.last_name }}</th>
+                <th scope="col">{{ payroll.pays.employee.first_name }} {{ payroll.pays.employee.last_name }}</th>
             </tr>
             </thead>
             <tbody>
             <tr>
                 <th scope="row">Job Number:</th>
-                <td>{{ payroll.payr.employee.emp_id }}</td>
+                <td>{{ payroll.pays.emp_id }}</td>
             </tr>
             <tr>
                 <th scope="row">Job Title:</th>
-                <td>{{ payroll.payr.employee.get_job_title_display }}</td>
+                <td>{{ payroll.pays.get_job_title_display }}</td>
             </tr>
 
             <tr>
                 <th scope="row">Basic Pay</th>
-                <td>{{ payroll.payr.basic_salary }}</td>
+                <td>{{ payroll.pays.employee_pay.basic_salary }}</td>
             </tr>
             <tr>
                 <th scope="row">Gross Pay</th>
-                <td>{{ payroll.gross_pay }}</td>
+                <td>{{ payroll.pays.employee_pay.gross_pay }}</td>
             </tr>
             <tr>
                 <th scope="row">Deductions Before Tax:</th>
-                <td>{{ payroll.payr.pension_employee }}</td>
-                <td>{{ payroll.payr.water_rate }}</td>
+                <td>{{ payroll.pays.employee_pay.pension_employee }}</td>
+                <td>{{ payroll.pays.employee_pay.water_rate }}</td>
 
             </tr>
             <tr>
                 <th scope="row">  Employee Pension</th>
-                <td>-{{ payroll.payr.pension_employee }}</td>
+                <td>-{{ payroll.pays.employee_pay.pension_employee }}</td>
             </tr>
             <tr>
                 <th scope="row">Taxable Pay</th>
-                <td>{{ payroll.payr.taxable_income }}</td>
+                <td>{{ payroll.pays.employee_pay.taxable_income }}</td>
             </tr>
             <tr>
                 <th scope="row">  Income Tax</th>
-                <td>{{ payroll.payr.payee|div:12|stringformat:".2f"|intcomma }}</td>
+                <td>{{ payroll.pays.employee_pay.payee|stringformat:".2f"|intcomma }}</td>
             </tr>
             <tr>
                 <th scope="row">Less Personal Relief:</th>
-                <td>{{ payroll.payr.consolidated_relief|div:12|stringformat:".2f"|intcomma }}</td>
+                <td>{{ payroll.pays.employee_pay.consolidated_relief|div:12|stringformat:".2f"|intcomma }}</td>
             </tr>
             <tr>
                 <th scope="row"> Gross Pay after Tax</th>
-                <td>{{ payroll.net_pay }}</td>
+                <td>{{ payroll.netpay }}</td>
             </tr>
             <tr>
                 <th scope="row">Alowances</th>
-                <td>{{ payroll.leave_allowance }}</td>
-                <td>{{ payroll.overtime }}</td>
+                <td>{{ payroll.var.leave_allowance }}</td>
+                <td>{{ payroll.var.overtime }}</td>
             </tr>
             <tr>
                 <th scope="row">  Lateness</th>
-                <td>{{ payroll.lateness}}</td>
+                <td>{{ payroll.var.lateness}}</td>
             </tr><tr>
                 <th scope="row">  Absence</th>
-                <td>{{ payroll.absent}}</td>
+                <td>{{ payroll.var.absent}}</td>
             </tr><tr>
                 <th scope="row">  Damages</th>
-                <td>{{ payroll.damage}}</td>
+                <td>{{ payroll.var.damage}}</td>
             </tr>
             <tr>
                 <th scope="row">Net Pay</th>
-                <td>{{ payroll.net_pay }}</td>
+                <td>{{ payroll.netpay }}</td>
             </tr>
             </tbody>
         </table>

@@ -34,11 +34,11 @@
                         {% comment %} {% if pays.payroll_id_id == pays.id %} {% endcomment %}
                             <tr>
                                 <th scope="row">{{pays.id}}</th>
-                                <td>{{pays.payroll_id.payr.employee.first_name}}</td>
-                                <td class="text-right">{{pays.payroll_id.payr.basic_salary}}</td>
+                                <td>{{pays.payroll_id.pays.employee.first_name}}</td>
+                                <td class="text-right">{{pays.payroll_id.pays.employee_pay.basic_salary}}</td>
                                 {% comment %} <td>{{pays.payroll_id.pension}}</td> {% endcomment %}
-                                <td class="text-right">{{pays.payroll_id.payr.payee}}</td>
-                                <td class="text-right">{{pays.payroll_id.net_pay}}</a> </td>
+                                <td class="text-right">{{pays.payroll_id.pays.employee_pay.payee}}</td>
+                                <td class="text-right">{{pays.payroll_id.netpay}}</a> </td>
                                 
                                 {% comment %} {{pay}} {% endcomment %}
                             </tr>

@@ -15,15 +15,15 @@
                 <div class="col-md-10">
                     <div class="row">
                         <div class="col-md-6">
-                            <div> <span class="fw-bolder">EMP Code:</span> <small class="ms-3">{{pay.payr.employee.emp_id}}</small> </div>
+                            <div> <span class="fw-bolder">EMP Code:</span> <small class="ms-3">{{payemployee.emp_id}}</small> </div>
                         </div>
                         <div class="col-md-6">
-                            <div> <span class="fw-bolder">EMP Name:</span> <small class="ms-3">{{pay.payr.employee.first_name}} {{pay.payr.employee.last_name}}</small> </div>
+                            <div> <span class="fw-bolder">EMP Name:</span> <small class="ms-3">{{pay.pays.employee.first_name}} {{pay.pays.employee.last_name}}</small> </div>
                         </div>
                     </div>
                     <div class="row">
                         <div class="col-md-6">
-                            <div> <span class="fw-bolder">PF No.</span> <small class="ms-3">{{pay.payr.employee.tin_no}}</small> </div>
+                            <div> <span class="fw-bolder">PF No.</span> <small class="ms-3">{{pay.pays.tin_no}}</small> </div>
                         </div>
                         <div class="col-md-6">
                             <div> <span class="fw-bolder">NOD</span> <small class="ms-3">28</small> </div>
@@ -39,7 +39,7 @@
                     </div>
                     <div class="row">
                         <div class="col-md-6">
-                            <div> <span class="fw-bolder">Designation:</span> <small class="ms-3">{{pay.payr.employee.get_job_title_display}}</small> </div>
+                            <div> <span class="fw-bolder">Designation:</span> <small class="ms-3">{{pay.pays.get_job_title_display}}</small> </div>
                         </div>
                         <div class="col-md-6">
                             <div> <span class="fw-bolder">Ac No.</span> <small class="ms-3">*******0701</small> </div>
@@ -58,70 +58,70 @@
                     <tbody>
                         <tr>
                             <th scope="row">Gross</th>
-                            <td>{{pay.payr.basic_salary}}</td>
+                            <td>{{pay.pays.employee_pay.basic_salary}}</td>
                             <td>Pension Employee Deduction</td>
-                            <td>{{pay.payr.pension_employee}}</td>
+                            <td>{{pay.pays.employee_pay.pension_employee}}</td>
                         </tr>
                         <tr>
                             <th scope="row">Transport</th>
-                            <td>{{pay.payr.transport}}</td>
+                            <td>{{pay.pays.employee_pay.transport}}</td>
                             <td>Pension Employer Contribution</td>
-                            <td>{{pay.payr.pension_employer}}</td>
+                            <td>{{pay.pays.employee_pay.pension_employer}}</td>
                         </tr>
                         <tr>
                             <th scope="row">Housing</th>
-                            <td>{{pay.payr.housing}}</td>
+                            <td>{{pay.pays.employee_pay.housing}}</td>
                             <td>Taxable Income</td>
-                            <td>{{pay.payr.taxable_income|div:12|stringformat:".2f"|intcomma}}</td>
+                            <td>{{pay.pays.employee_pay.taxable_income|div:12|stringformat:".2f"|intcomma}}</td>
                         </tr>
                         <tr>
                             <th scope="row">consolidated Relief</th>
-                            <td>{{pay.payr.consolidated_relief|div:"12"|stringformat:".2f"|intcomma}}</td>
+                            <td>{{pay.pays.employee_pay.consolidated_relief|div:"12"|stringformat:".2f"|intcomma}}</td>
                             <td>Water fee</td>
-                            <td>{{pay.payr.water_rate}}</td>
+                            <td>{{pay.pays.employee_pay.water_rate}}</td>
                         </tr>
                         <tr>
                             <th scope="row">Gross Income</th>
-                            <td>{{pay.payr.gross_income|div:12}}</td>
+                            <td>{{pay.pays.employee_pay.gross_income|div:12}}</td>
                             <td>Payee</td>
-                            <td>{{pay.payr.payee|div:12|stringformat:".2f"|intcomma}}</td>
+                            <td>{{pay.pays.employee_pay.payee|stringformat:".2f"|intcomma}}</td>
                         </tr>
                         <tr>
                             <th scope="row">Overtime</th>
-                            <td>{{pay.overtime}}</td>
+                            <td>{{pay.var.overtime}}</td>
                             <td>Damages Deduction</td>
-                            <td>{{pay.damage}}</td>
+                            <td>{{pay.var.damage}}</td>
                         </tr>
                         <tr>
                             <th scope="row">Medical Allowance</th>
                             <td>0.00</td>
                             <td>Lateness Deduction</td>
-                            <td>{{pay.lateness}}</td>
+                            <td>{{pay.var.lateness}}</td>
                         </tr>
                         <tr>
                             <th scope="row">Sales Incentive</th>
                             <td>0.00</td>
                             <td>Absence Deduction</td>
-                            <td>{{pay.absent}}</td>
+                            <td>{{pay.var.absent}}</td>
                         </tr>
                         <tr>
                             <th scope="row">Leave Encashment</th>
-                            <td>{{pay.leave_allowance}}</td>
+                            <td>{{pay.var.leave_allowance}}</td>
                             <td colspan="2"></td>
                         </tr>
                         <tr>
 
                         <tr class="border-top">
                             <th scope="row">Total Allowance Earning</th>
-                            <td>{{pay.leave_allowance|add:pay.overtime}}</td>
+                            <td>{{pay.var.leave_allowance|add:pay.var.overtime}}</td>
                             <td>Total Deductions</td>
-                            <td>{{pay.payr.payee|div:12|add:pay.absent|add:pay.lateness|add:pay.damage|add:pay.payr.pension_employee|add:pay.payr.water_rate}}</td>
+                            <td>{{pay.pays.employee_pay.payee|add:pay.var.absent|add:pay.var.lateness|add:pay.var.damage|add:pay.pays.employee_pay.pension_employee|add:pay.pays.employee_pay.water_rate}}</td>
                         </tr>
                     </tbody>
                 </table>
             </div>
             <div class="row">
-                <div class="col-md-4"> <br> <span class="fw-bold">Net Pay : #{{pay.net_pay}}</span> </div>
+                <div class="col-md-4"> <br> <span class="fw-bold">Net Pay : #{{pay.netpay}}</span> </div>
                 {% if num2words %}
                 <div class="border col-md-8">
                     <div class="d-flex flex-column"> <span>In Words</span> <span>{{num2words}} naira only</span> </div>

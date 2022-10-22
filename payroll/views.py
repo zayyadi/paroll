@@ -11,7 +11,7 @@ from django.core.files.storage import FileSystemStorage
 from django.contrib.auth.decorators import user_passes_test
 
 from payroll.forms import PaydayForm, PayrollForm, VariableForm, EmployeeForm
-from payroll.models import EmployeeProfile, PayT, Payday, Payroll, VariableCalc, Employee
+from payroll.models import EmployeeProfile, PayT, PayVar, Payday, Payroll, VariableCalc, Employee
 
 from num2words import num2words
 
@@ -21,6 +21,18 @@ import xlwt
 
 def check_super(user):
     return user.is_superuser
+
+
+@login_required
+def index(request):
+    pay = PayT.objects.all()
+    emp = Employee.objects.all().count()
+
+    context = {
+        "pay":pay,
+        "emp": emp
+    }
+    return render(request, 'index.html', context)
 
 @user_passes_test(check_super)
 def add_employee(request):
@@ -58,26 +70,15 @@ def delete_employee(request, id):
 
 def employee(request, id):
     emp = get_object_or_404(EmployeeProfile,id=id)
-    pay = Payday.objects.all().filter(payroll_id_id=id)
+    pay = Payday.objects.all().filter(payroll_id__pays_id=id)
 
     context = {
         "emp": emp,
         "pay":pay
 
     }
-    return render(request,"employee/employee.html", context)
+    return render(request,"employee/profile.html", context)
 
-
-@login_required
-def index(request):
-    pay = PayT.objects.all()
-    emp = Employee.objects.all().count()
-
-    context = {
-        "pay":pay,
-        "emp": emp
-    }
-    return render(request, 'index.html', context)
 
 @user_passes_test(check_super)
 def add_pay(request):
@@ -157,14 +158,14 @@ class AddPay(CreateView):
 
 @login_required
 def payslip(request, id):
-    pay_id = EmployeeProfile.objects.filter(id=id).first()
-    num2word = num2words(pay_id.net_pay)
+    pay_id = PayVar.objects.filter(id=id).first()
+    num2word = num2words(pay_id.netpay)
     if cache.get(pay_id):
         payr = cache.get(pay_id)
         print("hit the cache")
         return payr
     else:
-        payroll = Employee.objects.get(id=id)
+        payroll = PayVar.objects.get(id=id)
         cache.set(
             id,
             payroll
@@ -180,20 +181,20 @@ def varview(request,pay_id):
     
     var = Payday.objects.filter(paydays_id_id=pay_id)
     var_total = var.aggregate(
-        Sum("payroll_id__net_pay")
+        Sum("payroll_id__netpay")
     )
 
     context = {
         "pay_var":var,
-        "var_total": var_total["payroll_id__net_pay__sum"]
+        "var_total": var_total["payroll_id__netpay__sum"]
     }
 
     return render(request, "pay/var_view.html", context)
 
 
 def payslip_pdf(request, id):
-    payroll = Employee.objects.filter(id=id)
-    pre_total = payroll.first().net_pay
+    payroll = PayVar.objects.filter(id=id)
+    pre_total = payroll.first().netpay
     template_path = "pay/payslip_pdf.html"
     html_string = render_to_string(
         "pay/payslip_pdf.html", {"payroll": payroll.first()}
@@ -246,12 +247,12 @@ def bank_report_download(request,pay_id):
     font_style = xlwt.XFStyle()
 
     rows = Payday.objects.filter(paydays_id_id=pay_id).values_list(
-        "payroll_id__emp_id",
-        "payroll_id__first_name",
-        "payroll_id__last_name",
-        "payroll_id__bank",
-        "payroll_id__bank_account_number",
-        "payroll_id__net_pay"
+        "payroll_id__pays__employee__emp_id",
+        "payroll_id__pays__employee__first_name",
+        "payroll_id__pays__employee__last_name",
+        "payroll_id__pays__bank",
+        "payroll_id__pays__bank_account_number",
+        "payroll_id__netpay"
     )
 
     for row in rows:
@@ -302,12 +303,12 @@ def payee_report_download(request,pay_id):
     font_style = xlwt.XFStyle()
 
     rows = Payday.objects.filter(paydays_id_id=pay_id).values_list(
-        "payroll_id__emp_id",
-        "payroll_id__first_name",
-        "payroll_id__last_name",
-        "payroll_id__tin_no",
-        "payroll_id__employee_pay__basic_salary",
-        "payroll_id__employee_pay__payee"
+        "payroll_id__pays__employee__emp_id",
+        "payroll_id__pays__employee__first_name",
+        "payroll_id__pays__employee__last_name",
+        "payroll_id__pays__tin_no",
+        "payroll_id__pays__employee_pay__basic_salary",
+        "payroll_id__pays__employee_pay__payee"
     )
 
     for row in rows:
@@ -351,7 +352,8 @@ def pension_report_download(request,pay_id):
         "Employee Last Name",
         "Tax Number",
         "Gross Pay",
-        "Pension Contribution",
+        "Employee Pension Contribution",
+        "Employer Pension Contribution",
     ]
 
     for col_num in range(len(columns)):
@@ -360,13 +362,13 @@ def pension_report_download(request,pay_id):
     font_style = xlwt.XFStyle()
 
     rows = Payday.objects.filter(paydays_id_id=pay_id).values_list(
-        "payroll_id__emp_id",
-        "payroll_id__first_name",
-        "payroll_id__last_name",
-        "payroll_id__employee_pay__basic_salary",
-        # "payroll_id__payr__pension_employer",
-        # "payroll_id__payr__pension_employee",
-        "payroll_id__payr__pension",
+        "payroll_id__pays__employee__emp_id",
+        "payroll_id__pays__employee__first_name",
+        "payroll_id__pays__employee__last_name",
+        "payroll_id__pays__employee_pay__basic_salary",
+        "payroll_id__payr__pension_employer",
+        "payroll_id__payr__pension_employee",
+        # "payroll_id__pays__employee_pay__pension",
     )
 
     for row in rows:
@@ -408,13 +410,13 @@ def varview_download(request, pay_id):
     font_style = xlwt.XFStyle()
 
     rows = Payday.objects.filter(paydays_id_id=pay_id).values_list(
-        "payroll_id__first_name",
-        "payroll_id__last_name",
-        "payroll_id__employee_pay__basic_salary",
-        "payroll_id__employee_pay__water_rate",
-        "payroll_id__employee_pay__payee",
-        "payroll_id__employee_pay__pension_employee",
-        "payroll_id__net_pay",
+        "payroll_id__pays__employee__first_name",
+        "payroll_id__pays__employee__last_name",
+        "payroll_id__pays__employee_pay__basic_salary",
+        "payroll_id__pays__employee_pay__water_rate",
+        "payroll_id__pays__employee_pay__payee",
+        "payroll_id__pays__employee_pay__pension_employee",
+        "payroll_id__netpay",
     )
     for row in rows:
         row_num += 1
