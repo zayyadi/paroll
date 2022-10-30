@@ -1,4 +1,5 @@
 from decimal import Decimal
+from unittest.util import _MAX_LENGTH
 # from types import NoneType
 
 from django.db import models
@@ -16,42 +17,38 @@ from payroll.choices import *
 
 from monthyear.models import MonthField
 
-class Employee(models.Model):
-    emp_id = models.CharField(default=emp_id, unique = True, max_length=255, editable=False)
-    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="employee_user")
-    first_name = models.CharField(max_length=255, blank=True, null=True)
-    last_name = models.CharField(max_length=255, blank=True, null=True)
-    email = models.EmailField(max_length=255, blank=True, unique=True)
-    created = models.DateTimeField(default=timezone.now, blank=False)
-
-    class Meta:
-        ordering = ["-created"]
-
     # def __str__(self):
     #     return self.first_na
 
-class EmployeeQuerySet(models.QuerySet):
-    # def search(self, query=None):
-    #     if query is None or query == "":
-    #         return self.none()
-    #     lookups = (
-    #         Q(first_name__icontains=query) | 
-    #         Q(email__icontains=query) 
-    #     )
-    #     return self.filter(lookups)
-    def active(self):
-        return self.filter(active=True)
+# class EmployeeQuerySet(models.QuerySet):
+#     # def search(self, query=None):
+#     #     if query is None or query == "":
+#     #         return self.none()
+#     #     lookups = (
+#     #         Q(first_name__icontains=query) | 
+#     #         Q(email__icontains=query) 
+#     #     )
+#     #     return self.filter(lookups)
+#     def active(self):
+        
 
 class EmployeeManager(models.Manager):
     def get_queryset(self):
-        return EmployeeQuerySet(self.model, using=self._db)
+        return super().get_queryset().filter(status="active")
 
     # def search(self, query=None):
     #     return self.get_queryset().search(query=query)
 
 
 class EmployeeProfile(models.Model):
-    employee = models.OneToOneField(Employee, related_name="employee", on_delete=models.CASCADE)
+    emp_id = models.CharField(default=emp_id, unique = True, max_length=255, editable=False)
+    user = models.OneToOneField(User, on_delete=models.CASCADE, blank=True, null=True, related_name="employee_user")
+    first_name = models.CharField(max_length=255, blank=True, null=True)
+    last_name = models.CharField(max_length=255, blank=True, null=True)
+    email = models.EmailField(max_length=255, blank=True,)
+    created = models.DateTimeField(default=timezone.now, blank=False)
+
+    # employee = models.OneToOneField(Employee, related_name="employee", on_delete=models.CASCADE)
     employee_pay = models.ForeignKey("Payroll", on_delete=models.CASCADE, related_name="employee_pay", null=True, blank=True)
     created = models.DateTimeField(default=timezone.now, blank=False)
     photo = models.FileField(blank=True, null=True)
@@ -99,11 +96,12 @@ class EmployeeProfile(models.Model):
         max_length=10, verbose_name="Bank Account Number", unique=True, blank=True, null=True
     )
     net_pay = models.DecimalField(max_digits=12, default=0.0,decimal_places=2,blank=True)
-    is_active = models.BooleanField(default=False)
-    objects = EmployeeManager()
+    status = models.CharField(max_length=10, choices=STATUS, default="pending")
+    objects = models.Manager() # The default manager.
+    emp_objects = EmployeeManager()
 
     def __str__(self):
-        return self.employee.first_name
+        return self.first_name
 
 
     class Meta:
@@ -114,15 +112,9 @@ class EmployeeProfile(models.Model):
 
         super(EmployeeProfile, self).save(*args, **kwargs)
 
-
-class AccountModelQuerySet(models.QuerySet):
-
-    def active(self):
-        return self.filter(active=True)
-
 class PayrollManager(models.Manager):
     def get_queryset(self):
-        return AccountModelQuerySet(self.model, using=self._db)
+        return super().get_queryset().filter(status="active")
 
 class Payroll(models.Model):
     basic_salary = models.DecimalField(max_digits=12, decimal_places=2, null=False, blank=False)
@@ -141,7 +133,7 @@ class Payroll(models.Model):
     water_rate = models.DecimalField(max_digits=12, default=Decimal(200.0),decimal_places=2, blank=True)
     timestamp = models.DateTimeField(auto_now_add=True) 
     updated = models.DateTimeField(auto_now=True) 
-    active = models.BooleanField(default=False)
+    status = models.CharField(max_length=10, choices=STATUS, default="pending")
     objects= PayrollManager()
 
     def __str__(self):
@@ -279,18 +271,18 @@ class PayVar(models.Model):
         self.netpay = self.get_netpay
         super(PayVar, self).save(*args, **kwargs)
 
+class PayManager(models.Manager):
+    def get_queryset(self):
+        return super().get_queryset().filter(is_active=True)
 
 class PayT(models.Model):
-    class PayTManager(models.Model):
-        def get_queryset(self):
-            return super().get_queryset().filter(is_active=True)  # type: ignore
     name = models.CharField(max_length=50, unique=True, default="test")
     slug = AutoSlugField(populate_from="name",editable=True,always_update=True)  # type: ignore
     paydays = MonthField("Month Value", help_text="some help...", null=True)
     # month = MonthField()
     payroll_payday= models.ManyToManyField(PayVar, related_name="payroll_payday", through='Payday')
     is_active = models.BooleanField(default=False)
-    objects = PayTManager()
+    objects = PayManager()
     
     class Meta:
         verbose_name_plural = "PayTs"

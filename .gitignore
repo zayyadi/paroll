@@ -7,3 +7,4 @@ db.sqlite3
 mail_test.py
 .gitignore
 .Dockerignore
+cryptokey.txt

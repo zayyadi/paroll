@@ -10,8 +10,8 @@ from django.http import HttpResponse
 from django.core.files.storage import FileSystemStorage
 from django.contrib.auth.decorators import user_passes_test
 
-from payroll.forms import PaydayForm, PayrollForm, VariableForm, EmployeeForm
-from payroll.models import EmployeeProfile, PayT, PayVar, Payday, Payroll, VariableCalc, Employee
+from payroll.forms import PaydayForm, PayrollForm, VariableForm, EmployeeProfileForm
+from payroll.models import EmployeeProfile, PayT, PayVar, Payday, Payroll, VariableCalc
 
 from num2words import num2words
 
@@ -26,7 +26,7 @@ def check_super(user):
 @login_required
 def index(request):
     pay = PayT.objects.all()
-    emp = Employee.objects.all().count()
+    emp = EmployeeProfile.emp_objects.all().count()
 
     context = {
         "pay":pay,
@@ -36,7 +36,7 @@ def index(request):
 
 @user_passes_test(check_super)
 def add_employee(request):
-    form = EmployeeForm(request.POST or None)
+    form = EmployeeProfileForm(request.POST or None)
 
     if form.is_valid():
         form.save()
@@ -48,8 +48,8 @@ def add_employee(request):
 
 @user_passes_test(check_super)
 def update_employee(request, id):
-    employee = get_object_or_404(Employee, id=id)
-    form = EmployeeForm(request.POST or None, instance=employee)
+    employee = get_object_or_404(EmployeeProfile, id=id)
+    form = EmployeeProfileForm(request.POST or None, instance=employee)
 
     if form.is_valid():
         form.save()
@@ -57,13 +57,13 @@ def update_employee(request, id):
         return redirect("payroll:index")
 
     else:
-        form = EmployeeForm()
+        form = EmployeeProfileForm()
     
     return render(request, 'employee/update_employee.html', {'form': form})
 
 @user_passes_test(check_super)
 def delete_employee(request, id):
-    pay = get_object_or_404(Employee,id=id)
+    pay = get_object_or_404(EmployeeProfile,id=id)
     pay.delete()
     messages.success(request,"Employee deleted Successfully!!")
 

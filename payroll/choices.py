@@ -32,3 +32,8 @@ BANK = (
     ("Union", "Union Bank"),
     ("UBA", "UBA"),
 )
+
+STATUS = (
+    ("active", "ACTIVE"),
+    ("pending", "PENDING"),
+)

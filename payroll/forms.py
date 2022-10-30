@@ -6,32 +6,6 @@ from crispy_forms.helper import FormHelper
 
 from crispy_forms.layout import Field, Layout, Div, ButtonHolder, Submit
 
-class EmployeeForm(forms.ModelForm):
-
-    def __init__(self, *args, **kwargs):
-        self.helper = FormHelper()
-        self.helper.layout = Layout(
-            Div(
-                Div(
-                    Field("first_name"),
-                    css_class="col-md-4",
-                ),
-                Div(
-                    Field("last_name"),
-                    css_class="col-md-4",
-                ),
-                Div(
-                    Field("email"),
-                    css_class="col-md-4",
-                ),
-                ButtonHolder(Submit("submit", "Save", css_class="button white")),
-            ),
-        )
-        super(EmployeeForm, self).__init__(*args, **kwargs)
-
-    class Meta:
-        model = Employee
-        fields = "__all__"
 
 class EmployeeProfileForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
@@ -43,7 +17,12 @@ class EmployeeProfileForm(forms.ModelForm):
                 ),Div(
                     Field("last_name"),
                     css_class="col-md-4",
-                ),Div(
+                ),
+                Div(
+                    Field("email"),
+                    css_class="col-md-4",
+                ),
+                Div(
                     Field("photo"),
                     css_class="col-md-4",
                 ),

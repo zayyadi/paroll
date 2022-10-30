@@ -3,12 +3,8 @@ from import_export import resources
 from import_export.admin import ImportExportModelAdmin
 
 # Register your models here.
-from payroll.models import EmployeeProfile, PayVar, Payroll, VariableCalc, PayT, Employee
+from payroll.models import EmployeeProfile, PayVar, Payroll, VariableCalc, PayT
 
-
-class EmployeeResources(resources.ModelResource):
-    class Meta:
-        model = Employee
         
 class EmployeeProfileResources(resources.ModelResource):
     class Meta:
@@ -46,7 +42,6 @@ class PayrollAdmin(admin.ModelAdmin):
 
 
 admin.site.register(PayT, PayrollAdmin)
-admin.site.register(Employee, ImportExportModelAdmin)
 admin.site.register(EmployeeProfile, ImportExportModelAdmin)
 admin.site.register(Payroll, ImportExportModelAdmin)
 admin.site.register(PayVar, ImportExportModelAdmin)
