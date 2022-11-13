@@ -1,15 +1,13 @@
 from decimal import Decimal
-from unittest.util import _MAX_LENGTH
-# from types import NoneType
 
 from django.db import models
-from django.core.validators import RegexValidator
-from django.db.models import Q
 from django.contrib.auth.models import User
 from django.utils import timezone
-from django.core.validators import RegexValidator
+from django.utils.translation import gettext_lazy as _
 
 from autoslug import AutoSlugField
+
+from PIL import Image
 
 from payroll.generator import emp_id, nin_no, tin_no
 from payroll.utils import *
@@ -51,7 +49,7 @@ class EmployeeProfile(models.Model):
     # employee = models.OneToOneField(Employee, related_name="employee", on_delete=models.CASCADE)
     employee_pay = models.ForeignKey("Payroll", on_delete=models.CASCADE, related_name="employee_pay", null=True, blank=True)
     created = models.DateTimeField(default=timezone.now, blank=False)
-    photo = models.FileField(blank=True, null=True)
+    photo = models.FileField(blank=True, null=True, default="default.png")
     nin = models.CharField(default=nin_no, unique = True,max_length=255, editable=False)
     tin_no = models.CharField(default=tin_no, unique = True, max_length=255, editable=False)
     date_of_birth = models.DateField(blank=True, null=True)
@@ -107,8 +105,18 @@ class EmployeeProfile(models.Model):
     class Meta:
         ordering = ["-created"]
 
+    @property
+    def save_img(self):
+        img = Image.open(self.photo.path)
+
+        if img.height > 300 or img.width > 300:
+            output_size = (300, 300)
+            img.thumbnail(output_size)
+            img.save(self.photo.path)
+
     def save(self, *args, **kwargs):
         self.net_pay = get_net_pay(self)
+        self.photo = self.save_img
 
         super(EmployeeProfile, self).save(*args, **kwargs)
 
@@ -185,90 +193,86 @@ class Payroll(models.Model):
         super(Payroll, self).save(*args, **kwargs)
 
 
-class VariableCalc(models.Model):
+class Allowance(models.Model):
     payr = models.ForeignKey(EmployeeProfile, on_delete=models.CASCADE, related_name='variable_payroll')
-    # basic_salary = models.DecimalField(max_digits=12, decimal_places=2, blank=False, null=False)
-    is_leave = models.BooleanField(default=False)
-    is_overtime = models.BooleanField(default=False)
-    is_absent = models.BooleanField(default=False)
-    is_late = models.BooleanField(default=False)
-    leave_allowance = models.DecimalField(max_digits=12,default=0.0, decimal_places=2, blank=True)
-    lateness = models.DecimalField(max_digits=12, default=0.0, decimal_places=2, blank=True)
-    overtime = models.DecimalField(max_digits=12, decimal_places=2,blank=True)
-    absent = models.DecimalField(max_digits=12, decimal_places=2, blank=True)
-    damage = models.DecimalField(max_digits=12, default=0.0, decimal_places=2, blank=True)
-    # total_net_pay = models.DecimalField(max_digits=12, decimal_places=2, blank=True)
+    name = models.CharField(max_length=50, verbose_name=(_("Name of allowance to be added")))
+    amount = models.DecimalField(max_digits=12,decimal_places=2,default=0.0, verbose_name=(_("Amount of allowance earned")))
     
     class Meta:
-        verbose_name_plural = "Payroll Variable"
+        verbose_name_plural = "Allowance"
 
     def __str__(self):
-        return f"Allowance for {self.payr.employee.first_name}"
-    
-    @property
-    def get_leave_allowance(self):
-        if self.is_leave:
-            return (self.payr.employee_pay.basic_salary * 12) * Decimal(3.6) / 100
-        return 0.0
+        return f"Allowance {self.amount} for {self.payr.first_name}"
 
-    @property
-    def get_overtime(self):
-        if self.is_overtime:
-            return 1000
-        return 0.0
+class PayVarManager(models.Manager):
+    def get_queryset(self):
+        return super().get_queryset().filter(status="active")
+
+class PayVar(models.Model):
+    pays = models.ForeignKey(EmployeeProfile, related_name="pays", on_delete=models.CASCADE)
+    is_absent = models.BooleanField(default=False)
+    is_late = models.BooleanField(default=False)
+    is_loan = models.BooleanField(default=False)
+    is_coop = models.BooleanField(default=False)
+    lateness = models.DecimalField(max_digits=12, default=0.0, decimal_places=2, blank=True)
+    absent = models.DecimalField(max_digits=12, decimal_places=2, blank=True)
+    damage = models.DecimalField(max_digits=12, default=0.0, decimal_places=2, blank=True)
+    loan = models.DecimalField(max_digits=12, default=0.0, decimal_places=2, blank=True)
+    coop = models.DecimalField(max_digits=12, default=0.0, decimal_places=2, blank=True)
+    netpay = models.DecimalField(max_digits=12, default=0.0, decimal_places=2, blank=True)
+    status = models.CharField(max_length=10, choices=STATUS, default="pending")
+
+    objects = PayVarManager()
+
+    def __str__(self):
+        return self.pays.first_name
 
     @property
     def get_late(self):
         if self.is_late:
-            return self.payr.employee_pay.basic_salary * Decimal(0.05) / 100
+            return self.lateness
         return 0
     
     @property
     def get_absent(self):
         if self.is_late:
-            return self.payr.employee_pay.basic_salary * Decimal(0.5) / 100
+            return self.absent
         return 0
     
     @property
     def get_damage(self):
         if self.is_late:
-            return self.payr.employee_pay.basic_salary * 10 / 100
+            return self.damage
         return 0
-
-
-    def save(self, *args, **kwargs):
-        self.leave_allowance = self.get_leave_allowance
-        self.overtime = self.get_overtime
-        self.lateness = self.get_late
-        self.absent = self.get_absent
-        self.damage = self.get_damage
-        # self.total_net_pay = self.get_total_netpay
-        super(VariableCalc, self).save(*args, **kwargs)
-
-
-class PayVar(models.Model):
-    pays = models.ForeignKey(EmployeeProfile, related_name="pays", on_delete=models.CASCADE)
-    var = models.ForeignKey(VariableCalc, on_delete=models.CASCADE, related_name="var", blank=True, null=True)
-    netpay = models.DecimalField(max_digits=12, default=0.0, decimal_places=2, blank=True)
-
-    def __str__(self):
-        return self.pays.employee.first_name
+    @property
+    def get_loan(self):
+        if self.is_loan:
+            return self.loan
+        return 0
+    @property
+    def get_coop(self):
+        if self.is_coop:
+            return self.coop
+        return 0
 
     @property
     def get_netpay(self):
-        vars = self.var 
-        if not vars:
-            vars = Decimal(0)
+
         return (
             self.pays.net_pay 
-            + Decimal(vars.leave_allowance)
-            +Decimal(vars.overtime)
-            -Decimal(vars.lateness)
-            -Decimal(vars.absent)
-            -Decimal(vars.damage)
+            - Decimal(self.lateness or 0)
+            - Decimal(self.damage or 0)
+            - Decimal(self.absent or 0)
+            - Decimal(self.loan or 0)
+            - Decimal(self.coop or 0)
         )
     def save(self, *args, **kwargs):
         self.netpay = self.get_netpay
+        self.absent = self.get_absent
+        self.lateness = self.get_late
+        self.damage = self.get_damage
+        self.loan = self.get_loan
+        self.coop = self.get_coop
         super(PayVar, self).save(*args, **kwargs)
 
 class PayManager(models.Manager):

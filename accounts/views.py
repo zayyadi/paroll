@@ -7,7 +7,7 @@ from django.utils.encoding import force_bytes, force_str
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.template.loader import render_to_string
 from django.conf import settings
-from django.contrib.auth import login
+from django.contrib.auth import login, logout
 from django.contrib.auth.models import User
 from accounts.forms import RegistrationForm, UserEditForm
 from accounts.token import account_activation_token
@@ -102,3 +102,7 @@ def activate(request, uidb64, token):
         return redirect('login')
     else:
         return render(request, 'registration/activation_invalid.html')
+
+def logout_view(request):
+    logout(request)
+    return render(request,'registration/logged_out.html')

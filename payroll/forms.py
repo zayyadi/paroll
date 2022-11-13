@@ -106,17 +106,15 @@ class PayrollForm(forms.ModelForm):
 class VariableForm(forms.ModelForm):
 
     class Meta:
-        model = VariableCalc
-        fields = ('is_leave','is_overtime','is_absent', 'is_late')
+        model = Allowance
+        fields = ("payr","name","amount")
 
     def __init__(self, *args, **kwargs):
         super(VariableForm, self).__init__(*args, **kwargs)
 
         # self.fields['payr'].widget.attrs = {'placeholder':"choose Employee Pay"}
-        self.fields['is_leave'].widget.attrs = {'placeholder':"choose is leave"}
-        self.fields['is_overtime'].widget.attrs = {'placeholder':"choose is overtime"}
-        self.fields['is_absent'].widget.attrs = {'placeholder':"choose is absent"}
-        self.fields['is_late'].widget.attrs = {'placeholder':"choose is late"}
+        self.fields['name'].widget.attrs = {'placeholder':"Name"}
+        self.fields['amount'].widget.attrs = {'placeholder':"Amount"}
 
 class CustomMMCF(forms.ModelMultipleChoiceField):    
     def label_from_instance(self, member):
@@ -130,6 +128,6 @@ class PaydayForm(forms.ModelForm):
         fields = ('name','slug','paydays','payroll_payday')
 
         payroll_payday = CustomMMCF(
-        queryset=VariableCalc.objects.all(),
+        queryset=PayVar.objects.all(),
         widget=forms.CheckboxSelectMultiple
     )

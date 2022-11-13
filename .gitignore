@@ -8,3 +8,5 @@ mail_test.py
 .gitignore
 .Dockerignore
 cryptokey.txt
+migrations/
+migrations

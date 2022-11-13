@@ -1,6 +1,7 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse_lazy
 from django.contrib.auth.decorators import login_required
+# from django.contrib.auth.models import User
 from django.db.models import Sum
 from django.views.generic import CreateView
 from django.contrib import messages
@@ -9,15 +10,25 @@ from django.template.loader import render_to_string
 from django.http import HttpResponse
 from django.core.files.storage import FileSystemStorage
 from django.contrib.auth.decorators import user_passes_test
+from django.conf import settings
+from django.core.cache.backends.base import DEFAULT_TIMEOUT
+from django.views.decorators.cache import cache_page
 
 from payroll.forms import PaydayForm, PayrollForm, VariableForm, EmployeeProfileForm
-from payroll.models import EmployeeProfile, PayT, PayVar, Payday, Payroll, VariableCalc
+from payroll.models import EmployeeProfile, PayT, PayVar, Payday, Payroll, Allowance
+
+from accounts.forms import UserEditForm
 
 from num2words import num2words
 
 # import xhtml2pdf.pisa as pisa
 from weasyprint import HTML
 import xlwt
+
+CACHE_TTL = getattr(settings, 'CACHE_TTL', DEFAULT_TIMEOUT)
+
+
+@cache_page(CACHE_TTL)
 
 def check_super(user):
     return user.is_superuser
@@ -36,15 +47,31 @@ def index(request):
 
 @user_passes_test(check_super)
 def add_employee(request):
-    form = EmployeeProfileForm(request.POST or None)
+    created = EmployeeProfile.objects.get_or_create(user=request.user)
+    if request.method == 'POST':
+        u_form = UserEditForm(request.POST, instance=request.user)
+        e_form = EmployeeProfileForm(request.POST or None, 
+                                    request.FILES or None,
+                                    instance=request.user)
 
-    if form.is_valid():
-        form.save()
+        if u_form.is_valid() and e_form.is_valid():
+            u_form.save()
+            e_form.save()
 
-        messages.success(request, "Added employee!")
-        return redirect("payroll:index")
+            messages.success(request, f'Your account has been updated!')
+            return redirect('users:profile')
 
-    return render(request, 'employee/add_employee.html', {'form': form})
+    else:
+        u_form = UserEditForm(instance=request.user)
+        e_form = EmployeeProfileForm(instance=request.user)
+
+    context = {
+        'u_form': u_form,
+        'e_form': e_form
+    }
+
+    return render(request, 'accounts/profile.html', context)
+
 
 @user_passes_test(check_super)
 def update_employee(request, id):
@@ -68,16 +95,22 @@ def delete_employee(request, id):
     messages.success(request,"Employee deleted Successfully!!")
 
 
-def employee(request, id):
-    emp = get_object_or_404(EmployeeProfile,id=id)
-    pay = Payday.objects.all().filter(payroll_id__pays_id=id)
+def employee(request,id):
+    id = request.user.id
+    print(id)
+    user = get_object_or_404(EmployeeProfile,user=request.user)
+    pay = Payday.objects.all().filter(payroll_id__pays_id=user.id)
+    pay = Payday.objects.all().filter(payroll_id__pays_id=user.id)
+    print(f"payroll_id:{pay}")
 
     context = {
-        "emp": emp,
+        "emp": user,
         "pay":pay
 
     }
     return render(request,"employee/profile.html", context)
+
+    # Start of Pay view
 
 
 @user_passes_test(check_super)
@@ -100,6 +133,7 @@ def delete_pay(request, id):
     pay.delete()
     messages.success(request,"Pay deleted Successfully!!")
 
+@cache_page(CACHE_TTL)
 def dashboard(request):
     emp = EmployeeProfile.objects.all()
 
@@ -126,7 +160,7 @@ def add_var(request):
 
 @user_passes_test(check_super)
 def edit_var(request, id):
-    var = get_object_or_404(VariableCalc, id=id)
+    var = get_object_or_404(Allowance, id=id)
     form = VariableForm(request.POST or None, instance=var)
 
     if form.is_valid():
@@ -145,7 +179,7 @@ def edit_var(request, id):
 
 @user_passes_test(check_super)
 def delete_var(request, id):
-    pay = get_object_or_404(VariableCalc,id=id)
+    pay = get_object_or_404(Allowance,id=id)
     pay.delete()
     messages.success(request,"Pay deleted Successfully!!")
 
@@ -158,19 +192,22 @@ class AddPay(CreateView):
 
 @login_required
 def payslip(request, id):
-    pay_id = PayVar.objects.filter(id=id).first()
-    num2word = num2words(pay_id.netpay)
-    if cache.get(pay_id):
-        payr = cache.get(pay_id)
-        print("hit the cache")
-        return payr
-    else:
-        payroll = PayVar.objects.get(id=id)
-        cache.set(
-            id,
-            payroll
-        )
-        print("hti the db")
+    # id = request.user.id
+    # user = get_object_or_404(EmployeeProfile,user=request.user)
+    pay_id = Payday.objects.filter(payroll_id__id=id).first()
+    print(f"This is pay id : {pay_id.id}")
+    num2word = num2words(pay_id.payroll_id.netpay)
+    # if cache.get(pay_id):
+    #     payr = cache.get(pay_id)
+    #     print("hit the cache")
+    #     return payr
+    # else:
+    #     payroll = PayVar.objects.get(id=id)
+    #     cache.set(
+    #         id,
+    #         payroll
+    #     )
+    #     print("hti the db")
     context = {
         "pay": pay_id,
         "num2words": num2word

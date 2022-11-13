@@ -12,8 +12,15 @@ services:
       - .:/usr/src/app/
     ports:
       - "8002:8002"
-    networks:
-      - develop-net
+    depends_on:
+      - db
+
+  db:
+    image: postgres:13
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+    environment:
+      - "POSTGRES_HOST_AUTH_METHOD=trust"
 
   redis:
     container_name: redis_payroll
@@ -28,3 +35,6 @@ services:
 networks:
   develop-net:
     driver: bridge
+
+volumes:
+  postgres_data:

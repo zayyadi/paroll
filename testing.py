@@ -231,9 +231,24 @@
 #     #     pay = get_object_or_404(VariableCalc, var_id=pay_id)
 #     #     var = PayT.objects.filter(payroll_payday__in[pay])
 
-ls1 = [12,1,2,3,4,5,6,7]
-ls2 = [12,3,4,78,1,4]
+# ls1 = [12,1,2,3,4,5,6,7]
+# ls2 = [12,3,4,78,1,4]
 
-for elem in ls2:
-    if elem in ls1:
-        print(elem)
+# for elem in ls2:
+#     if elem in ls1:
+#         print(elem)
+
+from collections import namedtuple
+
+class Car:
+    def __init__(self, name, v_type) -> None:
+        self.name = name
+        self.type = v_type
+        self.add_ons = []
+
+    def add_ons(self, name,color,placement):
+        AddOn = namedtuple("AddOn", "name color placement")
+        add_on = AddOn(name,color,placement)
+        self.add_ons.append(add_on)
+        return add_on
+    

@@ -18,6 +18,7 @@ urlpatterns = [
                                                                  form_class=PwdResetForm), name='pwdreset'),
     path('password_reset_confirm/<uidb64>/<token>', auth_views.PasswordResetConfirmView.as_view(
         template_name='registration/password_reset_confirm.html', form_class=PwdResetConfirmForm), name="pwdresetconfirm"),
+    path("logout/", views.logout_view, name="logout"),
     # path('profile/', views.profile, name='profile'),
     # path('profile/edit/', views.edit, name='edit'),
     # path('profile/delete/', views.delete_user, name='deleteuser'),

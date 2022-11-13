@@ -3,7 +3,7 @@ from import_export import resources
 from import_export.admin import ImportExportModelAdmin
 
 # Register your models here.
-from payroll.models import EmployeeProfile, PayVar, Payroll, VariableCalc, PayT
+from payroll.models import EmployeeProfile, Allowance, PayVar, Payroll, PayT
 
         
 class EmployeeProfileResources(resources.ModelResource):
@@ -27,6 +27,10 @@ class PayVarResource(resources.ModelResource):
     class Meta:
         model = PayVar
 
+class AllowanceResources(resources.ModelResource):
+    class Meta:
+        model = Allowance
+
 class PayrollInline(admin.StackedInline):
     model= PayT.payroll_payday.through
     extra= 4
@@ -46,4 +50,4 @@ admin.site.register(EmployeeProfile, ImportExportModelAdmin)
 admin.site.register(Payroll, ImportExportModelAdmin)
 admin.site.register(PayVar, ImportExportModelAdmin)
 # admin.site.register(PayT, ImportExportModelAdmin)
-admin.site.register(VariableCalc, ImportExportModelAdmin)
+admin.site.register(Allowance, ImportExportModelAdmin)
