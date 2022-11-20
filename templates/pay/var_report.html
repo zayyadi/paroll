@@ -1,0 +1,56 @@
+{% include 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container mt-5 mb-5">
+    <div class="row">
+        <div class="col-md-12">
+            <div class="text-center lh-1 mb-2">
+                <h6 class="fw-bold">PayDay</h6> <span class="fw-normal">Payment roaster for the month of {% now "F Y" %}</span>
+            </div>
+            {% if pay_var %}
+            <div class="d-sm-flex align-items-center justify-content-between mb-4">
+                <h1 class="h3 mb-0 text-gray-800">Bank Report for {{ paydays }}</h1>
+                <a href="download/" class="d-none d-sm-inline-block btn btn-sm btn-info shadow-sm">
+                    <i class="fas fa-download fa-sm text-white-50"></i> Generate Report</a>
+            </div>
+            {% endif %}
+                <table class="mt-4 table table-bordered">
+                    <thead class="bg-dark text-white">
+                        <tr>
+                            <th scope="col">id</th>
+                            <th scope="col">Employee Name</th>
+                            <th scope="col">Gross Amount</th>
+                            <th scope="col">Payee</th>
+                            <th scope="col">Net Pay</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                {% if pay_var %}
+                    
+                
+                    {% for pays in pay_var  %}
+                            <tr>
+                                <th scope="row">{{pays.id}}</th>
+                                <td>{{pays.payroll_id.pays.first_name}} {{pays.payroll_id.pays.last_name}}</td>
+                                <td class="text-right">{{pays.payroll_id.pays.employee_pay.basic_salary}}</td>
+                                
+                                <td class="text-right">{{pays.payroll_id.pays.employee_pay.payee}}</td>
+                                <td class="text-right">{{pays.payroll_id.netpay}}</a> </td>
+                                
+                            </tr>
+                    
+                    {% endfor %}
+                    <td ><b>Total Netpay:</b></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td class="text-right">{{total}}</td>
+                {% endif %}
+                    </tbody>
+
+                <div class="container container-md">
+                    <p class="text"> </p>
+                </div>
+
+{% endblock  %}

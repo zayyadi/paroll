@@ -5,8 +5,15 @@ venv
 venv/
 db.sqlite3
 mail_test.py
-.gitignore
+*.gitignore
 .Dockerignore
 cryptokey.txt
 migrations/
 migrations
+templ
+todo.md
+*templ
+.pyc
+*.pyc
+__pycache__
+*__pycache__

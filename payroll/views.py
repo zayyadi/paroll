@@ -214,20 +214,30 @@ def payslip(request, id):
     }
     return render(request, "pay/payslip.html", context)
 
-def varview(request,pay_id):
+def varview(request):
     
-    var = Payday.objects.filter(paydays_id_id=pay_id)
-    var_total = var.aggregate(
-        Sum("payroll_id__netpay")
-    )
+    var = PayT.objects.order_by('paydays').distinct('paydays')
+    # var_total = var.aggregate(
+    #     Sum("payroll_id__netpay")
+    # )
 
     context = {
         "pay_var":var,
-        "var_total": var_total["payroll_id__netpay__sum"]
+        # "var_total": var_total["payroll_id__netpay__sum"]
     }
 
     return render(request, "pay/var_view.html", context)
 
+def varview_report(request,paydays):
+    var = Payday.objects.filter(paydays_id__paydays=paydays)
+    paydays_total = Payday.objects.filter(paydays_id__paydays=paydays).aggregate(Sum("payroll_id__netpay"))
+
+    context= {
+        "pay_var": var,
+        "paydays":paydays,
+        "total":paydays_total["payroll_id__netpay__sum"]
+    }
+    return render(request, 'pay/var_report.html', context)
 
 def payslip_pdf(request, id):
     payroll = PayVar.objects.filter(id=id)
@@ -284,9 +294,9 @@ def bank_report_download(request,pay_id):
     font_style = xlwt.XFStyle()
 
     rows = Payday.objects.filter(paydays_id_id=pay_id).values_list(
-        "payroll_id__pays__employee__emp_id",
-        "payroll_id__pays__employee__first_name",
-        "payroll_id__pays__employee__last_name",
+        "payroll_id__pays__emp_id",
+        "payroll_id__pays__first_name",
+        "payroll_id__pays__last_name",
         "payroll_id__pays__bank",
         "payroll_id__pays__bank_account_number",
         "payroll_id__netpay"
@@ -340,9 +350,9 @@ def payee_report_download(request,pay_id):
     font_style = xlwt.XFStyle()
 
     rows = Payday.objects.filter(paydays_id_id=pay_id).values_list(
-        "payroll_id__pays__employee__emp_id",
-        "payroll_id__pays__employee__first_name",
-        "payroll_id__pays__employee__last_name",
+        "payroll_id__pays__emp_id",
+        "payroll_id__pays__first_name",
+        "payroll_id__pays__last_name",
         "payroll_id__pays__tin_no",
         "payroll_id__pays__employee_pay__basic_salary",
         "payroll_id__pays__employee_pay__payee"
@@ -399,9 +409,9 @@ def pension_report_download(request,pay_id):
     font_style = xlwt.XFStyle()
 
     rows = Payday.objects.filter(paydays_id_id=pay_id).values_list(
-        "payroll_id__pays__employee__emp_id",
-        "payroll_id__pays__employee__first_name",
-        "payroll_id__pays__employee__last_name",
+        "payroll_id__pays__emp_id",
+        "payroll_id__pays__first_name",
+        "payroll_id__pays__last_name",
         "payroll_id__pays__employee_pay__basic_salary",
         "payroll_id__payr__pension_employer",
         "payroll_id__payr__pension_employee",
@@ -418,7 +428,7 @@ def pension_report_download(request,pay_id):
     return response
 
 
-def varview_download(request, pay_id):
+def varview_download(request, paydays):
 
     response = HttpResponse(content_type="application/ms-excel")
     response["Content-Disposition"] = 'attachment; filename="payroll_report.xlsx"'
@@ -446,9 +456,9 @@ def varview_download(request, pay_id):
 
     font_style = xlwt.XFStyle()
 
-    rows = Payday.objects.filter(paydays_id_id=pay_id).values_list(
-        "payroll_id__pays__employee__first_name",
-        "payroll_id__pays__employee__last_name",
+    rows = Payday.objects.filter(paydays_id__paydays=paydays).values_list(
+        "payroll_id__pays__first_name",
+        "payroll_id__pays__last_name",
         "payroll_id__pays__employee_pay__basic_salary",
         "payroll_id__pays__employee_pay__water_rate",
         "payroll_id__pays__employee_pay__payee",
