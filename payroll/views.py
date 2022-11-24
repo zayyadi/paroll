@@ -34,7 +34,6 @@ def check_super(user):
     return user.is_superuser
 
 
-@login_required
 def index(request):
     pay = PayT.objects.all()
     emp = EmployeeProfile.emp_objects.all().count()
@@ -92,12 +91,13 @@ def delete_employee(request, id):
     messages.success(request, "Employee deleted Successfully!!")
 
 
-def employee(request, id):
-    id = request.user.id
-    print(id)
-    user = get_object_or_404(EmployeeProfile, user=request.user)
-    pay = Payday.objects.all().filter(payroll_id__pays_id=user.id)
-    # pay = Payday.objects.all().filter(payroll_id__pays_id=user.id)
+def employee(request, emp_id: int):
+    # id = request.user.id
+    # print(id)
+    user = get_object_or_404(EmployeeProfile, emp_id=emp_id)
+    print(user.id)
+    # pay = Payday.objects.order_by("payroll_id__pays__user","payroll_id__netpay").distinct("payroll_id__pays__user")
+    pay = Payday.objects.all().filter(payroll_id__pays__emp_id=emp_id)
     print(f"payroll_id:{pay}")
 
     context = {"emp": user, "pay": pay}
@@ -189,12 +189,12 @@ class AddPay(CreateView):
     success_url = reverse_lazy("payroll:index")
 
 
-@login_required
 def payslip(request, id):
     # id = request.user.id
-    # user = get_object_or_404(EmployeeProfile,user=request.user)
-    pay_id = Payday.objects.filter(payroll_id__id=id).first()
-    print(f"This is pay id : {pay_id.id}")
+    # user = get_object_or_404(EmployeeProfile,payroll_id__pays_id=id)
+    pay_id = Payday.objects.filter(id=id).first()
+    print(pay_id.id)
+    # print(f"This is pay id : {pay_id.id}")
     num2word = num2words(pay_id.payroll_id.netpay)
     # if cache.get(pay_id):
     #     payr = cache.get(pay_id)
@@ -241,7 +241,7 @@ def varview_report(request, paydays):
 
 
 def payslip_pdf(request, id):
-    payroll = PayVar.objects.filter(id=id)
+    payroll = PayVar.objects.filter(pays_id=id)
     pre_total = payroll.first().netpay
     template_path = "pay/payslip_pdf.html"
     html_string = render_to_string("pay/payslip_pdf.html", {"payroll": payroll.first()})

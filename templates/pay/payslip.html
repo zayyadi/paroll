@@ -3,6 +3,7 @@
 {% load humanize %}
 {% include "scripts.html" %}
 {% if pay %}
+{% block title%}Payslip {{pay.pays.first_name}} {% endblock%}
 
 <div class="container mt-5 mb-5">
     <div class="row">
@@ -88,25 +89,25 @@
                         </tr>
                         <tr>
                             <th scope="row">Overtime</th>
-                            <td>{{pay.payroll_id.var.overtime}}</td>
+                            <td>0</td>
                             <td>Damages Deduction</td>
-                            <td>{{pay.payroll_id.var.damage}}</td>
+                            <td>{{pay.payroll_id.damage}}</td>
                         </tr>
                         <tr>
                             <th scope="row">Medical Allowance</th>
                             <td>0.00</td>
                             <td>Lateness Deduction</td>
-                            <td>{{pay.payroll_id.var.lateness}}</td>
+                            <td>{{pay.payroll_id.lateness}}</td>
                         </tr>
                         <tr>
                             <th scope="row">Sales Incentive</th>
                             <td>0.00</td>
                             <td>Absence Deduction</td>
-                            <td>{{pay.payroll_id.var.absent}}</td>
+                            <td>{{pay.payroll_id.absent}}</td>
                         </tr>
                         <tr>
                             <th scope="row">Leave Encashment</th>
-                            <td>{{pay.payroll_id.var.leave_allowance}}</td>
+                            <td>0</td>
                             <td colspan="2"></td>
                         </tr>
                         <tr>
@@ -135,9 +136,10 @@
         </div>
     </div>
 </div>
-{% endif %}
+
 
 <div>
-    <button type="button" class="btn btn-success"><a href="{% url 'payroll:payslip_pdf' pay.id %}">Download</button>
+    <button type="button" class="btn btn-success"><a href="pdf/{{pay.pays.id}}/">Download</button>
 
 </div>
+{% endif %}
