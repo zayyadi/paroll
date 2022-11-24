@@ -30,26 +30,34 @@ class Month(object):
         return cls(y, m)
 
     def __add__(self, x):
-        '''x is an integer'''
+        """x is an integer"""
         return Month.from_int(int(self) + x)
+
     def __sub__(self, x):
-        '''x is integer or Month instance'''
+        """x is integer or Month instance"""
         if isinstance(x, Month):
             return int(self) - int(x)
         else:
             return Month.from_int(int(self) - int(x))
+
     def next_month(self):
         return self + 1
+
     def prev_month(self):
         return self - 1
+
     def first_day(self):
         return self._date
+
     def last_day(self):
         return self.next_month().first_day() - days(1)
+
     def __int__(self):
         return self.year * 12 + self.month - 1
+
     def __contains__(self, date):
         return self == date
+
     def __eq__(self, x):
         if isinstance(x, Month):
             return x.month == self.month and x.year == self.year
@@ -59,9 +67,11 @@ class Month(object):
             return x == int(self)
         if isinstance(x, string_type):
             return str(self) == x[:7]
+
     def __gt__(self, x):
         if isinstance(x, Month):
-            if self.year != x.year: return self.year > x.year
+            if self.year != x.year:
+                return self.year > x.year
             return self.month > x.month
         if isinstance(x, datetime.date):
             return self.first_day() > x
@@ -69,30 +79,41 @@ class Month(object):
             return int(self) > x
         if isinstance(x, string_type):
             return str(self) > x[:7]
+
     def __ne__(self, x):
         return not self == x
+
     def __le__(self, x):
         return not self > x
+
     def __ge__(self, x):
         return (self > x) or (self == x)
+
     def __lt__(self, x):
         return not self >= x
+
     def __str__(self):
-        return '%s-%02d' %(self.year, self.month)
+        return "%s-%02d" % (self.year, self.month)
+
     def __unicode__(self):
         return self.__str__()
+
     def __repr__(self):
         return self.__str__()
+
     def __hash__(self):
         return hash(self.datestring())
+
     def datestring(self):
         return self.first_day().isoformat()
+
     isoformat = datestring
+
     def range(self, x):
-        '''x must be an instance of Month that is larger than self.
-        returns a list of Month objects that make up the timespan from self to x (inclusive)'''
+        """x must be an instance of Month that is larger than self.
+        returns a list of Month objects that make up the timespan from self to x (inclusive)"""
         months_as_ints = range(int(self), int(x) + 1)
-        return [ Month.from_int(i) for i in months_as_ints ]
+        return [Month.from_int(i) for i in months_as_ints]
 
     def strftime(self, fmt):
         return self._date.strftime(fmt)
