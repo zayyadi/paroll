@@ -25,7 +25,7 @@ INSTALLED_APPS = [
     "crispy_forms",
     "mathfilters",
     'django.contrib.humanize',
-    "accounts",
+    # "accounts",
     "monthyear",
     'bootstrap4',
     'import_export',

@@ -34,7 +34,6 @@ def check_super(user):
     return user.is_superuser
 
 
-@login_required
 def index(request):
     pay = PayT.objects.all()
     emp = EmployeeProfile.emp_objects.all().count()
@@ -95,12 +94,13 @@ def delete_employee(request, id):
     messages.success(request,"Employee deleted Successfully!!")
 
 
-def employee(request,id):
-    id = request.user.id
-    print(id)
-    user = get_object_or_404(EmployeeProfile,user=request.user)
-    pay = Payday.objects.all().filter(payroll_id__pays_id=user.id)
-    pay = Payday.objects.all().filter(payroll_id__pays_id=user.id)
+def employee(request,emp_id:int):
+    # id = request.user.id
+    # print(id)
+    user = get_object_or_404(EmployeeProfile,emp_id=emp_id)
+    print(user.id)
+    # pay = Payday.objects.order_by("payroll_id__pays__user","payroll_id__netpay").distinct("payroll_id__pays__user")
+    pay = [f for f in Payday.objects.all() if f == user.id]
     print(f"payroll_id:{pay}")
 
     context = {
@@ -190,12 +190,12 @@ class AddPay(CreateView):
     template_name = 'pay/add_payday.html'
     success_url = reverse_lazy('payroll:index')
 
-@login_required
+
 def payslip(request, id):
     # id = request.user.id
-    # user = get_object_or_404(EmployeeProfile,user=request.user)
-    pay_id = Payday.objects.filter(payroll_id__id=id).first()
-    print(f"This is pay id : {pay_id.id}")
+    # user = get_object_or_404(EmployeeProfile,payroll_id__pays_id=id)
+    pay_id = Payday.objects.filter(payroll_id__pays_id=id).first()
+    # print(f"This is pay id : {pay_id.id}")
     num2word = num2words(pay_id.payroll_id.netpay)
     # if cache.get(pay_id):
     #     payr = cache.get(pay_id)
@@ -228,6 +228,7 @@ def varview(request):
 
     return render(request, "pay/var_view.html", context)
 
+
 def varview_report(request,paydays):
     var = Payday.objects.filter(paydays_id__paydays=paydays)
     paydays_total = Payday.objects.filter(paydays_id__paydays=paydays).aggregate(Sum("payroll_id__netpay"))
@@ -239,8 +240,9 @@ def varview_report(request,paydays):
     }
     return render(request, 'pay/var_report.html', context)
 
+
 def payslip_pdf(request, id):
-    payroll = PayVar.objects.filter(id=id)
+    payroll = PayVar.objects.filter(pays_id=id)
     pre_total = payroll.first().netpay
     template_path = "pay/payslip_pdf.html"
     html_string = render_to_string(
@@ -255,9 +257,11 @@ def payslip_pdf(request, id):
         return response
     return response
 
+
 def bank_reports(request):
     payroll = PayT.objects.order_by("paydays").distinct("paydays")
     return render(request, "pay/bank_reports.html", {"payroll": payroll})
+
 
 def bank_report(request, pay_id):
     payroll = Payday.objects.filter(paydays_id_id=pay_id)
@@ -266,6 +270,7 @@ def bank_report(request, pay_id):
         "pay/bank_report.html",
         {"payroll": payroll},
     )
+
 
 def bank_report_download(request,pay_id):
     response = HttpResponse(content_type="application/ms-excel")
@@ -311,9 +316,11 @@ def bank_report_download(request,pay_id):
 
     return response
 
+
 def payee_reports(request):
     payroll = PayT.objects.order_by("paydays").distinct("paydays")
     return render(request, "pay/payee_reports.html", {"payroll": payroll})
+
 
 def payee_report(request, pay_id):
     payroll = Payday.objects.filter(paydays_id_id=pay_id)
@@ -322,6 +329,7 @@ def payee_report(request, pay_id):
         "pay/payee_report.html",
         {"payroll": payroll}, 
     )
+
 
 def payee_report_download(request,pay_id):
     response = HttpResponse(content_type="application/ms-excel")
@@ -371,6 +379,7 @@ def payee_report_download(request,pay_id):
 def pension_reports(request):
     payroll = PayT.objects.order_by("paydays").distinct("paydays")
     return render(request, "pay/pension_reports.html", {"payroll": payroll})
+
 
 def pension_report(request, pay_id):
     payroll = Payday.objects.filter(paydays_id_id=pay_id)
