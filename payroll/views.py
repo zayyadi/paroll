@@ -100,7 +100,7 @@ def employee(request,emp_id:int):
     user = get_object_or_404(EmployeeProfile,emp_id=emp_id)
     print(user.id)
     # pay = Payday.objects.order_by("payroll_id__pays__user","payroll_id__netpay").distinct("payroll_id__pays__user")
-    pay = [f for f in Payday.objects.all() if f == user.id]
+    pay = Payday.objects.all().filter(payroll_id__pays__emp_id= emp_id)
     print(f"payroll_id:{pay}")
 
     context = {
@@ -194,7 +194,8 @@ class AddPay(CreateView):
 def payslip(request, id):
     # id = request.user.id
     # user = get_object_or_404(EmployeeProfile,payroll_id__pays_id=id)
-    pay_id = Payday.objects.filter(payroll_id__pays_id=id).first()
+    pay_id = Payday.objects.filter(id=id).first()
+    print(pay_id.id)
     # print(f"This is pay id : {pay_id.id}")
     num2word = num2words(pay_id.payroll_id.netpay)
     # if cache.get(pay_id):
