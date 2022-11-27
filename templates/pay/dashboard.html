@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 
 {% block content %}
-<h3>Control Panel</h3>
+<h2>Control Panel</h2>
 <hr>
 <p>
     Welcome, <small>{{request.user.username}}</small>
@@ -10,32 +10,34 @@
 <a class = "btn btn-info" href = "{% url 'payroll:add_pay' %}">Add Pay </a>
 <hr>
 {% if emp %}
-<table class="table">
-        <thead>
+<div class="overflow-x-auto relative">
+  <table class="w-full text-sm text-left text-gray-500 dark:text-gray-400">
+    <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
           <tr>
-            <th scope="col">id</th>
-            <th scope="col">Name</th>
-            <th scope="col">Gross Salary</th>
-            <th scope="col">Pension</th>
-            <th scope="col">Payee</th>
-            <th scope="col">Net_pay</th>
+            <th scope="col" class="py-3 px-6">id</th>
+            <th scope="col" class="py-3 px-6">Name</th>
+            <th scope="col" class="py-3 px-6">Gross Salary</th>
+            <th scope="col" class="py-3 px-6">Pension</th>
+            <th scope="col" class="py-3 px-6">Payee</th>
+            <th scope="col" class="py-3 px-6">Net_pay</th>
           </tr>
-        </thead>
-        <tbody>
-          {% for pay in emp %}
-          <tr>
-            <th scope="row">{{pay.id}}</th>
-            <td><a href="{% url 'payroll:payslip' pay.id %}">{{pay.first_name}}</a></td>
-            <td>{{pay.employee_pay.basic_salary}}</td>
-            <td>{{pay.employee_pay.pension}}</td>
-            <td>{{pay.employee_pay.payee}}</td>
-            <td>{{pay.net_pay}}</a> </td>
-              
-          </tr>
-          {% endfor %}
+    </thead>
+    <tbody>
+      {% for pay in emp %}
+      <tr class="bg-white border-b dark:bg-gray-800 dark:border-gray-700">
+        <th scope="row" class="py-4 px-6 font-medium text-gray-900 whitespace-nowrap">{{pay.id}}</th>
+        <td><a href="{% url 'payroll:payslip' pay.id %}">{{pay.first_name}}</a></td>
+        <td>{{pay.employee_pay.basic_salary}}</td>
+        <td>{{pay.employee_pay.pension}}</td>
+        <td>{{pay.employee_pay.payee}}</td>
+        <td>{{pay.net_pay}}</a> </td>
           
-        </tbody>
-      </table>
+      </tr>
+      {% endfor %}
+      
+    </tbody>
+  </table>
+</div>
 {% else %}
 
 <div class = "alert alert-danger">   

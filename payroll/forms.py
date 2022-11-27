@@ -12,28 +12,29 @@ class EmployeeProfileForm(forms.ModelForm):
         self.helper = FormHelper()
         self.helper.layout = Layout(
             Div(
-                    Field("first_name"),
-                    css_class="col-md-4",
-                ),Div(
-                    Field("last_name"),
-                    css_class="col-md-4",
-                ),
-                Div(
-                    Field("email"),
-                    css_class="col-md-4",
-                ),
-                Div(
-                    Field("photo"),
-                    css_class="col-md-4",
-                ),
-                Div(
-                    Field("date_of_birth"),
-                    css_class="col-md-4",
-                ),
-                Div(
-                    Field("gender"),
-                    css_class="col-md-4",
-                ),
+                Field("first_name"),
+                css_class="col-md-4",
+            ),
+            Div(
+                Field("last_name"),
+                css_class="col-md-4",
+            ),
+            Div(
+                Field("email"),
+                css_class="col-md-4",
+            ),
+            Div(
+                Field("photo"),
+                css_class="col-md-4",
+            ),
+            Div(
+                Field("date_of_birth"),
+                css_class="col-md-4",
+            ),
+            Div(
+                Field("gender"),
+                css_class="col-md-4",
+            ),
             Div(
                 Div(
                     Field("date_of_employment"),
@@ -61,7 +62,8 @@ class EmployeeProfileForm(forms.ModelForm):
                 Div(
                     Field("email"),
                     css_class="col-md-4",
-                ),Div(
+                ),
+                Div(
                     Field("phone"),
                     css_class="col-md-4",
                 ),
@@ -94,40 +96,44 @@ class PayrollForm(forms.ModelForm):
 
     class Meta:
         model = Payroll
-        fields = ('basic_salary',)
+        fields = ("basic_salary",)
 
     def __init__(self, *args, **kwargs):
         super(PayrollForm, self).__init__(*args, **kwargs)
 
         # self.fields['employee'].widget.attrs = {'placeholder': 'Choose Employee', 'class':'form-control'}
-        self.fields['basic_salary'].widget.attrs = {'placeholder': 'Enter your Basic Salary', 'class':'form-control'}
+        self.fields["basic_salary"].widget.attrs = {
+            "placeholder": "Enter your Basic Salary",
+            "class": "form-control",
+        }
 
 
-class VariableForm(forms.ModelForm):
-
+class AllowanceForm(forms.ModelForm):
     class Meta:
         model = Allowance
-        fields = ("payr","name","amount")
+        fields = ("payee", "name", "amount")
 
     def __init__(self, *args, **kwargs):
-        super(VariableForm, self).__init__(*args, **kwargs)
+        super(AllowanceForm, self).__init__(*args, **kwargs)
 
         # self.fields['payr'].widget.attrs = {'placeholder':"choose Employee Pay"}
-        self.fields['name'].widget.attrs = {'placeholder':"Name"}
-        self.fields['amount'].widget.attrs = {'placeholder':"Amount"}
+        self.fields["name"].widget.attrs = {"placeholder": "Name"}
+        self.fields["amount"].widget.attrs = {"placeholder": "Amount"}
 
-class CustomMMCF(forms.ModelMultipleChoiceField):    
+
+class CustomMMCF(forms.ModelMultipleChoiceField):
     def label_from_instance(self, member):
         return "%s" % member.name
+
 
 class PaydayForm(forms.ModelForm):
 
     paydays = MonthField()
+
     class Meta:
         model = PayT
-        fields = ('name','slug','paydays','payroll_payday')
+        fields = ("name", "slug", "paydays", "payroll_payday")
 
         payroll_payday = CustomMMCF(
-        queryset=PayVar.objects.all(),
-        widget=forms.CheckboxSelectMultiple
-    )
+            queryset=PayVar.objects.all(), widget=forms.CheckboxSelectMultiple
+        )

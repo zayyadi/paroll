@@ -15,17 +15,19 @@ ALLOWED_HOSTS = []
 
 
 INSTALLED_APPS = [
+    "adminlte3_theme",
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    # "compressor",
     "payroll",
     "crispy_forms",
     "mathfilters",
     "django.contrib.humanize",
-    # "accounts",
+    "adminlte3",
     "monthyear",
     "bootstrap4",
     "import_export",
@@ -155,3 +157,9 @@ EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_PASSWORD")
 EMAIL_PORT = os.environ.get("EMAIL_PORT")
 EMAIL_USE_TLS: False
 EMAIL_USE_SSL: False
+
+# COMPRESS_ROOT = os.path.join(BASE_DIR, "static")
+
+# COMPRESS_ENABLED = True
+
+# STATICFILES_FINDERS = ("compressor.finders.CompressorFinder",)

@@ -1,12 +1,10 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse_lazy
-from django.contrib.auth.decorators import login_required
-
-# from django.contrib.auth.models import User
 from django.db.models import Sum
 from django.views.generic import CreateView
 from django.contrib import messages
-from django.core.cache import cache
+
+# from django.core.cache import cache
 from django.template.loader import render_to_string
 from django.http import HttpResponse
 from django.core.files.storage import FileSystemStorage
@@ -15,10 +13,21 @@ from django.conf import settings
 from django.core.cache.backends.base import DEFAULT_TIMEOUT
 from django.views.decorators.cache import cache_page
 
-from payroll.forms import PaydayForm, PayrollForm, VariableForm, EmployeeProfileForm
-from payroll.models import EmployeeProfile, PayT, PayVar, Payday, Payroll, Allowance
+from payroll.forms import (
+    AllowanceForm,
+    PaydayForm,
+    PayrollForm,
+    EmployeeProfileForm,
+)
+from payroll.models import (
+    EmployeeProfile,
+    PayT,
+    PayVar,
+    Payday,
+    Payroll,
+    Allowance,
+)
 
-from accounts.forms import UserEditForm
 
 from num2words import num2words
 
@@ -29,7 +38,6 @@ import xlwt
 CACHE_TTL = getattr(settings, "CACHE_TTL", DEFAULT_TIMEOUT)
 
 
-@cache_page(CACHE_TTL)
 def check_super(user):
     return user.is_superuser
 
@@ -52,18 +60,17 @@ def add_employee(request):
             request.FILES or None,
         )
 
-        if u_form.is_valid() and e_form.is_valid():
-            u_form.save()
+        if e_form.is_valid():
             e_form.save()
 
             messages.success(request, f"Your account has been updated!")
             return redirect("users:profile")
 
     else:
-        u_form = UserEditForm(instance=request.user)
+        # u_form = UserEditForm(instance=request.user)
         e_form = EmployeeProfileForm(instance=request.user)
 
-    context = {"u_form": u_form, "e_form": e_form}
+    context = {"e_form": e_form}
 
     return render(request, "accounts/profile.html", context)
 
@@ -128,7 +135,7 @@ def delete_pay(request, id):
     messages.success(request, "Pay deleted Successfully!!")
 
 
-@cache_page(CACHE_TTL)
+# @cache_page(CACHE_TTL)
 def dashboard(request):
     emp = EmployeeProfile.objects.all()
 
@@ -226,6 +233,7 @@ def varview(request):
     return render(request, "pay/var_view.html", context)
 
 
+@user_passes_test(check_super)
 def varview_report(request, paydays):
     var = Payday.objects.filter(paydays_id__paydays=paydays)
     paydays_total = Payday.objects.filter(paydays_id__paydays=paydays).aggregate(
@@ -241,7 +249,7 @@ def varview_report(request, paydays):
 
 
 def payslip_pdf(request, id):
-    payroll = PayVar.objects.filter(pays_id=id)
+    payroll = PayVar.objects.filter(id=id)
     pre_total = payroll.first().netpay
     template_path = "pay/payslip_pdf.html"
     html_string = render_to_string("pay/payslip_pdf.html", {"payroll": payroll.first()})
@@ -257,11 +265,13 @@ def payslip_pdf(request, id):
     return response
 
 
+@user_passes_test(check_super)
 def bank_reports(request):
     payroll = PayT.objects.order_by("paydays").distinct("paydays")
     return render(request, "pay/bank_reports.html", {"payroll": payroll})
 
 
+@user_passes_test(check_super)
 def bank_report(request, pay_id):
     payroll = Payday.objects.filter(paydays_id_id=pay_id)
     return render(
@@ -271,6 +281,7 @@ def bank_report(request, pay_id):
     )
 
 
+@user_passes_test(check_super)
 def bank_report_download(request, pay_id):
     response = HttpResponse(content_type="application/ms-excel")
     response["Content-Disposition"] = 'attachment; filename="bank_report.xlsx"'
@@ -316,11 +327,13 @@ def bank_report_download(request, pay_id):
     return response
 
 
+@user_passes_test(check_super)
 def payee_reports(request):
     payroll = PayT.objects.order_by("paydays").distinct("paydays")
     return render(request, "pay/payee_reports.html", {"payroll": payroll})
 
 
+@user_passes_test(check_super)
 def payee_report(request, pay_id):
     payroll = Payday.objects.filter(paydays_id_id=pay_id)
     return render(
@@ -330,6 +343,7 @@ def payee_report(request, pay_id):
     )
 
 
+@user_passes_test(check_super)
 def payee_report_download(request, pay_id):
     response = HttpResponse(content_type="application/ms-excel")
     response["Content-Disposition"] = 'attachment; filename="payee_report.xlsx"'
@@ -375,11 +389,13 @@ def payee_report_download(request, pay_id):
     return response
 
 
+@user_passes_test(check_super)
 def pension_reports(request):
     payroll = PayT.objects.order_by("paydays").distinct("paydays")
     return render(request, "pay/pension_reports.html", {"payroll": payroll})
 
 
+@user_passes_test(check_super)
 def pension_report(request, pay_id):
     payroll = Payday.objects.filter(paydays_id_id=pay_id)
     return render(
@@ -389,6 +405,7 @@ def pension_report(request, pay_id):
     )
 
 
+@user_passes_test(check_super)
 def pension_report_download(request, pay_id):
     response = HttpResponse(content_type="application/ms-excel")
     response["Content-Disposition"] = 'attachment; filename="pension_report.xlsx"'
@@ -436,6 +453,7 @@ def pension_report_download(request, pay_id):
     return response
 
 
+@user_passes_test(check_super)
 def varview_download(request, paydays):
 
     response = HttpResponse(content_type="application/ms-excel")
@@ -481,3 +499,18 @@ def varview_download(request, paydays):
     wb.save(response)
 
     return response
+
+
+@user_passes_test(check_super)
+def create_allowance(request):
+    form = AllowanceForm(request.POST or None)
+
+    if form.is_valid():
+        form.save()
+        messages.success(request, "Allowance created successfully")
+        return redirect("payroll:index")
+
+    else:
+        form = PayrollForm()
+
+    return render(request, "pay/add_allowance.html", {"form": form})
