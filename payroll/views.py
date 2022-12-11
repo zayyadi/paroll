@@ -1,4 +1,5 @@
 from django.shortcuts import render, redirect, get_object_or_404
+from django.contrib.auth.decorators import login_required
 from django.urls import reverse_lazy
 from django.db.models import Sum
 from django.views.generic import CreateView
@@ -12,6 +13,7 @@ from django.contrib.auth.decorators import user_passes_test
 from django.conf import settings
 from django.core.cache.backends.base import DEFAULT_TIMEOUT
 from django.views.decorators.cache import cache_page
+from accounts.forms import *
 
 from payroll.forms import (
     AllowanceForm,
@@ -44,23 +46,28 @@ def check_super(user):
 
 def index(request):
     pay = PayT.objects.all()
+    pay_count = PayT.objects.all().count()
     emp = EmployeeProfile.emp_objects.all().count()
 
-    context = {"pay": pay, "emp": emp}
+    context = {
+        "pay": pay,
+        "emp": emp,
+        "pay_count": pay_count,
+    }
     return render(request, "index.html", context)
 
 
 @user_passes_test(check_super)
 def add_employee(request):
-    # created = EmployeeProfile.objects.get_or_create(user=request.user)
+    created = EmployeeProfile.objects.get_or_create(user=request.user)
     if request.method == "POST":
-        # u_form = UserEditForm(request.POST, instance=request.user)
+        u_form = UserEditForm(request.POST, instance=request.user)
         e_form = EmployeeProfileForm(
             request.POST or None,
             request.FILES or None,
         )
 
-        if e_form.is_valid():
+        if u_form.is_valid and e_form.is_valid():
             e_form.save()
 
             messages.success(request, f"Your account has been updated!")
@@ -73,6 +80,10 @@ def add_employee(request):
     context = {"e_form": e_form}
 
     return render(request, "accounts/profile.html", context)
+
+
+def input_id(request):
+    return render(request, "pay/input.html")
 
 
 @user_passes_test(check_super)
@@ -98,14 +109,21 @@ def delete_employee(request, id):
     messages.success(request, "Employee deleted Successfully!!")
 
 
-def employee(request, emp_id: int):
-    # id = request.user.id
-    # print(id)
-    user = get_object_or_404(EmployeeProfile, emp_id=emp_id)
-    print(user.id)
-    # pay = Payday.objects.order_by("payroll_id__pays__user","payroll_id__netpay").distinct("payroll_id__pays__user")
-    pay = Payday.objects.all().filter(payroll_id__pays__emp_id=emp_id)
-    print(f"payroll_id:{pay}")
+@login_required
+def employee(request, user_id: int):
+    try:
+        user_id = request.user.id
+        print(user_id)
+        if user_id:
+            user = get_object_or_404(EmployeeProfile, user_id=user_id)
+
+            pay = Payday.objects.all().filter(payroll_id__pays__user_id=user_id)
+            print(f"payroll_id:{pay}")
+        else:
+            raise Exception("You are not the owner")
+
+    except:
+        raise Exception("You re Not Authorized to view this page")
 
     context = {"emp": user, "pay": pay}
     return render(request, "employee/profile.html", context)
@@ -148,24 +166,9 @@ def dashboard(request):
 
 
 @user_passes_test(check_super)
-def add_var(request):
-    form = VariableForm(request.POST or None)
-
-    if form.is_valid():
-        form.save()
-        messages.success(request, "Add Variable Pay")
-        return redirect("payroll:index")
-
-    else:
-        form = VariableForm()
-
-    return render(request, "pay/var.html", {"form": form})
-
-
-@user_passes_test(check_super)
-def edit_var(request, id):
+def edit_allowance(request, id):
     var = get_object_or_404(Allowance, id=id)
-    form = VariableForm(request.POST or None, instance=var)
+    form = AllowanceForm(request.POST or None, instance=var)
 
     if form.is_valid():
         form.save()
@@ -173,7 +176,7 @@ def edit_var(request, id):
         return redirect("payroll:dashboard")
 
     else:
-        form = VariableForm()
+        form = AllowanceForm()
 
     context = {
         "form": form,
@@ -183,10 +186,10 @@ def edit_var(request, id):
 
 
 @user_passes_test(check_super)
-def delete_var(request, id):
+def delete_allowance(request, id):
     pay = get_object_or_404(Allowance, id=id)
     pay.delete()
-    messages.success(request, "Pay deleted Successfully!!")
+    messages.success(request, "Allowance deleted Successfully!!")
 
 
 class AddPay(CreateView):
@@ -196,24 +199,12 @@ class AddPay(CreateView):
     success_url = reverse_lazy("payroll:index")
 
 
+@login_required
 def payslip(request, id):
-    # id = request.user.id
-    # user = get_object_or_404(EmployeeProfile,payroll_id__pays_id=id)
     pay_id = Payday.objects.filter(id=id).first()
     print(pay_id.id)
     # print(f"This is pay id : {pay_id.id}")
     num2word = num2words(pay_id.payroll_id.netpay)
-    # if cache.get(pay_id):
-    #     payr = cache.get(pay_id)
-    #     print("hit the cache")
-    #     return payr
-    # else:
-    #     payroll = PayVar.objects.get(id=id)
-    #     cache.set(
-    #         id,
-    #         payroll
-    #     )
-    #     print("hti the db")
     context = {"pay": pay_id, "num2words": num2word}
     return render(request, "pay/payslip.html", context)
 
@@ -221,13 +212,9 @@ def payslip(request, id):
 def varview(request):
 
     var = PayT.objects.order_by("paydays").distinct("paydays")
-    # var_total = var.aggregate(
-    #     Sum("payroll_id__netpay")
-    # )
 
     context = {
         "pay_var": var,
-        # "var_total": var_total["payroll_id__netpay__sum"]
     }
 
     return render(request, "pay/var_view.html", context)
@@ -254,7 +241,7 @@ def payslip_pdf(request, id):
     template_path = "pay/payslip_pdf.html"
     html_string = render_to_string("pay/payslip_pdf.html", {"payroll": payroll.first()})
     html = HTML(string=html_string, base_url=request.build_absolute_uri()).write_pdf(
-        target="/tmp/mypayslip.pdf"
+        target=f"/tmp/{payroll.first().pays.first_name}mypayslip.pdf"
     )
 
     fs = FileSystemStorage("/tmp")

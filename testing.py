@@ -7,33 +7,33 @@
 # # suffixes = ('', 'Thousand', 'Million', 'Billion')
 
 # # def process(number, index):
-    
+
 # #     if number=='0':
 # #         return 'Zero'
-    
+
 # #     length = len(number)
-    
+
 # #     if(length > 3):
 # #         return False
-    
+
 # #     number = number.zfill(3)
 # #     words = ''
- 
+
 # #     hdigit = int(number[0])
 # #     tdigit = int(number[1])
 # #     odigit = int(number[2])
-    
+
 # #     words += '' if number[0] == '0' else ones[hdigit]
 # #     words += ' Hundred ' if not words == '' else ''
-    
+
 # #     if(tdigit > 1):
 # #         words += tens[tdigit - 2]
 # #         words += ' '
 # #         words += ones[odigit]
-    
+
 # #     elif(tdigit == 1):
 # #         words += twos[(int(tdigit + odigit) % 10) - 1]
-        
+
 # #     elif(tdigit == 0):
 # #         words += ones[odigit]
 
@@ -41,22 +41,22 @@
 # #         words = words[:-len('Zero')]
 # #     else:
 # #         words += ' '
-     
-# #     if(not len(words) == 0):    
+
+# #     if(not len(words) == 0):
 # #         words += suffixes[index]
-        
+
 # #     return words;
-    
+
 # # def getWords(number):
 # #     length = len(str(number))
-    
+
 # #     if length>12:
 # #         return 'This program supports upto 12 digit numbers.'
-    
+
 # #     count = length // 3 if length % 3 == 0 else length // 3 + 1
 # #     copy = count
 # #     words = []
- 
+
 # #     for i in range(length - 1, -1, -3):
 # #         words.append(process(str(number)[0 if i - 2 < 0 else i - 2 : i + 1], copy - count))
 # #         count -= 1;
@@ -65,14 +65,14 @@
 # #     for s in reversed(words):
 # #         temp = s + ' '
 # #         final_words += temp
-    
+
 # #     return final_words
 
 # # number = int(input('Enter any number: '))
 # # print('%d in words is: %s' %(number, getWords(number)),"naira only")
 
 # import math
- 
+
 # # Tokens from 1000 and up
 # _PRONOUNCE = [
 #     'vigintillion',
@@ -98,7 +98,7 @@
 #     'thousand',
 #     ''
 # ]
- 
+
 # # Tokens up to 90
 # _SMALL = {
 #     '0' : '',
@@ -130,11 +130,11 @@
 #     '80' : 'eighty',
 #     '90' : 'ninety'
 # }
- 
+
 # def get_num(num):
 #     '''Get token <= 90, return '' if not matched'''
 #     return _SMALL.get(num, '')
- 
+
 # def triplets(l):
 #     '''Split list to triplets. Pad last one with '' if needed'''
 #     res = []
@@ -144,12 +144,12 @@
 #             sect += [''] * (3 - len(sect))
 #         res.append(sect)
 #     return res
- 
+
 # def norm_num(num):
 #     """Normelize number (remove 0's prefix). Return number and string"""
 #     n = int(num)
 #     return n, str(n)
- 
+
 # def small2eng(num):
 #     '''English representation of a number <= 999'''
 #     n, num = norm_num(num)
@@ -170,16 +170,16 @@
 #         #return hundred + ' and ' + ten
 #     else: # One of the below is empty
 #         return hundred + ten
- 
+
 # def num2eng(num):
 #     '''English representation of a number'''
 #     num = str(num) # Convert to string, throw if bad number
 #     if (len(num) / 3 >= len(_PRONOUNCE)): # Sanity check
 #         raise ValueError('Number too big')
- 
+
 #     if num == '0': # Zero is a special case
 #         return 'zero '
- 
+
 #     # Create reversed list
 #     x = list(num)
 #     x.reverse()
@@ -193,19 +193,19 @@
 #     # Create result
 #     pron.reverse()
 #     return ', '.join(pron)
- 
+
 # if __name__ == '__main__':
-    
+
 #     numbers = [1.37, 0.07, 123456.00, 987654.33]
 #     for number in numbers:
 #         naira, kobo = [int(num) for num in str(number).split(".")]
-    
+
 #         naira = num2eng(naira)
 #         if naira.strip() == "one":
 #             naira = naira + "naira and "
 #         else:
 #             naira = naira + "naira and "
-            
+
 #         kobo = num2eng(kobo) + "kobo"
 #         print( naira + kobo)
 #         temp_amount = str(10.34)
@@ -221,12 +221,12 @@
 #         print (total)
 
 # var_sum = Payday.objects.filter(paydays_id_id=pay_id)
-    # pay = PayT.objects.filter(is_active=True,payroll_payday=var)
+# pay = PayT.objects.filter(is_active=True,payroll_payday=var)
 #     # pay = None
-    # for id in pay_id:
-    # if id in var.payroll_id_id:
-    #     print(pay_id)
-    #     return id
+# for id in pay_id:
+# if id in var.payroll_id_id:
+#     print(pay_id)
+#     return id
 #     # if pay_id:
 #     #     pay = get_object_or_404(VariableCalc, var_id=pay_id)
 #     #     var = PayT.objects.filter(payroll_payday__in[pay])
@@ -238,17 +238,54 @@
 #     if elem in ls1:
 #         print(elem)
 
-from collections import namedtuple
+# from collections import namedtuple
 
-class Car:
-    def __init__(self, name, v_type) -> None:
-        self.name = name
-        self.type = v_type
-        self.add_ons = []
+# class Car:
+#     def __init__(self, name, v_type) -> None:
+#         self.name = name
+#         self.type = v_type
+#         self.add_ons = []
 
-    def add_ons(self, name,color,placement):
-        AddOn = namedtuple("AddOn", "name color placement")
-        add_on = AddOn(name,color,placement)
-        self.add_ons.append(add_on)
-        return add_on
-    
+#     def add_ons(self, name,color,placement):
+#         AddOn = namedtuple("AddOn", "name color placement")
+#         add_on = AddOn(name,color,placement)
+#         self.add_ons.append(add_on)
+#         return add_on
+
+
+""" def extract_from_marker(text, marker):
+    return text[text.find(marker) :]
+
+
+print(
+    extract_from_marker(
+        "I want stuff *from the *asterisk onwards",
+        "*",
+    )
+)
+# OUTPUT:
+# *from the asterisk onwards
+
+print(
+    extract_from_marker(
+        "My name is Stephen",
+        "S",
+    )
+)
+# OUTPUT:
+# Stephen
+ """
+
+from typing import NamedTuple
+
+
+class User(NamedTuple):
+    name: str
+    age: int
+    desc: str
+
+
+cs = User(123, 12, "name is int")
+
+print(cs)
+print(cs.__hash__())
