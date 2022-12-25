@@ -49,7 +49,6 @@ class EmployeeProfile(models.Model):
         max_length=255,
         blank=True,
     )
-    created = models.DateTimeField(default=timezone.now, blank=False)
 
     # employee = models.OneToOneField(Employee, related_name="employee", on_delete=models.CASCADE)
     employee_pay = models.ForeignKey(
@@ -60,13 +59,6 @@ class EmployeeProfile(models.Model):
         blank=True,
     )
     created = models.DateTimeField(default=timezone.now, blank=False)
-    employee_pay = models.ForeignKey(
-        "Payroll",
-        on_delete=models.CASCADE,
-        related_name="employee_pay",
-        null=True,
-        blank=True,
-    )
     photo = models.FileField(blank=True, null=True, default="default.png")
     nin = models.CharField(default=nin_no, unique=True, max_length=255, editable=False)
     tin_no = models.CharField(
@@ -106,7 +98,7 @@ class EmployeeProfile(models.Model):
     address = models.CharField(
         max_length=255, blank=True, null=True, verbose_name="address"
     )
-    created = models.DateTimeField(default=timezone.now, blank=False)
+
     job_title = models.CharField(
         max_length=255,
         choices=LEVEL,

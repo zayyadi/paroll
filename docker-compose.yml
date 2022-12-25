@@ -12,15 +12,14 @@ services:
       - .:/usr/src/app/
     ports:
       - "8002:8002"
-    depends_on:
-      - db
+    network_mode: host
 
-  db:
-    image: postgres:13
-    volumes:
-      - postgres_data:/var/lib/postgresql/data/
-    environment:
-      - "POSTGRES_HOST_AUTH_METHOD=trust"
+  # db:
+  #   image: postgres:13
+  #   volumes:
+  #     - postgres_data:/var/lib/postgresql/data/
+  #   environment:
+  #     - "POSTGRES_HOST_AUTH_METHOD=trust"
 
   redis:
     container_name: redis_payroll

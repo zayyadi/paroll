@@ -15,7 +15,7 @@ ALLOWED_HOSTS = []
 
 
 INSTALLED_APPS = [
-    "adminlte3_theme",
+    # "adminlte3_theme",
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -23,11 +23,13 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     # "compressor",
+    'api',
+    "rest_framework",
     "payroll",
     "crispy_forms",
     "mathfilters",
     "django.contrib.humanize",
-    "adminlte3",
+    # "adminlte3",
     "monthyear",
     "bootstrap4",
     "import_export",
