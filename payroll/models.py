@@ -42,7 +42,7 @@ class EmployeeProfile(models.Model):
     emp_id = models.CharField(
         default=emp_id, unique=True, max_length=255, editable=False
     )
-    # user = models.OneToOneField(User, on_delete=models.CASCADE, blank=True, null=True, related_name="employee_user")
+    user = models.OneToOneField(User, on_delete=models.CASCADE, blank=True, null=True, related_name="employee_user")
     first_name = models.CharField(max_length=255, blank=True, null=True)
     last_name = models.CharField(max_length=255, blank=True, null=True)
     email = models.EmailField(
@@ -50,7 +50,6 @@ class EmployeeProfile(models.Model):
         blank=True,
     )
 
-    # employee = models.OneToOneField(Employee, related_name="employee", on_delete=models.CASCADE)
     employee_pay = models.ForeignKey(
         "Payroll",
         on_delete=models.CASCADE,

@@ -87,13 +87,6 @@ class EmployeeProfileForm(forms.ModelForm):
 
 
 class PayrollForm(forms.ModelForm):
-    date_of_birth = forms.DateField(
-        widget=forms.TextInput(attrs={"class": "datepicker"})
-    )
-    date_of_employment = forms.DateField(
-        widget=forms.TextInput(attrs={"class": "datepicker"})
-    )
-
     class Meta:
         model = Payroll
         fields = ("basic_salary",)
