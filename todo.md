@@ -34,3 +34,4 @@
         - create account for netpay per month X
 
 
+- ulimit -S -u 4000

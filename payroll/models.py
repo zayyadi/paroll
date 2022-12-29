@@ -1,4 +1,6 @@
 from decimal import Decimal
+import os
+from uuid import uuid4
 
 from django.db import models
 from django.contrib.auth.models import User
@@ -30,6 +32,19 @@ from monthyear.models import MonthField
 #     def active(self):
 
 
+def path_and_rename(instance, filename):
+    upload_to = "employee_photo"
+    ext = filename.split(".")[-1]
+    # get filename
+    if instance.pk:
+        filename = "{}.{}".format(instance.pk, ext)
+    else:
+        # set filename as random string
+        filename = "{}.{}".format(uuid4().hex, ext)
+    # return the whole path to the file
+    return os.path.join(upload_to, filename)
+
+
 class EmployeeManager(models.Manager):
     def get_queryset(self):
         return super().get_queryset().filter(status="active")
@@ -42,7 +57,13 @@ class EmployeeProfile(models.Model):
     emp_id = models.CharField(
         default=emp_id, unique=True, max_length=255, editable=False
     )
-    user = models.OneToOneField(User, on_delete=models.CASCADE, blank=True, null=True, related_name="employee_user")
+    user = models.OneToOneField(
+        User,
+        on_delete=models.CASCADE,
+        blank=True,
+        null=True,
+        related_name="employee_user",
+    )
     first_name = models.CharField(max_length=255, blank=True, null=True)
     last_name = models.CharField(max_length=255, blank=True, null=True)
     email = models.EmailField(
@@ -58,7 +79,9 @@ class EmployeeProfile(models.Model):
         blank=True,
     )
     created = models.DateTimeField(default=timezone.now, blank=False)
-    photo = models.FileField(blank=True, null=True, default="default.png")
+    photo = models.FileField(
+        blank=True, null=True, default="default.png", upload_to=path_and_rename
+    )
     nin = models.CharField(default=nin_no, unique=True, max_length=255, editable=False)
     tin_no = models.CharField(
         default=tin_no, unique=True, max_length=255, editable=False
@@ -388,7 +411,9 @@ class PayT(models.Model):
 
 
 class Payday(models.Model):
-    paydays_id = models.ForeignKey(PayT, on_delete=models.CASCADE, related_name="pay")
+    paydays_id = models.ForeignKey(
+        PayT, on_delete=models.CASCADE, related_name="paydays_id"
+    )
     payroll_id = models.ForeignKey(
         PayVar, on_delete=models.CASCADE, related_name="payroll_paydays"
     )
