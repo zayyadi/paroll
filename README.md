@@ -37,6 +37,4 @@ This system is built for payroll administrator to setup the payroll effectivly, 
       * Pay Slip download
 
     3. Generate Reports
-      * KRA p9 form yearly.
-      * NSSF report
-      * NHIF report
+      * Monthly Employee Tax Schedule.
