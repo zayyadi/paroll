@@ -1,6 +1,12 @@
 {% extends 'base.html' %}
 {% load static %}
-{% load bootstrap4 %}
+{% load tailwind_filters %}
+{% load tailwind_tags %}
+{% tailwind_preload_css %}
+{% tailwind_css %}
+{% block title %}
+  Payee REPORT
+{% endblock title %}
 {% load mathfilters %}
 {% load humanize %}
 
@@ -11,8 +17,8 @@
         <!-- Page Heading -->
     {% if payroll %}
         <div class="d-sm-flex align-items-center justify-content-between mb-4">
-            <h1 class="h3 mb-0 text-gray-800">Bank Report for {{ payroll.paydays_id.paydays }}</h1>
-            <a href="" class="d-none d-sm-inline-block btn btn-sm btn-info shadow-sm">
+            <h1 class="h3 mb-0 text-gray-800">Payee Report for {{ dates }}</h1>
+            <a href="download/" class="d-none d-sm-inline-block btn btn-sm btn-info shadow-sm">
                 <i class="fas fa-download fa-sm text-white-50"></i> Generate Report</a>
         </div>
 
@@ -32,14 +38,19 @@
             
                  {% for payrol in payroll %}
                      <tr>
-                        <th scope="row">{{ payrol.payroll_id.payr.employee.emp_id }}</th>
-                        <td>{{ payrol.payroll_id.payr.employee.first_name }}</td>
-                        <td>{{ payrol.payroll_id.payr.employee.last_name }}</td>
-                        <td>{{ payrol.payroll_id.payr.employee.tin_no }}</td>
-                        <td>{{ payrol.payroll_id.payr.basic_salary }}</td>
-                        <td>{{ payrol.payroll_id.payr.payee|intcomma }}</td>
+                        <th scope="row">{{ payrol.payroll_id.pays.emp_id }}</th>
+                        <td>{{ payrol.payroll_id.pays.first_name }}</td>
+                        <td>{{ payrol.payroll_id.pays.last_name }}</td>
+                        <td>{{ payrol.payroll_id.pays.tin_no }}</td>
+                        <td>{{ payrol.payroll_id.pays.employee_pay.basic_salary }}</td>
+                        <td>{{ payrol.payroll_id.pays.employee_pay.payee|intcomma }}</td>
                      </tr>
                  {% endfor %}
+
+                 <tr class="bg-gray-200">
+                    <td colspan="5" class="py-2 px-4 font-bold text-right">Total Payee</td>
+                    <td class="py-2 px-4 font-bold">{{ total }}</td>
+                  </tr>
             </tbody>
         </table>
        {% comment %} <a href="download" class="btn btn-outline-info"> Download</a>  {% endcomment %}

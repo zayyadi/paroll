@@ -1,45 +1,62 @@
 {% extends 'base.html' %}
 
-{% block title %} Add PayDay{% endblock %}
+{% load static %}
+{% load tailwind_filters %}
+{% load tailwind_tags %}
+{% tailwind_preload_css %}
+{% tailwind_css %}
+{% block title %} Create Pay Day {% endblock title %}
+
 {% block content %}
 {% load crispy_forms_tags %}
-
-<div class="row">
-    
-    <div class="col-md-6 offset-md-3">
-        <h3>Add Pay</h3>
-        <hr>
-        <form method = "post" enctype="multipart/form-data">
-            <div class="input-field col s6">
-                <input placeholder="name" id="name" type="text" class="validate">
-                <label for="name">{{form.name}}</label>
+{% if messages %}
+{% for message in messages %}
+{% if message.level == DEFAULT_MESSAGE_LEVELS.ERROR %}
+<div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
+    <strong class="font-bold">{{ message|escape }}</strong>
+</div>
+{% else %}
+<div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative" role="alert">
+    <strong class="font-bold">{{ message|escape }}</strong>
+</div>
+{% endif %}
+{% endfor %}
+{% endif %}
+<div class="container mx-auto py-8">
+    <div class="max-w-lg mx-auto">
+        <form method="POST" enctype="multipart/form-data" class="bg-white shadow-md rounded px-8 pt-6 pb-8 mb-4">
+            {% csrf_token %}
+            <div class="mb-4 flex justify-between items-center">
+                <h2 class="text-2xl font-bold">Payroll Preparation Form</h2>
+                <button type="submit" class="bg-green-500 hover:bg-green-700 text-green-500 font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">Save</button>
             </div>
-
-
-            <div class="input-field col s6">
-                <input id="slug" type="slug" class="validate">
-                <label for="slug">{{form.slug}}</label>
+            <div class="mb-4">
+                {{ form.name|as_crispy_field }}
             </div>
-
-            
-            <div class="input-group-addon">
-                <input type="text" class="form-control">
-                <span class="glyphicon glyphicon-th">{{paydays}}</span>
+            <div class="mb-4">
+                {{ form.slug|as_crispy_field }}
             </div>
-
-            <div class="form-check">
-                
-                {% for pay in form.payroll_payday %}
-                    <input class="form-check-input" type="checkbox" value="" id="flexCheckDefault" />
-                    <label class="form-check-label" for="flexCheckDefault">{{pay}}</label>
-                {% endfor %}
-    
+            <div class="mb-4 flex items-center">
+                <label for="month" class="w-1/4 font-bold">Month:</label>
+                <div class="w-3/4">
+                    {{ form.paydays }}
+                </div>
             </div>
-            <button type = "submit" class = "btn btn-danger">Post</button>
+            <div class="mb-4">
+                <label class="block font-bold mb-2">{{ form.payroll_payday.label }}</label>
+                <div class="bg-gray-200 rounded-md p-4">
+                    {% for choice in form.payroll_payday.field.choices %}
+                    <div class="mb-2">
+                        <input type="checkbox" name="{{ form.payroll_payday.name }}" value="{{ choice.0 }}" id="{{ choice.0 }}" class="mr-2">
+                        <label for="{{ choice.0 }}">{{ choice.1 }}</label>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            <div class="mb-4">
+                {{ form.is_active|as_crispy_field }}
+            </div>
         </form>
     </div>
 </div>
-{% endblock  %}
-
-
-    
+{% endblock %}

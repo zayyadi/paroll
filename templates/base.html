@@ -1,44 +1,48 @@
 <!doctype html>
+
 <html lang="en">
     <head>
+      {% load static %}
+      {% load tailwind_filters %}
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width,">
         <title>{% block title %} Home{% endblock %}</title>
         {% include "scripts.html" %}
         
     </head>
-    <body>
+    <body class="bg-gray-100">
         {% include "navbar.html" %}
         {% block content %}
         
         {% endblock  %}
+        {% block scripts %}
+          <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+        {% endblock %}
     </body>
 
-    
-
-
-    <script>
-      $(function() {
-        $( ".datepicker" ).datepicker({
-          changeMonth: true,
-          changeYear: true,
-          maxDate: 0
-          // You can put more options here.
-
-        });
-      });
-
-    </script>
-    <script>
-     $(document).ready(function() {
-        $('#employees').DataTable();
-    });
-
-    </script>
-    <script>
-     $(document).ready(function() {
-        $('#allowances').DataTable();
-    });
-    </script>
-
 </html>
+
+<script>
+  $(function() {
+    $( ".datepicker" ).datepicker({
+      changeMonth: true,
+      changeYear: true,
+      maxDate: 0
+      // You can put more options here.
+
+    });
+  });
+
+</script>
+
+<script>
+  $(document).ready(function() {
+     $('#employees').DataTable();
+ });
+
+ </script>
+ <script>
+  $(document).ready(function() {
+     $('#allowances').DataTable();
+ });
+ </script>

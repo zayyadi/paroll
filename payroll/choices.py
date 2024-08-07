@@ -10,12 +10,27 @@ LEVEL = (
     ("C", "Casual"),
     ("JS", "Junior staff"),
     ("OP", "Operator"),
-    ("SU", "SUpervisor"),
+    ("SU", "Supervisor"),
     ("M", "Manager"),
     ("COO", "C.O.O"),
     # ("S", "Store Control Officer"),
 )
 
+
+ALLOWANCES = (
+    ("NULL", "NULL"),
+    ("LV", "Leave Allowance"),
+    ("13th", "13th Month"),
+    ("Ovr", "Overtime"),
+)
+
+DEDUCTIONS = (
+    ("NULL", "NULL"),
+    ("LT", "Lateness"),
+    ("AB", "Absensce"),
+    ("DM", "Damages"),
+    ("MISC", "Miscellenous"),
+)
 
 PAYMENT_METHOD = (
     ("B", "BANK PAYMENT"),
@@ -37,3 +52,8 @@ STATUS = (
     ("active", "ACTIVE"),
     ("pending", "PENDING"),
 )
+
+
+# RSAs = (
+#     ("LFA", )
+# )

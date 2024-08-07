@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+{% load static %}
+<head>
+
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <meta name="description" content="">
+  <meta name="author" content="">
+
+  <title>{% block title %}{% endblock %}</title>
+
+  <!-- Custom fonts for this template-->
+  <link href="{% static 'theme/vendor/fontawesome-free/css/all.min.css' %}" rel="stylesheet" type="text/css">
+  <link href="https://fonts.googleapis.com/css?family=Nunito:200,200i,300,300i,400,400i,600,600i,700,700i,800,800i,900,900i" rel="stylesheet">
+
+  <!-- Custom styles for this template-->
+  <link href="{% static 'theme/css/sb-admin-2.min.css' %}" rel="stylesheet">
+
+</head>
+
+<body class="bg-gradient-primary">
+
+    <div class="container mx-auto sm:px-4">
+  
+      <!-- Outer Row -->
+      <div class="flex flex-wrap  justify-center">
+  
+        <div class="xl:w-4/5 pr-4  lg:w-full pr-4  md:w-3/4 pr-4 pl-4">
+  
+          <div class="relative flex flex-col min-w-0 rounded break-words border bg-white border-1 border-gray-300 o-hidden border-0 shadow-lg my-5">
+            <div class="flex-auto p-6 p-0">
+              <!-- Nested Row within Card Body -->
+                <div class="flex flex-wrap ">
+                    <div class="lg:w-1/4 pr-4 pl-4 hidden lg:block"></div>
+                        <div class="lg:w-1/2 pr-4 pl-4">
+                            {% block body %}
+
+                            {% endblock %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+            

@@ -6,11 +6,15 @@ from django.conf.urls.static import static
 
 urlpatterns = [
     path("admin/", admin.site.urls),
-    path("account/", include("accounts.urls", namespace="accounts")),
-    path("account/", include("django.contrib.auth.urls")),
+    path("users/", include("users.urls", namespace="users")),
+    # path("account/", include("django.contrib.auth.urls")),
     path("", include("payroll.urls", namespace="payroll")),
     path("api/", include("api.urls", namespace="api")),
-    # path("employee", include("employee.urls", namespace="employee")),
+    path("oauth/", include("social_django.urls", namespace="social")),
+    path(
+        "__reload__/",
+        include("django_browser_reload.urls"),
+    ),
 ]
 
 if settings.DEBUG:

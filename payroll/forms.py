@@ -1,132 +1,159 @@
 from django import forms
 
-from payroll.models import *
+from payroll import models
+from monthyear.forms import MonthField
 
-from crispy_forms.helper import FormHelper
-
-from crispy_forms.layout import Field, Layout, Div, ButtonHolder, Submit
+# from crispy_forms.layout import Field, Layout, Div, ButtonHolder, Submit
+# from crispy_forms.helper import FormHelper
 
 
 class EmployeeProfileForm(forms.ModelForm):
-    def __init__(self, *args, **kwargs):
-        self.helper = FormHelper()
-        self.helper.layout = Layout(
-            Div(
-                Field("first_name"),
-                css_class="col-md-4",
-            ),
-            Div(
-                Field("last_name"),
-                css_class="col-md-4",
-            ),
-            Div(
-                Field("email"),
-                css_class="col-md-4",
-            ),
-            Div(
-                Field("photo"),
-                css_class="col-md-4",
-            ),
-            Div(
-                Field("date_of_birth"),
-                css_class="col-md-4",
-            ),
-            Div(
-                Field("gender"),
-                css_class="col-md-4",
-            ),
-            Div(
-                Div(
-                    Field("date_of_employment"),
-                    css_class="col-md-4",
-                ),
-                Div(
-                    Field("employee_pay"),
-                    css_class="col-md-4",
-                ),
-                Div(
-                    Field("contract_type"),
-                    css_class="col-md-4",
-                ),
-                Div(
-                    Field("bank_account_name"),
-                    css_class="col-md-4",
-                ),
-                Div(
-                    Field("bank_account_number"),
-                    css_class="col-md-4",
-                ),
-                css_class="row",
-            ),
-            Div(
-                Div(
-                    Field("email"),
-                    css_class="col-md-4",
-                ),
-                Div(
-                    Field("phone"),
-                    css_class="col-md-4",
-                ),
-                Div(
-                    Field("job_title"),
-                    css_class="col-md-4",
-                ),
-                Div(
-                    Field("address"),
-                    css_class="col-md-4",
-                ),
-                css_class="row",
-            ),
-            ButtonHolder(Submit("submit", "Save", css_class="button white")),
-        )
-        super(EmployeeProfileForm, self).__init__(*args, **kwargs)
-
     class Meta:
-        model = EmployeeProfile
-        fields = "__all__"
+        model = models.EmployeeProfile
+        fields = [
+            "first_name",
+            "last_name",
+            "employee_pay",
+            "photo",
+            "pension_rsa",
+            "date_of_birth",
+            "date_of_employment",
+            "contract_type",
+            "phone",
+            "gender",
+            "job_title",
+            "bank",
+            "bank_account_name",
+            "bank_account_number",
+        ]
+        widgets = {
+            "first_name": forms.TextInput(
+                attrs={
+                    "label": "block text-white text-sm font-bold mb-2",
+                    "class": "h-10 border mt-1 rounded px-4 w-full bg-gray-50",
+                }
+            ),
+            "last_name": forms.TextInput(
+                attrs={
+                    "label": "block text-white text-sm font-bold mb-2",
+                    "class": "h-10 border mt-1 rounded px-4 w-full bg-gray-50",
+                }
+            ),
+            "address": forms.TextInput(
+                attrs={
+                    "label": "block text-white text-sm font-bold mb-2",
+                    "class": "h-10 border mt-1 rounded px-4 w-full bg-gray-50",
+                }
+            ),
+            "employee_pay": forms.Select(),
+            "photo": forms.FileInput(),
+            "pension_rsa": forms.TextInput(
+                attrs={
+                    "label": "block text-white text-sm font-bold mb-2",
+                    "class": "h-10 border mt-1 rounded px-4 w-full bg-gray-50",
+                }
+            ),
+            "date_of_birth": forms.TextInput(
+                attrs={
+                    "label": "block text-white text-sm font-bold mb-2",
+                    "class": "h-10 border mt-1 rounded px-4 w-full bg-gray-50",
+                }
+            ),
+            "date_of_employment": forms.TextInput(
+                attrs={
+                    "label": "block text-white text-sm font-bold mb-2",
+                    "class": "h-10 border mt-1 rounded px-4 w-full bg-gray-50",
+                }
+            ),
+            "contract_type": forms.Select(),
+            "phone": forms.TextInput(
+                attrs={
+                    "label": "block text-white text-sm font-bold mb-2",
+                    "class": "h-10 border mt-1 rounded px-4 w-full bg-gray-50",
+                }
+            ),
+            "gender": forms.Select(),
+            "job_title": forms.Select(),
+            "bank": forms.Select(),
+            "bank_account_name": forms.TextInput(
+                attrs={
+                    "label": "block text-white text-sm font-bold mb-2",
+                    "class": "h-10 border mt-1 rounded px-4 w-full bg-gray-50",
+                }
+            ),
+            "bank_account_number": forms.TextInput(
+                attrs={
+                    "label": "block text-white text-sm font-bold mb-2",
+                    "class": "h-10 border mt-1 rounded px-4 w-full bg-gray-50",
+                }
+            ),
+        }
+        # exclude = ["created",]
 
 
 class PayrollForm(forms.ModelForm):
     class Meta:
-        model = Payroll
+        model = models.Payroll
         fields = ("basic_salary",)
-
-    def __init__(self, *args, **kwargs):
-        super(PayrollForm, self).__init__(*args, **kwargs)
-
-        # self.fields['employee'].widget.attrs = {'placeholder': 'Choose Employee', 'class':'form-control'}
-        self.fields["basic_salary"].widget.attrs = {
-            "placeholder": "Enter your Basic Salary",
-            "class": "form-control",
-        }
 
 
 class AllowanceForm(forms.ModelForm):
     class Meta:
-        model = Allowance
-        fields = ("payee", "name", "amount")
-
-    def __init__(self, *args, **kwargs):
-        super(AllowanceForm, self).__init__(*args, **kwargs)
-
-        # self.fields['payr'].widget.attrs = {'placeholder':"choose Employee Pay"}
-        self.fields["name"].widget.attrs = {"placeholder": "Name"}
-        self.fields["amount"].widget.attrs = {"placeholder": "Amount"}
+        model = models.Allowance
+        fields = "__all__"
 
 
-class CustomMMCF(forms.ModelMultipleChoiceField):
-    def label_from_instance(self, member):
-        return "%s" % member.name
+# class CustomMMCF(forms.ModelMultipleChoiceField):
+#     def label_from_instance(self, member):
+#         return "%s" % member.name
 
 
 class PaydayForm(forms.ModelForm):
+    name = forms.CharField(label="Name", required=True)
+    slug = forms.CharField(label="Slug", required=True)
+    # paydays = forms.DateField(
+    #     label="Month of Payroll",
+    #     widget=forms.TextInput(attrs={"class": "datepicker"}),
+    # )
 
-    paydays = MonthField()
+    payroll_payday = forms.ModelMultipleChoiceField(
+        models.PayVar.objects.all().order_by("pays__first_name"),
+        label="Employee to be included in Payroll for the Month",
+        widget=forms.CheckboxSelectMultiple,
+    )
+    # is_active = forms.CheckboxInput()
 
     class Meta:
-        model = PayT
-        fields = ("name", "slug", "paydays", "payroll_payday")
-
-        payroll_payday = CustomMMCF(
-            queryset=PayVar.objects.all(), widget=forms.CheckboxSelectMultiple
+        model = models.PayT
+        fields = (
+            "name",
+            "slug",
+            "paydays",
+            "payroll_payday",
+            "is_active",
         )
+
+        paydays = forms.DateField(
+            label="Month of Payroll",
+            widget=forms.TextInput(attrs={"class": "datepicker"}),
+        )
+
+        # forms.ModelMultipleChoiceField(
+        #     queryset=models.PayVar.objects.all(),  # Assuming PayVar is the related model
+        #     # widget=forms.CheckboxSelectMultiple,  # Use checkboxes for multiple selection
+        #     required=False,
+        # )
+
+
+class MonthForm(forms.Form):
+    month = MonthField()
+
+
+class IOUForm(forms.ModelForm):
+    class Meta:
+        model = models.IOU
+        fields = [
+            "amount",
+            "tenor",
+            "approved_at",
+        ]

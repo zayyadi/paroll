@@ -1,7 +1,5 @@
-from pathlib import Path
 import os
 
-from pathlib import Path
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -22,18 +20,34 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "django.contrib.sites",
     # "compressor",
-    'api',
+    "api",
     "rest_framework",
+    "users",
     "payroll",
+    "theme",
+    "django_browser_reload",
+    "tailwind",
     "crispy_forms",
+    "crispy_tailwind",
     "mathfilters",
     "django.contrib.humanize",
+    "widget_tweaks",
     # "adminlte3",
+    "storages",
     "monthyear",
-    "bootstrap4",
     "import_export",
+    "social_django",
 ]
+
+SITE_ID = 1
+
+
+INTERNAL_IPS = [
+    "127.0.0.1",
+]
+
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
@@ -43,10 +57,12 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
-    "social_django.middleware.SocialAuthExceptionMiddleware",
+    "django.middleware.locale.LocaleMiddleware",
+    # "social_django.middleware.SocialAuthExceptionMiddleware",
 ]
 
 ROOT_URLCONF = "core.urls"
+
 
 TEMPLATES = [
     {
@@ -59,6 +75,7 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
+                "django.template.context_processors.i18n",
             ],
         },
     },
@@ -71,23 +88,23 @@ DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql_psycopg2",
         "NAME": os.environ.get("DB_NAME"),
-        "USER": os.environ.get("DB_USER"),
+        "USER": os.environ.get("DB_USER", "jamb"),
         "PASSWORD": os.environ.get("DB_PASSWORD"),
-        "HOST": os.environ.get("DB_HOST"),
-        "PORT": "5432",
+        "HOST": os.environ.get("DB_HOST", "localhost"),
+        "PORT": os.environ.get("PORT"),
     }
 }
 
 
-CACHES = {
-    "default": {
-        "BACKEND": "django_redis.cache.RedisCache",
-        "LOCATION": os.environ.get("REDIS_LOCATION"),
-        "OPTIONS": {
-            "CLIENT_CLASS": "django_redis.client.DefaultClient",
-        },
-    }
-}
+# CACHES = {
+#     "default": {
+#         "BACKEND": "django_redis.cache.RedisCache",
+#         "LOCATION": os.environ.get("REDIS_LOCATION"),
+#         "OPTIONS": {
+#             "CLIENT_CLASS": "django_redis.client.DefaultClient",
+#         },
+#     }
+# }
 
 # Password validation
 # https://docs.djangoproject.com/en/4.1/ref/settings/#auth-password-validators
@@ -102,7 +119,7 @@ AUTHENTICATION_BACKENDS = (
 
 AUTH_PASSWORD_VALIDATORS = [
     {
-        "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",
+        "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",  # noqa: E501
     },
     {
         "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
@@ -124,7 +141,45 @@ CACHES = {
     }
 }
 
+SITE_TITLE = os.getenv("SITE_TITLE", "PAYROLL")
+
 CACHE_TTL = 60 * 15
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "verbose": {
+            "format": (
+                "%(asctime)s [%(process)d] [%(levelname)s] "
+                + "pathname=%(pathname)s lineno=%(lineno)s "
+                + "funcname=%(funcName)s %(message)s"
+            ),
+            "datefmt": "%Y-%m-%d %H:%M:%S",
+        },
+        "simple": {"format": "%(levelname)s %(message)s"},
+    },
+    "handlers": {
+        "null": {
+            "level": "DEBUG",
+            "class": "logging.NullHandler",
+        },
+        "console": {
+            "level": "DEBUG",
+            "class": "logging.StreamHandler",
+            "formatter": "verbose",
+        },
+    },
+    "loggers": {
+        "testlogger": {
+            "handlers": ["console"],
+            "level": "INFO",
+        }
+    },
+}
+
+DEBUG_PROPAGATE_EXCEPTIONS = True
+
 
 LANGUAGE_CODE = "en-ng"
 
@@ -138,6 +193,15 @@ USE_I18N = True
 
 USE_TZ = True
 
+TAILWIND_APP_NAME = "theme"
+
+
+# CRISPY_ALLOWED_TEMPLATE_PACKS = "tailwind"
+
+# CRISPY_TEMPLATE_PACK = "tailwind"
+CRISPY_ALLOWED_TEMPLATE_PACKS = "tailwind"
+
+CRISPY_TEMPLATE_PACK = "tailwind"
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/4.1/howto/static-files/
@@ -145,6 +209,7 @@ USE_TZ = True
 STATIC_URL = "/static/"
 
 STATICFILES_DIRS = [
+    os.path.join(BASE_DIR, "static"),
     os.path.join(BASE_DIR, "static"),
 ]
 
@@ -159,8 +224,8 @@ SOCIAL_AUTH_JSONFIELD_ENABLED = True
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 LOGIN_REDIRECT_URL = "payroll:index"
-LOGIN_URL = "login"
-LOGOUT_URL = "logout"
+LOGIN_URL = "users:login"
+LOGOUT_URL = "users:logout"
 
 SOCIAL_AUTH_LOGIN_ERROR_URL = "accounts:settings"
 SOCIAL_AUTH_LOGIN_REDIRECT_URL = "payroll:index"
@@ -190,11 +255,17 @@ EMAIL_HOST = "smtp.mailtrap.io"
 EMAIL_HOST_USER = os.environ.get("EMAIL_USERNAME")
 EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_PASSWORD")
 EMAIL_PORT = os.environ.get("EMAIL_PORT")
-EMAIL_USE_TLS: False
+EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "True")
+DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL")
+EMAIL_FILE_PATH = os.getenv("EMAIL_FILE_PATH", os.path.join(BASE_DIR, "test-emails"))
+
 EMAIL_USE_SSL: False
 
-# COMPRESS_ROOT = os.path.join(BASE_DIR, "static")
+AUTH_USER_MODEL = "users.CustomUser"
+AUTH_USER_DEFAULT_GROUP = "payroll-members"
 
-# COMPRESS_ENABLED = True
 
-# STATICFILES_FINDERS = ("compressor.finders.CompressorFinder",)
+SITE_TITLE = os.getenv("SITE_TITLE", "Demo Site")
+SITE_TAGLINE = os.getenv("SITE_TAGLINE", "Demo Site")
+SITE_DESCRIPTION = "SITE_DESCRIPTION"
+SITE_LOGO = os.getenv("SITE_LOGO", "http://localhost:8001/static/logo.png")
