@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% load static %}
+{% load tailwind_filters %}
+{% load tailwind_tags %}
+{% tailwind_preload_css %}
+{% tailwind_css %}
+{% load custom_tags %}
+{% block title %}
+    Payslip List
+{% endblock title %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <div class="flex justify-between items-center mb-6">
+        <h1 class="text-2xl font-semibold text-gray-800">Payslip List for {{ emp.first_name }} {{ emp.last_name }}</h1>
+    </div>
+    <table class="min-w-full bg-white shadow-md rounded-lg overflow-hidden">
+        <thead class="bg-gray-200">
+            <tr>
+                <th class="py-2 px-4 text-left">#</th>
+                <th class="py-2 px-4 text-left">Year-Month</th>
+                <th class="py-2 px-4 text-left">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for payday in pay %}
+                <tr class="border-b border-gray-200">
+                    <td class="py-2 px-4">{{ forloop.counter }}</td>
+                    <td class="py-2 px-4">Payslip for the month {{ dates|index:forloop.counter0 }}</td>
+                    <td class="py-2 px-4">
+                        <a href="{% url 'payroll:payslip' payday.id %}" class="bg-blue-500 text-white py-1 px-3 rounded hover:bg-blue-700">View Payslip</a>
+                    </td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock content %}

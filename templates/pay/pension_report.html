@@ -11,7 +11,7 @@
         <!-- Page Heading -->
     {% if payroll %}
         <div class="d-sm-flex align-items-center justify-content-between mb-4">
-            <h1 class="h3 mb-0 text-gray-800">Bank Report for {{ payroll.paydays_id.paydays }}</h1>
+            <h1 class="h3 mb-0 text-gray-800">Pension Payment Report for {{ payroll.paydays_id.paydays }}</h1>
             <a href="download/" class="d-none d-sm-inline-block btn btn-sm btn-info shadow-sm">
                 <i class="fas fa-download fa-sm text-white-50"></i> Generate Report</a>
         </div>
@@ -22,9 +22,9 @@
                     <th scope="col">EmpNo</th>
                     <th scope="col">Employee First Name</th>
                     <th scope="col">Employee Last Name</th>
-                    <th scope="col">Employee Tax Number</th>
+                    <th scope="col">Employee Pension RSA</th>
                     <th scope="col">Basic Salary</th>
-                    <th scope="col">Payee</th>
+                    <th scope="col">Payable Pension</th>
                 </tr>
             </thead>
             <tbody>
@@ -32,14 +32,22 @@
             
                  {% for payrol in payroll %}
                      <tr>
-                        <th scope="row">{{ payrol.payroll_id.payr.employee.emp_id }}</th>
-                        <td>{{ payrol.payroll_id.payr.employee.first_name }}</td>
-                        <td>{{ payrol.payroll_id.payr.employee.last_name }}</td>
-                        <td>{{ payrol.payroll_id.payr.employee.tin_no }}</td>
-                        <td>{{ payrol.payroll_id.payr.basic_salary }}</td>
-                        <td>{{ payrol.payroll_id.payr.pension|intcomma }}</td>
+                        <th scope="row">{{ payrol.payroll_id.pays.emp_id }}</th>
+                        <td>{{ payrol.payroll_id.pays.first_name }}</td>
+                        <td>{{ payrol.payroll_id.pays.last_name }}</td>
+                        <td>{{ payrol.payroll_id.pays.pension_rsa }}</td>
+                        <td>{{ payrol.payroll_id.pays.employee_pay.basic_salary }}</td>
+                        <td>{{ payrol.payroll_id.pays.employee_pay.pension|intcomma }}</td>
                      </tr>
                  {% endfor %}
+                     <tr>
+                        <th scope="row"><strong>Total</strong></th>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td>{{ pension_total|intcomma }}</td>
+                     </tr>
             </tbody>
         </table>
        {% comment %} <a href="download" class="btn btn-outline-info"> Download</a>  {% endcomment %}

@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% load static %}
+{% load tailwind_filters %}
+{% load tailwind_tags %}
+{% tailwind_preload_css %}
+{% tailwind_css %}
+{% load custom_tags %}
+
+{% block title %}
+  NHF REPORTS
+{% endblock title %}
+
+{% block content %}
+    <div class="d-sm-flex align-items-center justify-content-between mb-4">
+        <h1 class="h3 mb-0 text-gray-800">BANK REPORTS</h1>
+    </div>
+    <table class="table">
+        <thead class="thead-light">
+            <tr>
+                <th scope="col">#</th>
+                <th scope="col">Year-Month</th>
+                <th scope="col">Report</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for payrol in payroll  %}
+                <tr>
+                    <th scope="row">{{ forloop.counter }}</th>
+                    <td>{{ dates|index:forloop.counter0 }}</td>
+                    <td><a href="{% url 'payroll:nhfReport' payrol.id %}" class="btn btn-info">View Report</a></td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% endblock %}

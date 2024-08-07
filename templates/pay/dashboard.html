@@ -1,4 +1,13 @@
 {% extends "base.html" %}
+{% load static %}
+{% load tailwind_filters %}
+{% load tailwind_tags %}
+{% tailwind_preload_css %}
+{% tailwind_css %}
+
+{% block title %}
+  DASHBOARD
+{% endblock title %}
 
 {% block content %}
 <h2>Control Panel</h2>
@@ -13,38 +22,76 @@
 <div class="overflow-x-auto relative">
   <table class="w-full text-sm text-left text-gray-500 dark:text-gray-400">
     <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
-          <tr>
-            <th scope="col" class="py-3 px-6">id</th>
-            <th scope="col" class="py-3 px-6">Name</th>
-            <th scope="col" class="py-3 px-6">Gross Salary</th>
-            <th scope="col" class="py-3 px-6">Pension</th>
-            <th scope="col" class="py-3 px-6">Payee</th>
-            <th scope="col" class="py-3 px-6">Net_pay</th>
-          </tr>
+      <tr>
+        <th scope="col" class="p-4">
+          ID
+        </th>
+        <th scope="col" class="px-6 py-3">
+          Name
+        </th>
+        <th scope="col" class="px-6 py-3">
+          Gross Salary
+        </th>
+        <th scope="col" class="px-6 py-3">
+          Pension
+        </th>
+        <th scope="col" class="px-6 py-3">
+          Payee
+        </th>
+        <th scope="col" class="px-6 py-3">
+          Net Pay
+        </th>
+        <th scope="col" class="px-6 py-3">
+          <span class="sr-only">View Payslip</span>
+        </th>
+      </tr>
     </thead>
     <tbody>
       {% for pay in emp %}
-      <tr class="bg-white border-b dark:bg-gray-800 dark:border-gray-700">
-        <th scope="row" class="py-4 px-6 font-medium text-gray-900 whitespace-nowrap">{{pay.id}}</th>
-        <td><a href="{% url 'payroll:payslip' pay.id %}">{{pay.first_name}}</a></td>
-        <td>{{pay.employee_pay.basic_salary}}</td>
-        <td>{{pay.employee_pay.pension}}</td>
-        <td>{{pay.employee_pay.payee}}</td>
-        <td>{{pay.net_pay}}</a> </td>
-          
+      <tr
+        class="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
+        <td class="w-4 p-4">
+          {{pay.id}}
+        </td>
+        
+        <td class="px-6 py-4">
+          {{pay.first_name}} {{pay.last_name}}
+        </td>
+        <td class="px-6 py-4">
+          {{pay.employee_pay.basic_salary}}
+        </td>
+        <td class="px-6 py-4">
+          {{pay.employee_pay.pension}}
+        </td>
+        <td class="px-6 py-4">
+          {{pay.employee_pay.payee}}
+        </td>
+        <td class="px-6 py-4">
+          {{pay.net_pay}}
+        </td>
+        <td class="px-6 py-4 text-right">
+          <a href="{{pay.get_absolute_url}}" class="font-medium text-blue-600 dark:text-blue-500 hover:underline">View Payslip</a>
+        </td>
       </tr>
       {% endfor %}
-      
     </tbody>
   </table>
 </div>
 {% else %}
 
 <div class = "alert alert-danger">   
-You don't have any articles yet...
+You don't have any 
+
+Payslip yet...
 </div>
 {% endif %}
 
 
 
 {% endblock %}
+
+
+</div>
+
+<script src="https://unpkg.com/flowbite@1.3.4/dist/flowbite.js"></script>
+</div>

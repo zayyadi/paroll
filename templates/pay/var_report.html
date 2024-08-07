@@ -1,12 +1,17 @@
 {% include 'base.html' %}
 {% load static %}
+{% load tailwind_filters %}
+{% load tailwind_tags %}
+{% tailwind_preload_css %}
+{% tailwind_css %}
+<title>{% block title %} payroll {% endblock %}</title>
 
 {% block content %}
 <div class="container mt-5 mb-5">
     <div class="row">
         <div class="col-md-12">
             <div class="text-center lh-1 mb-2">
-                <h6 class="fw-bold">PayDay</h6> <span class="fw-normal">Payment roaster for the month of {% now "F Y" %}</span>
+                <h6 class="fw-bold">PayDay</h6> <span class="fw-normal">Payment roaster for the month of {{ dates }}</span>
             </div>
             {% if pay_var %}
             <div class="d-sm-flex align-items-center justify-content-between mb-4">

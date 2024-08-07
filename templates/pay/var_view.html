@@ -1,37 +1,45 @@
 {% extends 'base.html' %}
+{% load static %}
+{% load tailwind_filters %}
+{% load tailwind_tags %}
+{% tailwind_preload_css %}
+{% tailwind_css %}
+{% load custom_tags %}
+
+
 {% block title %}PayDay view{% endblock  %}
 
 {% block content %}
 
 
-                <div class="container container-fluid">
+    <div class="container container-fluid">
 
-                    <!-- Page Heading -->
-                    <div class="d-sm-flex align-items-center justify-content-between mb-4">
-                        <h1 class="h3 mb-0 text-gray-800">NHIF</h1>
+        <!-- Page Heading -->
+        <div class="d-sm-flex align-items-center justify-content-between mb-4">
+            <h1 class="h3 mb-0 text-gray-800">NHIF</h1>
     {#                    <a href="#" class="d-none d-sm-inline-block btn btn-sm btn-primary shadow-sm"><i#}
     {#                            class="fas fa-download fa-sm text-white-50"></i> Generate Report</a>#}
-                    </div>
-    
-                   <table class="table">
-                        <thead class="thead-light">
-                            <tr>
-                                <th scope="col">#</th>
-                                <th scope="col">Year-Month</th>
-                                <th scope="col">Report</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for month in pay_var  %}
-                                <tr>
-                                    <th scope="row">{{ forloop.counter }}</th>
-                                    <td>{{ month.paydays }}</td>
-                                    <td><a href="{{ month.paydays }}/" class="btn btn-info">View Report</a></td>
-                                </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-    
-                </div>
+        </div>
+
+        <table class="table">
+            <thead class="thead-light">
+                <tr>
+                    <th scope="col">#</th>
+                    <th scope="col">Year-Month</th>
+                    <th scope="col">Report</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for month in pay_var  %}
+                    <tr>
+                        <th scope="row">{{ forloop.counter }}</th>
+                        <td>{{ dates|index:forloop.counter0 }}</td>
+                        <td><a href="{{ month.paydays }}/" class="btn btn-info">View Report</a></td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+    </div>
 
 {% endblock  %}

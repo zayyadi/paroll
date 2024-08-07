@@ -1,47 +1,58 @@
 {% extends 'base.html' %}
 {% load static %}
-{% load bootstrap4 %}
+{% load tailwind_filters %}
+{% load tailwind_tags %}
+{% tailwind_preload_css %}
+{% tailwind_css %}
 
+{% block title %}
+  Bank REPORT
+{% endblock title %}
 
 {% block content %}
-
-
-    <div class="container container-fluid">
-        <!-- Page Heading -->
-    {% if payroll %}
-        <div class="d-sm-flex align-items-center justify-content-between mb-4">
-            <h1 class="h3 mb-0 text-gray-800">Bank Report for {{ payroll.paydays_id.paydays }}</h1>
-            <a href="download/" class="d-none d-sm-inline-block btn btn-sm btn-info shadow-sm">
-                <i class="fas fa-download fa-sm text-white-50"></i> Generate Report</a>
-        </div>
-
-        <table class="table table-striped">
-            <thead class="thead-dark">
-                <tr>
-                    <th scope="col">EmpNo</th>
-                    <th scope="col">EmpName</th>
-                    <th scope="col">Bank Name</th>
-                    <th scope="col">Branch Name</th>
-                    <th scope="col">Account No.</th>
-                    <th scope="col">Net Pay</th>
-                </tr>
-            </thead>
-            <tbody>
-          
-            
-                 {% for payrol in payroll %}
-                     <tr>
-                        <th scope="row">{{ payrol.payroll_id.pays.employee.emp_id }}</th>
-                        <td>{{ payrol.payroll_id.pays.employee.first_name }} {{ payrol.payroll_id.pays.employee.last_name }}</td>
-                        <td>{{ payrol.payroll_id.pays.get_bank_display}}</td>
-                        <td>{{ payrol.payroll_id.pays.bank_account_name }}</td>
-                        <td>{{ payrol.payroll_id.pays.bank_account_number }}</td>
-                        <td>{{ payrol.payroll_id.netpay}}</td>
-                     </tr>
-                 {% endfor %}
-            </tbody>
-        </table>
-       {% comment %} <a href="download" class="btn btn-outline-info"> Download</a>  {% endcomment %}
-    {% endif %}
+<div class="container mx-auto py-8">
+  {% if payroll %}
+    <div class="flex items-center justify-between mb-6">
+      <h1 class="text-2xl font-bold text-gray-800">Bank Report for {{ dates }}</h1>
+      <a href="download/" class="btn btn-primary flex items-center">
+        <i class="fas fa-download mr-2"></i> Generate Report
+      </a>
     </div>
+
+    <div class="overflow-x-auto">
+      <table class="min-w-full bg-white shadow rounded-lg">
+        <thead>
+          <tr class="bg-gray-800 text-white">
+            <th class="py-2 px-4">EmpNo</th>
+            <th class="py-2 px-4">EmpName</th>
+            <th class="py-2 px-4">Bank Name</th>
+            <th class="py-2 px-4">Account Name</th>
+            <th class="py-2 px-4">Account No.</th>
+            <th class="py-2 px-4">Net Pay</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for payrol in payroll %}
+            <!-- {% with total_netpay=total_netpay|add:payrol.payroll_id.netpay %} -->
+            <tr class="border-b">
+              <td class="py-2 px-4">{{ payrol.payroll_id.pays.emp_id }}</td>
+              <td class="py-2 px-4">{{ payrol.payroll_id.pays.first_name }} {{ payrol.payroll_id.pays.last_name }}</td>
+              <td class="py-2 px-4">{{ payrol.payroll_id.pays.get_bank_display }}</td>
+              <td class="py-2 px-4">{{ payrol.payroll_id.pays.bank_account_name }}</td>
+              <td class="py-2 px-4">{{ payrol.payroll_id.pays.bank_account_number }}</td>
+              <td class="py-2 px-4">{{ payrol.payroll_id.netpay }}</td>
+            </tr>
+            <!-- {% endwith %} -->
+          {% endfor %}
+          <tr class="bg-gray-200">
+            <td colspan="5" class="py-2 px-4 font-bold text-right">Total Net Pay</td>
+            <td class="py-2 px-4 font-bold">{{ total_netpay }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p class="text-center text-gray-500">No payroll data available.</p>
+  {% endif %}
+</div>
 {% endblock %}

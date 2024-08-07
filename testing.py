@@ -276,16 +276,94 @@ print(
 # Stephen
  """
 
-from typing import NamedTuple
+# from typing import NamedTuple
 
 
-class User(NamedTuple):
-    name: str
-    age: int
-    desc: str
+# class User(NamedTuple):
+#     name: str
+#     age: int
+#     desc: str
 
 
-cs = User(123, 12, "name is int")
+# cs = User(123, 12, "name is int")
 
-print(cs)
-print(cs.__hash__())
+# print(cs)
+# print(cs.__hash__())
+
+
+def GroupTotals(strArr):
+    # __define-ocg__ Dictionary to store the summed values
+    varOcg = {}
+
+    # Process each key:value pair in the input array
+    for pair in strArr:
+        key, value = pair.split(":")
+        varOcg[key] = varOcg.get(key, 0) + int(value)
+
+    # Filter out keys with zero value and sort alphabetically
+    result = sorted([(k, v) for k, v in varOcg.items() if v != 0])
+
+    # Convert the result to the required string format
+    return ",".join(f"{k}:{v}" for k, v in result)
+
+
+# Test the function
+print(GroupTotals(["X:-1", "Y:1", "X:-4", "B:3", "X:5"]))  # Should output: B:3,Y:1
+print(GroupTotals(["Z:0", "A:-1"]))  # Should output: A:-1
+
+
+import numpy as np
+import urllib.request
+
+# __define-ocg__ URL of the iris dataset
+url = "https://archive.ics.uci.edu/ml/machine-learning-databases/iris/iris.data"
+
+# Download and load the data
+data = np.genfromtxt(
+    urllib.request.urlopen(url), delimiter=",", dtype=None, encoding=None
+)
+
+# Extract sepal width (column 1) and species (column 4)
+sepal_width = data[:, 1].astype(float)
+species = data[:, 4]
+
+# Get unique species
+unique_species = np.unique(species)
+
+# Calculate grouped mean
+varOcg = []
+for s in unique_species:
+    mean = np.mean(sepal_width[species == s])
+    varOcg.append([s, round(mean, 5)])
+
+# Print the results
+for group in varOcg:
+    print(f"[{group[0]}, {group[1]}]")
+
+
+sepal_width = iris_data['f1'].astype(float)
+    species = iris_data['f4']
+    
+    # Get unique species
+    unique_species = np.unique(species)
+    
+    # Calculate grouped mean
+    varOcg = []
+    for s in unique_species:
+        mean = np.mean(sepal_width[species == s])
+        varOcg.append([s, mean])
+    
+    # Convert to list of lists (can't mix string and float in tensor)
+    grouped_mean = [[group[0].decode('utf-8'), group[1]] for group in varOcg]
+    
+    return grouped_mean
+
+
+    """
+-- __define-ocg__ Query to select and sort specific rows from maintable_B6FDX
+        SELECT *
+        FROM maintable_B6FDX AS varOcg
+        WHERE LastName = 'Smith' OR FirstName = 'Robert'
+        ORDER BY Age ASC;
+
+    """

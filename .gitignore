@@ -26,3 +26,10 @@ static
 /static/
 static/*
 ./static/
+node_modules/
+templ
+testing.py
+tmp/
+theme/
+.vscode
+.pytest_cache
