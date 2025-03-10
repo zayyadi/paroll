@@ -6,40 +6,34 @@
 {% tailwind_css %}
 {% load custom_tags %}
 
-
-{% block title %}PayDay view{% endblock  %}
+{% block title %}PayDay View{% endblock %}
 
 {% block content %}
-
-
-    <div class="container container-fluid">
-
-        <!-- Page Heading -->
-        <div class="d-sm-flex align-items-center justify-content-between mb-4">
-            <h1 class="h3 mb-0 text-gray-800">NHIF</h1>
-    {#                    <a href="#" class="d-none d-sm-inline-block btn btn-sm btn-primary shadow-sm"><i#}
-    {#                            class="fas fa-download fa-sm text-white-50"></i> Generate Report</a>#}
-        </div>
-
-        <table class="table">
-            <thead class="thead-light">
+<div class="container mx-auto py-8">
+    <div class="flex items-center justify-between mb-4">
+        <h1 class="text-2xl font-semibold text-gray-800">NHIF Reports</h1>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="min-w-full bg-white shadow-md rounded-lg">
+            <thead class="bg-gray-200">
                 <tr>
-                    <th scope="col">#</th>
-                    <th scope="col">Year-Month</th>
-                    <th scope="col">Report</th>
+                    <th class="px-4 py-2 border-b">#</th>
+                    <th class="px-4 py-2 border-b">Year-Month</th>
+                    <th class="px-4 py-2 border-b">Report</th>
                 </tr>
             </thead>
             <tbody>
-                {% for month in pay_var  %}
-                    <tr>
-                        <th scope="row">{{ forloop.counter }}</th>
-                        <td>{{ dates|index:forloop.counter0 }}</td>
-                        <td><a href="{{ month.paydays }}/" class="btn btn-info">View Report</a></td>
-                    </tr>
+                {% for month in pay_var %}
+                <tr class="bg-white even:bg-gray-50">
+                    <td class="px-4 py-2 border-b text-center">{{ forloop.counter }}</td>
+                    <td class="px-4 py-2 border-b text-center">{{ dates|index:forloop.counter0 }}</td>
+                    <td class="px-4 py-2 border-b text-center">
+                        <a href="{{ month.paydays }}/" class="btn btn-info">View Report</a>
+                    </td>
+                </tr>
                 {% endfor %}
             </tbody>
         </table>
-
     </div>
-
-{% endblock  %}
+</div>
+{% endblock %}

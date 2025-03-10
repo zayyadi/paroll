@@ -77,13 +77,13 @@ class EmployeeProfileForm(forms.ModelForm):
             "bank": forms.Select(),
             "bank_account_name": forms.TextInput(
                 attrs={
-                    "label": "block text-white text-sm font-bold mb-2",
+                    "label": "block text-yellow text-sm font-bold mb-2",
                     "class": "h-10 border mt-1 rounded px-4 w-full bg-gray-50",
                 }
             ),
             "bank_account_number": forms.TextInput(
                 attrs={
-                    "label": "block text-white text-sm font-bold mb-2",
+                    "label": "block text-yellow text-sm font-bold mb-2",
                     "class": "h-10 border mt-1 rounded px-4 w-full bg-gray-50",
                 }
             ),
@@ -157,3 +157,31 @@ class IOUForm(forms.ModelForm):
             "tenor",
             "approved_at",
         ]
+
+
+class LeaveRequestForm(forms.ModelForm):
+    class Meta:
+        model = models.LeaveRequest
+        fields = ["leave_type", "start_date", "end_date", "reason"]
+        widgets = {
+            "start_date": forms.DateInput(attrs={"type": "date"}),
+            "end_date": forms.DateInput(attrs={"type": "date"}),
+        }
+
+
+class LeavePolicyForm(forms.ModelForm):
+    class Meta:
+        model = models.LeavePolicy
+        fields = ["leave_type", "max_days"]
+
+
+class IOURequestForm(forms.ModelForm):
+    class Meta:
+        model = models.IOU
+        fields = ["amount", "tenor", "reason", "payment_method"]
+
+
+class IOUApprovalForm(forms.ModelForm):
+    class Meta:
+        model = models.IOU
+        fields = ["status", "approved_at"]

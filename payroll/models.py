@@ -7,6 +7,8 @@ from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from django.core.validators import RegexValidator
 from django.core.exceptions import ValidationError
+from django.core.validators import MinValueValidator
+
 
 from django.db.models.signals import post_save
 from django.dispatch import receiver
@@ -39,6 +41,14 @@ def path_and_rename(instance, filename):
     return os.path.join(upload_to, filename)
 
 
+class Department(models.Model):
+    name = models.CharField(max_length=100)
+    description = models.TextField(blank=True)
+
+    def __str__(self):
+        return self.name
+
+
 class EmployeeManager(models.Manager):
     def get_queryset(self):
         return super().get_queryset().filter(status="active")
@@ -58,6 +68,12 @@ class EmployeeProfile(models.Model):
         unique=True,
         max_length=50,
         verbose_name=_("Employee slug to identify and route the employee."),
+    )
+    department = models.ForeignKey(
+        Department,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
     )
     user = models.OneToOneField(
         settings.AUTH_USER_MODEL,
@@ -593,9 +609,12 @@ class PayVar(models.Model):
 
     @property
     def get_netpay(self):
+        if not self.pays.net_pay:
+            return Decimal(0.0)
+        print(f"pays: {self.pays.net_pay}")
         return (
             self.pays.net_pay
-            + (self.calc_allowance or 0)
+            + self.calc_allowance
             - self.calc_deduction
             - self.employee_health
             - self.nhf
@@ -686,17 +705,51 @@ class Payday(models.Model):
 
 
 class IOU(models.Model):
+    STATUS_CHOICES = [
+        ("PENDING", "Pending"),
+        ("APPROVED", "Approved"),
+        ("REJECTED", "Rejected"),
+        ("PAID", "Paid"),
+    ]
+    PAYMENT_METHOD_CHOICES = [
+        ("SALARY_DEDUCTION", "Salary Deduction"),
+        ("DIRECT_PAYMENT", "Direct Payment"),
+    ]
+
     employee_id = models.ForeignKey(
-        EmployeeProfile,
+        "EmployeeProfile",
         on_delete=models.PROTECT,
         related_name="employee_iou",
     )
     amount = models.DecimalField(
         decimal_places=2,
         max_digits=12,
+        validators=[MinValueValidator(0.01)],  # Ensure amount is positive
     )
     tenor = models.IntegerField(
-        help_text="Tenor of the IOU",
+        help_text="Tenor of the IOU (in months)",
+        validators=[MinValueValidator(1)],  # Ensure tenor is at least 1 month
+    )
+    reason = models.TextField(
+        help_text="Reason for the IOU request",
+        blank=True,
+        null=True,
+    )
+    interest_rate = models.DecimalField(
+        decimal_places=2,
+        max_digits=5,
+        default=0.0,
+        help_text="Interest rate (e.g., 5.0 for 5%)",
+    )
+    payment_method = models.CharField(
+        max_length=20,
+        choices=PAYMENT_METHOD_CHOICES,
+        default="SALARY_DEDUCTION",
+    )
+    status = models.CharField(
+        max_length=10,
+        choices=STATUS_CHOICES,
+        default="PENDING",
     )
     created_at = models.DateField(
         auto_now_add=True,
@@ -704,13 +757,26 @@ class IOU(models.Model):
     )
     approved_at = models.DateField(
         help_text="Date the IOU is approved",
+        null=True,
+        blank=True,
     )
-    due_date = models.DateTimeField(
-        help_text="due date of IOU taken",
+    due_date = models.DateField(
+        help_text="Due date of IOU repayment",
+        null=True,
+        blank=True,
     )
 
     def __str__(self):
-        return f"{self.employee_id.first_name} with iou of {self.amount}"
+        return f"{self.employee_id.first_name} - IOU of {self.amount}"
+
+    def save(self, *args, **kwargs):
+        if self.approved_at and not self.due_date:
+            self.due_date = self.approved_at + timedelta(days=30 * self.tenor)
+        super().save(*args, **kwargs)
+
+    @property
+    def total_amount(self):
+        return self.amount + (self.amount * self.interest_rate / 100)
 
     @property
     def get_due_date(self):
@@ -720,3 +786,53 @@ class IOU(models.Model):
     def save(self, *args, **kwargs):
         self.due_date = self.get_due_date
         super(IOU, self).save(*args, **kwargs)
+
+
+class LeavePolicy(models.Model):
+    LEAVE_TYPES = [
+        ("CASUAL", "Casual Leave"),
+        ("SICK", "Sick Leave"),
+        ("ANNUAL", "Annual Leave"),
+        ("MATERNITY", "Maternity Leave"),
+        ("PATERNITY", "Paternity Leave"),
+    ]
+    leave_type = models.CharField(max_length=20, choices=LEAVE_TYPES, unique=True)
+    max_days = models.PositiveIntegerField()
+
+    def __str__(self):
+        return f"{self.leave_type} - {self.max_days} days"
+
+
+class LeaveRequest(models.Model):
+    STATUS_CHOICES = [
+        ("PENDING", "Pending"),
+        ("APPROVED", "Approved"),
+        ("REJECTED", "Rejected"),
+    ]
+    employee = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="leave_requests",
+    )
+    leave_type = models.CharField(max_length=20, choices=LeavePolicy.LEAVE_TYPES)
+    start_date = models.DateField()
+    end_date = models.DateField()
+    reason = models.TextField()
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="PENDING")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.employee} - {self.leave_type} ({self.status})"
+
+
+class PerformanceReview(models.Model):
+    employee = models.ForeignKey(
+        EmployeeProfile, on_delete=models.CASCADE, related_name="performance_reviews"
+    )
+    review_date = models.DateField()
+    rating = models.IntegerField(choices=[(i, i) for i in range(1, 11)])  # 1-10 rating
+    comments = models.TextField()
+
+    def __str__(self):
+        return f"Review for {self.employee.user.get_full_name()} on {self.review_date}"

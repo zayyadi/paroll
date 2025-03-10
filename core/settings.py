@@ -27,15 +27,15 @@ INSTALLED_APPS = [
     "users",
     "payroll",
     "theme",
-    "django_browser_reload",
+    # "django_browser_reload",
     "tailwind",
     "crispy_forms",
     "crispy_tailwind",
     "mathfilters",
     "django.contrib.humanize",
-    "widget_tweaks",
+    # "widget_tweaks",
     # "adminlte3",
-    "storages",
+    # "storages",
     "monthyear",
     "import_export",
     "social_django",
@@ -58,6 +58,7 @@ MIDDLEWARE = [
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "django.middleware.locale.LocaleMiddleware",
+    # "core.rbac_middleware.RoleBasedAccessMiddleware"
     # "social_django.middleware.SocialAuthExceptionMiddleware",
 ]
 
@@ -88,9 +89,9 @@ DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql_psycopg2",
         "NAME": os.environ.get("DB_NAME"),
-        "USER": os.environ.get("DB_USER", "jamb"),
+        "USER": os.environ.get("DB_USER"),
         "PASSWORD": os.environ.get("DB_PASSWORD"),
-        "HOST": os.environ.get("DB_HOST", "localhost"),
+        "HOST": os.environ.get("DB_HOST"),
         "PORT": os.environ.get("PORT"),
     }
 }
@@ -196,9 +197,9 @@ USE_TZ = True
 TAILWIND_APP_NAME = "theme"
 
 
-# CRISPY_ALLOWED_TEMPLATE_PACKS = "tailwind"
+CRISPY_ALLOWED_TEMPLATE_PACKS = "tailwind"
 
-# CRISPY_TEMPLATE_PACK = "tailwind"
+CRISPY_TEMPLATE_PACK = "tailwind"
 CRISPY_ALLOWED_TEMPLATE_PACKS = "tailwind"
 
 CRISPY_TEMPLATE_PACK = "tailwind"

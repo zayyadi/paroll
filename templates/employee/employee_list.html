@@ -1,0 +1,32 @@
+{% extends 'base2.html' %}
+
+{% block content %}
+<div class="mb-6">
+  <form method="get" class="flex space-x-4">
+    <input type="text" name="q" placeholder="Search employees..." class="flex-1 px-4 py-2 border rounded-lg">
+    <select name="department" class="px-4 py-2 border rounded-lg">
+      <option value="">All Departments</option>
+      {% for department in departments %}
+      <option value="{{ department.id }}">{{ department.name }}</option>
+      {% endfor %}
+    </select>
+    <button type="submit" class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600">Search</button>
+  </form>
+</div>
+<div class="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 dark:from-gray-900 dark:to-gray-800">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+    <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-8">Employee List</h1>
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+      <div class="space-y-4">
+        {% for employee in employees %}
+        <div class="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+          <p class="text-gray-900 dark:text-white"><strong>{{ employee.first_name }}</strong> - {{ employee.job_title }}</p>
+          <p class="text-gray-500 dark:text-gray-400">Department: {{ employee.department.name }}</p>
+          <p class="text-gray-500 dark:text-gray-400">Hire Date: {{ employee.date_of_employment }}</p>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

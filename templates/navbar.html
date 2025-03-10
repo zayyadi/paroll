@@ -1,138 +1,74 @@
 {% load static %}
 
-<nav
-  class="flex-no-wrap relative flex w-full items-center justify-between bg-[#FBFBFB] py-2 shadow-md shadow-black/5 dark:bg-neutral-600 dark:shadow-black/10 lg:flex-wrap lg:justify-start lg:py-4">
-  <div class="flex w-full flex-wrap items-center justify-between px-3">
-    <!-- Hamburger button for mobile view -->
-    <button
-      class="block border-0 bg-transparent px-2 text-neutral-500 hover:no-underline hover:shadow-none focus:no-underline focus:shadow-none focus:outline-none focus:ring-0 dark:text-neutral-200 lg:hidden"
-      type="button"
-      data-te-collapse-init
-      data-te-target="#navbarSupportedContent1"
-      aria-controls="navbarSupportedContent1"
-      aria-expanded="false"
-      aria-label="Toggle navigation">
-      <!-- Hamburger icon -->
-      <span class="[&>svg]:w-7">
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          viewBox="0 0 24 24"
-          fill="currentColor"
-          class="h-7 w-7">
-          <path
-            fill-rule="evenodd"
-            d="M3 6.75A.75.75 0 013.75 6h16.5a.75.75 0 010 1.5H3.75A.75.75 0 013 6.75zM3 12a.75.75 0 01.75-.75h16.5a.75.75 0 010 1.5H3.75A.75.75 0 013 12zm0 5.25a.75.75 0 01.75-.75h16.5a.75.75 0 010 1.5H3.75a.75.75 0 01-.75-.75z"
-            clip-rule="evenodd" />
-        </svg>
-      </span>
-    </button>
-
-    <!-- Collapsible navigation container -->
-    {% if user.is_authenticated %}
-    <div
-      class="!visible hidden flex-grow basis-[100%] items-center lg:!flex lg:basis-auto"
-      id="navbarSupportedContent1"
-      data-te-collapse-item>
+<nav class="bg-white shadow-lg">
+  <div class="container mx-auto px-4">
+    <div class="flex justify-between items-center py-4">
       <!-- Logo -->
-      <a
-        class="mb-4 ml-2 mr-5 mt-3 flex items-center text-neutral-900 hover:text-neutral-900 focus:text-neutral-900 dark:text-neutral-200 dark:hover:text-neutral-400 dark:focus:text-neutral-400 lg:mb-0 lg:mt-0"
-        href="{% url "payroll:index" %}">
-        <img
-          src="https://tecdn.b-cdn.net/img/logo/te-transparent-noshadows.webp"
-          style="height: 15px"
-          alt="TE Logo"
-          loading="lazy" />
+      <a href="{% url 'payroll:index' %}" class="text-2xl font-bold text-gray-800">
+        <img src="{% static 'images/logo.png' %}" alt="Logo" class="h-8">
       </a>
-      <!-- Left navigation links -->
-      <ul
-        class="list-style-none mr-auto flex flex-col pl-0 lg:flex-row"
-        data-te-navbar-nav-ref>
-        <li class="mb-4 lg:mb-0 lg:pr-2" data-te-nav-item-ref>
-          <!-- Dashboard link -->
-          <a
-            class="text-neutral-500 transition duration-200 hover:text-neutral-700 hover:ease-in-out focus:text-neutral-700 disabled:text-black/30 motion-reduce:transition-none dark:text-neutral-200 dark:hover:text-neutral-300 dark:focus:text-neutral-300 lg:px-2 [&.active]:text-black/90 dark:[&.active]:text-zinc-400"
-            href="{% url 'payroll:dashboard' %}"
-            data-te-nav-link-ref
-            >Dashboard</a
-          >
-        </li>
-        <!-- Team link -->
-        <li class="mb-4 lg:mb-0 lg:pr-2" data-te-nav-item-ref>
-          <a
-            class="text-neutral-500 transition duration-200 hover:text-neutral-700 hover:ease-in-out focus:text-neutral-700 disabled:text-black/30 motion-reduce:transition-none dark:text-neutral-200 dark:hover:text-neutral-300 dark:focus:text-neutral-300 lg:px-2 [&.active]:text-black/90 dark:[&.active]:text-neutral-400"
-            href="{% url "payroll:bank" %}"
-            data-te-nav-link-ref
-            >Bank Report</a
-          >
-        </li>
-        <!-- Projects link -->
-        <li class="mb-4 lg:mb-0 lg:pr-2" data-te-nav-item-ref>
-          <a
-            class="text-neutral-500 transition duration-200 hover:text-neutral-700 hover:ease-in-out focus:text-neutral-700 disabled:text-black/30 motion-reduce:transition-none dark:text-neutral-200 dark:hover:text-neutral-300 dark:focus:text-neutral-300 lg:px-2 [&.active]:text-black/90 dark:[&.active]:text-neutral-400"
-            href={% url "payroll:profile" request.user.id %}
-            data-te-nav-link-ref
-            >Profile</a
-          >
-        </li>
-      </ul>
-    </div>
 
-    <!-- Right elements -->
-    <div class="relative flex items-center">
-      <!-- Cart Icon -->
-
-
-      <!-- Second dropdown container -->
-      
-      <div
-        class="relative"
-        data-te-dropdown-ref
-        data-te-dropdown-alignment="end">
-        <!-- Second dropdown trigger -->
-        <a
-          class="hidden-arrow flex items-center whitespace-nowrap transition duration-150 ease-in-out motion-reduce:transition-none"
-          href="{% url "users:logout" %}"
-          id="dropdownMenuButton2"
-          role="button"
-          data-te-dropdown-toggle-ref
-          aria-expanded="false">
-          <!-- User avatar -->
-          <img
-            src="https://tecdn.b-cdn.net/img/new/avatars/2.jpg"
-            class="rounded-full"
-            style="height: 25px; width: 25px"
-            alt=""
-            loading="lazy" />
-        </a>
-        <!-- Second dropdown menu -->
-        
+      <!-- Navigation Links -->
+      <div class="hidden md:flex space-x-6 items-center">
+        <a href="{% url 'payroll:index' %}" class="text-gray-600 hover:text-gray-900 transition duration-300 ease-in-out">Home</a>
+        <a href="{% url 'payroll:dashboard' %}" class="text-gray-600 hover:text-gray-900 transition duration-300 ease-in-out">Dashboard</a>
+        <a href="{% url 'payroll:bank' %}" class="text-gray-600 hover:text-gray-900 transition duration-300 ease-in-out">Bank Report</a>
+        <a href="{% url 'payroll:profile' request.user.id %}" class="text-gray-600 hover:text-gray-900 transition duration-300 ease-in-out">Profile</a>
       </div>
+
+      <!-- Mobile Menu Toggle -->
+      <button class="md:hidden text-gray-600 hover:text-gray-900 transition duration-300 ease-in-out" onclick="toggleMenu()">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7" />
+        </svg>
+      </button>
+
+      <!-- User Actions -->
+      <div class="hidden md:block">
+        {% if user.is_authenticated %}
+          <div class="relative">
+            <button class="flex items-center text-gray-600 hover:text-gray-900 transition duration-300 ease-in-out" onclick="toggleDropdown()">
+              <img src="https://tecdn.b-cdn.net/img/new/avatars/2.jpg" class="w-8 h-8 rounded-full" alt="User Avatar">
+              <svg class="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            <div class="absolute right-0 mt-2 py-2 w-48 bg-white shadow-lg rounded-md hidden" id="dropdownMenu">
+              <a href="{% url 'payroll:profile' request.user.id %}" class="block px-4 py-2 text-gray-800 hover:bg-gray-100">Profile</a>
+              <a href="{% url 'users:logout' %}" class="block px-4 py-2 text-gray-800 hover:bg-gray-100">Logout</a>
+            </div>
+          </div>
+        {% else %}
+          <a href="{% url 'users:login' %}" class="text-gray-600 hover:text-gray-900 transition duration-300 ease-in-out">Login</a>
+          <a href="{% url 'users:register' %}" class="text-gray-600 hover:text-gray-900 transition duration-300 ease-in-out">Register</a>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Mobile Menu -->
+  <div class="md:hidden bg-white shadow-lg" id="mobileMenu">
+    <div class="container mx-auto px-4 py-4">
+      <a href="{% url 'payroll:index' %}" class="block text-gray-600 hover:text-gray-900 transition duration-300 ease-in-out py-2">Home</a>
+      <a href="{% url 'payroll:dashboard' %}" class="block text-gray-600 hover:text-gray-900 transition duration-300 ease-in-out py-2">Dashboard</a>
+      <a href="{% url 'payroll:bank' %}" class="block text-gray-600 hover:text-gray-900 transition duration-300 ease-in-out py-2">Bank Report</a>
+      <a href="{% url 'payroll:profile' request.user.id %}" class="block text-gray-600 hover:text-gray-900 transition duration-300 ease-in-out py-2">Profile</a>
+      {% if user.is_authenticated %}
+        <a href="{% url 'users:logout' %}" class="block text-gray-600 hover:text-gray-900 transition duration-300 ease-in-out py-2">Logout</a>
       {% else %}
-        <li class="tm-nav-item">
-            <a href="{% url "users:login" %}" class="tm-nav-link flex items-center space-x-2">
-                <i class="fas fa-pen"></i>
-                <span>Login</span>
-            </a>
-        </li>
-        <li class="tm-nav-item">
-            <a href="{% url "users:register" %}" class="tm-nav-link flex items-center space-x-2">
-                <i class="fas fa-pen"></i>
-                <span>Register</span>
-            </a>
-        </li>
-    
+        <a href="{% url 'users:login' %}" class="block text-gray-600 hover:text-gray-900 transition duration-300 ease-in-out py-2">Login</a>
+        <a href="{% url 'users:register' %}" class="block text-gray-600 hover:text-gray-900 transition duration-300 ease-in-out py-2">Register</a>
       {% endif %}
     </div>
   </div>
 </nav>
 
-
 <script>
-  import {
-    Collapse,
-    Dropdown,
-    initTE,
-  } from "tw-elements";
+  function toggleMenu() {
+    document.getElementById('mobileMenu').classList.toggle('hidden');
+  }
 
-  initTE({ Collapse, Dropdown });
+  function toggleDropdown() {
+    document.getElementById('dropdownMenu').classList.toggle('hidden');
+  }
 </script>

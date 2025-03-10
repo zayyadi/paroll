@@ -4,19 +4,22 @@
 {% block title %} Create Allowance {% endblock title %}
 
 {% block content %}
-    <div class="container container-fluid">
-        <div class="row">
-            <div class="col-md-4"></div>
-            <div class="col-md-4">
-                <div class="text-center">
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card shadow-lg">
+                <div class="card-body">
+                    <h2 class="card-title text-center mb-4">Create Allowance</h2>
                     <form method="POST" enctype="multipart/form-data" class="post-form">
                         {% csrf_token %}
                         {% bootstrap_form form %}
-                        <button type="submit" class="save btn btn-success" > Save Allowance </button>
+                        <div class="text-center">
+                            <button type="submit" class="btn btn-success">Save Allowance</button>
+                        </div>
                     </form>
                 </div>
             </div>
-            <div class="col-md-4"></div>
         </div>
     </div>
+</div>
 {% endblock %}

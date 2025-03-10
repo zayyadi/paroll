@@ -1,48 +1,55 @@
 <!doctype html>
-
 <html lang="en">
-    <head>
-      {% load static %}
-      {% load tailwind_filters %}
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width,">
-        <title>{% block title %} Home{% endblock %}</title>
-        {% include "scripts.html" %}
-        
-    </head>
-    <body class="bg-gray-100">
-        {% include "navbar.html" %}
-        {% block content %}
-        
-        {% endblock  %}
-        {% block scripts %}
-          <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
-        {% endblock %}
-    </body>
+  <head>
+    {% load static %}
+    {% load tailwind_filters %}
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Home{% endblock %}</title>
+    <!-- Include Tailwind CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <!-- Include custom scripts -->
+    {% include "scripts.html" %}
+    <!-- Additional head content -->
+    {% block extra_head %}{% endblock %}
+  </head>
+  <body class="bg-gray-100 font-sans antialiased">
+    <!-- Navbar -->
+    {% include "navbar.html" %}
 
+    <!-- Main content -->
+    <main class="container mx-auto px-4 py-8">
+      {% block content %}
+      <!-- Content goes here -->
+      {% endblock %}
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-gray-800 text-white py-6 mt-8">
+      <div class="container mx-auto px-4 text-center">
+        <p>&copy; 2023 MyWebsite. All rights reserved.</p>
+      </div>
+    </footer>
+
+    <!-- Scripts -->
+    {% block scripts %}
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+    <script>
+      $(function() {
+        $(".datepicker").datepicker({
+          changeMonth: true,
+          changeYear: true,
+          maxDate: 0,
+          // You can put more options here.
+        });
+      });
+
+      $(document).ready(function() {
+        $('#employees').DataTable();
+        $('#allowances').DataTable();
+      });
+    </script>
+    {% endblock %}
+  </body>
 </html>
 
-<script>
-  $(function() {
-    $( ".datepicker" ).datepicker({
-      changeMonth: true,
-      changeYear: true,
-      maxDate: 0
-      // You can put more options here.
-
-    });
-  });
-
-</script>
-
-<script>
-  $(document).ready(function() {
-     $('#employees').DataTable();
- });
-
- </script>
- <script>
-  $(document).ready(function() {
-     $('#allowances').DataTable();
- });
- </script>

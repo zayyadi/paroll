@@ -1,61 +1,47 @@
-{% include 'base.html' %}
+{% extends 'base.html' %}
 {% load static %}
 {% load tailwind_filters %}
 {% load tailwind_tags %}
 {% tailwind_preload_css %}
 {% tailwind_css %}
-<title>{% block title %} payroll {% endblock %}</title>
+{% block title %} Payroll Report {% endblock %}
 
 {% block content %}
-<div class="container mt-5 mb-5">
-    <div class="row">
-        <div class="col-md-12">
-            <div class="text-center lh-1 mb-2">
-                <h6 class="fw-bold">PayDay</h6> <span class="fw-normal">Payment roaster for the month of {{ dates }}</span>
-            </div>
-            {% if pay_var %}
-            <div class="d-sm-flex align-items-center justify-content-between mb-4">
-                <h1 class="h3 mb-0 text-gray-800">Bank Report for {{ paydays }}</h1>
-                <a href="download/" class="d-none d-sm-inline-block btn btn-sm btn-info shadow-sm">
-                    <i class="fas fa-download fa-sm text-white-50"></i> Generate Report</a>
-            </div>
-            {% endif %}
-                <table class="mt-4 table table-bordered">
-                    <thead class="bg-dark text-white">
-                        <tr>
-                            <th scope="col">id</th>
-                            <th scope="col">Employee Name</th>
-                            <th scope="col">Gross Amount</th>
-                            <th scope="col">Payee</th>
-                            <th scope="col">Net Pay</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                {% if pay_var %}
-                    
-                
-                    {% for pays in pay_var  %}
-                            <tr>
-                                <th scope="row">{{pays.id}}</th>
-                                <td>{{pays.payroll_id.pays.first_name}} {{pays.payroll_id.pays.last_name}}</td>
-                                <td class="text-right">{{pays.payroll_id.pays.employee_pay.basic_salary}}</td>
-                                
-                                <td class="text-right">{{pays.payroll_id.pays.employee_pay.payee}}</td>
-                                <td class="text-right">{{pays.payroll_id.netpay}}</a> </td>
-                                
-                            </tr>
-                    
-                    {% endfor %}
-                    <td ><b>Total Netpay:</b></td>
-                    <td></td>
-                    <td></td>
-                    <td></td>
-                    <td class="text-right">{{total}}</td>
-                {% endif %}
-                    </tbody>
+<div class="container mx-auto py-8">
+    <div class="flex items-center justify-between mb-6">
+        <h1 class="text-2xl font-semibold text-gray-800">Payroll Report for {{ dates }}</h1>
+        <a href="download/" class="btn btn-info flex items-center shadow-sm">
+            <i class="fas fa-download fa-sm text-white-50 mr-2"></i> Generate Report
+        </a>
+    </div>
 
-                <div class="container container-md">
-                    <p class="text"> </p>
-                </div>
-
-{% endblock  %}
+    <div class="overflow-x-auto">
+        <table class="min-w-full bg-white shadow-md rounded-lg">
+            <thead class="bg-gray-800 text-white">
+                <tr>
+                    <th class="py-2 px-4">ID</th>
+                    <th class="py-2 px-4">Employee Name</th>
+                    <th class="py-2 px-4">Gross Amount</th>
+                    <th class="py-2 px-4">Payee</th>
+                    <th class="py-2 px-4">Net Pay</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for pays in pay_var %}
+                <tr class="border-b">
+                    <td class="py-2 px-4">{{ pays.id }}</td>
+                    <td class="py-2 px-4">{{ pays.payroll_id.pays.first_name }} {{ pays.payroll_id.pays.last_name }}</td>
+                    <td class="py-2 px-4">{{ pays.payroll_id.pays.employee_pay.basic_salary }}</td>
+                    <td class="py-2 px-4">{{ pays.payroll_id.pays.employee_pay.payee }}</td>
+                    <td class="py-2 px-4">{{ pays.payroll_id.netpay }}</td>
+                </tr>
+                {% endfor %}
+                <tr class="bg-gray-200">
+                    <td colspan="4" class="py-2 px-4 font-bold text-right">Total Net Pay</td>
+                    <td class="py-2 px-4 font-bold">{{ total }}</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

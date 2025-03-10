@@ -10,7 +10,7 @@
     
         - Employee creation form + 
         - Employee update form +
-        - employee profile page X
+        - employee profile page +
         - employee delete X
 
     -PAYROLL
@@ -28,10 +28,13 @@
         - Bank Payment Notice X
         - Pension Payment Notice X
 
-    - MISC
 
-        - create Cooperative account X
-        - create account for netpay per month X
+    - Leave Application
+
+        - create leave Application +
+        - edit leave Application +
+        - Update Leave Application +
+        - delete leave application +
 
 
 - ulimit -S -u 4000

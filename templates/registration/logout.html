@@ -1,13 +1,45 @@
-{% extends "base.html" %}
-{% block content %}
-<div class="container">
-    <main class="tm-main">
-    <h2>You have been logged out</h2>
-    <div class="border-top pt-3">
-        <small class="text-muted">
-            <a href="{% url 'users:login' %}">Log In Again</a>
-        </small>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Logged Out</title>
+  <!-- Tailwind CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-100 font-sans antialiased">
+  <!-- Navbar -->
+  <nav class="bg-white shadow-md">
+    <div class="container mx-auto px-4 py-4 flex justify-between items-center">
+      <!-- Logo -->
+      <a href="#" class="text-xl font-bold text-gray-800">Home</a>
+      <!-- Nav Links -->
+      <div class="flex space-x-4">
+        <a href="{% url 'users:login' %}" class="text-gray-700 hover:text-blue-500 transition duration-300">Login</a>
+        <a href="{% url 'users:register' %}" class="text-gray-700 hover:text-blue-500 transition duration-300">Register</a>
+      </div>
     </div>
+  </nav>
+
+  <!-- Main Content -->
+  <div class="container mx-auto px-4 py-8">
+    <main class="bg-white p-8 rounded-lg shadow-md text-center">
+      <h2 class="text-2xl font-bold text-gray-800 mb-4">You have been logged out</h2>
+      <div class="border-t pt-4">
+        <small class="text-gray-600">
+          <a href="{% url 'users:login' %}" class="text-blue-500 hover:text-blue-700 transition duration-300">
+            Log In Again
+          </a>
+        </small>
+      </div>
     </main>
-</div>
-{% endblock content %}
+  </div>
+
+  <!-- Footer -->
+  <footer class="bg-gray-800 text-white py-4 mt-8">
+    <div class="container mx-auto px-4 text-center">
+      <p>&copy; 2023 MyWebsite. All rights reserved.</p>
+    </div>
+  </footer>
+</body>
+</html>
