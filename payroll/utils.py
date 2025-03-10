@@ -1,5 +1,6 @@
 from decimal import Decimal
 from num2words import num2words
+import calendar
 
 
 def get_housing(self):
@@ -187,6 +188,8 @@ def get_water_rate(self):
 
 
 def get_net_pay(self):
+    if not self.employee_pay:
+        return Decimal(0.0)  # Or handle appropriately
     return (
         (self.employee_pay.get_gross_income / 12)
         - (self.employee_pay.payee)
@@ -201,7 +204,7 @@ def get_num2words(self):
     return num2words(self.net_pay)
 
 
-import calendar
+
 
 
 def convert_month_to_word(date_str):

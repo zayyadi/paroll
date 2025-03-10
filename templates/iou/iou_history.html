@@ -1,0 +1,21 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="min-h-screen bg-gray-100">
+  <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+    <div class="bg-white rounded-lg shadow-lg p-6">
+      <h2 class="text-2xl font-bold text-gray-900 mb-6">IOU History</h2>
+      <div class="space-y-4">
+        {% for iou in ious %}
+        <div class="p-4 bg-gray-50 rounded-lg">
+          <p class="text-gray-900"><strong>{{ iou.employee_id.first_name }}</strong> - ₦{{ iou.amount }}</p>
+          <p class="text-sm text-gray-500">Status: {{ iou.status }}</p>
+          <p class="text-sm text-gray-500">Due Date: {{ iou.due_date }}</p>
+          <a href="{% url 'payroll:approve_iou' iou.id %}" class="text-blue-500 hover:text-blue-600">View Details</a>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

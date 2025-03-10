@@ -24,13 +24,13 @@
         </thead>
         <tbody>
             {% for payday in pay %}
-                <tr class="border-b border-gray-200">
-                    <td class="py-2 px-4">{{ forloop.counter }}</td>
-                    <td class="py-2 px-4">Payslip for the month {{ dates|index:forloop.counter0 }}</td>
-                    <td class="py-2 px-4">
-                        <a href="{% url 'payroll:payslip' payday.id %}" class="bg-blue-500 text-white py-1 px-3 rounded hover:bg-blue-700">View Payslip</a>
-                    </td>
-                </tr>
+            <tr class="border-b border-gray-200">
+                <td class="py-2 px-4">{{ forloop.counter }}</td>
+                <td class="py-2 px-4">Payslip for the month {{ dates|index:forloop.counter0 }}</td>
+                <td class="py-2 px-4">
+                    <a href="{% url 'payroll:payslip' payday.id %}" class="bg-blue-500 text-white py-1 px-3 rounded hover:bg-blue-700">View Payslip</a>
+                </td>
+            </tr>
             {% endfor %}
         </tbody>
     </table>

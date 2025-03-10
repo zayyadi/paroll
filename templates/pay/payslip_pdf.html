@@ -77,11 +77,11 @@
               <td>{{ payroll.pays.employee_pay.gross_income|div:12|stringformat:".2f"|intcomma }}</td>
             </tr>
             <tr>
-              <th scope="row">Employee Pension</th>
+              <th scope="row">Employee Pension contribution</th>
               <td>{{ payroll.pays.employee_pay.pension_employee|div:12|stringformat:".2f"|intcomma }}</td>
             </tr>
             <tr>
-              <th scope="row">Taxable Pay</th>
+              <th scope="row">Taxable Income/th>
               <td>{{ payroll.pays.employee_pay.taxable_income|div:12|stringformat:".2f"|intcomma }}</td>
             </tr>
             <tr>
@@ -94,10 +94,10 @@
             </tr>
             <tr>
               <th scope="row">Income Tax</th>
-              <td>{{ payroll.pays.employee_pay.payee|div:12|stringformat:".2f"|intcomma }}</td>
+              <td>{{ payroll.pays.employee_pay.payee|stringformat:".2f"|intcomma }}</td>
             </tr>
             <tr>
-              <th scope="row">Less Personal Relief:</th>
+              <th scope="row">Consolidated Relief:</th>
               <td>{{ payroll.pays.employee_pay.consolidated_relief|div:12|stringformat:".2f"|intcomma }}</td>
             </tr>
             <tr>

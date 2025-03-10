@@ -1,0 +1,59 @@
+{% extends 'base2.html' %}
+
+{% block content %}
+<div class="min-h-screen bg-gray-100 flex items-center justify-center">
+  <div class="max-w-4xl w-full mx-4 sm:mx-auto bg-white rounded-xl shadow-2xl overflow-hidden">
+    <div class="px-8 py-12 sm:px-12">
+      <h2 class="text-3xl font-extrabold text-gray-900 mb-8 text-center">Request IOU</h2>
+      <form method="post" class="space-y-8">
+        {% csrf_token %}
+        
+        <!-- Custom form fields styling -->
+        <div class="space-y-6">
+          {% for field in form %}
+            <div class="space-y-2">
+              <label for="{{ field.id_for_label }}" class="block text-sm font-medium text-gray-700">
+                {{ field.label }}
+              </label>
+              <div class="mt-1">
+                {{ field }}
+              </div>
+              {% if field.help_text %}
+                <p class="mt-2 text-sm text-gray-500">{{ field.help_text }}</p>
+              {% endif %}
+              {% if field.errors %}
+                <p class="mt-2 text-sm text-red-600">{{ field.errors }}</p>
+              {% endif %}
+            </div>
+          {% endfor %}
+        </div>
+
+        <!-- Submit button -->
+        <div class="flex justify-center">
+          <button type="submit" class="w-full sm:w-auto px-8 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white font-semibold rounded-lg hover:from-blue-600 hover:to-blue-700 transition-all transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+            Submit Request
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Add custom styles for form inputs -->
+<style>
+  input, textarea, select {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid #e2e8f0;
+    border-radius: 0.5rem;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+
+  input:focus, textarea:focus, select:focus {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    outline: none;
+  }
+</style>
+{% endblock %}

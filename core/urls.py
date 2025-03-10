@@ -11,10 +11,10 @@ urlpatterns = [
     path("", include("payroll.urls", namespace="payroll")),
     path("api/", include("api.urls", namespace="api")),
     path("oauth/", include("social_django.urls", namespace="social")),
-    path(
-        "__reload__/",
-        include("django_browser_reload.urls"),
-    ),
+    # path(
+    #     "__reload__/",
+    #     include("django_browser_reload.urls"),
+    # ),
 ]
 
 if settings.DEBUG:

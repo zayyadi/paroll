@@ -6,7 +6,10 @@ app_name = "payroll"
 
 urlpatterns = [
     path("", views.index, name="index"),
-    path("input_emp_no", views.input_id, name="input"),
+    path("hr-dashboard/", views.hr_dashboard, name="hr_dashboard"),
+    path("employees/", views.employee_list, name="employee_list"),
+    path("performance-reviews/", views.performance_reviews, name="performance_reviews"),
+    # path("input_emp_no", views.input_id, name="input"),
     path("add_employee", views.add_employee, name="employee"),
     # path("update_employee", views.delete_employee, name="update_employee"),
     path("delete_employee", views.delete_employee, name="delete_employee"),
@@ -79,4 +82,32 @@ urlpatterns = [
         views.pension_report_download,
         name="pensionReportDownload",
     ),
+    path("apply-leave/", views.apply_leave, name="apply_leave"),
+    path("leave-requests/", views.leave_requests, name="leave_requests"),
+    path(
+        "manage-leave-requests/",
+        views.manage_leave_requests,
+        name="manage_leave_requests",
+    ),
+    path("approve-leave/<int:pk>/", views.approve_leave, name="approve_leave"),
+    path("reject-leave/<int:pk>/", views.reject_leave, name="reject_leave"),
+    path("leave-policies/", views.leave_policies, name="leave_policies"),
+    path(
+        "edit-leave-request/<int:pk>/",
+        views.edit_leave_request,
+        name="edit_leave_request",
+    ),
+    path(
+        "delete-leave-request/<int:pk>/",
+        views.delete_leave_request,
+        name="delete_leave_request",
+    ),
+    path(
+        "view-leave-request/<int:pk>/",
+        views.view_leave_request,
+        name="view_leave_request",
+    ),
+    path("request-iou/", views.request_iou, name="request_iou"),
+    path("approve-iou/<int:iou_id>/", views.approve_iou, name="approve_iou"),
+    path("iou-history/", views.iou_history, name="iou_history"),
 ]

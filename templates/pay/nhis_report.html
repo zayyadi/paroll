@@ -2,7 +2,6 @@
 {% load static %}
 {% load tailwind_filters %}
 {% load tailwind_tags %}
-{% load static %}
 {% tailwind_preload_css %}
 {% tailwind_css %}
 {% load mathfilters %}
@@ -10,46 +9,44 @@
 
 {% block content %}
 
-
-    <div class="container container-fluid">
-        <!-- Page Heading -->
+<div class="container mx-auto my-5 p-5 bg-white rounded shadow">
     {% if payroll %}
-        <div class="d-sm-flex align-items-center justify-content-between mb-4">
-            <h1 class="h3 mb-0 text-gray-800">NHIS Report for {{ dates }}</h1>
-            <a href="download/" class="d-none d-sm-inline-block btn btn-sm btn-info shadow-sm">
-                <i class="fas fa-download fa-sm text-white-50"></i> Generate Report</a>
+        <div class="flex items-center justify-between mb-6">
+            <h1 class="text-2xl font-semibold text-gray-800">NHIS Report for {{ dates }}</h1>
+            <a href="download/" class="btn btn-info flex items-center shadow-sm">
+                <i class="fas fa-download fa-sm text-white-50 mr-2"></i> Generate Report
+            </a>
         </div>
 
-        <table class="table table-striped">
-            <thead class="thead-dark">
+        <table class="min-w-full bg-white shadow-md rounded-lg">
+            <thead class="bg-gray-800 text-white">
                 <tr>
-                    <th scope="col">EmpNo</th>
-                    <th scope="col">Employee First Name</th>
-                    <th scope="col">Employee Last Name</th>
-                    <th scope="col">Bank Account</th>
-                    <th scope="col">NHIS Contributon amount</th>
+                    <th class="py-2 px-4">EmpNo</th>
+                    <th class="py-2 px-4">Employee First Name</th>
+                    <th class="py-2 px-4">Employee Last Name</th>
+                    <th class="py-2 px-4">Bank Account</th>
+                    <th class="py-2 px-4">NHIS Contribution Amount</th>
                 </tr>
             </thead>
             <tbody>
-          
-            
-                 {% for payrol in payroll %}
-                     <tr>
-                        <th scope="row">{{ payrol.payroll_id.pays.emp_id }}</th>
-                        <td>{{ payrol.payroll_id.pays.first_name }}</td>
-                        <td>{{ payrol.payroll_id.pays.last_name }}</td>
-                        <td>{{ payrol.payroll_id.pays.bank }}</td>
-                        <td>{{ payrol.payroll_id.nhf|intcomma }}</td>
-                     </tr>
-                 {% endfor %}
+                {% for payrol in payroll %}
+                <tr class="border-b">
+                    <td class="py-2 px-4">{{ payrol.payroll_id.pays.emp_id }}</td>
+                    <td class="py-2 px-4">{{ payrol.payroll_id.pays.first_name }}</td>
+                    <td class="py-2 px-4">{{ payrol.payroll_id.pays.last_name }}</td>
+                    <td class="py-2 px-4">{{ payrol.payroll_id.pays.bank }}</td>
+                    <td class="py-2 px-4">{{ payrol.payroll_id.nhf|intcomma }}</td>
+                </tr>
+                {% endfor %}
 
-                 <tr class="bg-gray-200">
+                <tr class="bg-gray-200">
                     <td colspan="5" class="py-2 px-4 font-bold text-right">Total National Health Insurance Fund deductions</td>
                     <td class="py-2 px-4 font-bold">{{ total }}</td>
-                  </tr>
+                </tr>
             </tbody>
         </table>
-       {% comment %} <a href="download" class="btn btn-outline-info"> Download</a>  {% endcomment %}
+    {% else %}
+        <p class="text-gray-600">No payroll data available.</p>
     {% endif %}
-    </div>
+</div>
 {% endblock %}

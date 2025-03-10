@@ -1,9 +1,12 @@
 {% extends "base.html" %}
+{% load mathfilters %}
+{% load humanize %}
 {% load static %}
 {% load tailwind_filters %}
 {% load tailwind_tags %}
 {% tailwind_preload_css %}
 {% tailwind_css %}
+{% load custom_tags %}
 
 {% block title %}
   DASHBOARD
@@ -61,7 +64,7 @@
           {{pay.employee_pay.basic_salary}}
         </td>
         <td class="px-6 py-4">
-          {{pay.employee_pay.pension}}
+          {{pay.employee_pay.pension|div:12|stringformat:".2f"|intcomma}}
         </td>
         <td class="px-6 py-4">
           {{pay.employee_pay.payee}}

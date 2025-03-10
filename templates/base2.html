@@ -1,184 +1,169 @@
 <!DOCTYPE html>
-<html lang="en" class="h-full bg-gray-100">
+<html lang="en" class="h-full">
 <head>
     {% load static %}
     {% load tailwind_filters %}
     {% load tailwind_tags %}
     {% tailwind_preload_css %}
     {% tailwind_css %}
+    
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zee Payroll | Modern HR Management</title>
 
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-    <meta name="description" content="Zee Payroll System">
-    <meta name="author" content="Zee">
+    <!-- Custom Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Custom Styles -->
+    <style>
+        :root {
+            --primary-gradient: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+            --glass-effect: rgba(255, 255, 255, 0.05);
+        }
 
-    <title>Zee | Payroll</title>
+        body {
+            font-family: 'Inter', sans-serif;
+            @apply bg-gray-50 dark:bg-gray-900;
+        }
 
-    <!-- Custom fonts -->
-    <link href="{% static 'theme/vendor/fontawesome-free/css/all.min.css' %}" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+        .glass-panel {
+            background: var(--glass-effect);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
 
-    <!-- Custom styles -->
-    <link href="{% static 'theme/css/sb-admin-2.min.css' %}" rel="stylesheet">
-    <link href="{% static 'css/app.css' %}" rel="stylesheet">
-    <link href="{% static 'jquerui/jquery-ui.css' %}" rel="stylesheet">
-    <link href="https://cdn.datatables.net/1.10.20/css/jquery.dataTables.min.css" rel="stylesheet">
+        .nav-hover-effect {
+            @apply relative after:absolute after:bottom-0 after:left-0 after:h-0.5 after:bg-white after:w-0 after:transition-all after:duration-300 hover:after:w-full;
+        }
 
-    <!-- Moment.js -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.1/moment.min.js"></script>
-    {% include "scripts.html" %}
+        .dashboard-card {
+            @apply transform transition-all duration-300 hover:scale-[1.02] hover:shadow-xl;
+        }
+    </style>
 </head>
 
-<body class="flex h-full bg-gray-100 font-nunito">
-    <!-- Page Wrapper -->
-    <div id="wrapper" class="flex w-full">
-        <!-- Sidebar -->
-        <ul class="navbar-nav bg-gradient-primary sidebar sidebar-dark accordion transition-all duration-300" id="accordionSidebar">
-            <!-- Sidebar - Brand -->
-            <a class="sidebar-brand d-flex align-items-center justify-content-center" href="{% url 'payroll:index' %}">
-                <div class="sidebar-brand-icon rotate-n-15">
-                    <i class="fas fa-money-check-alt"></i>
-                </div>
-                <div class="sidebar-brand-text mx-3">zee | Payroll</div>
-            </a>
-
-            <!-- Divider -->
-            <hr class="sidebar-divider my-0">
-
-            <!-- Nav Items -->
-            <li class="nav-item active">
-                <a class="nav-link" href="{% url 'payroll:dashboard' %}">
-                    <i class="fas fa-fw fa-tachometer-alt"></i>
-                    <span>Dashboard</span>
-                </a>
-            </li>
-
-            <li class="nav-item active">
-                <a class="nav-link" href="{% url 'payroll:employee' %}">
-                    <i class="fas fa-fw fa-user-friends"></i>
-                    <span>Employees</span>
-                </a>
-            </li>
-
-            <li class="nav-item active">
-                <a class="nav-link" href="{% url 'payroll:nhis' %}">
-                    <i class="fas fa-fw fa-plus"></i>
-                    <span>NHIS</span>
-                </a>
-            </li>
-
-            <li class="nav-item active">
-                <a class="nav-link" href="{% url 'payroll:payee' %}">
-                    <i class="fas fa-fw fa-address-card"></i>
-                    <span>PAYEE</span>
-                </a>
-            </li>
-
-            <li class="nav-item active">
-                <a class="nav-link" href="{% url 'payroll:nhf' %}">
-                    <i class="fas fa-fw fa-book-medical"></i>
-                    <span>National Housing Fund</span>
-                </a>
-            </li>
-
-            <li class="nav-item active">
-                <a class="nav-link" href="{% url 'payroll:bank' %}">
-                    <i class="fas fa-fw fa-paper-plane"></i>
-                    <span>Bank Reports</span>
-                </a>
-            </li>
-
-            <li class="nav-item active">
-                <a class="nav-link" href="{% url 'payroll:pension' %}">
-                    <i class="fas fa-fw fa-passport"></i>
-                    <span>Employee Pension Contribution</span>
-                </a>
-            </li>
-
-            <!-- Divider -->
-            <hr class="sidebar-divider">
-
-            <!-- Sidebar Toggler (Sidebar) -->
-            <div class="text-center d-none d-md-inline mt-4">
-                <button class="rounded-circle border-0" id="sidebarToggle"></button>
-            </div>
-        </ul>
-        <!-- End of Sidebar -->
-
-        <!-- Content Wrapper -->
-        <div id="content-wrapper" class="d-flex flex-column flex-1">
-            <!-- Main Content -->
-            <div id="content">
-                <!-- Topbar -->
-                <nav class="navbar navbar-expand navbar-light bg-white topbar mb-4 static-top shadow">
-                    <!-- Sidebar Toggle (Topbar) -->
-                    <button id="sidebarToggleTop" class="btn btn-link d-md-none rounded-circle mr-3">
-                        <i class="fa fa-bars"></i>
-                    </button>
-
-                    <!-- Topbar Navbar -->
-                    <ul class="navbar-nav ml-auto">
-                        <!-- Nav Item - User Information -->
-                        <li class="nav-item dropdown no-arrow">
-                            <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button"
-                               data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                                <span class="mr-2 d-none d-lg-inline text-gray-600 small">{{request.user.username}}</span>
-                                <i class="far fa-user-circle"></i>
-                            </a>
-                            <!-- Dropdown - User Information -->
-                            <div class="dropdown-menu dropdown-menu-right shadow animated--grow-in"
-                                 aria-labelledby="userDropdown">
-                                <a class="dropdown-item" href="{% url 'users:logout' %}">
-                                    <i class="fas fa-sign-out-alt fa-sm fa-fw mr-2 text-gray-400"></i>
-                                    Logout
-                                </a>
-                            </div>
-                        </li>
-                    </ul>
-                </nav>
-                <!-- End of Topbar -->
-
-                <!-- Page Content -->
-                <div class="container-fluid px-4">
-                    {% block content %}
-                    {% endblock %}
-                </div>
-                <!-- End of Page Content -->
-            </div>
-            <!-- End of Main Content -->
-
-            <!-- Footer -->
-            <footer class="sticky-footer bg-white mt-auto">
-                <div class="container my-auto">
-                    <div class="copyright text-center my-auto">
-                        <span>Copyright zee|Payroll {% now 'Y' %}</span>
+<body class="min-h-screen antialiased">
+    <!-- Main Container -->
+    <div class="flex min-h-screen">
+        <!-- Side Navigation -->
+        <nav class="glass-panel w-64 fixed h-screen bg-gradient-to-b from-indigo-900 to-purple-900 shadow-2xl p-4 hidden lg:block">
+            <div class="flex flex-col h-full">
+                <!-- Brand -->
+                <div class="mb-8 px-2">
+                    <div class="flex items-center space-x-3">
+                        <div class="p-2 bg-white rounded-lg">
+                            <i class="fas fa-coins text-2xl text-indigo-600"></i>
+                        </div>
+                        <span class="text-white-900 font-bold text-xl">ZeePayroll</span>
                     </div>
                 </div>
-            </footer>
-            <!-- End of Footer -->
-        </div>
-        <!-- End of Content Wrapper -->
-    </div>
-    <!-- End of Page Wrapper -->
 
-    <!-- Scroll to Top Button -->
-    <a class="scroll-to-top rounded" href="#page-top">
-        <i class="fas fa-angle-up"></i>
-    </a>
+                <!-- Navigation Menu -->
+                <div class="flex-1 space-y-2">
+                    <a href="{% url 'payroll:dashboard' %}" class="flex items-center p-3 text-gray-600 rounded-lg hover:bg-white/10 transition-all nav-hover-effect">
+                        <i class="fas fa-chart-pie mr-3"></i>
+                        Dashboard
+                    </a>
+                    <a href="{% url 'payroll:employee' %}" class="flex items-center p-3 text-gray-600 rounded-lg hover:bg-white/10 transition-all nav-hover-effect">
+                        <i class="fas fa-users mr-3"></i>
+                        Employees
+                    </a>
+                    <a href="{% url 'payroll:bank' %}" class="flex items-center p-3 text-gray-600 rounded-lg hover:bg-white/10 transition-all nav-hover-effect">
+                        <i class="fas fa-university mr-3"></i>
+                        Banking
+                    </a>
+                    <a href="{% url 'payroll:payee' %}" class="flex items-center p-3 text-gray-600 rounded-lg hover:bg-white/10 transition-all nav-hover-effect">
+                        <i class="fas fa-file-invoice-dollar mr-3"></i>
+                        Tax Reports
+                    </a>
+                    <div class="mt-8 pt-4 border-t border-white/10">
+                        <a href="{% url 'users:logout' %}" class="flex items-center p-3 text-red-600 hover:text-red-300 rounded-lg transition-all">
+                            <i class="fas fa-sign-out-alt mr-3"></i>
+                            Logout
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <div class="flex-1 lg:ml-64">
+            <!-- Top Header -->
+            <header class="sticky top-0 bg-white dark:bg-gray-800 shadow-sm z-50">
+                <div class="flex items-center justify-between px-6 py-4">
+                    <div class="flex items-center space-x-4">
+                        <button class="lg:hidden text-gray-600 dark:text-gray-300">
+                            <i class="fas fa-bars text-xl"></i>
+                        </button>
+                        <div class="relative">
+                            <input type="search" placeholder="Search..." class="w-64 px-4 py-2 bg-gray-50 dark:bg-gray-700 rounded-lg border-none focus:ring-2 focus:ring-indigo-500">
+                        </div>
+                    </div>
+                    
+                    <div class="flex items-center space-x-4">
+                        <button class="p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full">
+                            <i class="fas fa-moon"></i>
+                        </button>
+                        <div class="relative">
+                            <div class="w-10 h-10 bg-indigo-500 rounded-full flex items-center justify-center text-white cursor-pointer">
+                                {{ request.user.email|first|upper }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Content Area -->
+            <main class="p-6 bg-gray-50 dark:bg-gray-900 min-h-screen">
+                {% block content %}
+                <!-- Dashboard Content Goes Here -->
+                {% endblock %}
+            </main>
+        </div>
+    </div>
+
+    <!-- Mobile Menu -->
+    <div class="lg:hidden fixed bottom-0 w-full bg-white dark:bg-gray-800 shadow-2xl border-t border-gray-100 dark:border-gray-700">
+        <div class="grid grid-cols-4 gap-4 p-2">
+            <a href="{% url 'payroll:dashboard' %}" class="flex flex-col items-center p-2 text-gray-600 dark:text-gray-300 hover:text-indigo-500 transition-all">
+                <i class="fas fa-chart-pie mb-1"></i>
+                <span class="text-xs">Dashboard</span>
+            </a>
+            <a href="{% url 'payroll:employee' %}" class="flex flex-col items-center p-2 text-gray-600 dark:text-gray-300 hover:text-indigo-500 transition-all">
+                <i class="fas fa-users mb-1"></i>
+                <span class="text-xs">Employees</span>
+            </a>
+            <a href="{% url 'payroll:bank' %}" class="flex flex-col items-center p-2 text-gray-600 dark:text-gray-300 hover:text-indigo-500 transition-all">
+                <i class="fas fa-university mb-1"></i>
+                <span class="text-xs">Banking</span>
+            </a>
+            <a href="{% url 'users:logout' %}" class="flex flex-col items-center p-2 text-gray-600 dark:text-gray-300 hover:text-indigo-500 transition-all">
+                <i class="fas fa-sign-out-alt mb-1"></i>
+                <span class="text-xs">Logout</span>
+            </a>
+        </div>
+    </div>
 
     <!-- Scripts -->
     <script>
-        $(function() {
-            $(".datepicker").datepicker({
-                changeMonth: true,
-                changeYear: true,
-                maxDate: 0
-            });
-        });
+        // Dark mode toggle
+        const toggleDarkMode = () => {
+            document.documentElement.classList.toggle('dark');
+            localStorage.setItem('darkMode', document.documentElement.classList.contains('dark'));
+        }
 
-        $(document).ready(function() {
-            $('#employees').DataTable();
-            $('#allowances').DataTable();
+        // Initialize dark mode
+        if (localStorage.getItem('darkMode') === 'true') {
+            document.documentElement.classList.add('dark');
+        }
+
+        // Mobile menu toggle
+        document.querySelector('[aria-controls="mobile-menu"]').addEventListener('click', () => {
+            document.getElementById('mobile-menu').classList.toggle('hidden');
         });
     </script>
 </body>
