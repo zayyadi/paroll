@@ -5,6 +5,7 @@ from django.contrib.auth.models import Group, Permission
 
 # Register your models here.
 from payroll.models import (
+    IOU,
     Department,
     EmployeeProfile,
     Allowance,
@@ -107,6 +108,7 @@ admin.site.register(Permission, PermissionAdmin)
 
 admin.site.register(PayT, PayrollAdmin)
 admin.site.register(Department)
+admin.site.register(IOU)
 admin.site.register(EmployeeProfile, ImportExportModelAdmin)
 admin.site.register(Payroll, ImportExportModelAdmin)
 admin.site.register(PayVar, ImportExportModelAdmin)

@@ -33,3 +33,4 @@ tmp/
 theme/
 .vscode
 .pytest_cache
+.qodo
