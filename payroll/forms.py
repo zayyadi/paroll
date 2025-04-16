@@ -185,3 +185,20 @@ class IOUApprovalForm(forms.ModelForm):
     class Meta:
         model = models.IOU
         fields = ["status", "approved_at"]
+
+
+class PerformanceReviewForm(forms.ModelForm):
+    class Meta:
+        model = models.PerformanceReview
+        fields = ["employee", "review_date", "rating", "comments"]
+
+
+class AuditTrailForm(forms.ModelForm):
+    class Meta:
+        model = models.AuditTrail
+        fields = [
+            "user",
+            "action",
+            "content_type",
+            "object_id",
+        ]  # Excluded 'timestamp' as it is non-editable.

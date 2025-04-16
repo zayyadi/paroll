@@ -204,9 +204,6 @@ def get_num2words(self):
     return num2words(self.net_pay)
 
 
-
-
-
 def convert_month_to_word(date_str):
     try:
         # Split the input string into year and month
@@ -232,3 +229,13 @@ def convert_month_to_word(date_str):
     except Exception as e:
         print(f"Error: {e}")
         return None
+
+
+def log_action(user, action, content_object):
+    from payroll.models import AuditTrail
+
+    AuditTrail.objects.create(
+        user=user,
+        action=action,
+        content_object=content_object,
+    )

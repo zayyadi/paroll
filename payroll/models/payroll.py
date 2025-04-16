@@ -1,271 +1,25 @@
 from decimal import Decimal
-import os
-from uuid import uuid4
+
 
 from django.db import models
-from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
-from django.core.validators import RegexValidator
 from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator
 
-
-from django.db.models.signals import post_save
-from django.dispatch import receiver
 
 from autoslug import AutoSlugField
 
 from datetime import timedelta
 
-from PIL import Image
+
 from core import settings
 
-from payroll.generator import emp_id, nin_no, tin_no
 from payroll import utils
 from payroll import choices
 
 from monthyear.models import MonthField
-from users.models import CustomUser
-
-
-def path_and_rename(instance, filename):
-    upload_to = "employee_photo"
-    ext = filename.split(".")[-1]
-    # get filename
-    if instance.pk:
-        filename = "{}.{}".format(instance.pk, ext)
-    else:
-        # set filename as random string
-        filename = "{}.{}".format(uuid4().hex, ext)
-    # return the whole path to the file
-    return os.path.join(upload_to, filename)
-
-
-class Department(models.Model):
-    name = models.CharField(max_length=100)
-    description = models.TextField(blank=True)
-
-    def __str__(self):
-        return self.name
-
-
-class EmployeeManager(models.Manager):
-    def get_queryset(self):
-        return super().get_queryset().filter(status="active")
-
-    # def search(self, query=None):
-    #     return self.get_queryset().search(query=query)
-
-
-class EmployeeProfile(models.Model):
-    emp_id = models.CharField(
-        default=emp_id,
-        unique=True,
-        max_length=255,
-        editable=False,
-    )
-    slug = models.CharField(
-        unique=True,
-        max_length=50,
-        verbose_name=_("Employee slug to identify and route the employee."),
-    )
-    department = models.ForeignKey(
-        Department,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-    )
-    user = models.OneToOneField(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
-        blank=True,
-        null=True,
-        related_name="employee_user",
-    )
-    first_name = models.CharField(
-        max_length=255,
-        blank=True,
-        null=True,
-    )
-    last_name = models.CharField(
-        max_length=255,
-        blank=True,
-        null=True,
-    )
-    email = models.EmailField(
-        max_length=255,
-        blank=True,
-    )
-
-    employee_pay = models.ForeignKey(
-        "Payroll",
-        on_delete=models.CASCADE,
-        related_name="employee_pay",
-        null=True,
-        blank=True,
-    )
-    created = models.DateTimeField(
-        default=timezone.now,
-        blank=False,
-        editable=False,
-    )
-    photo = models.FileField(
-        blank=True,
-        null=True,
-        default="default.png",
-        upload_to=path_and_rename,
-    )
-    nin = models.CharField(
-        default=nin_no,
-        unique=True,
-        max_length=255,
-        editable=False,
-    )
-    tin_no = models.CharField(
-        default=tin_no,
-        unique=True,
-        max_length=255,
-        editable=False,
-    )
-    pension_rsa = models.CharField(
-        unique=True,
-        max_length=15,
-    )
-    date_of_birth = MonthField(
-        "Date of Birth",
-        help_text="date of birth month and year...",
-        null=True,
-    )
-    date_of_employment = MonthField(
-        "Date of Employment",
-        help_text="date of birth month and year...",
-        null=True,
-    )
-    contract_type = models.CharField(
-        choices=choices.CONTRACT_TYPE,
-        max_length=1,
-        blank=True,
-        null=True,
-    )
-    phone_regex = RegexValidator(
-        regex=r"^(?:\+\d{1,3}\s?)?(\d{3}-\d{3}-\d{4})$",
-        message="Phone number must be entered in the format: +1 123-456-7890 Up to 17 digits allowed.",
-    )
-    phone = models.CharField(
-        # default=phone_regex,
-        validators=[phone_regex],
-        max_length=17,
-        blank=True,
-        unique=True,
-        verbose_name="phone number",
-    )
-    gender = models.CharField(
-        max_length=255,
-        choices=choices.GENDER,
-        default="others",
-        blank=False,
-        verbose_name="gender",
-    )
-    address = models.CharField(
-        max_length=255,
-        blank=True,
-        null=True,
-        verbose_name="address",
-    )
-
-    job_title = models.CharField(
-        max_length=255,
-        choices=choices.LEVEL,
-        default="casual",
-        blank=False,
-        verbose_name="designation",
-    )
-    bank = models.CharField(
-        max_length=10,
-        choices=choices.BANK,
-        default="Z",
-        verbose_name="employee BANK",
-    )
-    bank_account_name = models.CharField(
-        max_length=255,
-        verbose_name="Bank Account Name",
-        unique=True,
-        blank=True,
-        null=True,
-    )
-    bank_account_number = models.CharField(
-        max_length=10,
-        verbose_name="Bank Account Number",
-        unique=True,
-        blank=True,
-        null=True,
-    )
-    net_pay = models.DecimalField(
-        max_digits=12,
-        default=0.0,
-        decimal_places=2,
-        blank=True,
-        editable=False,
-    )
-    status = models.CharField(
-        max_length=10,
-        choices=choices.STATUS,
-        default="pending",
-    )
-    objects = models.Manager()  # The default manager.
-    emp_objects = EmployeeManager()
-
-    def __str__(self):
-        return self.first_name or "test"
-
-    class Meta:
-        ordering = ["-created"]
-
-    def get_absolute_url(self):
-        from django.urls import reverse
-
-        return reverse("payroll:list-payslip", args=[str(self.slug)])
-
-    @property
-    def save_img(self):
-        img = Image.open(self.photo.path)
-
-        if img.height > 300 or img.width > 300:
-            output_size = (300, 300)
-            img.thumbnail(output_size)
-            img.save(self.photo.path)
-
-    @property
-    def get_first_name(self):
-        return self.request
-
-    @property
-    def format_rsa(self):
-        return f"RSA-{self.pension_rsa}"
-
-    @property
-    def save_slug(self):
-        return f"{self.first_name}-{self.last_name}"
-
-    @property
-    def get_email(self):
-        return f"{self.first_name}.{self.last_name}@email.com"
-
-    def save(self, *args, **kwargs):
-        self.net_pay = utils.get_net_pay(self)  # noqa: F405
-        self.email = self.get_email
-        self.slug = self.save_slug
-        # self.pension_rsa = self.format_rsa
-
-        super(EmployeeProfile, self).save(*args, **kwargs)
-
-
-@receiver(post_save, sender=CustomUser)
-def create_employee(sender, instance, created, **kwargs):
-    if created:
-        EmployeeProfile.objects.create(
-            user=instance, first_name=instance.first_name, last_name=instance.last_name
-        )
+from payroll.models.employee_profile import EmployeeProfile
+from payroll.models.utils import SoftDeleteModel
 
 
 class PayrollManager(models.Manager):
@@ -704,7 +458,7 @@ class Payday(models.Model):
     )
 
 
-class IOU(models.Model):
+class IOU(SoftDeleteModel):
     STATUS_CHOICES = [
         ("PENDING", "Pending"),
         ("APPROVED", "Approved"),
@@ -769,23 +523,29 @@ class IOU(models.Model):
     def __str__(self):
         return f"{self.employee_id.first_name} - IOU of {self.amount}"
 
-    def save(self, *args, **kwargs):
-        if self.approved_at and not self.due_date:
-            self.due_date = self.approved_at + timedelta(days=30 * self.tenor)
-        super().save(*args, **kwargs)
-
     @property
     def total_amount(self):
         return self.amount + (self.amount * self.interest_rate / 100)
 
     @property
     def get_due_date(self):
-        due_date = self.approved_at + timedelta(days=365 * self.tenor)
+        if self.approved_at is not None:
+            due_date = self.approved_at + timedelta(days=365 * self.tenor)
+        else:
+            due_date = self.created_at + timedelta(days=365 * self.tenor)
         return due_date
 
+    def clean(self):
+        super().clean()
+        if self.amount <= 0:
+            raise ValidationError({"amount": "Amount must be greater than zero."})
+        if self.tenor <= 0:
+            raise ValidationError({"tenor": "Tenor must be at least 1 month."})
+
     def save(self, *args, **kwargs):
-        self.due_date = self.get_due_date
-        super(IOU, self).save(*args, **kwargs)
+        if not self.due_date:  # Only set due_date if it's not already set
+            self.due_date = self.get_due_date
+        super().save(*args, **kwargs)
 
 
 class LeavePolicy(models.Model):
@@ -824,15 +584,3 @@ class LeaveRequest(models.Model):
 
     def __str__(self):
         return f"{self.employee} - {self.leave_type} ({self.status})"
-
-
-class PerformanceReview(models.Model):
-    employee = models.ForeignKey(
-        EmployeeProfile, on_delete=models.CASCADE, related_name="performance_reviews"
-    )
-    review_date = models.DateField()
-    rating = models.IntegerField(choices=[(i, i) for i in range(1, 11)])  # 1-10 rating
-    comments = models.TextField()
-
-    def __str__(self):
-        return f"Review for {self.employee.user.get_full_name()} on {self.review_date}"

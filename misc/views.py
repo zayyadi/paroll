@@ -40,6 +40,7 @@ from payroll.models import (
     Payroll,
     Allowance,
     PerformanceReview,
+    AuditTrail,
 )
 from payroll import utils
 
@@ -1076,3 +1077,20 @@ def iou_history(request):
         else:
             ious = IOU.objects.none()  # Return an empty queryset if no profile exists
     return render(request, "iou/iou_history.html", {"ious": ious})
+
+
+def log_audit_trail(user, action, content_object):
+    AuditTrail.objects.create(
+        user=user,
+        action=action,
+        content_object=content_object,
+    )
+
+
+@login_required
+def restore_employee(request, id):
+    employee = get_object_or_404(EmployeeProfile, id=id, deleted_at__isnull=False)
+    employee.restore()
+    log_audit_trail(request.user, "restore", employee)
+    messages.success(request, "Employee restored successfully!")
+    return redirect("payroll:employee_list")
