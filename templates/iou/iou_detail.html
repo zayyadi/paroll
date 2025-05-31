@@ -1,0 +1,21 @@
+{% extends 'base.html' %}
+
+{% block content %}
+  <div class="container mx-auto p-4">
+    <h2 class="text-2xl font-bold mb-4">IOU Detail</h2>
+    <p class="mb-2"><span class="font-bold">Employee:</span> {{ iou.employee_id }}</p>
+    <p class="mb-2"><span class="font-bold">Amount:</span> {{ iou.amount }}</p>
+    <p class="mb-2"><span class="font-bold">Tenor:</span> {{ iou.tenor }}</p>
+    <p class="mb-2"><span class="font-bold">Reason:</span> {{ iou.reason }}</p>
+    <p class="mb-2"><span class="font-bold">Interest Rate:</span> {{ iou.interest_rate }}</p>
+    <p class="mb-2"><span class="font-bold">Payment Method:</span> {{ iou.payment_method }}</p>
+    <p class="mb-2"><span class="font-bold">Status:</span> {{ iou.status }}</p>
+    <p class="mb-2"><span class="font-bold">Approved At:</span> {{ iou.approved_at }}</p>
+    <p class="mb-2"><span class="font-bold">Due Date:</span> {{ iou.due_date }}</p>
+    <div class="mt-4">
+      <a href="{% url 'payroll:iou_update' pk=iou.pk %}" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">Update</a>
+      <a href="{% url 'payroll:iou_delete' pk=iou.pk %}" class="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded">Delete</a>
+      <a href="{% url 'payroll:iou_list' %}" class="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded">Back to List</a>
+    </div>
+  </div>
+{% endblock %}

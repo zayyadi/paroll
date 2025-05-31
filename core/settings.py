@@ -264,6 +264,7 @@ EMAIL_USE_SSL: False
 
 AUTH_USER_MODEL = "users.CustomUser"
 AUTH_USER_DEFAULT_GROUP = "payroll-members"
+DEFAULT_EMAIL_DOMAIN = "example.com"
 
 
 SITE_TITLE = os.getenv("SITE_TITLE", "Demo Site")

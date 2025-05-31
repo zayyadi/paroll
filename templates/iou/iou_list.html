@@ -1,0 +1,24 @@
+{% extends 'base.html' %}
+
+{% block content %}
+  <div class="container mx-auto p-4">
+    <h2 class="text-2xl font-bold mb-4">IOU List</h2>
+    <a href="{% url 'payroll:request_iou' %}" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded mb-4 inline-block">Create New IOU</a>
+    <ul class="list-none" id="iou-list">
+      {% for iou in ious %}
+        <li class="mb-2"><a href="{% url 'payroll:iou_detail' pk=iou.pk %}" class="text-blue-500 hover:text-blue-700">{{ iou }}</a></li>
+      {% endfor %}
+    </ul>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      const iouList = document.getElementById('iou-list');
+      iouList.style.opacity = 0;
+      iouList.style.transition = 'opacity 1s ease-in-out';
+      setTimeout(() => {
+        iouList.style.opacity = 1;
+      }, 100);
+    });
+  </script>
+{% endblock %}

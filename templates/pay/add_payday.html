@@ -1,49 +1,90 @@
 {% extends 'base.html' %}
 {% load static %}
-{% load tailwind_filters %}
-{% load tailwind_tags %}
-{% tailwind_preload_css %}
-{% tailwind_css %}
-{% block title %} Create Pay Day {% endblock title %}
+{% load crispy_forms_tags %}
+{% load tailwind_filters %} {# Ensure these are loaded for crispy forms #}
+
+{% block title %}Create Pay Day{% endblock title %}
 
 {% block content %}
-<div class="container py-8">
-    <div class="max-w-lg mx-auto">
-        <div class="bg-white shadow-md rounded px-8 pt-6 pb-8 mb-4">
-            <h2 class="text-2xl font-bold text-center mb-4">Payroll Preparation Form</h2>
-            <form method="POST" enctype="multipart/form-data">
-                {% csrf_token %}
-                <div class="mb-4">
-                    {{ form.name|as_crispy_field }}
-                </div>
-                <div class="mb-4">
-                    {{ form.slug|as_crispy_field }}
-                </div>
-                <div class="mb-4 flex items-center">
-                    <label for="month" class="w-1/4 font-bold">Month:</label>
-                    <div class="w-3/4">
-                        {{ form.paydays }}
+<div class="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 dark:from-gray-900 dark:to-gray-800">
+  <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+    <div class="space-y-8">
+      <!-- Heading Section -->
+      <div class="text-center space-y-2">
+        <h1 class="text-5xl font-bold text-gray-900 dark:text-white">Create New Payday</h1>
+        <p class="text-lg text-gray-600 dark:text-gray-300">Set up new payroll periods and assign employees</p>
+      </div>
+
+      <!-- Form Section -->
+      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8 sm:p-12 transition-all duration-300 hover:shadow-2xl">
+        <form method="POST" enctype="multipart/form-data" class="space-y-8">
+          {% csrf_token %}
+
+          <!-- Messages -->
+          {% if messages %}
+              <div class="mb-4">
+                  {% for message in messages %}
+                      <div class="p-3 rounded-lg {% if message.tags == 'success' %}bg-green-100 text-green-800{% elif message.tags == 'error' %}bg-red-100 text-red-800{% else %}bg-blue-100 text-blue-800{% endif %}">
+                          {{ message }}
+                      </div>
+                  {% endfor %}
+              </div>
+          {% endif %}
+
+          <!-- Validation Feedback -->
+          {% if form.errors %}
+            <div class="bg-red-50 border-l-4 border-red-400 p-4 mb-6">
+              <p class="text-sm text-red-700">Please correct the errors below.</p>
+              {% for field in form %}
+                {% for error in field.errors %}
+                  <p class="text-xs text-red-600">{{ field.label }}: {{ error }}</p>
+                {% endfor %}
+              {% endfor %}
+              {% for error in form.non_field_errors %}
+                <p class="text-xs text-red-600">{{ error }}</p>
+              {% endfor %}
+            </div>
+          {% endif %}
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="form-group">
+                {{ form.name|as_crispy_field }}
+            </div>
+            <div class="form-group">
+                {{ form.slug|as_crispy_field }}
+            </div>
+            <div class="form-group">
+                {{ form.paydays|as_crispy_field }} {# Render MonthField with crispy #}
+            </div>
+            <div class="form-group">
+                {{ form.is_active|as_crispy_field }}
+            </div>
+          </div>
+
+          <div class="bg-blue-50 dark:bg-gray-700 rounded-xl p-6 space-y-6">
+            <h3 class="text-xl font-semibold text-blue-800 dark:text-blue-200 mb-4">Select Employees for this Payday</h3>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {% for checkbox in form.payroll_payday %}
+                    <div class="flex items-center">
+                        {{ checkbox.tag }}
+                        <label for="{{ checkbox.id_for_label }}" class="ml-2 text-gray-700 dark:text-gray-300">{{ checkbox.choice_label }}</label>
                     </div>
-                </div>
-                <div class="mb-4">
-                    <label class="block font-bold mb-2">{{ form.payroll_payday.label }}</label>
-                    <div class="bg-gray-200 rounded-md p-4">
-                        {% for choice in form.payroll_payday.field.choices %}
-                        <div class="mb-2">
-                            <input type="checkbox" name="{{ form.payroll_payday.name }}" value="{{ choice.0 }}" id="{{ choice.0 }}" class="mr-2">
-                            <label for="{{ choice.0 }}">{{ choice.1 }}</label>
-                        </div>
-                        {% endfor %}
-                    </div>
-                </div>
-                <div class="mb-4">
-                    {{ form.is_active|as_crispy_field }}
-                </div>
-                <div class="text-center">
-                    <button type="submit" class="bg-green-500 hover:bg-green-700 text-green-500 font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">Save</button>
-                </div>
-            </form>
-        </div>
+                {% endfor %}
+            </div>
+          </div>
+
+          <!-- Submit Button -->
+          <div class="flex justify-end">
+            <button type="submit" class="px-10 py-4 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-semibold rounded-lg shadow-md transition-all duration-200 transform hover:scale-[1.02] flex items-center justify-center space-x-2">
+              <span>Save Payday</span>
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"></path>
+              </svg>
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
+  </div>
 </div>
-{% endblock %}
+{% endblock content %}

@@ -1,4 +1,4 @@
-{% extends 'base2.html' %}
+{% extends 'base.html' %}
 
 {% block content %}
 <div class="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 dark:from-gray-900 dark:to-gray-800">
@@ -47,33 +47,141 @@
               <div class="w-1/3 text-gray-500 dark:text-gray-400">Email</div>
               <div class="flex-1 font-medium text-gray-900 dark:text-white">{{ emp.email }}</div>
             </div>
+            <div class="flex items-center space-x-4">
+              <div class="w-1/3 text-gray-500 dark:text-gray-400">Phone</div>
+              <div class="flex-1 font-medium text-gray-900 dark:text-white">{{ emp.phone }}</div>
+            </div>
+            <div class="flex items-center space-x-4">
+              <div class="w-1/3 text-gray-500 dark:text-gray-400">Address</div>
+              <div class="flex-1 font-medium text-gray-900 dark:text-white">{{ emp.address }}</div>
+            </div>
+            <div class="flex items-center space-x-4">
+              <div class="w-1/3 text-gray-500 dark:text-gray-400">Date of Birth</div>
+              <div class="flex-1 font-medium text-gray-900 dark:text-white">{{ emp.date_of_birth }}</div>
+            </div>
+            <div class="flex items-center space-x-4">
+              <div class="w-1/3 text-gray-500 dark:text-gray-400">Gender</div>
+              <div class="flex-1 font-medium text-gray-900 dark:text-white">{{ emp.gender }}</div>
+            </div>
           </div>
         </div>
 
-        <!-- Payslip Card -->
+        <!-- Employment Details Card -->
         <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 animate-fadeIn">
-          <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-6">Recent Payslips</h2>
+          <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-6">Employment Details</h2>
           <div class="space-y-4">
-            {% for payslip in pay %}
-            <div class="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors">
-              <div>
-                <p class="font-medium text-gray-900 dark:text-white">{{ payslip.paydays_id.paydays }}</p>
-                <p class="text-sm text-gray-500 dark:text-gray-400">Basic: ₦{{ payslip.payroll_id.pays.employee_pay.basic_salary }}</p>
-              </div>
-              <div class="flex items-center space-x-4">
-                <span class="text-lg font-semibold text-blue-500">₦{{ payslip.payroll_id.netpay }}</span>
-                <div class="flex space-x-2">
-                  <a href="{% url 'payroll:payslip' payslip.id %}" class="p-2 text-gray-400 hover:text-blue-500 transition-colors">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
-                  </a>
-                  <a href="{% url 'payroll:payslip_pdf' payslip.id %}" class="p-2 text-gray-400 hover:text-green-500 transition-colors">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
-                  </a>
-                </div>
+            <div class="flex items-center space-x-4">
+              <div class="w-1/3 text-gray-500 dark:text-gray-400">Employee ID</div>
+              <div class="flex-1 font-medium text-gray-900 dark:text-white">{{ emp.emp_id }}</div>
+            </div>
+            <div class="flex items-center space-x-4">
+              <div class="w-1/3 text-gray-500 dark:text-gray-400">Date of Employment</div>
+              <div class="flex-1 font-medium text-gray-900 dark:text-white">{{ emp.date_of_employment }}</div>
+            </div>
+            <div class="flex items-center space-x-4">
+              <div class="w-1/3 text-gray-500 dark:text-gray-400">Contract Type</div>
+              <div class="flex-1 font-medium text-gray-900 dark:text-white">{{ emp.contract_type }}</div>
+            </div>
+            <div class="flex items-center space-x-4">
+              <div class="w-1/3 text-gray-500 dark:text-gray-400">Pension RSA</div>
+              <div class="flex-1 font-medium text-gray-900 dark:text-white">{{ emp.pension_rsa }}</div>
+            </div>
+            <div class="flex items-center space-x-4">
+              <div class="w-1/3 text-gray-500 dark:text-gray-400">NIN</div>
+              <div class="flex-1 font-medium text-gray-900 dark:text-white">{{ emp.nin }}</div>
+            </div>
+            <div class="flex items-center space-x-4">
+              <div class="w-1/3 text-gray-500 dark:text-gray-400">TIN No.</div>
+              <div class="flex-1 font-medium text-gray-900 dark:text-white">{{ emp.tin_no }}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Banking Information Card -->
+      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 animate-fadeIn">
+        <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-6">Banking Information</h2>
+        <div class="space-y-4">
+          <div class="flex items-center space-x-4">
+            <div class="w-1/3 text-gray-500 dark:text-gray-400">Bank</div>
+            <div class="flex-1 font-medium text-gray-900 dark:text-white">{{ emp.bank }}</div>
+          </div>
+          <div class="flex items-center space-x-4">
+            <div class="w-1/3 text-gray-500 dark:text-gray-400">Account Name</div>
+            <div class="flex-1 font-medium text-gray-900 dark:text-white">{{ emp.bank_account_name }}</div>
+          </div>
+          <div class="flex items-center space-x-4">
+            <div class="w-1/3 text-gray-500 dark:text-gray-400">Account Number</div>
+            <div class="flex-1 font-medium text-gray-900 dark:text-white">{{ emp.bank_account_number }}</div>
+          </div>
+          <div class="flex items-center space-x-4">
+            <div class="w-1/3 text-gray-500 dark:text-gray-400">Net Pay</div>
+            <div class="flex-1 font-medium text-gray-900 dark:text-white">₦{{ emp.net_pay }}</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Emergency Contact Information Card -->
+      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 animate-fadeIn">
+        <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-6">Emergency Contact Information</h2>
+        <div class="space-y-4">
+          <div class="flex items-center space-x-4">
+            <div class="w-1/3 text-gray-500 dark:text-gray-400">Contact Name</div>
+            <div class="flex-1 font-medium text-gray-900 dark:text-white">{{ emp.emergency_contact_name }}</div>
+          </div>
+          <div class="flex items-center space-x-4">
+            <div class="w-1/3 text-gray-500 dark:text-gray-400">Relationship</div>
+            <div class="flex-1 font-medium text-gray-900 dark:text-white">{{ emp.emergency_contact_relationship }}</div>
+          </div>
+          <div class="flex items-center space-x-4">
+            <div class="w-1/3 text-gray-500 dark:text-gray-400">Phone Number</div>
+            <div class="flex-1 font-medium text-gray-900 dark:text-white">{{ emp.emergency_contact_phone }}</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Next of Kin Information Card -->
+      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 animate-fadeIn">
+        <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-6">Next of Kin Information</h2>
+        <div class="space-y-4">
+          <div class="flex items-center space-x-4">
+            <div class="w-1/3 text-gray-500 dark:text-gray-400">Next of Kin Name</div>
+            <div class="flex-1 font-medium text-gray-900 dark:text-white">{{ emp.next_of_kin_name }}</div>
+          </div>
+          <div class="flex items-center space-x-4">
+            <div class="w-1/3 text-gray-500 dark:text-gray-400">Relationship</div>
+            <div class="flex-1 font-medium text-gray-900 dark:text-white">{{ emp.next_of_kin_relationship }}</div>
+          </div>
+          <div class="flex items-center space-x-4">
+            <div class="w-1/3 text-gray-500 dark:text-gray-400">Phone Number</div>
+            <div class="flex-1 font-medium text-gray-900 dark:text-white">{{ emp.next_of_kin_phone }}</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Payslip Card -->
+      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 animate-fadeIn">
+        <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-6">Recent Payslips</h2>
+        <div class="space-y-4">
+          {% for payslip in pay %}
+          <div class="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors">
+            <div>
+              <p class="font-medium text-gray-900 dark:text-white">{{ payslip.paydays_id.paydays }}</p>
+              <p class="text-sm text-gray-500 dark:text-gray-400">Basic: ₦{{ payslip.payroll_id.pays.employee_pay.basic_salary }}</p>
+            </div>
+            <div class="flex items-center space-x-4">
+              <span class="text-lg font-semibold text-blue-500">₦{{ payslip.payroll_id.netpay }}</span>
+              <div class="flex space-x-2">
+                <a href="{% url 'payroll:payslip' payslip.id %}" class="p-2 text-gray-400 hover:text-blue-500 transition-colors">
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                </a>
+                <a href="{% url 'payroll:payslip_pdf' payslip.id %}" class="p-2 text-gray-400 hover:text-green-500 transition-colors">
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                </a>
               </div>
             </div>
-            {% endfor %}
           </div>
+          {% endfor %}
         </div>
       </div>
 

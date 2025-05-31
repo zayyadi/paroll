@@ -1,9 +1,20 @@
-{% extends 'base_hr.html' %}
+{% extends 'base.html' %}
 
 {% block content %}
 
 <div class="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 dark:from-gray-900 dark:to-gray-800">
   <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+    <!-- Messages -->
+    {% if messages %}
+        <div class="mb-4">
+            {% for message in messages %}
+                <div class="p-3 rounded-lg {% if message.tags == 'success' %}bg-green-100 text-green-800{% elif message.tags == 'error' %}bg-red-100 text-red-800{% else %}bg-blue-100 text-blue-800{% endif %}">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+
     <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-8">HR Dashboard</h1>
 
     <!-- Key Metrics -->
@@ -24,7 +35,7 @@
       <div class="space-y-4">
         {% for review in recent_performance_reviews %}
         <div class="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
-          <p class="text-gray-900 dark:text-white"><strong>{{ review.employee.user.get_full_name }}</strong> - {{ review.review_date }}</p>
+          <p class="text-gray-900 dark:text-white"><strong>{{ review.employee.first_name }} {{ review.employee.last_name }}</strong> - {{ review.review_date }}</p> {# Changed to first_name and last_name #}
           <p class="text-gray-500 dark:text-gray-400">Rating: {{ review.rating }}/5</p>
           <p class="text-gray-500 dark:text-gray-400">{{ review.comments }}</p>
         </div>
@@ -43,17 +54,15 @@
     <canvas id="leaveStatusChart"></canvas>
   </div>
 </div>
-</div>
-{% endblock %}
 
-
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script> {# Added Chart.js CDN #}
 <script>
   // Employee Distribution by Department
   const departmentData = {
-    labels: {{ department_labels|safe }},
+    labels: JSON.parse('{{ department_labels|safe }}'),
     datasets: [{
       label: 'Employees',
-      data: {{ department_counts|safe }},
+      data: JSON.parse('{{ department_counts|safe }}'),
       backgroundColor: ['#3b82f6', '#ef4444', '#10b981', '#f59e0b'],
     }]
   };
@@ -68,7 +77,7 @@
     labels: ['Pending', 'Approved', 'Rejected'],
     datasets: [{
       label: 'Leave Requests',
-      data: {{ leave_status_counts|safe }},
+      data: JSON.parse('{{ leave_status_counts|safe }}'),
       backgroundColor: ['#3b82f6', '#10b981', '#ef4444'],
     }]
   };
@@ -78,4 +87,4 @@
     data: leaveStatusData,
   });
 </script>
-
+{% endblock %}

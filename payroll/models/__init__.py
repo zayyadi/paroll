@@ -8,6 +8,7 @@ from .payroll import (
     PayT,
     PayVar,
     LeavePolicy,
+    Deduction,
     IOU,
 )
-from .utils import AuditTrail
+from .utils import *
