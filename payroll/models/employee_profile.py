@@ -4,11 +4,12 @@ from payroll.models.utils import SoftDeleteModel, path_and_rename
 
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
-from django.core.validators import RegexValidator
 from django.core.exceptions import ValidationError
+from django.utils.text import slugify
 
 from django.db.models.signals import post_save
 from django.dispatch import receiver
+from django.core.validators import RegexValidator
 
 from PIL import Image
 from core import settings
@@ -112,7 +113,7 @@ class EmployeeProfile(SoftDeleteModel):
     )
     pension_rsa = models.CharField(
         unique=True,
-        max_length=15,
+        max_length=50,
     )
     date_of_birth = MonthField(
         "Date of Birth",
@@ -130,13 +131,13 @@ class EmployeeProfile(SoftDeleteModel):
         blank=True,
         null=True,
     )
-    phone_regex = RegexValidator(
-        regex=r"^(?:\+\d{1,3}\s?)?(\d{3}-\d{3}-\d{4})$",
-        message="Phone number must be entered in the format: +1 123-456-7890 Up to 17 digits allowed.",
-    )
     phone = models.CharField(
-        # default=phone_regex,
-        validators=[phone_regex],
+        validators=[
+            RegexValidator(
+                regex=r"^(?:\+\d{1,3}\s?)?(\d{3}[-\.\s]??\d{3}[-\.\s]??\d{4}|\(\d{3}\)\s*\d{3}[-\.\s]??\d{4}|\d{3}[-\.\s]??\d{3}[-\.\s]??\d{4})$",
+                message="Phone number must be entered in a valid format.",
+            )
+        ],
         max_length=17,
         blank=True,
         unique=True,
@@ -156,6 +157,58 @@ class EmployeeProfile(SoftDeleteModel):
         verbose_name="address",
     )
 
+    # Emergency Contact Information
+    emergency_contact_name = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True,
+        verbose_name="Emergency Contact Name",
+    )
+    emergency_contact_relationship = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True,
+        verbose_name="Emergency Contact Relationship",
+    )
+    emergency_contact_phone = models.CharField(
+        validators=[
+            RegexValidator(
+                regex=r"^(?:\+\d{1,3}\s?)?(\d{3}[-\.\s]??\d{3}[-\.\s]??\d{4}|\(\d{3}\)\s*\d{3}[-\.\s]??\d{4}|\d{3}[-\.\s]??\d{3}[-\.\s]??\d{4})$",
+                message="Phone number must be entered in a valid format.",
+            )
+        ],
+        max_length=17,
+        blank=True,
+        null=True,
+        verbose_name="Emergency Contact Phone Number",
+    )
+
+    # Next of Kin Information
+    next_of_kin_name = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True,
+        verbose_name="Next of Kin Name",
+    )
+    next_of_kin_relationship = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True,
+        verbose_name="Next of Kin Relationship",
+    )
+    next_of_kin_phone = models.CharField(
+        validators=[
+            RegexValidator(
+                regex=r"^(?:\+\d{1,3}\s?)?(\d{3}[-\.\s]??\d{3}[-\.\s]??\d{4}|\(\d{3}\)\s*\d{3}[-\.\s]??\d{4}|\d{3}[-\.\s]??\d{3}[-\.\s]??\d{4})$",
+                message="Phone number must be entered in a valid format.",
+            )
+        ],
+        max_length=17,
+        blank=True,
+        null=True,
+        verbose_name="Next of Kin Phone Number",
+    )
+
     job_title = models.CharField(
         max_length=255,
         choices=choices.LEVEL,
@@ -172,7 +225,6 @@ class EmployeeProfile(SoftDeleteModel):
     bank_account_name = models.CharField(
         max_length=255,
         verbose_name="Bank Account Name",
-        unique=True,
         blank=True,
         null=True,
     )
@@ -198,6 +250,11 @@ class EmployeeProfile(SoftDeleteModel):
     objects = models.Manager()  # The default manager.
     emp_objects = EmployeeManager()
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.__original_first_name = self.first_name
+        self.__original_last_name = self.last_name
+
     def __str__(self):
         return self.first_name or "test"
 
@@ -210,49 +267,55 @@ class EmployeeProfile(SoftDeleteModel):
         return reverse("payroll:list-payslip", args=[str(self.slug)])
 
     @property
-    def save_img(self):
-        if self.photo and hasattr(self.photo, "path"):
-            img = Image.open(self.photo.path)
-
-            if img.height > 300 or img.width > 300:
-                output_size = (300, 300)
-                img.thumbnail(output_size)
-                img.save(self.photo.path)
-
-    @property
     def get_first_name(self):
         return self.first_name
 
-    @property
-    def format_rsa(self):
-        return f"RSA-{self.pension_rsa}"
-
-    @property
-    def save_slug(self):
-        return f"{self.first_name}-{self.last_name}"
-
-    @property
     def get_email(self):
-        return f"{self.first_name}.{self.last_name}@email.com"
+        if self.user and self.user.email:
+            return self.user.email
+        return f"{self.first_name}.{self.last_name}@{settings.DEFAULT_EMAIL_DOMAIN or 'email.com'}"
 
     def clean(self):
         super().clean()
-        if self.phone and not self.phone_regex.regex.match(self.phone):
-            raise ValidationError({"phone": self.phone_regex.message})
+        # if self.phone and not self.phone_regex.regex.match(self.phone):
+        #     raise ValidationError({"phone": self.phone_regex.message})
 
     def save(self, *args, **kwargs):
         self.net_pay = utils.get_net_pay(self)  # noqa: F405
-        self.email = self.get_email
-        self.slug = self.save_slug
-        self.pension_rsa = self.format_rsa
+        self.email = self.get_email()
+
+        if not self.pension_rsa.startswith("RSA-"):
+            self.pension_rsa = f"RSA-{self.pension_rsa}"
+
+        if self.pk is None or (
+            self.first_name != self.__original_first_name
+            or self.last_name != self.__original_last_name
+        ):
+            self.slug = slugify(f"{self.first_name}-{self.last_name}")
+
+        from django.core.files.storage import default_storage
+
+        if self.photo:
+            try:
+                img = Image.open(default_storage.path(self.photo.name))
+                if img.height > 300 or img.width > 300:
+                    output_size = (300, 300)
+                    img.thumbnail(output_size)
+                    img.save(default_storage.path(self.photo.name))
+            except FileNotFoundError:
+                pass
+
         super(EmployeeProfile, self).save(*args, **kwargs)
 
 
 @receiver(post_save, sender=CustomUser)
-def create_employee(sender, instance, created, **kwargs):
+def create_employee_profile(sender, instance, created, **kwargs):
     if created:
         EmployeeProfile.objects.create(
-            user=instance, first_name=instance.first_name, last_name=instance.last_name
+            user=instance,
+            email=instance.email,
+            first_name=instance.first_name,
+            last_name=instance.last_name,
         )
 
 

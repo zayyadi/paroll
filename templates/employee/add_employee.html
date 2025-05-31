@@ -1,4 +1,4 @@
-{% extends 'base2.html' %}
+{% extends 'base.html' %}
 {% load crispy_forms_tags %}
 {% load tailwind_filters %}
 {% load tailwind_tags %}
@@ -25,50 +25,133 @@
           {% csrf_token %}
 
           <!-- Validation Feedback -->
-          {% if e_form.errors %}
+          {% if user_form.errors or employee_form.errors %}
             <div class="bg-red-50 border-l-4 border-red-400 p-4 mb-6">
               <p class="text-sm text-red-700">Please correct the errors below.</p>
+              {% for field in user_form %}
+                {% for error in field.errors %}
+                  <p class="text-xs text-red-600">{{ field.label }}: {{ error }}</p>
+                {% endfor %}
+              {% endfor %}
+              {% for field in employee_form %}
+                {% for error in field.errors %}
+                  <p class="text-xs text-red-600">{{ field.label }}: {{ error }}</p>
+                {% endfor %}
+              {% endfor %}
+              {% for error in user_form.non_field_errors %}
+                <p class="text-xs text-red-600">{{ error }}</p>
+              {% endfor %}
+              {% for error in employee_form.non_field_errors %}
+                <p class="text-xs text-red-600">{{ error }}</p>
+              {% endfor %}
             </div>
           {% endif %}
+
+          <!-- User Account Details -->
+          <div class="bg-blue-50 dark:bg-gray-700 rounded-xl p-6 space-y-6">
+            <h3 class="text-xl font-semibold text-blue-800 dark:text-blue-200">Account Details</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div class="form-group">
+                {{ user_form.username|as_crispy_field }}
+              </div>
+              <div class="form-group">
+                {{ user_form.password|as_crispy_field }}
+              </div>
+              <div class="form-group">
+                {{ user_form.password2|as_crispy_field }}
+              </div>
+            </div>
+          </div>
 
           <!-- Form Fields -->
           <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
             <!-- Personal Details -->
             <div class="space-y-6">
+              <h3 class="text-xl font-semibold text-gray-900 dark:text-white">Personal Details</h3>
               <div class="form-group">
-                {{ e_form.first_name|as_crispy_field }}
+                {{ employee_form.first_name|as_crispy_field }}
               </div>
               <div class="form-group">
-                {{ e_form.last_name|as_crispy_field }}
+                {{ employee_form.last_name|as_crispy_field }}
               </div>
               <div class="form-group">
-                {{ e_form.date_of_birth|as_crispy_field }}
+                {{ employee_form.email|as_crispy_field }}
               </div>
               <div class="form-group">
-                {{ e_form.gender|as_crispy_field }}
+                {{ employee_form.date_of_birth|as_crispy_field }}
               </div>
               <div class="form-group">
-                {{ e_form.phone|as_crispy_field }}
+                {{ employee_form.gender|as_crispy_field }}
+              </div>
+              <div class="form-group">
+                {{ employee_form.phone|as_crispy_field }}
                 <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Example: +1234567890</p>
+              </div>
+              <div class="form-group">
+                {{ employee_form.address|as_crispy_field }}
               </div>
             </div>
 
             <!-- Employment Details -->
             <div class="space-y-6">
+              <h3 class="text-xl font-semibold text-gray-900 dark:text-white">Employment Details</h3>
               <div class="form-group">
-                {{ e_form.job_title|as_crispy_field }}
+                {{ employee_form.department|as_crispy_field }}
               </div>
               <div class="form-group">
-                {{ e_form.contract_type|as_crispy_field }}
+                {{ employee_form.job_title|as_crispy_field }}
               </div>
               <div class="form-group">
-                {{ e_form.date_of_employment|as_crispy_field }}
+                {{ employee_form.contract_type|as_crispy_field }}
               </div>
               <div class="form-group">
-                {{ e_form.employee_pay|as_crispy_field }}
+                {{ employee_form.date_of_employment|as_crispy_field }}
               </div>
               <div class="form-group">
-                {{ e_form.pension_rsa|as_crispy_field }}
+                {{ employee_form.employee_pay|as_crispy_field }}
+              </div>
+              <div class="form-group">
+                {{ employee_form.pension_rsa|as_crispy_field }}
+              </div>
+              <div class="form-group">
+                {{ employee_form.nin|as_crispy_field }}
+              </div>
+              <div class="form-group">
+                {{ employee_form.tin_no|as_crispy_field }}
+              </div>
+            </div>
+          </div>
+
+          <!-- Emergency Contact Information -->
+          <div class="bg-blue-50 dark:bg-gray-700 rounded-xl p-6 space-y-6">
+            <h3 class="text-xl font-semibold text-blue-800 dark:text-blue-200">Emergency Contact Information</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div class="form-group">
+                {{ employee_form.emergency_contact_name|as_crispy_field }}
+              </div>
+              <div class="form-group">
+                {{ employee_form.emergency_contact_relationship|as_crispy_field }}
+              </div>
+              <div class="form-group">
+                {{ employee_form.emergency_contact_phone|as_crispy_field }}
+                <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Example: +1234567890</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Next of Kin Information -->
+          <div class="bg-blue-50 dark:bg-gray-700 rounded-xl p-6 space-y-6">
+            <h3 class="text-xl font-semibold text-blue-800 dark:text-blue-200">Next of Kin Information</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div class="form-group">
+                {{ employee_form.next_of_kin_name|as_crispy_field }}
+              </div>
+              <div class="form-group">
+                {{ employee_form.next_of_kin_relationship|as_crispy_field }}
+              </div>
+              <div class="form-group">
+                {{ employee_form.next_of_kin_phone|as_crispy_field }}
+                <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Example: +1234567890</p>
               </div>
             </div>
           </div>
@@ -78,13 +161,13 @@
             <h3 class="text-xl font-semibold text-blue-800 dark:text-blue-200">Banking Information</h3>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div class="form-group">
-                {{ e_form.bank|as_crispy_field }}
+                {{ employee_form.bank|as_crispy_field }}
               </div>
               <div class="form-group">
-                {{ e_form.bank_account_name|as_crispy_field }}
+                {{ employee_form.bank_account_name|as_crispy_field }}
               </div>
               <div class="form-group">
-                {{ e_form.bank_account_number|as_crispy_field }}
+                {{ employee_form.bank_account_number|as_crispy_field }}
                 <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Enter your account number</p>
               </div>
             </div>
@@ -96,7 +179,7 @@
               <svg class="w-12 h-12 mx-auto text-gray-400 dark:text-gray-500 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path>
               </svg>
-              {{ e_form.photo|as_crispy_field }}
+              {{ employee_form.photo|as_crispy_field }}
               <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">PNG, JPG up to 2MB</p>
             </div>
           </div>

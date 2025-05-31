@@ -1,9 +1,20 @@
-{% extends 'base2.html' %}
+{% extends 'base.html' %}
 
 {% block content %}
 <div class="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 dark:from-gray-900 dark:to-gray-800">
   <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
     <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-8">
+      <!-- Messages -->
+      {% if messages %}
+          <div class="mb-4">
+              {% for message in messages %}
+                  <div class="p-3 rounded-lg {% if message.tags == 'success' %}bg-green-100 text-green-800{% elif message.tags == 'error' %}bg-red-100 text-red-800{% else %}bg-blue-100 text-blue-800{% endif %}">
+                      {{ message }}
+                  </div>
+              {% endfor %}
+          </div>
+      {% endif %}
+
       <!-- Header with Add New Leave Request Button -->
       <div class="flex justify-between items-center mb-8">
         <h2 class="text-3xl font-bold text-gray-900 dark:text-white">My Leave Requests</h2>
@@ -23,7 +34,7 @@
           <div class="space-y-3">
             <!-- Leave Type and Dates -->
             <p class="text-lg font-semibold text-gray-900 dark:text-white">
-              {{ req.leave_type }} - {{ req.start_date }} to {{ req.end_date }}
+              {{ req.leave_type.leave_type }} - {{ req.start_date }} to {{ req.end_date }} {# Access leave_type name #}
             </p>
 
             <!-- Reason -->
@@ -33,7 +44,14 @@
 
             <!-- Status -->
             <p class="text-sm text-gray-600 dark:text-gray-300">
-              <span class="font-medium">Status:</span> {{ req.status }}
+              <span class="font-medium">Status:</span> 
+              <span class="
+                {% if req.status == 'APPROVED' %}text-green-600
+                {% elif req.status == 'REJECTED' %}text-red-600
+                {% else %}text-yellow-600{% endif %}
+              ">
+                {{ req.status }}
+              </span>
             </p>
           </div>
 
@@ -52,6 +70,10 @@
               Delete
             </button>
           </div>
+        </div>
+        {% empty %}
+        <div class="p-6 bg-gray-50 dark:bg-gray-700 rounded-lg shadow-sm text-center text-gray-500 dark:text-gray-400">
+            No leave requests found.
         </div>
         {% endfor %}
       </div>

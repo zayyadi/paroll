@@ -1,0 +1,78 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container mx-auto p-6">
+    <div class="flex justify-between items-center mb-6">
+        <h1 class="text-3xl font-bold">Audit Trail</h1>
+        <a href="{% url 'payroll:audit_trail_list' %}" class="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700">Refresh</a>
+    </div>
+
+    <!-- Search and Filter -->
+    <form method="GET" class="flex flex-wrap gap-3 mb-6">
+        <input type="text" name="q" placeholder="Search everything..." value="{{ query }}" class="border p-2 rounded w-64">
+        <input type="text" name="user" placeholder="Filter by User" value="{{ user_filter }}" class="border p-2 rounded w-48">
+        <input type="text" name="action" placeholder="Filter by Action" value="{{ action_filter }}" class="border p-2 rounded w-48">
+        <button type="submit" class="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700">Apply</button>
+        <a href="{% url 'payroll:audit_trail_list' %}" class="bg-gray-300 px-3 py-2 rounded hover:bg-gray-400">Reset</a>
+    </form>
+
+    <!-- Table -->
+    <div class="overflow-x-auto bg-white dark:bg-gray-800 shadow rounded-lg">
+        <table class="min-w-full">
+            <thead>
+                <tr class="border-b text-left">
+                    <th class="p-3">User</th>
+                    <th class="p-3">Action</th>
+                    <th class="p-3">Content</th>
+                    <th class="p-3">Date</th>
+                    <th class="p-3">Changes</th> {# New column for changes #}
+                    <th class="p-3">Details</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for log in audit_logs %}
+                <tr class="border-b hover:bg-gray-50 dark:hover:bg-gray-700">
+                    <td class="p-3">{{ log.user }}</td>
+                    <td class="p-3">{{ log.action }}</td>
+                    <td class="p-3">{{ log.content_object }}</td>
+                    <td class="p-3">{{ log.timestamp|date:"Y-m-d H:i" }}</td>
+                    <td class="p-3">
+                        {% if log.changes %}
+                            Yes
+                        {% else %}
+                            No
+                        {% endif %}
+                    </td>
+                    <td class="p-3">
+                        <a href="{% url 'payroll:audit_trail_detail' log.id %}" 
+                           class="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600">View</a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" class="p-3 text-center text-gray-500">No audit logs found.</td> {# colspan increased to 6 #}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Pagination -->
+    <div class="mt-6 flex justify-between items-center">
+        {% if audit_logs.has_other_pages %}
+        <span class="text-gray-600">Page {{ audit_logs.number }} of {{ audit_logs.paginator.num_pages }}</span>
+        <div class="space-x-2">
+            {% if audit_logs.has_previous %}
+            <a href="?page={{ audit_logs.previous_page_number }}{% if query %}&q={{ query }}{% endif %}{% if user_filter %}&user={{ user_filter }}{% endif %}{% if action_filter %}&action={{ action_filter }}{% endif %}" 
+               class="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300">Previous</a>
+            {% endif %}
+            {% if audit_logs.has_next %}
+            <a href="?page={{ audit_logs.next_page_number }}{% if query %}&q={{ query }}{% endif %}{% if user_filter %}&user={{ user_filter }}{% endif %}{% if action_filter %}&action={{ action_filter }}{% endif %}" 
+               class="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300">Next</a>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

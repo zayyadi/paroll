@@ -10,7 +10,7 @@ urlpatterns = [
     path("employees/", views.employee_list, name="employee_list"),
     path("performance-reviews/", views.performance_reviews, name="performance_reviews"),
     # path("input_emp_no", views.input_id, name="input"),
-    path("add_employee", views.add_employee, name="employee"),
+    path("add_employee", views.add_employee, name="add_employee"),  # Changed name
     # path("update_employee", views.delete_employee, name="update_employee"),
     path("delete_employee", views.delete_employee, name="delete_employee"),
     path("profile/<int:user_id>/", views.employee, name="profile"),
@@ -20,7 +20,7 @@ urlpatterns = [
     path("add_allowance/", views.create_allowance, name="add-allowance"),
     path("edit_allowance/<int:id>/", views.edit_allowance, name="edit-allowance"),
     path("delete-allowance", views.delete_allowance, name="delete-allowance"),
-    path("add_allowance", views.create_allowance, name="add_allowance"),
+    # Removed duplicate: path("add_allowance", views.create_allowance, name="add_allowance"),
     path("varview/", views.varview, name="varview"),
     path("varview/<str:paydays>/", views.varview_report, name="varview-report"),
     path(
@@ -110,4 +110,49 @@ urlpatterns = [
     path("request-iou/", views.request_iou, name="request_iou"),
     path("approve-iou/<int:iou_id>/", views.approve_iou, name="approve_iou"),
     path("iou-history/", views.iou_history, name="iou_history"),
+    path(
+        "iou/",
+        views.iou_list,
+        name="iou_list",
+    ),
+    path(
+        "iou/<int:pk>/",
+        views.iou_detail,
+        name="iou_detail",
+    ),
+    path(
+        "reviews/",
+        views.performance_review_list,
+        name="performance_review_list",
+    ),
+    path(
+        "reviews/add/",
+        views.add_performance_review,
+        name="add_performance_review",
+    ),
+    path(
+        "reviews/edit/<int:review_id>/",
+        views.edit_performance_review,
+        name="edit_performance_review",
+    ),
+    path(
+        "reviews/delete/<int:review_id>/",
+        views.delete_performance_review,
+        name="delete_performance_review",
+    ),
+    path(
+        "reviews/detail/<int:review_id>/",
+        views.performance_review_detail,
+        name="performance_review_detail",
+    ),
+    path(
+        "audit-trail/",
+        views.audit_trail_list,
+        name="audit_trail_list",
+    ),
+    path(
+        "audit-trail/<int:id>/",
+        views.audit_trail_detail,
+        name="audit_trail_detail",
+    ),
 ]

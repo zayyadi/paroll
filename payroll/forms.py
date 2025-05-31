@@ -187,12 +187,6 @@ class IOUApprovalForm(forms.ModelForm):
         fields = ["status", "approved_at"]
 
 
-class PerformanceReviewForm(forms.ModelForm):
-    class Meta:
-        model = models.PerformanceReview
-        fields = ["employee", "review_date", "rating", "comments"]
-
-
 class AuditTrailForm(forms.ModelForm):
     class Meta:
         model = models.AuditTrail
@@ -202,3 +196,18 @@ class AuditTrailForm(forms.ModelForm):
             "content_type",
             "object_id",
         ]  # Excluded 'timestamp' as it is non-editable.
+
+
+class PerformanceReviewForm(forms.ModelForm):
+    class Meta:
+        model = models.PerformanceReview
+        fields = ["employee", "review_date", "rating", "comments"]
+        widgets = {
+            "review_date": forms.DateInput(
+                attrs={"type": "date", "class": "border rounded p-2"}
+            ),
+            "rating": forms.Select(attrs={"class": "border rounded p-2"}),
+            "comments": forms.Textarea(
+                attrs={"rows": 4, "class": "border rounded p-2"}
+            ),
+        }

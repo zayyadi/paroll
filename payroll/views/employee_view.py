@@ -1,5 +1,6 @@
 from payroll.forms import (
     EmployeeProfileForm,
+    PerformanceReviewForm,
 )
 from payroll import models
 
@@ -13,6 +14,13 @@ from django.contrib import messages
 
 from django.contrib.auth.decorators import user_passes_test
 from django.conf import settings
+from django.http import (
+    Http404,
+    HttpResponseForbidden,
+)  # Import Http404 and HttpResponseForbidden
+
+import json  # Import json
+
 from django.core.cache.backends.base import DEFAULT_TIMEOUT
 
 # from django.views.decorators.cache import cache_page
@@ -25,6 +33,64 @@ def check_super(user):
     return user.is_superuser
 
 
+@login_required
+def index(request):
+    pay = models.PayT.objects.all()
+    pay_count = models.PayT.objects.all().count()
+    emp = models.EmployeeProfile.emp_objects.all()
+    count = emp.count()
+
+    context = {
+        "pay": pay,
+        "emp": emp,
+        "count": count,
+        "pay_count": pay_count,
+    }
+
+    if request.user.is_superuser:
+        return render(request, "index.html", context)
+    else:
+        try:
+            employee_profile = models.EmployeeProfile.emp_objects.get(user=request.user)
+            context["employee_slug"] = employee_profile.slug
+        except models.EmployeeProfile.DoesNotExist:
+            context["employee_slug"] = None
+
+        return render(request, "home_normal.html", context)
+
+
+@login_required
+def dashboard(request):
+    user = request.user
+
+    if user.is_superuser:
+        return render(request, "dashboard_admin.html")
+
+    elif user.groups.filter(name="HR").exists():
+        employee_count = models.EmployeeProfile.objects.count()
+        leave_count = models.LeaveRequest.objects.filter(
+            status="PENDING"
+        ).count()  # Only pending leaves for HR dashboard
+        iou_count = models.IOU.objects.filter(
+            status="PENDING"
+        ).count()  # Only pending IOUs for HR dashboard
+        # disciplinary_count = DisciplinaryAction.objects.count()
+        allowance_count = models.Allowance.objects.count()
+
+        context = {
+            "employee_count": employee_count,
+            "leave_count": leave_count,
+            "iou_count": iou_count,
+            # 'disciplinary_count': disciplinary_count,
+            "allowance_count": allowance_count,
+        }
+        return render(request, "dashboard_hr.html", context)
+
+    else:
+        return render(request, "dashboard_user.html")
+
+
+@login_required
 def hr_dashboard(request):
     total_employees = models.EmployeeProfile.objects.count()
     active_leave_requests = models.LeaveRequest.objects.filter(status="PENDING").count()
@@ -36,15 +102,19 @@ def hr_dashboard(request):
     department_distribution = models.EmployeeProfile.objects.values(
         "department__name"
     ).annotate(count=Count("id"))
-    department_labels = [item["department__name"] for item in department_distribution]
-    department_counts = [item["count"] for item in department_distribution]
+    department_labels = json.dumps(
+        [item["department__name"] for item in department_distribution]
+    )
+    department_counts = json.dumps([item["count"] for item in department_distribution])
 
     # Leave Requests by Status
-    leave_status_counts = [
-        models.LeaveRequest.objects.filter(status="PENDING").count(),
-        models.LeaveRequest.objects.filter(status="APPROVED").count(),
-        models.LeaveRequest.objects.filter(status="REJECTED").count(),
-    ]
+    leave_status_counts = json.dumps(
+        [
+            models.LeaveRequest.objects.filter(status="PENDING").count(),
+            models.LeaveRequest.objects.filter(status="APPROVED").count(),
+            models.LeaveRequest.objects.filter(status="REJECTED").count(),
+        ]
+    )
 
     context = {
         "total_employees": total_employees,
@@ -97,27 +167,50 @@ def performance_reviews(request):
 @user_passes_test(check_super)
 @login_required
 def add_employee(request):
-    # created = EmployeeProfile.objects.get_or_create(user=request.user)  # noqa: F841
     if request.method == "POST":
-        u_form = user_forms.CustomUserChangeForm(request.POST, instance=request.user)
-        e_form = EmployeeProfileForm(
-            request.POST or None,
-            request.FILES or None,
-        )
+        # Assuming CustomUserChangeForm is for the *new* user, not request.user
+        # This part needs careful consideration if CustomUserChangeForm is meant for the logged-in user.
+        # For adding a new employee, typically you'd create a new CustomUser instance.
+        # For simplicity, I'll assume CustomUserChangeForm is for the new employee's user details.
+        # However, the instance=request.user is problematic for adding a new user.
+        # Let's assume for now that CustomUserChangeForm is for updating the *current* user's profile,
+        # and EmployeeProfileForm is for creating a new employee profile. This is a common pattern.
+        # But the current code tries to save EmployeeProfileForm without linking to a new user.
 
-        if u_form.is_valid and e_form.is_valid():
-            e_form.save()
+        # Re-evaluating: The original code seems to imply that `add_employee` is for a superuser
+        # to add an employee, and it tries to update `request.user` (the superuser) and create
+        # an `EmployeeProfile`. This is a logical flaw.
 
-            messages.success(request, f"Your account has been updated!")  # noqa: F541
-            return redirect("payroll:index")
+        # Let's refactor this to correctly add a new EmployeeProfile and optionally a new CustomUser.
+        # The `EmployeeCreateView` is better suited for this.
+        # I will make this `add_employee` function create a new EmployeeProfile and a new CustomUser.
+
+        user_form = user_forms.CustomUserCreationForm(
+            request.POST
+        )  # Use creation form for new user
+        employee_form = EmployeeProfileForm(request.POST, request.FILES)
+
+        if user_form.is_valid() and employee_form.is_valid():
+            user = user_form.save()
+            employee_profile = employee_form.save(commit=False)
+            employee_profile.user = user  # Link the new user to the employee profile
+            employee_profile.email = user.email  # Ensure email is synced
+            employee_profile.first_name = user.first_name
+            employee_profile.last_name = user.last_name
+            employee_profile.save()
+
+            messages.success(request, "Employee added successfully!")
+            return redirect(
+                "payroll:employee_list"
+            )  # Redirect to employee list after adding
 
     else:
-        # u_form = UserEditForm(instance=request.user)
-        e_form = EmployeeProfileForm(instance=request.user)
+        user_form = user_forms.CustomUserCreationForm()
+        employee_form = EmployeeProfileForm()
 
     context = {
-        "e_form": e_form,
-        # "u_form": u_form,
+        "user_form": user_form,
+        "employee_form": employee_form,
     }
 
     return render(request, "employee/add_employee.html", context)
@@ -138,7 +231,7 @@ def update_employee(request, id):
         return redirect("payroll:index")
 
     else:
-        form = EmployeeProfileForm()
+        form = EmployeeProfileForm(instance=employee)
 
     return render(request, "employee/update_employee.html", {"form": form})
 
@@ -193,19 +286,86 @@ def delete_employee(request, id):
 
 @login_required
 def employee(request, user_id: int):
-    try:
-        user_id = request.user.id
-        print(user_id)
-        if user_id:
-            user = get_object_or_404(models.EmployeeProfile, user_id=user_id)
+    # Allow superusers and HR to view any employee profile
+    if request.user.is_superuser or request.user.groups.filter(name="HR").exists():
+        try:
+            employee_profile = get_object_or_404(
+                models.EmployeeProfile, user_id=user_id
+            )
+        except Http404:
+            raise Http404("Employee profile not found.")
+    else:
+        # Regular users can only view their own profile
+        if user_id != request.user.id:
+            raise HttpResponseForbidden("You are not authorized to view this page.")
+        try:
+            employee_profile = get_object_or_404(
+                models.EmployeeProfile, user_id=request.user.id
+            )
+        except Http404:
+            raise Http404("Your employee profile was not found.")
 
-            pay = models.Payday.objects.all().filter(payroll_id__pays__user_id=user_id)
-            print(f"payroll_id:{pay}")
-        else:
-            raise Exception("You are not the owner")
+    pay = models.Payday.objects.filter(
+        payroll_id__pays__user_id=employee_profile.user.id
+    )
 
-    except Exception as e:
-        raise (e, "You re Not Authorized to view this page")
-
-    context = {"emp": user, "pay": pay}
+    context = {"emp": employee_profile, "pay": pay}
     return render(request, "employee/profile.html", context)
+
+
+def performance_review_list(request):
+    reviews = models.PerformanceReview.objects.all().order_by("-review_date")
+    form = PerformanceReviewForm()
+    return render(
+        request,
+        "reviews/performance_review_list.html",
+        {"reviews": reviews, "form": form},
+    )
+
+
+def performance_review_detail(request, review_id):
+    review = get_object_or_404(models.PerformanceReview, id=review_id)
+    return render(request, "reviews/performance_review_detail.html", {"review": review})
+
+
+def add_performance_review(request):
+    if request.method == "POST":
+        form = PerformanceReviewForm(request.POST)
+        if form.is_valid():
+            review = form.save(commit=False)
+            # Assuming employee_id is passed in the form data (e.g., a hidden input)
+            employee_id = request.POST.get("employee")
+            if employee_id:
+                employee = get_object_or_404(models.EmployeeProfile, id=employee_id)
+                review.employee = employee
+            else:
+                messages.error(
+                    request, "Employee not specified for performance review."
+                )
+                return redirect("payroll:performance_review_list")
+
+            review.save()
+            messages.success(request, "Performance review added successfully.")
+            return redirect("payroll:performance_review_list")
+        else:
+            messages.error(
+                request, "Error adding performance review. Please check the form."
+            )
+    return redirect("payroll:performance_review_list")
+
+
+def edit_performance_review(request, review_id):
+    review = get_object_or_404(models.PerformanceReview, id=review_id)
+    if request.method == "POST":
+        form = PerformanceReviewForm(request.POST, instance=review)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Review updated successfully.")
+    return redirect("payroll:performance_review_list")
+
+
+def delete_performance_review(request, review_id):
+    review = get_object_or_404(models.PerformanceReview, id=review_id)
+    review.delete()
+    messages.success(request, "Review deleted successfully.")
+    return redirect("payroll:performance_review_list")

@@ -17,3 +17,11 @@ def mask_account_number(value):
         return "*" * (len(value) - 4) + value[-4:]
     else:
         return value
+
+
+@register.filter(name="format_field_name")
+def format_field_name(value):
+    """
+    Replaces underscores with spaces and capitalizes the first letter of each word.
+    """
+    return value.replace("_", " ").title()

@@ -5,34 +5,57 @@
 {% tailwind_preload_css %}
 {% tailwind_css %}
 {% load custom_tags %}
-{% block title %}
-    Payslip List
-{% endblock title %}
+
+{% block title %}Payslip List{% endblock title %}
 
 {% block content %}
-<div class="container mx-auto px-4 py-8">
-    <div class="flex justify-between items-center mb-6">
-        <h1 class="text-2xl font-semibold text-gray-800">Payslip List for {{ emp.first_name }} {{ emp.last_name }}</h1>
-    </div>
-    <table class="min-w-full bg-white shadow-md rounded-lg overflow-hidden">
-        <thead class="bg-gray-200">
-            <tr>
-                <th class="py-2 px-4 text-left">#</th>
-                <th class="py-2 px-4 text-left">Year-Month</th>
-                <th class="py-2 px-4 text-left">Actions</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for payday in pay %}
-            <tr class="border-b border-gray-200">
-                <td class="py-2 px-4">{{ forloop.counter }}</td>
-                <td class="py-2 px-4">Payslip for the month {{ dates|index:forloop.counter0 }}</td>
-                <td class="py-2 px-4">
-                    <a href="{% url 'payroll:payslip' payday.id %}" class="bg-blue-500 text-white py-1 px-3 rounded hover:bg-blue-700">View Payslip</a>
-                </td>
-            </tr>
+<div class="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 dark:from-gray-900 dark:to-gray-800">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+    <!-- Messages -->
+    {% if messages %}
+        <div class="mb-4">
+            {% for message in messages %}
+                <div class="p-3 rounded-lg {% if message.tags == 'success' %}bg-green-100 text-green-800{% elif message.tags == 'error' %}bg-red-100 text-red-800{% else %}bg-blue-100 text-blue-800{% endif %}">
+                    {{ message }}
+                </div>
             {% endfor %}
-        </tbody>
-    </table>
+        </div>
+    {% endif %}
+
+    <div class="flex justify-between items-center mb-6">
+        <h1 class="text-3xl font-bold text-gray-900 dark:text-white">Payslip List for {{ emp.first_name }} {{ emp.last_name }}</h1>
+        <a href="{% url 'payroll:employee' emp.user.id %}" class="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700 transition-colors">Back to Profile</a>
+    </div>
+
+    <div class="bg-white dark:bg-gray-800 shadow-lg rounded-lg overflow-hidden">
+        <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+            <thead class="bg-gray-50 dark:bg-gray-700">
+                <tr>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">#</th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Year-Month</th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Net Pay</th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Actions</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                {% for payday in pay %}
+                <tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">{{ forloop.counter }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">Payslip for {{ dates|index:forloop.counter0 }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">₦{{ payday.payroll_id.netpay }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <a href="{% url 'payroll:payslip' payday.id %}" class="text-blue-600 hover:text-blue-900 mr-4">View</a>
+                        <a href="{% url 'payroll:payslip_pdf' payday.id %}" class="text-green-600 hover:text-green-900">Download PDF</a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="4" class="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-500 dark:text-gray-400">No payslips found for this employee.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+  </div>
 </div>
 {% endblock content %}

@@ -148,12 +148,6 @@ class Payroll(models.Model):
         return calc
 
     def save(self, *args, **kwargs):
-        print(f"second payee: ₦{utils.second_taxable(self):,.2f}")
-        print(f"third payee: ₦{utils.third_taxable(self):,.2f}")
-        print(f"fourth payee: ₦{utils.fourth_taxable(self):,.2f}")
-        print(f"fifth payee: ₦{utils.fifth_taxable(self):,.2f}")
-        print(f"sixth payee: ₦{utils.sixth_taxable(self):,.2f}")
-        print(f"seventh payee: ₦{utils.seventh_taxable(self):,.2f}")
         # self.name = self.get_name
         self.basic = utils.get_basic(self)  # noqa: F405
         self.housing = utils.get_housing(self)  # noqa: F405
@@ -310,27 +304,15 @@ class PayVar(models.Model):
 
     @property
     def calc_allowance(self):
-        return (
-            self.pays.net_pay
-            * (
-                self.allowance_id.percentage
-                if self.allowance_id.percentage
-                else Decimal(0)
-            )
-            / 100
-        )
+        if self.allowance_id and self.allowance_id.percentage:
+            return self.pays.net_pay * self.allowance_id.percentage / 100
+        return Decimal(0)
 
     @property
     def calc_deduction(self):
-        return (
-            self.pays.net_pay
-            * (
-                self.deduction_id.percentage
-                if self.deduction_id.percentage
-                else Decimal(0)
-            )
-            / 100
-        )
+        if self.deduction_id and self.deduction_id.percentage:
+            return self.pays.net_pay * self.deduction_id.percentage / 100
+        return Decimal(0)
 
     @property
     def calc_housing(self) -> Decimal:
@@ -359,7 +341,13 @@ class PayVar(models.Model):
 
     @property
     def total_deductions(self) -> Decimal:
-        return
+        total = (
+            self.calc_deduction
+            + self.employee_health
+            + self.nhf
+            + self.pays.employee_pay.nsitf
+        )
+        return total
 
     @property
     def get_netpay(self):
@@ -405,14 +393,6 @@ class PayT(models.Model):
         help_text="some help...",
         null=True,
     )
-    paydays_str = models.CharField(
-        editable=True,
-        # unique=Tru?e,
-        max_length=100,
-        null=True,
-        blank=True,
-        default="a",
-    )
     # month = MonthField()
     payroll_payday = models.ManyToManyField(
         PayVar, related_name="payroll_payday", through="Payday"
@@ -440,7 +420,7 @@ class PayT(models.Model):
     def save(self, *args, **kwargs):
         if self.pk and PayT.objects.filter(pk=self.pk, closed=True).exists():
             raise ValidationError("This entry is closed and cannot be edited.")
-        self.paydays_str = self.save_month_str
+        # self.paydays_str = self.save_month_str
 
         super(PayT, self).save(*args, **kwargs)
 
@@ -529,10 +509,11 @@ class IOU(SoftDeleteModel):
 
     @property
     def get_due_date(self):
+        # Calculate due date based on tenor in months
         if self.approved_at is not None:
-            due_date = self.approved_at + timedelta(days=365 * self.tenor)
+            due_date = self.approved_at + timedelta(days=(365 / 12) * self.tenor)
         else:
-            due_date = self.created_at + timedelta(days=365 * self.tenor)
+            due_date = self.created_at + timedelta(days=(365 / 12) * self.tenor)
         return due_date
 
     def clean(self):
@@ -543,8 +524,11 @@ class IOU(SoftDeleteModel):
             raise ValidationError({"tenor": "Tenor must be at least 1 month."})
 
     def save(self, *args, **kwargs):
-        if not self.due_date:  # Only set due_date if it's not already set
-            self.due_date = self.get_due_date
+        if not self.due_date:
+            if self.approved_at is not None:
+                self.due_date = self.approved_at + timedelta(days=365 / 12 * self.tenor)
+            else:
+                self.due_date = self.created_at + timedelta(days=365 / 12 * self.tenor)
         super().save(*args, **kwargs)
 
 
@@ -570,11 +554,13 @@ class LeaveRequest(models.Model):
         ("REJECTED", "Rejected"),
     ]
     employee = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
+        EmployeeProfile,
         on_delete=models.CASCADE,
         related_name="leave_requests",
     )
-    leave_type = models.CharField(max_length=20, choices=LeavePolicy.LEAVE_TYPES)
+    leave_type = models.ForeignKey(
+        LeavePolicy, on_delete=models.PROTECT, related_name="leave_requests_by_type"
+    )
     start_date = models.DateField()
     end_date = models.DateField()
     reason = models.TextField()
@@ -583,4 +569,4 @@ class LeaveRequest(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return f"{self.employee} - {self.leave_type} ({self.status})"
+        return f"{self.employee.first_name} - {self.leave_type} ({self.status})"
