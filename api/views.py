@@ -11,6 +11,7 @@ from api.serializers import (
 from rest_framework import generics, views, status, viewsets
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated, IsAdminUser
 
 from payroll import models
 
@@ -19,9 +20,12 @@ class CreateEmployeeView(generics.CreateAPIView):
     queryset = models.EmployeeProfile.objects.all()
     serializer_class = EmployeeCreateSerializer
     parser_classes = (MultiPartParser, FormParser)
+    permission_classes = [IsAdminUser]
 
 
 class ListAllEmployee(views.APIView):
+    permission_classes = [IsAdminUser]
+
     def get(self, request):
         queryset = models.EmployeeProfile.objects.all()
         serializer = EmployeeViewSerializer(queryset, many=True)
@@ -29,25 +33,31 @@ class ListAllEmployee(views.APIView):
 
 
 class ListEmployee(views.APIView):
-    def get(self, request):
-        user = self.request.user.id
-        queryset = models.EmployeeProfile.objects.filter(user_id=user)
-        serializer = EmployeeViewSerializer(queryset, many=False)
+    permission_classes = [IsAuthenticated]
 
+    def get(self, request):
+        user_id = self.request.user.id # Renamed 'user' to 'user_id' for clarity
+        # Assuming self.request.user.id is the ID of the CustomUser
+        employee_profile = get_object_or_404(models.EmployeeProfile, user_id=user_id)
+        serializer = EmployeeViewSerializer(employee_profile) # many=False is default and correct for single instance
         return Response(serializer.data)
 
 
 class CreatePayrollView(generics.CreateAPIView):
     queryset = models.Payroll.objects.all()
     serializer_class = CreatePayrollSerializer
+    permission_classes = [IsAdminUser]
 
 
 class ListPayrollView(generics.ListAPIView):
     queryset = models.Payroll.objects.all()
     serializer_class = ViewPayrollSerializer
+    permission_classes = [IsAdminUser]
 
 
 class PaydayView(viewsets.ViewSet):
+    permission_classes = [IsAdminUser]
+
     def list(self, request):
         pay = models.Payday.objects.all()
         serializer = PayDaySerializer(pay, many=True)

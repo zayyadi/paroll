@@ -4,7 +4,7 @@ from django.db.models import Sum
 
 # from django.core.cache import cache
 from django.template.loader import render_to_string
-from django.http import HttpResponse
+from django.http import HttpResponse, HttpResponseForbidden
 
 # from django.core.files.storage import FileSystemStorage
 from django.contrib.auth.decorators import user_passes_test
@@ -18,6 +18,7 @@ from payroll.models import (
     PayT,
     PayVar,
     Payday,
+    EmployeeProfile,
 )
 
 from payroll import utils
@@ -36,9 +37,17 @@ def check_super(user):
     return user.is_superuser
 
 
+def is_hr_user(user):
+    return user.is_authenticated and (user.is_staff or user.is_superuser or user.groups.filter(name='HR').exists())
+
+
 @login_required
 def payslip(request, id):
-    pay_id = Payday.objects.filter(id=id).first()
+    pay_id = get_object_or_404(Payday, id=id)
+    # Authorization check:
+    target_employee_user = pay_id.payroll_id.pays.user
+    if not (request.user == target_employee_user or is_hr_user(request.user)):
+        raise HttpResponseForbidden("You are not authorized to view this payslip.")
     num2word = num2words(pay_id.payroll_id.netpay)
     dates = utils.convert_month_to_word(str(pay_id.paydays_id.paydays))
     context = {
@@ -67,8 +76,18 @@ def varview_report(request, paydays):
     return render(request, "pay/var_report.html", context)
 
 
+@login_required
 def payslip_pdf(request, id):
-    payroll_entry = get_object_or_404(PayVar, pays_id=id)  # Use get_object_or_404
+    target_employee_profile = get_object_or_404(EmployeeProfile, id=id)
+
+    # Authorization check:
+    if not (request.user == target_employee_profile.user or is_hr_user(request.user)):
+        raise HttpResponseForbidden("You are not authorized to view this payslip PDF.")
+
+    payroll_entry = PayVar.objects.filter(pays_id=target_employee_profile.id).order_by('-id').first()
+    if not payroll_entry:
+        return HttpResponse("No payroll data available to generate PDF.", status=404)
+
     template_path = "pay/payslip_pdf.html"
     html_string = render_to_string(template_path, {"payroll": payroll_entry})
 
