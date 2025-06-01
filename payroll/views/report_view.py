@@ -29,6 +29,7 @@ from num2words import num2words
 # import xhtml2pdf.pisa as pisa
 from weasyprint import HTML
 import xlwt
+from decimal import Decimal # Added for type checking in helper
 
 CACHE_TTL = getattr(settings, "CACHE_TTL", DEFAULT_TIMEOUT)
 
@@ -56,6 +57,51 @@ def payslip(request, id):
         "dates": dates,
     }
     return render(request, "pay/payslip.html", context)
+
+
+# Helper function for Excel report generation
+def generate_excel_report(filename_base, sheet_name_base, pay_period_date, columns, data_rows, total_label, total_value_index):
+    filename = f"{filename_base}_{pay_period_date.strftime('%Y%m')}.xls" # Changed to .xls
+    response = HttpResponse(content_type="application/ms-excel")
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+
+    wb = xlwt.Workbook(encoding="utf-8")
+    sheet_display_name = f"{sheet_name_base} - {pay_period_date.strftime('%B %Y')}"
+    # Ensure sheet name is not too long (max 31 chars for Excel)
+    if len(sheet_display_name) > 31:
+        sheet_display_name = sheet_display_name[:31]
+    ws = wb.add_sheet(sheet_display_name)
+
+    row_num = 0
+    font_style_bold = xlwt.XFStyle()
+    font_style_bold.font.bold = True
+
+    for col_num, column_title in enumerate(columns):
+        ws.write(row_num, col_num, column_title, font_style_bold)
+
+    font_style_normal = xlwt.XFStyle()
+
+    calculated_total = 0
+    if total_value_index is not None: # Ensure total_value_index is valid if provided
+        for row in data_rows:
+            row_num += 1
+            for col_num, cell_value in enumerate(row):
+                ws.write(row_num, col_num, cell_value, font_style_normal)
+            if total_value_index < len(row) and isinstance(row[total_value_index], (int, float, Decimal)): # Check type for sum
+                calculated_total += row[total_value_index]
+    else: # No total to calculate per row, just write rows
+            for row in data_rows:
+                row_num += 1
+                for col_num, cell_value in enumerate(row):
+                    ws.write(row_num, col_num, cell_value, font_style_normal)
+
+    if total_label and total_value_index is not None:
+        row_num += 1
+        ws.write(row_num, 0, total_label, font_style_bold)
+        ws.write(row_num, len(columns) - 1, calculated_total, font_style_bold)
+
+    wb.save(response)
+    return response
 
 
 @user_passes_test(check_super)
@@ -138,60 +184,21 @@ def bank_report(request, pay_id):
 @user_passes_test(check_super)
 def bank_report_download(request, pay_id):
     pay_period = get_object_or_404(PayT, id=pay_id)
-    filename = f"bank_report_{pay_period.paydays.strftime('%Y%m')}.xlsx"
-    response = HttpResponse(content_type="application/ms-excel")
-    response["Content-Disposition"] = f'attachment; filename="{filename}"'
-
-    wb = xlwt.Workbook(encoding="utf-8")
-    ws = wb.add_sheet(
-        f"Bank Report - {pay_period.paydays.strftime('%B %Y')}"
-    )  # Dynamic sheet name
-
-    row_num = 0
-
-    font_style_bold = xlwt.XFStyle()  # Define once
-    font_style_bold.font.bold = True
-
     columns = [
-        "Employee No",
-        "Employee First Name",
-        "Employee Last Name",
-        "Employee Bank Name",
-        "Employee Bank Account Name",
-        "Employee Bank Account No.",
-        "Net Pay",
+        "Employee No", "Employee First Name", "Employee Last Name",
+        "Employee Bank Name", "Employee Bank Account Name",
+        "Employee Bank Account No.", "Net Pay"
     ]
-
-    for col_num in range(len(columns)):
-        ws.write(row_num, col_num, columns[col_num], font_style_bold)
-
-    font_style_normal = xlwt.XFStyle()  # Define once
-
-    rows = Payday.objects.filter(paydays_id_id=pay_id).values_list(
-        "payroll_id__pays__emp_id",
-        "payroll_id__pays__first_name",
-        "payroll_id__pays__last_name",
-        "payroll_id__pays__bank",
-        "payroll_id__pays__bank_account_name",
-        "payroll_id__pays__bank_account_number",
-        "payroll_id__netpay",
+    data_rows = Payday.objects.filter(paydays_id_id=pay_id).values_list(
+        "payroll_id__pays__emp_id", "payroll_id__pays__first_name",
+        "payroll_id__pays__last_name", "payroll_id__pays__bank",
+        "payroll_id__pays__bank_account_name", "payroll_id__pays__bank_account_number",
+        "payroll_id__netpay"
     )
-
-    total_netpay = 0
-
-    for row in rows:
-        row_num += 1
-        for col_num in range(len(row)):
-            ws.write(row_num, col_num, row[col_num], font_style_normal)
-        total_netpay += row[-1]
-
-    # Write total netpay
-    row_num += 1
-    ws.write(row_num, 0, "Total Net Pay", font_style_bold)
-    ws.write(row_num, len(columns) - 1, total_netpay, font_style_bold)
-
-    wb.save(response)
-    return response
+    return generate_excel_report(
+        "bank_report", "Bank Report", pay_period.paydays,
+        columns, data_rows, "Total Net Pay", len(columns) - 1
+    )
 
 
 @user_passes_test(check_super)
@@ -230,59 +237,19 @@ def nhis_report(request, pay_id):
 @user_passes_test(check_super)
 def nhis_report_download(request, pay_id):
     pay_period = get_object_or_404(PayT, id=pay_id)
-    filename = f"health_insurance_report_{pay_period.paydays.strftime('%Y%m')}.xlsx"
-    response = HttpResponse(content_type="application/ms-excel")
-    response["Content-Disposition"] = f'attachment; filename="{filename}"'
-
-    wb = xlwt.Workbook(encoding="utf-8")
-    ws = wb.add_sheet(
-        f"Health Insurance Report - {pay_period.paydays.strftime('%B %Y')}"
-    )  # Dynamic sheet name
-
-    row_num = 0
-
-    font_style_bold = xlwt.XFStyle()
-    font_style_bold.font.bold = True
-
     columns = [
-        "EmpNo",
-        "Emp First_Name",
-        "Last Name",
-        "Bank Name",
-        "Account No.",
-        "Health insurance payment",  # Corrected typo
+        "EmpNo", "Emp First_Name", "Last Name",
+        "Bank Name", "Account No.", "Health insurance payment"
     ]
-
-    for col_num in range(len(columns)):
-        ws.write(row_num, col_num, columns[col_num], font_style_bold)
-
-    font_style_normal = xlwt.XFStyle()
-
-    rows = Payday.objects.filter(paydays_id_id=pay_id).values_list(
-        "payroll_id__pays__emp_id",
-        "payroll_id__pays__first_name",
-        "payroll_id__pays__last_name",
-        "payroll_id__pays__bank",
-        "payroll_id__pays__bank_account_number",
-        "payroll_id__nhif",  # Corrected field
+    data_rows = Payday.objects.filter(paydays_id_id=pay_id).values_list(
+        "payroll_id__pays__emp_id", "payroll_id__pays__first_name",
+        "payroll_id__pays__last_name", "payroll_id__pays__bank",
+        "payroll_id__pays__bank_account_number", "payroll_id__nhif"
     )
-
-    total_nhis = 0
-
-    for row in rows:
-        row_num += 1
-        for col_num in range(len(row)):
-            ws.write(row_num, col_num, row[col_num], font_style_normal)
-        total_nhis += row[-1]
-
-    # Write total nhis
-    row_num += 1
-    ws.write(row_num, 0, "Total NHIS payment", font_style_bold)
-    ws.write(row_num, len(columns) - 1, total_nhis, font_style_bold)
-
-    wb.save(response)
-
-    return response
+    return generate_excel_report(
+        "health_insurance_report", "Health Insurance Report", pay_period.paydays,
+        columns, data_rows, "Total NHIS payment", len(columns) - 1
+    )
 
 
 @user_passes_test(check_super)
@@ -318,58 +285,19 @@ def nhf_report(request, pay_id):
 @user_passes_test(check_super)
 def nhf_report_download(request, pay_id):
     pay_period = get_object_or_404(PayT, id=pay_id)
-    filename = f"nhf_report_{pay_period.paydays.strftime('%Y%m')}.xlsx"
-    response = HttpResponse(content_type="application/ms-excel")
-    response["Content-Disposition"] = f'attachment; filename="{filename}"'
-
-    wb = xlwt.Workbook(encoding="utf-8")
-    ws = wb.add_sheet(
-        f"National Housing Fund Report - {pay_period.paydays.strftime('%B %Y')}"
-    )  # Dynamic sheet name
-
-    row_num = 0
-
-    font_style_bold = xlwt.XFStyle()
-    font_style_bold.font.bold = True
-
     columns = [
-        "EmpNo",
-        "Emp First_Name",
-        "Last Name",
-        "Bank Name",
-        "Account No.",
-        "National Housing Fund payment",
+        "EmpNo", "Emp First_Name", "Last Name",
+        "Bank Name", "Account No.", "National Housing Fund payment"
     ]
-
-    for col_num in range(len(columns)):
-        ws.write(row_num, col_num, columns[col_num], font_style_bold)
-
-    font_style_normal = xlwt.XFStyle()
-
-    rows = Payday.objects.filter(paydays_id_id=pay_id).values_list(
-        "payroll_id__pays__emp_id",
-        "payroll_id__pays__first_name",
-        "payroll_id__pays__last_name",
-        "payroll_id__pays__bank",
-        "payroll_id__pays__bank_account_number",
-        "payroll_id__nhf",  # Corrected field
+    data_rows = Payday.objects.filter(paydays_id_id=pay_id).values_list(
+        "payroll_id__pays__emp_id", "payroll_id__pays__first_name",
+        "payroll_id__pays__last_name", "payroll_id__pays__bank",
+        "payroll_id__pays__bank_account_number", "payroll_id__nhf"
     )
-    total_nhf = 0  # Added total for NHF
-
-    for row in rows:
-        row_num += 1
-        for col_num in range(len(row)):
-            ws.write(row_num, col_num, row[col_num], font_style_normal)
-        total_nhf += row[-1]  # Summing NHF
-
-    # Write total nhf
-    row_num += 1
-    ws.write(row_num, 0, "Total National Housing Fund payment", font_style_bold)
-    ws.write(row_num, len(columns) - 1, total_nhf, font_style_bold)
-
-    wb.save(response)
-
-    return response
+    return generate_excel_report(
+        "nhf_report", "National Housing Fund Report", pay_period.paydays,
+        columns, data_rows, "Total National Housing Fund payment", len(columns) - 1
+    )
 
 
 @user_passes_test(check_super)
@@ -410,59 +338,19 @@ def payee_report(request, pay_id):
 @user_passes_test(check_super)
 def payee_report_download(request, pay_id):
     pay_period = get_object_or_404(PayT, id=pay_id)
-    filename = f"payee_report_{pay_period.paydays.strftime('%Y%m')}.xlsx"
-    response = HttpResponse(content_type="application/ms-excel")
-    response["Content-Disposition"] = f'attachment; filename="{filename}"'
-
-    wb = xlwt.Workbook(encoding="utf-8")
-    ws = wb.add_sheet(
-        f"PAYE Report - {pay_period.paydays.strftime('%B %Y')}"
-    )  # Dynamic sheet name
-
-    row_num = 0
-
-    font_style_bold = xlwt.XFStyle()
-    font_style_bold.font.bold = True
-
     columns = [
-        "EmpNo",
-        "Employee First_Name",
-        "Employee Last Name",
-        "Tax Number",
-        "Gross Pay",
-        "Payee Amount",
+        "EmpNo", "Employee First_Name", "Employee Last Name",
+        "Tax Number", "Gross Pay", "Payee Amount"
     ]
-
-    for col_num in range(len(columns)):
-        ws.write(row_num, col_num, columns[col_num], font_style_bold)
-
-    font_style_normal = xlwt.XFStyle()
-
-    rows = Payday.objects.filter(paydays_id_id=pay_id).values_list(
-        "payroll_id__pays__emp_id",
-        "payroll_id__pays__first_name",
-        "payroll_id__pays__last_name",
-        "payroll_id__pays__tin_no",
-        "payroll_id__pays__employee_pay__basic_salary",
-        "payroll_id__pays__employee_pay__payee",
+    data_rows = Payday.objects.filter(paydays_id_id=pay_id).values_list(
+        "payroll_id__pays__emp_id", "payroll_id__pays__first_name",
+        "payroll_id__pays__last_name", "payroll_id__pays__tin_no",
+        "payroll_id__pays__employee_pay__basic_salary", "payroll_id__pays__employee_pay__payee"
     )
-
-    total_payee = 0
-
-    for row in rows:
-        row_num += 1
-        for col_num in range(len(row)):
-            ws.write(row_num, col_num, row[col_num], font_style_normal)
-        total_payee += row[-1]
-
-    # Write total payee
-    row_num += 1
-    ws.write(row_num, 0, "Total Payee", font_style_bold)
-    ws.write(row_num, len(columns) - 1, total_payee, font_style_bold)
-
-    wb.save(response)
-
-    return response
+    return generate_excel_report(
+        "payee_report", "PAYE Report", pay_period.paydays,
+        columns, data_rows, "Total Payee", len(columns) - 1
+    )
 
 
 @user_passes_test(check_super)
@@ -501,115 +389,40 @@ def pension_report(request, pay_id):
 @user_passes_test(check_super)
 def pension_report_download(request, pay_id):
     pay_period = get_object_or_404(PayT, id=pay_id)
-    filename = f"pension_report_{pay_period.paydays.strftime('%Y%m')}.xlsx"
-    response = HttpResponse(content_type="application/ms-excel")
-    response["Content-Disposition"] = f'attachment; filename="{filename}"'
-
-    wb = xlwt.Workbook(encoding="utf-8")
-    ws = wb.add_sheet(
-        f"Pension Report - {pay_period.paydays.strftime('%B %Y')}"
-    )  # Dynamic sheet name
-
-    row_num = 0
-
-    font_style_bold = xlwt.XFStyle()
-    font_style_bold.font.bold = True
-
     columns = [
-        "EmpNo",
-        "Employee First_Name",
-        "Employee Last Name",
-        "Tax Number",
-        "Gross Pay",
-        "Total Pension Contribution",
+        "EmpNo", "Employee First_Name", "Employee Last Name",
+        "Tax Number", "Gross Pay", "Total Pension Contribution"
     ]
-
-    for col_num in range(len(columns)):
-        ws.write(row_num, col_num, columns[col_num], font_style_bold)
-
-    font_style_normal = xlwt.XFStyle()
-
-    rows = Payday.objects.filter(paydays_id_id=pay_id).values_list(
-        "payroll_id__pays__emp_id",
-        "payroll_id__pays__first_name",
-        "payroll_id__pays__last_name",
-        "payroll_id__pays__pension_rsa",
-        "payroll_id__pays__employee_pay__basic_salary",
-        "payroll_id__pays__employee_pay__pension",
+    data_rows = Payday.objects.filter(paydays_id_id=pay_id).values_list(
+        "payroll_id__pays__emp_id", "payroll_id__pays__first_name",
+        "payroll_id__pays__last_name", "payroll_id__pays__pension_rsa",
+        "payroll_id__pays__employee_pay__basic_salary", "payroll_id__pays__employee_pay__pension"
     )
-
-    total_pension = 0
-
-    for row in rows:
-        row_num += 1
-        for col_num in range(len(row)):
-            ws.write(row_num, col_num, row[col_num], font_style_normal)
-        total_pension += row[-1]
-
-    # Write total pension
-    row_num += 1
-    ws.write(row_num, 0, "Total Pension", font_style_bold)
-    ws.write(row_num, len(columns) - 1, total_pension, font_style_bold)
-
-    wb.save(response)
-
-    return response
+    return generate_excel_report(
+        "pension_report", "Pension Report", pay_period.paydays,
+        columns, data_rows, "Total Pension", len(columns) - 1
+    )
 
 
 @user_passes_test(check_super)
-def varview_download(request, paydays):
-    pay_period = get_object_or_404(PayT, paydays=paydays)  # Get PayT object by paydays
-    filename = f"payroll_report_{pay_period.paydays.strftime('%Y%m')}.xlsx"
-    response = HttpResponse(content_type="application/ms-excel")
-    response["Content-Disposition"] = f'attachment; filename="{filename}"'
-
-    wb = xlwt.Workbook(encoding="utf-8")
-    ws = wb.add_sheet(
-        f"Payroll Report - {pay_period.paydays.strftime('%B %Y')}"
-    )  # Dynamic sheet name
-
-    row_num = 0
-
-    font_style_bold = xlwt.XFStyle()
-    font_style_bold.font.bold = True
-
+def varview_download(request, paydays): # paydays here is the date string, not an ID
+    pay_period = get_object_or_404(PayT, paydays=paydays)  # Get PayT object by paydays date
     columns = [
-        "Employee First_Name",
-        "Employee Last Name",
-        "Gross Salary",
-        "Water Fee",
-        "Payee",
-        "Pension Contribution",
-        "Net Pay",
+        "Employee First_Name", "Employee Last Name", "Gross Salary",
+        "Water Fee", "Payee", "Pension Contribution", "Net Pay"
     ]
-
-    for col_num in range(len(columns)):
-        ws.write(row_num, col_num, columns[col_num], font_style_bold)
-
-    font_style_normal = xlwt.XFStyle()
-
-    rows = Payday.objects.filter(paydays_id__paydays=paydays).values_list(
-        "payroll_id__pays__first_name",
-        "payroll_id__pays__last_name",
-        "payroll_id__pays__employee_pay__basic_salary",
-        "payroll_id__pays__employee_pay__water_rate",
-        "payroll_id__pays__employee_pay__payee",
-        "payroll_id__pays__employee_pay__pension_employee",
-        "payroll_id__netpay",
+    # Note: The original query used paydays_id__paydays=paydays.
+    # If paydays is the actual date string from URL, and PayT.paydays is the date field,
+    # then the filter should be on the Payday model's relation to PayT.
+    # Assuming Payday.paydays_id is the FK to PayT, and PayT.paydays is the date.
+    # The filter should be on Payday objects that relate to the PayT object fetched as pay_period.
+    data_rows = Payday.objects.filter(paydays_id=pay_period).values_list(
+        "payroll_id__pays__first_name", "payroll_id__pays__last_name",
+        "payroll_id__pays__employee_pay__basic_salary", "payroll_id__pays__employee_pay__water_rate",
+        "payroll_id__pays__employee_pay__payee", "payroll_id__pays__employee_pay__pension_employee",
+        "payroll_id__netpay"
     )
-    total_netpay = 0
-
-    for row in rows:
-        row_num += 1
-        for col_num in range(len(row)):
-            ws.write(row_num, col_num, row[col_num], font_style_normal)
-        total_netpay += row[-1]
-
-    # Write total netpay
-    row_num += 1
-    ws.write(row_num, 0, "Total Net Pay", font_style_bold)
-    ws.write(row_num, len(columns) - 1, total_netpay, font_style_bold)
-
-    wb.save(response)
-
-    return response
+    return generate_excel_report(
+        "payroll_report", "Payroll Report", pay_period.paydays,
+        columns, data_rows, "Total Net Pay", len(columns) - 1
+    )

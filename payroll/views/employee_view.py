@@ -286,8 +286,8 @@ class EmployeeDeleteView(LoginRequiredMixin, UserPassesTestMixin, DeleteView):
 
 @user_passes_test(check_super)
 def delete_employee(request, id):
-    pay = get_object_or_404(models.EmployeeProfile, id=id)
-    pay.delete()
+    employee_profile = get_object_or_404(models.EmployeeProfile, id=id)
+    employee_profile.delete()
     messages.success(request, "Employee deleted Successfully!!")
 
 
