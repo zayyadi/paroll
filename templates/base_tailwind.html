@@ -9,14 +9,27 @@
     <script>
       lucide.createIcons();
     </script>
+    <script src="https://cdn.jsdelivr.net/gh/alpinejs/alpine@v2.x.x/dist/alpine.min.js" defer></script>
     {% block page_title_in_head %}<title>Payroll System</title>{% endblock %}
     {% block extra_head %}{% endblock %}
+    <style>
+      [x-cloak] { display: none !important; }
+    </style>
 </head>
-<body class="font-sans bg-gray-50 text-gray-800">
+<body x-data="{ sidebarOpen: false }" @keydown.escape.window="sidebarOpen = false" class="font-sans bg-gray-50 text-gray-800">
 
     <!-- Top Navbar -->
     <nav class="fixed top-0 left-0 right-0 bg-white shadow-sm p-4 h-16 z-50 flex justify-between items-center">
-        <div class="text-xl font-semibold text-blue-600">PayrollCo</div>
+        <div class="flex items-center">
+            <!-- Mobile menu button -->
+            <div class="md:hidden mr-2">
+                <button @click="sidebarOpen = !sidebarOpen" class="p-2 rounded-md text-gray-700 hover:text-gray-900 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500">
+                    <span class="sr-only">Open sidebar</span>
+                    <i data-lucide="menu" class="h-6 w-6"></i>
+                </button>
+            </div>
+            <div class="text-xl font-semibold text-blue-600">PayrollCo</div>
+        </div>
         <div>
             {% if user.is_authenticated %}
                 <span class="mr-4">Welcome, {{ user.first_name|default:user.email }}!</span>
@@ -27,24 +40,77 @@
         </div>
     </nav>
 
-    <!-- Sidebar -->
-    <aside class="fixed left-0 top-0 h-full w-64 bg-white border-r border-gray-200 pt-16 z-40">
-        <div class="p-4">
-            <h3 class="text-sm text-gray-500 uppercase mb-2">Menu</h3>
-            <a href="{% url 'payroll:index' %}" class="block py-2 px-3 text-gray-700 hover:bg-gray-100 rounded">Dashboard</a>
-            <a href="{% url 'payroll:employee_list' %}" class="block py-2 px-3 text-gray-700 hover:bg-gray-100 rounded">Employees</a>
-            {% if request.user.is_superuser or request.user.is_staff %} {# Assuming HR users are staff #}
-                <a href="{% url 'payroll:hr_dashboard' %}" class="block py-2 px-3 text-gray-700 hover:bg-gray-100 rounded">HR Dashboard</a>
-            {% endif %}
-            {% if request.user.is_superuser %}
-                <a href="#" class="block py-2 px-3 text-gray-700 hover:bg-gray-100 rounded">Admin Section (Placeholder)</a>
-            {% endif %}
-            {% comment %} TODO: Add more role-based links based on HR, Finance, Employee roles {% endcomment %}
+    <!-- Off-canvas mobile menu -->
+    <div x-show="sidebarOpen" class="md:hidden fixed inset-0 flex z-40" x-cloak>
+        <!-- Backdrop -->
+        <div x-show="sidebarOpen"
+             @click="sidebarOpen = false"
+             x-transition:enter="transition-opacity ease-linear duration-300"
+             x-transition:enter-start="opacity-0"
+             x-transition:enter-end="opacity-100"
+             x-transition:leave="transition-opacity ease-linear duration-300"
+             x-transition:leave-start="opacity-100"
+             x-transition:leave-end="opacity-0"
+             class="fixed inset-0">
+            <div class="absolute inset-0 bg-gray-600 opacity-75"></div>
+        </div>
+        <!-- Sliding sidebar -->
+        <div x-show="sidebarOpen"
+             x-transition:enter="transition ease-in-out duration-300 transform"
+             x-transition:enter-start="-translate-x-full"
+             x-transition:enter-end="translate-x-0"
+             x-transition:leave="transition ease-in-out duration-300 transform"
+             x-transition:leave-start="translate-x-0"
+             x-transition:leave-end="-translate-x-full"
+             class="relative flex-1 flex flex-col max-w-xs w-full bg-white pt-5 pb-4 border-r border-gray-200">
+            <div class="absolute top-0 right-0 -mr-12 pt-2">
+                <button x-show="sidebarOpen" @click="sidebarOpen = false"
+                        class="ml-1 flex items-center justify-center h-10 w-10 rounded-full focus:outline-none focus:ring-2 focus:ring-inset focus:ring-white">
+                    <span class="sr-only">Close sidebar</span>
+                    <i data-lucide="x" class="h-6 w-6 text-white"></i>
+                </button>
+            </div>
+            <!-- Sidebar actual content -->
+            <div class="p-4 mt-0">
+                <h3 class="text-sm text-gray-500 uppercase mb-2">Menu</h3>
+                <a href="{% url 'payroll:index' %}" class="block py-2 px-3 text-gray-700 hover:bg-gray-100 rounded">Dashboard</a>
+                <a href="{% url 'payroll:employee_list' %}" class="block py-2 px-3 text-gray-700 hover:bg-gray-100 rounded">Employees</a>
+                {% if request.user.is_superuser or request.user.is_staff %}
+                    <a href="{% url 'payroll:hr_dashboard' %}" class="block py-2 px-3 text-gray-700 hover:bg-gray-100 rounded">HR Dashboard</a>
+                {% endif %}
+                {% if request.user.is_superuser %}
+                    <a href="#" class="block py-2 px-3 text-gray-700 hover:bg-gray-100 rounded">Admin Section (Placeholder)</a>
+                {% endif %}
+                {% comment %} TODO: Add more role-based links {% endcomment %}
+            </div>
+        </div>
+        <div class="flex-shrink-0 w-14" aria-hidden="true">
+            <!-- Dummy element to force sidebar to shrink to fit close icon -->
+        </div>
+    </div>
+
+    <!-- Static sidebar for desktop -->
+    <aside class="hidden md:flex md:flex-shrink-0 fixed left-0 top-0 h-full z-30">
+        <div class="flex flex-col w-64">
+            <div class="flex flex-col flex-grow bg-white border-r border-gray-200 pt-16 overflow-y-auto">
+                <div class="p-4">
+                    <h3 class="text-sm text-gray-500 uppercase mb-2">Menu</h3>
+                    <a href="{% url 'payroll:index' %}" class="block py-2 px-3 text-gray-700 hover:bg-gray-100 rounded">Dashboard</a>
+                    <a href="{% url 'payroll:employee_list' %}" class="block py-2 px-3 text-gray-700 hover:bg-gray-100 rounded">Employees</a>
+                    {% if request.user.is_superuser or request.user.is_staff %}
+                        <a href="{% url 'payroll:hr_dashboard' %}" class="block py-2 px-3 text-gray-700 hover:bg-gray-100 rounded">HR Dashboard</a>
+                    {% endif %}
+                    {% if request.user.is_superuser %}
+                        <a href="#" class="block py-2 px-3 text-gray-700 hover:bg-gray-100 rounded">Admin Section (Placeholder)</a>
+                    {% endif %}
+                    {% comment %} TODO: Add more role-based links {% endcomment %}
+                </div>
+            </div>
         </div>
     </aside>
 
     <!-- Main Content Area -->
-    <main class="ml-64 pt-16 min-h-screen">
+    <main class="md:ml-64 pt-16 min-h-screen flex-1">
         <div class="p-6">
             <div class="flex justify-between items-center mb-4">
                 <h1 class="text-xl font-semibold text-gray-800">{% block page_header %}{% endblock %}</h1>
@@ -52,13 +118,39 @@
             </div>
 
             {% if messages %}
-                <div class="mb-4">
-                    {% for message in messages %}
-                        <div class="p-4 rounded-md {% if message.tags == 'success' %}bg-green-100 text-green-700{% elif message.tags == 'error' %}bg-red-100 text-red-700{% else %}bg-blue-100 text-blue-700{% endif %}" role="alert">
-                            {{ message }}
-                        </div>
-                    {% endfor %}
+            <div class="fixed top-20 right-6 w-auto max-w-md z-[100] space-y-3" id="flash-messages-container">
+                {% for message in messages %}
+                <div x-data="{ show: true }" x-show="show" x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 transform translate-x-4" x-transition:enter-end="opacity-100 transform translate-x-0" x-transition:leave="transition ease-in duration-200" x-transition:leave-start="opacity-100 transform translate-x-0" x-transition:leave-end="opacity-0 transform translate-x-4"
+                     class="relative flex items-start p-4 mb-0 rounded-xl shadow-md border
+                            {% if message.tags == 'success' %}bg-green-50 text-green-700 border-green-200{% endif %}
+                            {% if message.tags == 'error' %}bg-red-50 text-red-700 border-red-200{% endif %}
+                            {% if message.tags == 'info' %}bg-blue-50 text-blue-700 border-blue-200{% endif %}
+                            {% if message.tags == 'warning' %}bg-yellow-50 text-yellow-700 border-yellow-200{% endif %}"
+                     role="alert">
+
+                    <div class="flex-shrink-0 mr-3">
+                        {% if message.tags == 'success' %}<i data-lucide="check-circle" class="w-5 h-5 text-green-600"></i>{% endif %}
+                        {% if message.tags == 'error' %}<i data-lucide="alert-circle" class="w-5 h-5 text-red-600"></i>{% endif %}
+                        {% if message.tags == 'info' %}<i data-lucide="info" class="w-5 h-5 text-blue-600"></i>{% endif %}
+                        {% if message.tags == 'warning' %}<i data-lucide="alert-triangle" class="w-5 h-5 text-yellow-600"></i>{% endif %}
+                    </div>
+                    <div class="flex-grow text-sm">
+                        {{ message }}
+                    </div>
+                    <div class="ml-3">
+                        <button @click="show = false" type="button" class="p-1 -m-1 rounded-md
+                                       {% if message.tags == 'success' %}text-green-600 hover:bg-green-100 focus:bg-green-100{% endif %}
+                                       {% if message.tags == 'error' %}text-red-600 hover:bg-red-100 focus:bg-red-100{% endif %}
+                                       {% if message.tags == 'info' %}text-blue-600 hover:bg-blue-100 focus:bg-blue-100{% endif %}
+                                       {% if message.tags == 'warning' %}text-yellow-600 hover:bg-yellow-100 focus:bg-yellow-100{% endif %}
+                                       focus:outline-none focus:ring-2 focus:ring-offset-2 ring-offset-current_message_bg_color focus:ring-white">
+                            <span class="sr-only">Dismiss</span>
+                            <i data-lucide="x" class="w-4 h-4"></i>
+                        </button>
+                    </div>
                 </div>
+                {% endfor %}
+            </div>
             {% endif %}
 
             {% block content %}{% endblock %}
@@ -66,7 +158,7 @@
     </main>
 
     <!-- Footer -->
-    <footer class="ml-64 p-6 text-center text-sm text-gray-500">
+    <footer class="md:ml-64 p-6 text-center text-sm text-gray-500">
         © {% now "Y" %} PayrollCo. All rights reserved.
     </footer>
 
