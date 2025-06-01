@@ -1,63 +1,66 @@
-{% extends 'base.html' %}
+{% extends 'base_tailwind.html' %}
+{% load static %} {# Keep for potential future static assets if any #}
+
+{% block page_header %}Leave Request Details{% endblock %}
 
 {% block content %}
-<div class="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 dark:from-gray-900 dark:to-gray-800">
-    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-8">
-        <!-- Header with Add New Leave Request Button -->
-        <div class="flex justify-between items-center mb-8">
-          <h2 class="text-3xl font-bold text-gray-900 dark:text-white">Leave Request Details</h2>
-          <a href="{% url 'payroll:apply_leave' %}" class="inline-flex items-center px-6 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors">
-            <span>Add New Leave Request</span>
-            <svg class="w-5 h-5 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
-            </svg>
-          </a>
+<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12"> {# Kept this wrapper #}
+  <div class="bg-white rounded-xl shadow-sm p-6 md:p-8">
+
+    {# Header section with title and "Add New" button is removed, title handled by page_header #}
+
+    <div class="space-y-4">
+        <div>
+            <p class="text-sm font-medium text-gray-500">Employee</p>
+            <p class="text-base text-gray-900">{{ leave_request.employee.first_name }} {{ leave_request.employee.last_name }}</p>
         </div>
-
-        <!-- Details Section -->
-        <div class="space-y-6">
-            <!-- Leave Type -->
-            <div class="space-y-2">
-            <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Leave Type</p>
-            <p class="text-lg text-gray-900 dark:text-white">{{ leave_request.leave_type }}</p>
+        <div>
+            <p class="text-sm font-medium text-gray-500">Leave Type</p>
+            <p class="text-base text-gray-900">{{ leave_request.leave_type.leave_type }}</p>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+            <div>
+                <p class="text-sm font-medium text-gray-500">Start Date</p>
+                <p class="text-base text-gray-900">{{ leave_request.start_date|date:"D, d M Y" }}</p>
             </div>
-
-            <!-- Start Date -->
-            <div class="space-y-2">
-            <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Start Date</p>
-            <p class="text-lg text-gray-900 dark:text-white">{{ leave_request.start_date }}</p>
-            </div>
-
-            <!-- End Date -->
-            <div class="space-y-2">
-            <p class="text-sm font-medium text-gray-500 dark:text-gray-400">End Date</p>
-            <p class="text-lg text-gray-900 dark:text-white">{{ leave_request.end_date }}</p>
-            </div>
-
-            <!-- Reason -->
-            <div class="space-y-2">
-            <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Reason</p>
-            <p class="text-lg text-gray-900 dark:text-white">{{ leave_request.reason }}</p>
-            </div>
-
-            <!-- Status -->
-            <div class="space-y-2">
-            <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Status</p>
-            <p class="text-lg text-gray-900 dark:text-white">{{ leave_request.status }}</p>
+            <div>
+                <p class="text-sm font-medium text-gray-500">End Date</p>
+                <p class="text-base text-gray-900">{{ leave_request.end_date|date:"D, d M Y" }}</p>
             </div>
         </div>
-
-        <!-- Back Button -->
-        <div class="mt-8">
-            <a href="{% url 'payroll:leave_requests' %}" class="inline-flex items-center px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors">
-            <span>Back to List</span>
-            <svg class="w-5 h-5 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
-            </svg>
-            </a>
+        <div>
+            <p class="text-sm font-medium text-gray-500">Reason</p>
+            <p class="text-base text-gray-900 whitespace-pre-wrap">{{ leave_request.reason }}</p>
         </div>
-      </div>
+        <div>
+            <p class="text-sm font-medium text-gray-500">Status</p>
+            <p class="text-base font-semibold">
+                <span class="px-2.5 py-1 text-xs rounded-full
+                    {% if leave_request.status == 'APPROVED' %}bg-green-100 text-green-700
+                    {% elif leave_request.status == 'REJECTED' %}bg-red-100 text-red-700
+                    {% elif leave_request.status == 'PENDING' %}bg-yellow-100 text-yellow-700
+                    {% else %}bg-gray-100 text-gray-700{% endif %}">
+                    {{ leave_request.get_status_display }}
+                </span>
+            </p>
+        </div>
+         <div>
+            <p class="text-sm font-medium text-gray-500">Submitted On</p>
+            <p class="text-base text-gray-900">{{ leave_request.created_at|date:"D, d M Y H:i" }}</p>
+        </div>
+    </div>
+
+    <div class="mt-8 pt-6 border-t border-gray-200 flex items-center space-x-3">
+        <a href="{% url 'payroll:leave_requests' %}" class="inline-flex items-center px-4 py-2 border border-gray-300 text-gray-700 font-medium rounded-xl hover:bg-gray-50 text-sm focus:outline-none focus:ring-2 focus:ring-gray-300 focus:ring-offset-2">
+            <i data-lucide="arrow-left" class="w-4 h-4 mr-2"></i>
+            Back to My Requests
+        </a>
+        {% if leave_request.status == 'PENDING' and request.user == leave_request.employee.user %} {# Only show edit if pending and owner #}
+        <a href="{% url 'payroll:edit_leave_request' leave_request.id %}" class="inline-flex items-center px-4 py-2 bg-indigo-600 text-white font-semibold rounded-xl hover:bg-indigo-700 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
+            <i data-lucide="edit-3" class="w-4 h-4 mr-2"></i>
+            Edit Request
+        </a>
+        {% endif %}
     </div>
   </div>
 </div>
