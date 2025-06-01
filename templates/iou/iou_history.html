@@ -1,20 +1,72 @@
-{% extends 'base.html' %}
+{% extends 'base_tailwind.html' %}
+{% load static %} {# Keep for potential future static assets if any #}
+{% load humanize %} {# For intcomma or floatformat if needed for amount #}
+
+{% block page_header %}IOU History{% endblock %}
 
 {% block content %}
-<div class="min-h-screen bg-gray-100">
-  <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-    <div class="bg-white rounded-lg shadow-lg p-6">
-      <h2 class="text-2xl font-bold text-gray-900 mb-6">IOU History</h2>
-      <div class="space-y-4">
-        {% for iou in ious %}
-        <div class="p-4 bg-gray-50 rounded-lg">
-          <p class="text-gray-900"><strong>{{ iou.employee_id.first_name }}</strong> - ₦{{ iou.amount }}</p>
-          <p class="text-sm text-gray-500">Status: {{ iou.status }}</p>
-          <p class="text-sm text-gray-500">Due Date: {{ iou.due_date }}</p>
-          <a href="{% url 'payroll:approve_iou' iou.id %}" class="text-blue-500 hover:text-blue-600">View Details</a>
-        </div>
-        {% endfor %}
-      </div>
+<div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12"> {# Changed to max-w-6xl #}
+  <div class="bg-white rounded-xl shadow-sm p-6 md:p-8">
+
+    {# Messages are handled by base_tailwind.html #}
+    {# Old H2 is removed, page_header block is used #}
+
+    <div class="mb-6 flex justify-end">
+        <a href="{% url 'payroll:request_iou' %}" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 text-sm">
+            <i data-lucide="plus-circle" class="w-4 h-4 mr-2"></i>
+            Request New IOU
+        </a>
+    </div>
+
+    <div class="bg-white shadow-sm rounded-xl overflow-hidden border border-gray-200">
+      <table class="min-w-full table-auto">
+        <thead class="bg-gray-50">
+          <tr>
+            <th class="p-3 text-left text-sm font-semibold text-gray-700">Employee</th>
+            <th class="p-3 text-left text-sm font-semibold text-gray-700">Amount</th>
+            <th class="p-3 text-left text-sm font-semibold text-gray-700">Tenor (M)</th>
+            <th class="p-3 text-left text-sm font-semibold text-gray-700">Interest (%)</th>
+            <th class="p-3 text-left text-sm font-semibold text-gray-700">Status</th>
+            <th class="p-3 text-left text-sm font-semibold text-gray-700">Payment Method</th>
+            <th class="p-3 text-left text-sm font-semibold text-gray-700">Requested</th>
+            <th class="p-3 text-left text-sm font-semibold text-gray-700">Due Date</th>
+            <th class="p-3 text-left text-sm font-semibold text-gray-700">Actions</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-200">
+          {% for iou in ious %}
+          <tr>
+            <td class="p-3 text-sm text-gray-800">{{ iou.employee_id.first_name }} {{ iou.employee_id.last_name }}</td>
+            <td class="p-3 text-sm text-gray-800 text-right">₦{{ iou.amount|floatformat:2 }}</td>
+            <td class="p-3 text-sm text-gray-800 text-center">{{ iou.tenor|default:"N/A" }}</td>
+            <td class="p-3 text-sm text-gray-800 text-center">{{ iou.interest_rate|floatformat:2|default:"0.00" }}</td>
+            <td class="p-3 text-sm">
+                <span class="px-2.5 py-1 text-xs font-semibold rounded-full
+                    {% if iou.status == 'APPROVED' %}bg-green-100 text-green-700
+                    {% elif iou.status == 'REJECTED' %}bg-red-100 text-red-700
+                    {% elif iou.status == 'PENDING' %}bg-yellow-100 text-yellow-700
+                    {% elif iou.status == 'PAID' %}bg-blue-100 text-blue-700
+                    {% else %}bg-gray-100 text-gray-700{% endif %}">
+                    {{ iou.get_status_display }}
+                </span>
+            </td>
+            <td class="p-3 text-sm text-gray-800">{{ iou.get_payment_method_display|default:"N/A" }}</td>
+            <td class="p-3 text-sm text-gray-500">{{ iou.requested_at|date:"d M Y" }}</td> {# Changed from created_at based on previous context, assuming requested_at exists #}
+            <td class="p-3 text-sm text-gray-500">{{ iou.due_date|date:"d M Y"|default:"N/A" }}</td>
+            <td class="p-3 text-sm text-gray-800 whitespace-nowrap">
+              <a href="{% url 'payroll:iou_detail' iou.id %}" class="text-blue-600 hover:underline text-xs">View Details</a>
+              {% if request.user.is_staff and iou.status == 'PENDING' %}
+                <a href="{% url 'payroll:approve_iou' iou.id %}" class="ml-2 text-emerald-600 hover:underline text-xs">Review</a>
+              {% endif %}
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="9" class="p-4 text-sm text-gray-500 text-center">No IOU records found.</td> {# Increased padding for empty state #}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
     </div>
   </div>
 </div>
