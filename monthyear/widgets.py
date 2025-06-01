@@ -40,6 +40,8 @@ class MonthSelectorWidget(widgets.MultiWidget):
         datelist = [
             widget.value_from_datadict(data, files, name + '_%s' % i)
             for i, widget in enumerate(self.widgets)]
+        if not datelist[0] or not datelist[1]:
+            return None
         try:
             D = date(day=1, month=int(datelist[0]),
                      year=int(datelist[1]))

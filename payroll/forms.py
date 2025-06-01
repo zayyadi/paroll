@@ -97,6 +97,10 @@ class EmployeeProfileForm(forms.ModelForm):
                 }
             ),
         }
+        extra_kwargs = {
+            'date_of_birth': {'required': False},
+            'date_of_employment': {'required': False},
+        }
         # exclude = ["created",]
 
 
