@@ -1,11 +1,9 @@
-{% extends "base2.html" %}
-{% load tailwind_filters %}
-{% load tailwind_tags %}
-{% tailwind_preload_css %}
-{% tailwind_css %}
+{% extends 'base_tailwind.html' %}
+
+{% block page_header %}Welcome{% endblock %}
 
 {% block content %}
-<div class="flex items-center justify-center min-h-screen bg-gray-100 p-4">
+<div class="flex items-center justify-center min-h-screen p-4">
     <!-- Messages -->
     {% if messages %}
         <div class="mb-4 w-full max-w-2xl mx-auto">

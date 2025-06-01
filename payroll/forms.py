@@ -25,6 +25,17 @@ class EmployeeProfileForm(forms.ModelForm):
             "bank",
             "bank_account_name",
             "bank_account_number",
+            "email",
+            "address",
+            "department",
+            "nin",
+            "tin_no",
+            "emergency_contact_name",
+            "emergency_contact_relationship",
+            "emergency_contact_phone",
+            "next_of_kin_name",
+            "next_of_kin_relationship",
+            "next_of_kin_phone",
         ]
         widgets = {
             "first_name": forms.TextInput(
