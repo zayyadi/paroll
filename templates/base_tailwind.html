@@ -1,0 +1,75 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="{% static 'css/output.css' %}" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script>
+      lucide.createIcons();
+    </script>
+    {% block page_title_in_head %}<title>Payroll System</title>{% endblock %}
+    {% block extra_head %}{% endblock %}
+</head>
+<body class="font-sans bg-gray-50 text-gray-800">
+
+    <!-- Top Navbar -->
+    <nav class="fixed top-0 left-0 right-0 bg-white shadow-sm p-4 h-16 z-50 flex justify-between items-center">
+        <div class="text-xl font-semibold text-blue-600">PayrollCo</div>
+        <div>
+            {% if user.is_authenticated %}
+                <span class="mr-4">Welcome, {{ user.first_name|default:user.email }}!</span>
+                <a href="{% url 'users:logout' %}" class="text-blue-600 hover:text-blue-800">Logout</a>
+            {% else %}
+                <a href="{% url 'users:login' %}" class="text-blue-600 hover:text-blue-800">Login</a>
+            {% endif %}
+        </div>
+    </nav>
+
+    <!-- Sidebar -->
+    <aside class="fixed left-0 top-0 h-full w-64 bg-white border-r border-gray-200 pt-16 z-40">
+        <div class="p-4">
+            <h3 class="text-sm text-gray-500 uppercase mb-2">Menu</h3>
+            <a href="{% url 'payroll:index' %}" class="block py-2 px-3 text-gray-700 hover:bg-gray-100 rounded">Dashboard</a>
+            <a href="{% url 'payroll:employee_list' %}" class="block py-2 px-3 text-gray-700 hover:bg-gray-100 rounded">Employees</a>
+            {% if request.user.is_superuser or request.user.is_staff %} {# Assuming HR users are staff #}
+                <a href="{% url 'payroll:hr_dashboard' %}" class="block py-2 px-3 text-gray-700 hover:bg-gray-100 rounded">HR Dashboard</a>
+            {% endif %}
+            {% if request.user.is_superuser %}
+                <a href="#" class="block py-2 px-3 text-gray-700 hover:bg-gray-100 rounded">Admin Section (Placeholder)</a>
+            {% endif %}
+            {% comment %} TODO: Add more role-based links based on HR, Finance, Employee roles {% endcomment %}
+        </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main class="ml-64 pt-16 min-h-screen">
+        <div class="p-6">
+            <div class="flex justify-between items-center mb-4">
+                <h1 class="text-xl font-semibold text-gray-800">{% block page_header %}{% endblock %}</h1>
+                <div>{% block breadcrumbs %}{% endblock %}</div>
+            </div>
+
+            {% if messages %}
+                <div class="mb-4">
+                    {% for message in messages %}
+                        <div class="p-4 rounded-md {% if message.tags == 'success' %}bg-green-100 text-green-700{% elif message.tags == 'error' %}bg-red-100 text-red-700{% else %}bg-blue-100 text-blue-700{% endif %}" role="alert">
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+
+            {% block content %}{% endblock %}
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="ml-64 p-6 text-center text-sm text-gray-500">
+        © {% now "Y" %} PayrollCo. All rights reserved.
+    </footer>
+
+    {% block extra_js %}{% endblock %}
+</body>
+</html>
