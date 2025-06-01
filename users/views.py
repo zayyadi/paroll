@@ -36,7 +36,7 @@ class RegisterView(views.View):
 
             return redirect(reverse("users:login"))
 
-        return render(request, "register.html", {"form": form})
+        return render(request, "registration/register.html", {"form": form})
 
 
 class MyLoginView(LoginView):

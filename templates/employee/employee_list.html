@@ -1,32 +1,69 @@
-{% extends 'base.html' %}
+{% extends 'base_tailwind.html' %}
+
+{% block page_header %}Employee List{% endblock %}
 
 {% block content %}
-<div class="mb-6">
-  <form method="get" class="flex space-x-4">
-    <input type="text" name="q" placeholder="Search employees..." class="flex-1 px-4 py-2 border rounded-lg">
-    <select name="department" class="px-4 py-2 border rounded-lg">
+<div class="mb-6 p-4 bg-white rounded-xl shadow-sm">
+  <form method="get" class="flex flex-col sm:flex-row sm:space-x-4 space-y-4 sm:space-y-0">
+    <input type="text" name="q" value="{{ request.GET.q|default:'' }}" placeholder="Search employees..." class="flex-1 px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 text-sm">
+    <select name="department" class="px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 text-sm">
       <option value="">All Departments</option>
       {% for department in departments %}
-      <option value="{{ department.id }}">{{ department.name }}</option>
+      <option value="{{ department.id }}" {% if request.GET.department == department.id|stringformat:"s" %}selected{% endif %}>{{ department.name }}</option>
       {% endfor %}
     </select>
-    <button type="submit" class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600">Search</button>
+    <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 text-sm">Search</button>
   </form>
 </div>
-<div class="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 dark:from-gray-900 dark:to-gray-800">
-  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-    <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-8">Employee List</h1>
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
-      <div class="space-y-4">
-        {% for employee in employees %}
-        <div class="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
-          <p class="text-gray-900 dark:text-white"><strong>{{ employee.first_name }}</strong> - {{ employee.job_title }}</p>
-          <p class="text-gray-500 dark:text-gray-400">Department: {{ employee.department.name }}</p>
-          <p class="text-gray-500 dark:text-gray-400">Hire Date: {{ employee.date_of_employment }}</p>
-        </div>
-        {% endfor %}
-      </div>
-    </div>
+
+<div class="bg-white shadow-sm rounded-xl overflow-hidden">
+  <table class="min-w-full table-auto">
+    <thead class="bg-gray-50">
+      <tr>
+        <th class="p-3 text-left text-sm font-semibold text-gray-700">Name</th>
+        <th class="p-3 text-left text-sm font-semibold text-gray-700">Employee ID</th>
+        <th class="p-3 text-left text-sm font-semibold text-gray-700">Email</th>
+        <th class="p-3 text-left text-sm font-semibold text-gray-700">Department</th>
+        <th class="p-3 text-left text-sm font-semibold text-gray-700">Job Title</th>
+        <th class="p-3 text-left text-sm font-semibold text-gray-700">Employment Date</th>
+        <th class="p-3 text-left text-sm font-semibold text-gray-700">Actions</th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-gray-200">
+      {% for employee in employees %}
+      <tr>
+        <td class="p-3 text-sm text-gray-800">{{ employee.first_name }} {{ employee.last_name }}</td>
+        <td class="p-3 text-sm text-gray-800">{{ employee.emp_id|default:"N/A" }}</td>
+        <td class="p-3 text-sm text-gray-800">{{ employee.email|default:"N/A" }}</td>
+        <td class="p-3 text-sm text-gray-800">{{ employee.department.name|default:"N/A" }}</td>
+        <td class="p-3 text-sm text-gray-800">{{ employee.job_title|default:"N/A" }}</td>
+        <td class="p-3 text-sm text-gray-800">{{ employee.date_of_employment|date:"d M Y"|default:"N/A" }}</td>
+        <td class="p-3 text-sm text-gray-800 whitespace-nowrap">
+          <a href="#" class="text-blue-600 hover:text-blue-800 hover:underline mr-2">View</a>
+          <a href="#" class="text-indigo-600 hover:text-indigo-800 hover:underline mr-2">Edit</a>
+          {# Delete would typically be a POST request via a small form/button #}
+          <button class="text-red-600 hover:text-red-800 hover:underline">Delete</button>
+        </td>
+      </tr>
+      {% empty %}
+      <tr>
+        <td colspan="7" class="p-3 text-sm text-gray-500 text-center">No employees found.</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<!-- Pagination Placeholder -->
+<div class="mt-6 flex justify-between items-center">
+  <div class="text-sm text-gray-500">
+    Showing 1 to 10 of 57 results <!-- Placeholder text -->
+  </div>
+  <div class="flex space-x-1">
+    <a href="#" class="px-3 py-1 border border-gray-300 rounded-md text-sm text-gray-700 hover:bg-gray-50">Previous</a>
+    <a href="#" class="px-3 py-1 border border-blue-600 bg-blue-600 text-white rounded-md text-sm">1</a>
+    <a href="#" class="px-3 py-1 border border-gray-300 rounded-md text-sm text-gray-700 hover:bg-gray-50">2</a>
+    <a href="#" class="px-3 py-1 border border-gray-300 rounded-md text-sm text-gray-700 hover:bg-gray-50">Next</a>
   </div>
 </div>
 {% endblock %}

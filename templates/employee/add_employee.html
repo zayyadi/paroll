@@ -1,200 +1,197 @@
-{% extends 'base.html' %}
+{% extends 'base_tailwind.html' %}
 {% load crispy_forms_tags %}
-{% load tailwind_filters %}
-{% load tailwind_tags %}
-{% block title %}Create Employee{% endblock title %}
+{% load tailwind_filters %} {# Keep if used by crispy-tailwind, otherwise can be removed #}
+{% load tailwind_tags %} {# Keep for now #}
+
+{% block page_title_in_head %}
+    <title>New Employee Onboarding - Payroll System</title>
+{% endblock %}
+
+{% block page_header %}New Employee Onboarding{% endblock %}
 
 {% block content %}
-<div class="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 dark:from-gray-900 dark:to-gray-800">
-  <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-    <div class="space-y-8">
-      <!-- Progress Indicator -->
-      <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5 mb-8">
-        <div class="bg-blue-600 h-2.5 rounded-full" style="width: 50%;"></div>
-      </div>
+<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12"> {# Kept this wrapper for content width constraint #}
+  <div class="space-y-8">
+    <!-- Progress Indicator (Kept for now, removed dark mode) -->
+    <div class="w-full bg-gray-200 rounded-full h-2.5 mb-8">
+      <div class="bg-blue-600 h-2.5 rounded-full" style="width: 50%;"></div>
+    </div>
 
-      <!-- Heading Section -->
-      <div class="text-center space-y-2">
-        <h1 class="text-5xl font-bold text-gray-900 dark:text-white">New Employee Onboarding</h1>
-        <p class="text-lg text-gray-600 dark:text-gray-300">Create comprehensive employee profiles with ease</p>
-      </div>
+    <!-- Form Section -->
+    <div class="bg-white rounded-2xl shadow-sm p-8 sm:p-12"> {# Updated container style #}
+      <form method="post" enctype="multipart/form-data" class="space-y-8">
+        {% csrf_token %}
 
-      <!-- Form Section -->
-      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8 sm:p-12 transition-all duration-300 hover:shadow-2xl">
-        <form method="post" enctype="multipart/form-data" class="space-y-8">
-          {% csrf_token %}
-
-          <!-- Validation Feedback -->
-          {% if user_form.errors or employee_form.errors %}
-            <div class="bg-red-50 border-l-4 border-red-400 p-4 mb-6">
-              <p class="text-sm text-red-700">Please correct the errors below.</p>
-              {% for field in user_form %}
-                {% for error in field.errors %}
-                  <p class="text-xs text-red-600">{{ field.label }}: {{ error }}</p>
-                {% endfor %}
+        <!-- Validation Feedback -->
+        {% if user_form.errors or employee_form.errors %}
+          <div class="bg-red-50 border-l-4 border-red-400 p-4 mb-6">
+            <p class="text-sm text-red-700">Please correct the errors below.</p>
+            {% for field in user_form %}
+              {% for error in field.errors %}
+                <p class="text-xs text-red-600">{{ field.label }}: {{ error }}</p>
               {% endfor %}
-              {% for field in employee_form %}
-                {% for error in field.errors %}
-                  <p class="text-xs text-red-600">{{ field.label }}: {{ error }}</p>
-                {% endfor %}
+            {% endfor %}
+            {% for field in employee_form %}
+              {% for error in field.errors %}
+                <p class="text-xs text-red-600">{{ field.label }}: {{ error }}</p>
               {% endfor %}
-              {% for error in user_form.non_field_errors %}
-                <p class="text-xs text-red-600">{{ error }}</p>
-              {% endfor %}
-              {% for error in employee_form.non_field_errors %}
-                <p class="text-xs text-red-600">{{ error }}</p>
-              {% endfor %}
-            </div>
-          {% endif %}
+            {% endfor %}
+            {% for error in user_form.non_field_errors %}
+              <p class="text-xs text-red-600">{{ error }}</p>
+            {% endfor %}
+            {% for error in employee_form.non_field_errors %}
+              <p class="text-xs text-red-600">{{ error }}</p>
+            {% endfor %}
+          </div>
+        {% endif %}
 
-          <!-- User Account Details -->
-          <div class="bg-blue-50 dark:bg-gray-700 rounded-xl p-6 space-y-6">
-            <h3 class="text-xl font-semibold text-blue-800 dark:text-blue-200">Account Details</h3>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div class="form-group">
-                {{ user_form.username|as_crispy_field }}
-              </div>
-              <div class="form-group">
-                {{ user_form.password|as_crispy_field }}
-              </div>
-              <div class="form-group">
-                {{ user_form.password2|as_crispy_field }}
-              </div>
+        <!-- User Account Details -->
+        <div class="bg-blue-50 rounded-xl p-6 space-y-4"> {# Changed gap-6 to gap-4 (implicitly via space-y) #}
+          <h3 class="text-xl font-semibold text-blue-800">Account Details</h3>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4"> {# Changed gap-6 to gap-4 #}
+            <div class="form-group">
+              {{ user_form.email|as_crispy_field }} {# Assuming username is replaced by email or email is the primary field #}
+            </div>
+            <div class="form-group">
+              {{ user_form.password|as_crispy_field }}
+            </div>
+            <div class="form-group">
+              {{ user_form.password2|as_crispy_field }}
+            </div>
+          </div>
+        </div>
+
+        <!-- Form Fields -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4"> {# Changed gap-6 to gap-4 #}
+          <!-- Personal Details -->
+          <div class="space-y-4"> {# Changed gap-6 to gap-4 (implicitly via space-y) #}
+            <h3 class="text-xl font-semibold text-gray-900">Personal Details</h3>
+            <div class="form-group">
+              {{ employee_form.first_name|as_crispy_field }}
+            </div>
+            <div class="form-group">
+              {{ employee_form.last_name|as_crispy_field }}
+            </div>
+            <div class="form-group">
+              {{ employee_form.email|as_crispy_field }}
+            </div>
+            <div class="form-group">
+              {{ employee_form.date_of_birth|as_crispy_field }}
+            </div>
+            <div class="form-group">
+              {{ employee_form.gender|as_crispy_field }}
+            </div>
+            <div class="form-group">
+              {{ employee_form.phone|as_crispy_field }}
+              <p class="text-sm text-gray-500 mt-1">Example: +1234567890</p>
+            </div>
+            <div class="form-group">
+              {{ employee_form.address|as_crispy_field }}
             </div>
           </div>
 
-          <!-- Form Fields -->
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <!-- Personal Details -->
-            <div class="space-y-6">
-              <h3 class="text-xl font-semibold text-gray-900 dark:text-white">Personal Details</h3>
-              <div class="form-group">
-                {{ employee_form.first_name|as_crispy_field }}
-              </div>
-              <div class="form-group">
-                {{ employee_form.last_name|as_crispy_field }}
-              </div>
-              <div class="form-group">
-                {{ employee_form.email|as_crispy_field }}
-              </div>
-              <div class="form-group">
-                {{ employee_form.date_of_birth|as_crispy_field }}
-              </div>
-              <div class="form-group">
-                {{ employee_form.gender|as_crispy_field }}
-              </div>
-              <div class="form-group">
-                {{ employee_form.phone|as_crispy_field }}
-                <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Example: +1234567890</p>
-              </div>
-              <div class="form-group">
-                {{ employee_form.address|as_crispy_field }}
-              </div>
+          <!-- Employment Details -->
+          <div class="space-y-4"> {# Changed gap-6 to gap-4 (implicitly via space-y) #}
+            <h3 class="text-xl font-semibold text-gray-900">Employment Details</h3>
+            <div class="form-group">
+              {{ employee_form.department|as_crispy_field }}
             </div>
-
-            <!-- Employment Details -->
-            <div class="space-y-6">
-              <h3 class="text-xl font-semibold text-gray-900 dark:text-white">Employment Details</h3>
-              <div class="form-group">
-                {{ employee_form.department|as_crispy_field }}
-              </div>
-              <div class="form-group">
-                {{ employee_form.job_title|as_crispy_field }}
-              </div>
-              <div class="form-group">
-                {{ employee_form.contract_type|as_crispy_field }}
-              </div>
-              <div class="form-group">
-                {{ employee_form.date_of_employment|as_crispy_field }}
-              </div>
-              <div class="form-group">
-                {{ employee_form.employee_pay|as_crispy_field }}
-              </div>
-              <div class="form-group">
-                {{ employee_form.pension_rsa|as_crispy_field }}
-              </div>
-              <div class="form-group">
-                {{ employee_form.nin|as_crispy_field }}
-              </div>
-              <div class="form-group">
-                {{ employee_form.tin_no|as_crispy_field }}
-              </div>
+            <div class="form-group">
+              {{ employee_form.job_title|as_crispy_field }}
+            </div>
+            <div class="form-group">
+              {{ employee_form.contract_type|as_crispy_field }}
+            </div>
+            <div class="form-group">
+              {{ employee_form.date_of_employment|as_crispy_field }}
+            </div>
+            <div class="form-group">
+              {{ employee_form.employee_pay|as_crispy_field }}
+            </div>
+            <div class="form-group">
+              {{ employee_form.pension_rsa|as_crispy_field }}
+            </div>
+            <div class="form-group">
+              {{ employee_form.nin|as_crispy_field }}
+            </div>
+            <div class="form-group">
+              {{ employee_form.tin_no|as_crispy_field }}
             </div>
           </div>
+        </div>
 
-          <!-- Emergency Contact Information -->
-          <div class="bg-blue-50 dark:bg-gray-700 rounded-xl p-6 space-y-6">
-            <h3 class="text-xl font-semibold text-blue-800 dark:text-blue-200">Emergency Contact Information</h3>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div class="form-group">
-                {{ employee_form.emergency_contact_name|as_crispy_field }}
-              </div>
-              <div class="form-group">
-                {{ employee_form.emergency_contact_relationship|as_crispy_field }}
-              </div>
-              <div class="form-group">
-                {{ employee_form.emergency_contact_phone|as_crispy_field }}
-                <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Example: +1234567890</p>
-              </div>
+        <!-- Emergency Contact Information -->
+        <div class="bg-blue-50 rounded-xl p-6 space-y-4"> {# Changed gap-6 to gap-4 (implicitly via space-y) #}
+          <h3 class="text-xl font-semibold text-blue-800">Emergency Contact Information</h3>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4"> {# Changed gap-6 to gap-4 #}
+            <div class="form-group">
+              {{ employee_form.emergency_contact_name|as_crispy_field }}
+            </div>
+            <div class="form-group">
+              {{ employee_form.emergency_contact_relationship|as_crispy_field }}
+            </div>
+            <div class="form-group">
+              {{ employee_form.emergency_contact_phone|as_crispy_field }}
+              <p class="text-sm text-gray-500 mt-1">Example: +1234567890</p>
             </div>
           </div>
+        </div>
 
-          <!-- Next of Kin Information -->
-          <div class="bg-blue-50 dark:bg-gray-700 rounded-xl p-6 space-y-6">
-            <h3 class="text-xl font-semibold text-blue-800 dark:text-blue-200">Next of Kin Information</h3>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div class="form-group">
-                {{ employee_form.next_of_kin_name|as_crispy_field }}
-              </div>
-              <div class="form-group">
-                {{ employee_form.next_of_kin_relationship|as_crispy_field }}
-              </div>
-              <div class="form-group">
-                {{ employee_form.next_of_kin_phone|as_crispy_field }}
-                <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Example: +1234567890</p>
-              </div>
+        <!-- Next of Kin Information -->
+        <div class="bg-blue-50 rounded-xl p-6 space-y-4"> {# Changed gap-6 to gap-4 (implicitly via space-y) #}
+          <h3 class="text-xl font-semibold text-blue-800">Next of Kin Information</h3>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4"> {# Changed gap-6 to gap-4 #}
+            <div class="form-group">
+              {{ employee_form.next_of_kin_name|as_crispy_field }}
+            </div>
+            <div class="form-group">
+              {{ employee_form.next_of_kin_relationship|as_crispy_field }}
+            </div>
+            <div class="form-group">
+              {{ employee_form.next_of_kin_phone|as_crispy_field }}
+              <p class="text-sm text-gray-500 mt-1">Example: +1234567890</p>
             </div>
           </div>
+        </div>
 
-          <!-- Banking Section -->
-          <div class="bg-blue-50 dark:bg-gray-700 rounded-xl p-6 space-y-6">
-            <h3 class="text-xl font-semibold text-blue-800 dark:text-blue-200">Banking Information</h3>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div class="form-group">
-                {{ employee_form.bank|as_crispy_field }}
-              </div>
-              <div class="form-group">
-                {{ employee_form.bank_account_name|as_crispy_field }}
-              </div>
-              <div class="form-group">
-                {{ employee_form.bank_account_number|as_crispy_field }}
-                <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Enter your account number</p>
-              </div>
+        <!-- Banking Section -->
+        <div class="bg-blue-50 rounded-xl p-6 space-y-4"> {# Changed gap-6 to gap-4 (implicitly via space-y) #}
+          <h3 class="text-xl font-semibold text-blue-800">Banking Information</h3>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4"> {# Changed gap-6 to gap-4 #}
+            <div class="form-group">
+              {{ employee_form.bank|as_crispy_field }}
+            </div>
+            <div class="form-group">
+              {{ employee_form.bank_account_name|as_crispy_field }}
+            </div>
+            <div class="form-group">
+              {{ employee_form.bank_account_number|as_crispy_field }}
+              <p class="text-sm text-gray-500 mt-1">Enter your account number</p>
             </div>
           </div>
+        </div>
 
-          <!-- Profile Photo Upload -->
-          <div class="border-2 border-dashed border-gray-200 dark:border-gray-600 rounded-xl p-8 text-center">
-            <div class="max-w-xs mx-auto">
-              <svg class="w-12 h-12 mx-auto text-gray-400 dark:text-gray-500 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path>
-              </svg>
-              {{ employee_form.photo|as_crispy_field }}
-              <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">PNG, JPG up to 2MB</p>
-            </div>
+        <!-- Profile Photo Upload -->
+        <div class="border-2 border-dashed border-gray-200 rounded-xl p-8 text-center">
+          <div class="max-w-xs mx-auto">
+            <svg class="w-12 h-12 mx-auto text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path>
+            </svg>
+            {{ employee_form.photo|as_crispy_field }} {# Crispy will add its own label, this might look odd without custom widget #}
+            <p class="mt-2 text-sm text-gray-500">PNG, JPG up to 2MB</p>
           </div>
+        </div>
 
-          <!-- Submit Button -->
-          <div class="flex justify-end">
-            <button type="submit" class="px-10 py-4 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-semibold rounded-lg shadow-md transition-all duration-200 transform hover:scale-[1.02] flex items-center justify-center space-x-2">
-              <span>Create Profile</span>
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"></path>
-              </svg>
-            </button>
-          </div>
-        </form>
-      </div>
+        <!-- Submit Button -->
+        <div class="flex justify-end">
+          <button type="submit" class="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl shadow-sm focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 flex items-center justify-center space-x-2 text-sm">
+            <span>Create Profile</span>
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"></path>
+            </svg>
+          </button>
+        </div>
+      </form>
     </div>
   </div>
 </div>
@@ -202,19 +199,22 @@
 <!-- Custom Styles -->
 <style>
   .form-group label {
-    @apply text-sm font-medium text-gray-700 dark:text-gray-300 mb-1;
+    @apply block text-sm font-medium text-gray-500 mb-1; /* Adjusted to guideline */
   }
 
-  .form-group input, .form-group select {
-    @apply w-full rounded-lg border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 ease-in-out hover:shadow-md hover:border-blue-400;
+  .form-group input,
+  .form-group select,
+  .form-group textarea { /* Added textarea for consistency */
+    @apply w-full border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm p-2.5;
+    /* Removed dark mode classes, hover effects for now */
   }
 
-  .form-group input:focus, .form-group select:focus {
-    @apply ring-2 ring-blue-500 border-blue-500 shadow-lg;
-  }
+  /* Removed specific :focus style block as it's incorporated above */
 
-  .form-group .custom-file-input {
-    @apply block w-full text-sm text-gray-500 dark:text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 dark:file:bg-gray-600 dark:file:text-gray-100;
+  .form-group .custom-file-input, /* Assuming crispy forms might use this or similar for file inputs */
+  .form-group input[type="file"] { /* More generic file input styling */
+    @apply block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100;
+     /* Basic styling for file inputs, actual appearance heavily browser-dependent and crispy-dependent */
   }
 </style>
 {% endblock %}

@@ -1,4 +1,7 @@
-{% extends "base.html" %}
+{% extends "base_tailwind.html" %}
+
+{% block page_header %}HR Dashboard{% endblock %}
+
 {% block content %}
 <div class="max-w-7xl mx-auto px-4 py-6">
     <!-- Messages -->
@@ -15,99 +18,99 @@
     <!-- Header Section -->
     <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8">
         <div>
-            <h1 class="text-4xl font-extrabold text-gray-900 dark:text-white mb-2">HR Dashboard</h1>
-            <p class="text-lg text-gray-600 dark:text-gray-300">Human Resources overview</p>
+            <h1 class="text-3xl font-bold text-gray-900 mb-2">HR Dashboard</h1> {# Adjusted size, removed dark mode #}
+            <p class="text-lg text-gray-600">Human Resources overview</p> {# Removed dark mode #}
         </div>
         <div class="mt-4 md:mt-0">
-            <span class="bg-indigo-100 text-indigo-800 text-sm font-medium px-4 py-2 rounded-full dark:bg-indigo-200 dark:text-indigo-900 shadow-md">
+            <span class="bg-blue-100 text-blue-800 text-sm font-medium px-4 py-2 rounded-full shadow-sm"> {# Adjusted colors, shadow, removed dark mode #}
                 {% now "F Y" %}
             </span>
         </div>
     </div>
 
     <!-- HR Specific Stats -->
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <div class="dashboard-card bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg hover:shadow-xl transition-shadow">
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8"> {# Changed gap-6 to gap-4 #}
+        <div class="bg-white p-4 rounded-2xl shadow-sm"> {# Card style change #}
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-sm text-gray-500 dark:text-gray-400 mb-1">Total Employees</p>
-                    <p class="text-3xl font-bold text-gray-900 dark:text-white">{{ employee_count }}</p>
+                    <h3 class="text-lg font-semibold text-gray-800 mb-1">Total Employees</h3>
+                    <p class="text-3xl font-bold text-blue-600">{{ employee_count }}</p>
                 </div>
-                <div class="p-3 bg-indigo-100 dark:bg-indigo-900 rounded-lg">
-                    <i class="fas fa-users text-indigo-600 dark:text-indigo-300 text-2xl"></i>
+                <div class="text-blue-600">
+                    <i data-lucide="users" class="w-10 h-10"></i>
                 </div>
             </div>
         </div>
 
-        <div class="dashboard-card bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg hover:shadow-xl transition-shadow">
+        <div class="bg-white p-4 rounded-2xl shadow-sm"> {# Card style change #}
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-sm text-gray-500 dark:text-gray-400 mb-1">Pending Leave Requests</p>
-                    <p class="text-3xl font-bold text-gray-900 dark:text-white">{{ leave_count }}</p>
+                    <h3 class="text-lg font-semibold text-gray-800 mb-1">Pending Leave Requests</h3>
+                    <p class="text-3xl font-bold text-blue-600">{{ leave_count }}</p>
                 </div>
-                <div class="p-3 bg-yellow-100 dark:bg-yellow-900 rounded-lg">
-                    <i class="fas fa-calendar-alt text-yellow-600 dark:text-yellow-300 text-2xl"></i>
+                <div class="text-blue-600">
+                    <i data-lucide="calendar-clock" class="w-10 h-10"></i>
                 </div>
             </div>
         </div>
 
-        <div class="dashboard-card bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg hover:shadow-xl transition-shadow">
+        <div class="bg-white p-4 rounded-2xl shadow-sm"> {# Card style change #}
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-sm text-gray-500 dark:text-gray-400 mb-1">Pending IOU Requests</p>
-                    <p class="text-3xl font-bold text-gray-900 dark:text-white">{{ iou_count }}</p>
+                    <h3 class="text-lg font-semibold text-gray-800 mb-1">Pending IOU Requests</h3>
+                    <p class="text-3xl font-bold text-blue-600">{{ iou_count }}</p>
                 </div>
-                <div class="p-3 bg-red-100 dark:bg-red-900 rounded-lg">
-                    <i class="fas fa-hand-holding-usd text-red-600 dark:text-red-300 text-2xl"></i>
+                <div class="text-blue-600">
+                    <i data-lucide="credit-card" class="w-10 h-10"></i>
                 </div>
             </div>
         </div>
 
-        <div class="dashboard-card bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg hover:shadow-xl transition-shadow">
+        <div class="bg-white p-4 rounded-2xl shadow-sm"> {# Card style change #}
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-sm text-gray-500 dark:text-gray-400 mb-1">Total Allowances</p>
-                    <p class="text-3xl font-bold text-gray-900 dark:text-white">{{ allowance_count }}</p>
+                    <h3 class="text-lg font-semibold text-gray-800 mb-1">Total Allowances</h3>
+                    <p class="text-3xl font-bold text-blue-600">{{ allowance_count }}</p>
                 </div>
-                <div class="p-3 bg-green-100 dark:bg-green-900 rounded-lg">
-                    <i class="fas fa-money-check-alt text-green-600 dark:text-green-300 text-2xl"></i>
+                <div class="text-blue-600">
+                    <i data-lucide="archive" class="w-10 h-10"></i>
                 </div>
             </div>
         </div>
     </div>
 
     <!-- Quick Links for HR -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <a href="{% url 'payroll:employee_list' %}" class="group bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg hover:shadow-xl transition-all transform hover:scale-105">
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"> {# Changed gap-6 to gap-4 #}
+        <a href="{% url 'payroll:employee_list' %}" class="group bg-white p-4 rounded-2xl shadow-sm hover:shadow-md transition-shadow">
             <div class="flex items-center space-x-4">
-                <div class="p-3 bg-blue-100 dark:bg-blue-900 rounded-lg group-hover:bg-blue-600 transition-colors">
-                    <i class="fas fa-users text-blue-600 dark:text-blue-300 group-hover:text-white text-xl"></i>
+                <div class="p-3 bg-blue-100 rounded-lg">
+                    <i data-lucide="users" class="text-blue-600 w-6 h-6"></i>
                 </div>
                 <div>
-                    <h3 class="text-xl font-semibold text-gray-900 dark:text-white">Manage Employees</h3>
-                    <p class="text-sm text-gray-500 dark:text-gray-400">View and manage all employee profiles</p>
+                    <h3 class="text-lg font-semibold text-gray-800">Manage Employees</h3>
+                    <p class="text-sm text-gray-500">View and manage all employee profiles</p>
                 </div>
             </div>
         </a>
-        <a href="{% url 'payroll:manage_leave_requests' %}" class="group bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg hover:shadow-xl transition-all transform hover:scale-105">
+        <a href="{% url 'payroll:manage_leave_requests' %}" class="group bg-white p-4 rounded-2xl shadow-sm hover:shadow-md transition-shadow">
             <div class="flex items-center space-x-4">
-                <div class="p-3 bg-purple-100 dark:bg-purple-900 rounded-lg group-hover:bg-purple-600 transition-colors">
-                    <i class="fas fa-calendar-check text-purple-600 dark:text-purple-300 group-hover:text-white text-xl"></i>
+                <div class="p-3 bg-blue-100 rounded-lg">
+                    <i data-lucide="calendar-check" class="text-blue-600 w-6 h-6"></i>
                 </div>
                 <div>
-                    <h3 class="text-xl font-semibold text-gray-900 dark:text-white">Manage Leave</h3>
-                    <p class="text-sm text-gray-500 dark:text-gray-400">Approve or reject leave requests</p>
+                    <h3 class="text-lg font-semibold text-gray-800">Manage Leave</h3>
+                    <p class="text-sm text-gray-500">Approve or reject leave requests</p>
                 </div>
             </div>
         </a>
-        <a href="{% url 'payroll:iou_list' %}" class="group bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg hover:shadow-xl transition-all transform hover:scale-105">
+        <a href="{% url 'payroll:iou_list' %}" class="group bg-white p-4 rounded-2xl shadow-sm hover:shadow-md transition-shadow">
             <div class="flex items-center space-x-4">
-                <div class="p-3 bg-green-100 dark:bg-green-900 rounded-lg group-hover:bg-green-600 transition-colors">
-                    <i class="fas fa-file-invoice-dollar text-green-600 dark:text-green-300 group-hover:text-white text-xl"></i>
+                <div class="p-3 bg-blue-100 rounded-lg">
+                    <i data-lucide="file-text" class="text-blue-600 w-6 h-6"></i>
                 </div>
                 <div>
-                    <h3 class="text-xl font-semibold text-gray-900 dark:text-white">Manage IOUs</h3>
-                    <p class="text-sm text-gray-500 dark:text-gray-400">Review and approve IOU requests</p>
+                    <h3 class="text-lg font-semibold text-gray-800">Manage IOUs</h3>
+                    <p class="text-sm text-gray-500">Review and approve IOU requests</p>
                 </div>
             </div>
         </a>
