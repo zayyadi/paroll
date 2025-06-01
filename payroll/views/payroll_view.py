@@ -11,6 +11,7 @@ from django.contrib import messages
 
 # from django.core.cache import cache
 from django.http import HttpResponseForbidden
+from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 
 # from django.core.files.storage import FileSystemStorage
 from django.contrib.auth.decorators import user_passes_test
@@ -100,6 +101,7 @@ def list_payslip(request, emp_slug):
     return render(request, "pay/list_payslip.html", context)
 
 
+@user_passes_test(check_super)
 def create_allowance(request):
     a_form = AllowanceForm(request.POST or None)
 
@@ -139,7 +141,7 @@ def delete_allowance(request, id):
     messages.success(request, "Allowance deleted Successfully!!")
 
 
-class AddPay(CreateView):
+class AddPay(LoginRequiredMixin, UserPassesTestMixin, CreateView):
     model = PayT
     form_class = PaydayForm
     template_name = "pay/add_payday.html"
@@ -179,7 +181,11 @@ class AddPay(CreateView):
             form = PaydayForm(request.POST)  # Retain data on invalid form
             return render(request, self.template_name, {"form": form})
 
+    def test_func(self):
+        return check_super(self.request.user)
 
+
+@user_passes_test(check_super)
 def varview(request):
     var = PayT.objects.order_by("paydays").distinct("paydays")
     dates = [utils.convert_month_to_word(str(varss)) for varss in var]
@@ -221,7 +227,11 @@ def apply_leave(request):
 
 @login_required
 def leave_requests(request):
-    requests = LeaveRequest.objects.filter(employee=request.user)
+    if hasattr(request.user, 'employee_profile'):
+        requests = LeaveRequest.objects.filter(employee=request.user.employee_profile).order_by('-created_at')
+    else:
+        # If the user has no employee profile, they shouldn't have any leave requests.
+        requests = LeaveRequest.objects.none()
     return render(request, "employee/leave_requests.html", {"requests": requests})
 
 
@@ -261,8 +271,11 @@ def leave_policies(request):
     return render(request, "employee/leave_policies.html", {"policies": policies})
 
 
+@login_required
 def edit_leave_request(request, pk):
     leave_request = get_object_or_404(LeaveRequest, pk=pk)
+    if not (request.user == leave_request.employee.user or request.user.is_staff or check_super(request.user)):
+        raise HttpResponseForbidden("You are not authorized to edit this leave request.")
     if request.method == "POST":
         form = LeaveRequestForm(request.POST, instance=leave_request)
         if form.is_valid():
@@ -276,8 +289,11 @@ def edit_leave_request(request, pk):
     return render(request, "employee/edit_leave_request.html", {"form": form})
 
 
+@login_required
 def delete_leave_request(request, pk):
     leave_request = get_object_or_404(LeaveRequest, pk=pk)
+    if not (request.user == leave_request.employee.user or request.user.is_staff or check_super(request.user)):
+        raise HttpResponseForbidden("You are not authorized to delete this leave request.")
     leave_request.delete()
     messages.success(
         request, "Leave request deleted successfully."
@@ -285,8 +301,11 @@ def delete_leave_request(request, pk):
     return redirect("payroll:leave_requests")
 
 
+@login_required
 def view_leave_request(request, pk):
     leave_request = get_object_or_404(LeaveRequest, pk=pk)
+    if not (request.user == leave_request.employee.user or request.user.is_staff or check_super(request.user)):
+        raise HttpResponseForbidden("You are not authorized to view this leave request.")
     return render(
         request, "employee/view_leave_request.html", {"leave_request": leave_request}
     )
@@ -359,6 +378,7 @@ def log_audit_trail(
     )
 
 
+@user_passes_test(check_super)
 def audit_trail_list(request):
     query = request.GET.get("q")
     user_filter = request.GET.get("user")
@@ -393,6 +413,7 @@ def audit_trail_list(request):
     return render(request, "pay/audit_trail_list.html", context)
 
 
+@user_passes_test(check_super)
 def audit_trail_detail(request, pk):
     log = get_object_or_404(AuditTrail, pk=pk)
     return render(request, "pay/audit_trail_detail.html", {"log": log})

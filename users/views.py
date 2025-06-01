@@ -9,9 +9,11 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import AdminPasswordChangeForm, PasswordChangeForm
 from django.contrib.auth.views import PasswordResetView, PasswordResetConfirmView
 from django.urls import reverse_lazy
-from django.core.mail import send_mail
+from django.core.mail import send_mail # Keep for now, PasswordResetForm might use it indirectly.
 from django.template.loader import render_to_string
 from django.utils.http import urlsafe_base64_encode
+from django.contrib.sites.shortcuts import get_current_site # For dynamic domain
+from django.http import HttpResponseRedirect # For returning from form_valid
 from django.utils.encoding import force_bytes
 from django.utils.encoding import force_str
 from django.utils.http import urlsafe_base64_decode
@@ -115,47 +117,25 @@ class CustomPasswordResetView(PasswordResetView):
     email_template_name = "registration/password_reset_email.html"
     success_url = reverse_lazy("users:password_reset_done")
 
-    def send_mail(
-        self,
-        subject_template_name,
-        email_template_name,
-        context,
-        from_email,
-        to_email,
-        html_email_template_name=None,
-    ):
-        # Access the user instance and include it in the context
-        context["user"] = self.user
-        super().send_mail(
-            subject_template_name,
-            email_template_name,
-            context,
-            from_email,
-            to_email,
-            html_email_template_name,
-        )
+    # Removed custom send_mail method
 
     def form_valid(self, form):
-        response = super().form_valid(form)
-        uidb64 = urlsafe_base64_encode(force_bytes(self.user.id))
-        token = self.object.token
-        reset_url = reverse(
-            "users:password_reset_confirm", kwargs={"uidb64": uidb64, "token": token}
-        )
-        email_body = render_to_string(
-            "registration/password_reset_email.html",
-            {
-                "protocol": "http",  # or 'https' depending on your setup
-                "domain": "127.0.0.1",  # replace with your actual domain
-                "uidb64": uidb64,
-                "token": token,
-                "reset_url": reset_url,
-                "user": self.user,  # include the user instance in the context
+        # self.user is set by PasswordResetView after validating the form and finding a user.
+        opts = {
+            "use_https": self.request.is_secure(),
+            "request": self.request,
+            "email_template_name": self.email_template_name,
+            # html_email_template_name=self.html_email_template_name, # Add if you have an HTML version
+            "extra_email_context": {
+                "user": form.get_users(form.cleaned_data['email'])[0] if form.get_users(form.cleaned_data['email']) else None, # Get user from form
+                "domain": get_current_site(self.request).domain,
+                "protocol": "https" if self.request.is_secure() else "http",
             },
-        )
-        send_mail("Password Reset", email_body, DEFAULT_FROM_EMAIL, [self.user.email])
-        messages.success(self.request, "Password reset email sent successfully.")
-        return response
+        }
+        form.save(**opts) # This sends the email using Django's PasswordResetForm.save()
+
+        messages.success(self.request, "Password reset email sent successfully.") # Keep or adjust message
+        return HttpResponseRedirect(self.get_success_url())
 
 
 class CustomPasswordResetConfirmView(PasswordResetConfirmView):

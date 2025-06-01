@@ -1,5 +1,6 @@
 from django.contrib.auth.hashers import make_password
-from django.contrib.auth.models import User
+# from django.contrib.auth.models import User # Replaced with CustomUser
+from users.models import CustomUser
 
 from rest_framework import serializers
 
@@ -7,16 +8,24 @@ from payroll.models import EmployeeProfile, PayT, Payday, Payroll, PayVar, Allow
 
 
 class UserSerializer(serializers.ModelSerializer):
-    def create(self, validated_data):
-        validated_data["password"] = make_password(validated_data["password"])
-        return super(UserSerializer, self).create(validated_data)
+    password = serializers.CharField(write_only=True)
 
-    class meta:
-        model = User
+    def create(self, validated_data):
+        user = CustomUser.objects.create_user(
+            email=validated_data['email'],
+            password=validated_data['password'],
+            first_name=validated_data.get('first_name', ''),
+            last_name=validated_data.get('last_name', '')
+        )
+        return user
+
+    class Meta: # Corrected typo
+        model = CustomUser
         fields = [
-            "username",
             "email",
             "password",
+            "first_name",
+            "last_name"
         ]
 
 
