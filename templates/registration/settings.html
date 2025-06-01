@@ -1,61 +1,69 @@
 
+{% extends "base_auth.html" %}
 {% load static %}
 
-{% load tailwind_tags %}
-{% load static %}
+{% block page_title_in_head %}<title>Account Settings - PayrollCo</title>{% endblock %}
 
-{% tailwind_preload_css %}
-{% tailwind_css %}
-{% block content %}
-  <h2>Settings</h2>
+{% block auth_content %}
+<div class="bg-white shadow-xl rounded-2xl p-8 md:p-10 space-y-6">
+    <h2 class="text-2xl font-bold text-center text-gray-800 mb-6">Account Settings</h2>
 
-  <h3>GitHub</h3>
-  {% if github_login %}
-    <p>Connected as <a href="https://github.com/{{ github_login.extra_data.login }}/" target="_blank">{{ github_login.extra_data.login }}</a></p>
-    {% if can_disconnect %}
-      <form method="post" action="{% url 'social:disconnect' 'github' %}">
-        {% csrf_token %}
-        <button type="submit">Disconnect from GitHub</button>
-      </form>
-    {% else %}
-      <button type="button" disabled>Disconnect from GitHub</button>
-      <p style="color: red">You must <a href="{% url 'users:password' %}">define a password</a> for your account before disconnecting from Github.</p>
-    {% endif %}
-  {% else %}
-    <a href="{% url 'social:begin' 'github' %}">Connect to GitHub</a>
-  {% endif %}
+    <div class="space-y-4">
+        <h3 class="text-lg font-semibold text-gray-700">GitHub</h3>
+        {% if github_login %}
+            <p class="text-sm text-gray-600">Connected as <a href="https://github.com/{{ github_login.extra_data.login }}/" target="_blank" class="text-blue-600 hover:underline">{{ github_login.extra_data.login }}</a></p>
+            {% if can_disconnect %}
+            <form method="post" action="{% url 'social:disconnect' 'github' %}">
+                {% csrf_token %}
+                <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2">Disconnect from GitHub</button>
+            </form>
+            {% else %}
+            <button type="button" disabled class="px-4 py-2 text-sm font-medium text-gray-400 bg-gray-200 rounded-lg cursor-not-allowed">Disconnect from GitHub</button>
+            <p class="text-xs text-red-600 mt-1">You must <a href="{% url 'users:password_change' %}" class="hover:underline">define a password</a> for your account before disconnecting from GitHub.</p> {# Changed users:password to users:password_change #}
+            {% endif %}
+        {% else %}
+            <a href="{% url 'social:begin' 'github' %}" class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">Connect to GitHub</a>
+        {% endif %}
+    </div>
 
-  <h3>Twitter</h3>
-  {% if twitter_login %}
-    <p>Connected as <a href="https://twitter.com/{{ twitter_login.extra_data.access_token.screen_name }}/" target="_blank">@{{ twitter_login.extra_data.access_token.screen_name }}</a></p>
-    {% if can_disconnect %}
-      <form method="post" action="{% url 'social:disconnect' 'twitter' %}">
-        {% csrf_token %}
-        <button type="submit">Disconnect from Twitter</button>
-      </form>
-    {% else %}
-      <button type="button" disabled>Disconnect from Twitter</button>
-      <p style="color: red">You must <a href="{% url 'password' %}">define a password</a> for your account before disconnecting from Twitter.</p>
-    {% endif %}
-  {% else %}
-    <a href="{% url 'social:begin' 'twitter' %}">Connect to Twitter</a>
-  {% endif %}
+    <div class="border-t border-gray-200 pt-4 mt-4 space-y-4">
+        <h3 class="text-lg font-semibold text-gray-700">Twitter</h3>
+        {% if twitter_login %}
+            <p class="text-sm text-gray-600">Connected as <a href="https://twitter.com/{{ twitter_login.extra_data.access_token.screen_name }}/" target="_blank" class="text-blue-600 hover:underline">@{{ twitter_login.extra_data.access_token.screen_name }}</a></p>
+            {% if can_disconnect %}
+            <form method="post" action="{% url 'social:disconnect' 'twitter' %}">
+                {% csrf_token %}
+                <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2">Disconnect from Twitter</button>
+            </form>
+            {% else %}
+            <button type="button" disabled class="px-4 py-2 text-sm font-medium text-gray-400 bg-gray-200 rounded-lg cursor-not-allowed">Disconnect from Twitter</button>
+            <p class="text-xs text-red-600 mt-1">You must <a href="{% url 'users:password_change' %}" class="hover:underline">define a password</a> for your account before disconnecting from Twitter.</p> {# Changed users:password to users:password_change #}
+            {% endif %}
+        {% else %}
+            <a href="{% url 'social:begin' 'twitter' %}" class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">Connect to Twitter</a>
+        {% endif %}
+    </div>
 
-  <h3>Facebook</h3>
-  {% if facebook_login %}
-    <p>Connected as <a href="https://facebook.com/{{ facebook_login.extra_data.id }}/" target="_blank">{{ facebook_login.extra_data.id }}</a></p>
-    {% if can_disconnect %}
-      <form method="post" action="{% url 'social:disconnect' 'facebook' %}">
-        {% csrf_token %}
-        <button type="submit">Disconnect from Facebook</button>
-      </form>
-    {% else %}
-      <button type="button" disabled>Disconnect from Facebook</button>
-      <p style="color: red">You must <a href="{% url 'users:password' %}">define a password</a> for your account before disconnecting from Facebook.</p>
-    {% endif %}
-  {% else %}
-    <a href="{% url 'social:begin' 'facebook' %}">Connect to Facebook</a>
-  {% endif %}
+    <div class="border-t border-gray-200 pt-4 mt-4 space-y-4">
+        <h3 class="text-lg font-semibold text-gray-700">Facebook</h3>
+        {% if facebook_login %}
+            <p class="text-sm text-gray-600">Connected as <a href="https://facebook.com/{{ facebook_login.extra_data.id }}/" target="_blank" class="text-blue-600 hover:underline">{{ facebook_login.extra_data.id }}</a></p>
+            {% if can_disconnect %}
+            <form method="post" action="{% url 'social:disconnect' 'facebook' %}">
+                {% csrf_token %}
+                <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2">Disconnect from Facebook</button>
+            </form>
+            {% else %}
+            <button type="button" disabled class="px-4 py-2 text-sm font-medium text-gray-400 bg-gray-200 rounded-lg cursor-not-allowed">Disconnect from Facebook</button>
+            <p class="text-xs text-red-600 mt-1">You must <a href="{% url 'users:password_change' %}" class="hover:underline">define a password</a> for your account before disconnecting from Facebook.</p> {# Changed users:password to users:password_change #}
+            {% endif %}
+        {% else %}
+            <a href="{% url 'social:begin' 'facebook' %}" class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">Connect to Facebook</a>
+        {% endif %}
+    </div>
 
-
-{% endblock %}
+    <div class="border-t border-gray-200 pt-6 mt-6 text-center">
+         <a href="{% url 'users:password_change' %}" class="text-blue-600 hover:underline text-sm">Change Password</a>
+    </div>
+</div>
+{% endblock auth_content %}

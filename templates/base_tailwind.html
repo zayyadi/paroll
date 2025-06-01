@@ -76,8 +76,12 @@
                 <h3 class="text-sm text-gray-500 uppercase mb-2">Menu</h3>
                 <a href="{% url 'payroll:index' %}" class="block py-2 px-3 text-gray-700 hover:bg-gray-100 rounded">Dashboard</a>
                 <a href="{% url 'payroll:employee_list' %}" class="block py-2 px-3 text-gray-700 hover:bg-gray-100 rounded">Employees</a>
+                <a href="{% url 'payroll:bank' %}" class="block py-2 px-3 text-gray-700 hover:bg-gray-100 rounded">Banking</a>
+                <a href="{% url 'payroll:payee' %}" class="block py-2 px-3 text-gray-700 hover:bg-gray-100 rounded">Tax Reports</a>
                 {% if request.user.is_superuser or request.user.is_staff %}
                     <a href="{% url 'payroll:hr_dashboard' %}" class="block py-2 px-3 text-gray-700 hover:bg-gray-100 rounded">HR Dashboard</a>
+                    <a href="{% url 'payroll:performance_reviews' %}" class="block py-2 px-3 text-gray-700 hover:bg-gray-100 rounded">Performance Reviews</a>
+                    <a href="{% url 'payroll:leave_requests' %}" class="block py-2 px-3 text-gray-700 hover:bg-gray-100 rounded">Leave Requests</a>
                 {% endif %}
                 {% if request.user.is_superuser %}
                     <a href="#" class="block py-2 px-3 text-gray-700 hover:bg-gray-100 rounded">Admin Section (Placeholder)</a>
@@ -98,8 +102,12 @@
                     <h3 class="text-sm text-gray-500 uppercase mb-2">Menu</h3>
                     <a href="{% url 'payroll:index' %}" class="block py-2 px-3 text-gray-700 hover:bg-gray-100 rounded">Dashboard</a>
                     <a href="{% url 'payroll:employee_list' %}" class="block py-2 px-3 text-gray-700 hover:bg-gray-100 rounded">Employees</a>
+                    <a href="{% url 'payroll:bank' %}" class="block py-2 px-3 text-gray-700 hover:bg-gray-100 rounded">Banking</a>
+                    <a href="{% url 'payroll:payee' %}" class="block py-2 px-3 text-gray-700 hover:bg-gray-100 rounded">Tax Reports</a>
                     {% if request.user.is_superuser or request.user.is_staff %}
                         <a href="{% url 'payroll:hr_dashboard' %}" class="block py-2 px-3 text-gray-700 hover:bg-gray-100 rounded">HR Dashboard</a>
+                        <a href="{% url 'payroll:performance_reviews' %}" class="block py-2 px-3 text-gray-700 hover:bg-gray-100 rounded">Performance Reviews</a>
+                        <a href="{% url 'payroll:leave_requests' %}" class="block py-2 px-3 text-gray-700 hover:bg-gray-100 rounded">Leave Requests</a>
                     {% endif %}
                     {% if request.user.is_superuser %}
                         <a href="#" class="block py-2 px-3 text-gray-700 hover:bg-gray-100 rounded">Admin Section (Placeholder)</a>
