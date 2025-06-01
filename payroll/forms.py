@@ -53,18 +53,18 @@ class EmployeeProfileForm(forms.ModelForm):
                     "class": "h-10 border mt-1 rounded px-4 w-full bg-gray-50",
                 }
             ),
-            "date_of_birth": forms.TextInput(
-                attrs={
-                    "label": "block text-white text-sm font-bold mb-2",
-                    "class": "h-10 border mt-1 rounded px-4 w-full bg-gray-50",
-                }
-            ),
-            "date_of_employment": forms.TextInput(
-                attrs={
-                    "label": "block text-white text-sm font-bold mb-2",
-                    "class": "h-10 border mt-1 rounded px-4 w-full bg-gray-50",
-                }
-            ),
+            # "date_of_birth": forms.TextInput(
+            #     attrs={
+            #         "label": "block text-white text-sm font-bold mb-2",
+            #         "class": "h-10 border mt-1 rounded px-4 w-full bg-gray-50",
+            #     }
+            # ),
+            # "date_of_employment": forms.TextInput(
+            #     attrs={
+            #         "label": "block text-white text-sm font-bold mb-2",
+            #         "class": "h-10 border mt-1 rounded px-4 w-full bg-gray-50",
+            #     }
+            # ),
             "contract_type": forms.Select(),
             "phone": forms.TextInput(
                 attrs={
@@ -133,10 +133,10 @@ class PaydayForm(forms.ModelForm):
             "is_active",
         )
 
-        paydays = forms.DateField(
-            label="Month of Payroll",
-            widget=forms.TextInput(attrs={"class": "datepicker"}),
-        )
+        # paydays = forms.DateField( # Removed override
+        #     label="Month of Payroll",
+        #     widget=forms.TextInput(attrs={"class": "datepicker"}),
+        # )
 
         # forms.ModelMultipleChoiceField(
         #     queryset=models.PayVar.objects.all(),  # Assuming PayVar is the related model

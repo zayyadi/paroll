@@ -29,6 +29,10 @@ from users import forms as user_forms
 CACHE_TTL = getattr(settings, "CACHE_TTL", DEFAULT_TIMEOUT)
 
 
+def is_hr_user(user):
+    return user.is_authenticated and user.groups.filter(name='HR').exists()
+
+
 def check_super(user):
     return user.is_superuser
 
@@ -91,6 +95,7 @@ def dashboard(request):
 
 
 @login_required
+@user_passes_test(is_hr_user)
 def hr_dashboard(request):
     total_employees = models.EmployeeProfile.objects.count()
     active_leave_requests = models.LeaveRequest.objects.filter(status="PENDING").count()
@@ -127,6 +132,7 @@ def hr_dashboard(request):
     return render(request, "employee/dashboard.html", context)
 
 
+@login_required
 def employee_list(request):
     query = request.GET.get("q")
     department_filter = request.GET.get("department")
@@ -150,6 +156,7 @@ def employee_list(request):
     )
 
 
+@user_passes_test(is_hr_user)
 def performance_reviews(request):
     query = request.GET.get("q")
     reviews = models.PerformanceReview.objects.all()
@@ -313,6 +320,7 @@ def employee(request, user_id: int):
     return render(request, "employee/profile.html", context)
 
 
+@user_passes_test(is_hr_user)
 def performance_review_list(request):
     reviews = models.PerformanceReview.objects.all().order_by("-review_date")
     form = PerformanceReviewForm()
@@ -323,11 +331,15 @@ def performance_review_list(request):
     )
 
 
+@login_required
 def performance_review_detail(request, review_id):
     review = get_object_or_404(models.PerformanceReview, id=review_id)
+    if not (is_hr_user(request.user) or request.user == review.employee.user or request.user.is_superuser):
+        raise HttpResponseForbidden("You are not authorized to view this performance review.")
     return render(request, "reviews/performance_review_detail.html", {"review": review})
 
 
+@user_passes_test(is_hr_user)
 def add_performance_review(request):
     if request.method == "POST":
         form = PerformanceReviewForm(request.POST)
@@ -354,6 +366,7 @@ def add_performance_review(request):
     return redirect("payroll:performance_review_list")
 
 
+@user_passes_test(is_hr_user)
 def edit_performance_review(request, review_id):
     review = get_object_or_404(models.PerformanceReview, id=review_id)
     if request.method == "POST":
@@ -364,6 +377,7 @@ def edit_performance_review(request, review_id):
     return redirect("payroll:performance_review_list")
 
 
+@user_passes_test(is_hr_user)
 def delete_performance_review(request, review_id):
     review = get_object_or_404(models.PerformanceReview, id=review_id)
     review.delete()
