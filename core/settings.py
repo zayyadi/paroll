@@ -197,12 +197,9 @@ USE_TZ = True
 TAILWIND_APP_NAME = "theme"
 
 
-CRISPY_ALLOWED_TEMPLATE_PACKS = "tailwind"
-
+CRISPY_ALLOWED_TEMPLATE_PACKS = ["tailwind"]
 CRISPY_TEMPLATE_PACK = "tailwind"
-CRISPY_ALLOWED_TEMPLATE_PACKS = "tailwind"
 
-CRISPY_TEMPLATE_PACK = "tailwind"
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/4.1/howto/static-files/
