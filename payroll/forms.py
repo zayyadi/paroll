@@ -28,8 +28,6 @@ class EmployeeProfileForm(forms.ModelForm):
             "email",
             "address",
             "department",
-            "nin",
-            "tin_no",
             "emergency_contact_name",
             "emergency_contact_relationship",
             "emergency_contact_phone",
