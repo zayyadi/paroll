@@ -24,8 +24,8 @@ class EmployeeProfileForm(forms.ModelForm):
             "date_of_employment",
             "employee_pay",
             "pension_rsa",
-            "nin",
-            "tin_no",
+            # "nin",
+            # "tin_no",
             "emergency_contact_name",
             "emergency_contact_relationship",
             "emergency_contact_phone",
@@ -100,8 +100,8 @@ class EmployeeProfileForm(forms.ModelForm):
             ),
         }
         extra_kwargs = {
-            'date_of_birth': {'required': False},
-            'date_of_employment': {'required': False},
+            "date_of_birth": {"required": False},
+            "date_of_employment": {"required": False},
         }
         # exclude = ["created",]
 
