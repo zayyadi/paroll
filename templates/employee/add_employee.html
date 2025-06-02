@@ -1,28 +1,25 @@
 {% extends 'base_tailwind.html' %}
 {% load crispy_forms_tags %}
-{% load tailwind_filters %} {# Keep if used by crispy-tailwind, otherwise can be removed #}
-{% load tailwind_tags %} {# Keep for now #}
+{% load tailwind_filters %}
+{% load tailwind_tags %}
 
 {% block page_title_in_head %}
-    <title>New Employee Onboarding - Payroll System</title>
+  <title>New Employee Onboarding - Payroll System</title>
 {% endblock %}
 
 {% block page_header %}New Employee Onboarding{% endblock %}
 
 {% block content %}
-<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12"> {# Kept this wrapper for content width constraint #}
+<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
   <div class="space-y-8">
-    <!-- Progress Indicator (Kept for now, removed dark mode) -->
     <div class="w-full bg-gray-200 rounded-full h-2.5 mb-8">
       <div class="bg-blue-600 h-2.5 rounded-full" style="width: 50%;"></div>
     </div>
 
-    <!-- Form Section -->
-    <div class="bg-white rounded-2xl shadow-sm p-8 sm:p-12"> {# Updated container style #}
+    <div class="bg-white rounded-2xl shadow-sm p-8 sm:p-12">
       <form method="post" enctype="multipart/form-data" class="space-y-8">
         {% csrf_token %}
 
-        <!-- Validation Feedback -->
         {% if user_form.errors or employee_form.errors %}
           <div class="bg-red-50 border-l-4 border-red-400 p-4 mb-6">
             <p class="text-sm text-red-700">Please correct the errors below.</p>
@@ -36,433 +33,38 @@
                 <p class="text-xs text-red-600">{{ field.label }}: {{ error }}</p>
               {% endfor %}
             {% endfor %}
-            {% for error in user_form.non_field_errors %}
-              <p class="text-xs text-red-600">{{ error }}</p>
-            {% endfor %}
-            {% for error in employee_form.non_field_errors %}
-              <p class="text-xs text-red-600">{{ error }}</p>
-            {% endfor %}
           </div>
         {% endif %}
 
-        <!-- User Account Details -->
-        <div class="bg-blue-50 rounded-xl p-6 space-y-4"> {# Changed gap-6 to gap-4 (implicitly via space-y) #}
-          <h3 class="text-xl font-semibold text-blue-800">Account Details</h3>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4"> {# Changed gap-6 to gap-4 #}
+        <div class="bg-blue-50 rounded-xl p-6 space-y-4">
+          <h3 class="text-xl font-semibold text-blue-800">User Account Details</h3>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div class="form-group">
-              {{ user_form.email|as_crispy_field }} {# Assuming username is replaced by email or email is the primary field #}
-            </div>
-            <div class="form-group">
-              {{ user_form.password|as_crispy_field }}
-            </div>
-            <div class="form-group">
-              {{ user_form.password2|as_crispy_field }}
-            </div>
-          </div>
-        </div>
-
-        <!-- Form Fields -->
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4"> {# Changed gap-6 to gap-4 #}
-          <!-- Personal Details -->
-          <div class="space-y-4"> {# Changed gap-6 to gap-4 (implicitly via space-y) #}
-            <h3 class="text-xl font-semibold text-gray-900">Personal Details</h3>
-            <div class="form-group">
-              {% if employee_form.first_name.label %}
-              <label for="{{ employee_form.first_name.id_for_label }}" class="block text-sm font-medium text-gray-500 mb-1">
-                {{ employee_form.first_name.label }}
-              </label>
-              {% endif %}
-              {{ employee_form.first_name }}
-              {% if employee_form.first_name.help_text %}
-                <p class="text-sm text-gray-500 mt-1">{{ employee_form.first_name.help_text }}</p>
-              {% endif %}
-              {% for error in employee_form.first_name.errors %}
+              <label for="{{ user_form.email.id_for_label }}" class="block text-sm font-medium text-gray-600 mb-1">{{ user_form.email.label }}</label>
+              {{ user_form.email }}
+              {% for error in user_form.email.errors %}
                 <p class="text-xs text-red-600 mt-1">{{ error }}</p>
               {% endfor %}
             </div>
             <div class="form-group">
-              {% if employee_form.last_name.label %}
-              <label for="{{ employee_form.last_name.id_for_label }}" class="block text-sm font-medium text-gray-500 mb-1">
-                {{ employee_form.last_name.label }}
-              </label>
-              {% endif %}
-              {{ employee_form.last_name }}
-              {% if employee_form.last_name.help_text %}
-                <p class="text-sm text-gray-500 mt-1">{{ employee_form.last_name.help_text }}</p>
-              {% endif %}
-              {% for error in employee_form.last_name.errors %}
+              <label for="{{ user_form.password.id_for_label }}" class="block text-sm font-medium text-gray-600 mb-1">{{ user_form.password.label }}</label>
+              {{ user_form.password }}
+              {% for error in user_form.password.errors %}
                 <p class="text-xs text-red-600 mt-1">{{ error }}</p>
               {% endfor %}
             </div>
             <div class="form-group">
-              {% if employee_form.email.label %}
-              <label for="{{ employee_form.email.id_for_label }}" class="block text-sm font-medium text-gray-500 mb-1">
-                {{ employee_form.email.label }}
-              </label>
-              {% endif %}
-              {{ employee_form.email }}
-              {% if employee_form.email.help_text %}
-                <p class="text-sm text-gray-500 mt-1">{{ employee_form.email.help_text }}</p>
-              {% endif %}
-              {% for error in employee_form.email.errors %}
-                <p class="text-xs text-red-600 mt-1">{{ error }}</p>
-              {% endfor %}
-            </div>
-            <div class="form-group">
-              {% if employee_form.date_of_birth.label %}
-                <label for="{{ employee_form.date_of_birth.id_for_label }}" class="block text-sm font-medium text-gray-500 mb-1">
-                  {{ employee_form.date_of_birth.label }}
-                </label>
-              {% endif %}
-              {{ employee_form.date_of_birth }}
-              {% if employee_form.date_of_birth.help_text %}
-                <p class="text-sm text-gray-500 mt-1">{{ employee_form.date_of_birth.help_text }}</p>
-              {% endif %}
-              {% for error in employee_form.date_of_birth.errors %}
-                <p class="text-xs text-red-600 mt-1">{{ error }}</p>
-              {% endfor %}
-            </div>
-            <div class="form-group">
-              {% if employee_form.gender.label %}
-              <label for="{{ employee_form.gender.id_for_label }}" class="block text-sm font-medium text-gray-500 mb-1">
-                {{ employee_form.gender.label }}
-              </label>
-              {% endif %}
-              {{ employee_form.gender }}
-              {% if employee_form.gender.help_text %}
-                <p class="text-sm text-gray-500 mt-1">{{ employee_form.gender.help_text }}</p>
-              {% endif %}
-              {% for error in employee_form.gender.errors %}
-                <p class="text-xs text-red-600 mt-1">{{ error }}</p>
-              {% endfor %}
-            </div>
-            <div class="form-group">
-              {% if employee_form.phone.label %}
-              <label for="{{ employee_form.phone.id_for_label }}" class="block text-sm font-medium text-gray-500 mb-1">
-                {{ employee_form.phone.label }}
-              </label>
-              {% endif %}
-              {{ employee_form.phone }}
-              {% if employee_form.phone.help_text %}
-                <p class="text-sm text-gray-500 mt-1">{{ employee_form.phone.help_text }}</p>
-              {% else %}
-                <p class="text-sm text-gray-500 mt-1">Example: +1234567890</p>
-              {% endif %}
-              {% for error in employee_form.phone.errors %}
-                <p class="text-xs text-red-600 mt-1">{{ error }}</p>
-              {% endfor %}
-            </div>
-            <div class="form-group">
-              {% if employee_form.address.label %}
-              <label for="{{ employee_form.address.id_for_label }}" class="block text-sm font-medium text-gray-500 mb-1">
-                {{ employee_form.address.label }}
-              </label>
-              {% endif %}
-              {{ employee_form.address }}
-              {% if employee_form.address.help_text %}
-                <p class="text-sm text-gray-500 mt-1">{{ employee_form.address.help_text }}</p>
-              {% endif %}
-              {% for error in employee_form.address.errors %}
-                <p class="text-xs text-red-600 mt-1">{{ error }}</p>
-              {% endfor %}
-            </div>
-          </div>
-
-          <!-- Employment Details -->
-          <div class="space-y-4"> {# Changed gap-6 to gap-4 (implicitly via space-y) #}
-            <h3 class="text-xl font-semibold text-gray-900">Employment Details</h3>
-            <div class="form-group">
-              {% if employee_form.department.label %}
-              <label for="{{ employee_form.department.id_for_label }}" class="block text-sm font-medium text-gray-500 mb-1">
-                {{ employee_form.department.label }}
-              </label>
-              {% endif %}
-              {{ employee_form.department }}
-              {% if employee_form.department.help_text %}
-                <p class="text-sm text-gray-500 mt-1">{{ employee_form.department.help_text }}</p>
-              {% endif %}
-              {% for error in employee_form.department.errors %}
-                <p class="text-xs text-red-600 mt-1">{{ error }}</p>
-              {% endfor %}
-            </div>
-            <div class="form-group">
-              {% if employee_form.job_title.label %}
-              <label for="{{ employee_form.job_title.id_for_label }}" class="block text-sm font-medium text-gray-500 mb-1">
-                {{ employee_form.job_title.label }}
-              </label>
-              {% endif %}
-              {{ employee_form.job_title }}
-              {% if employee_form.job_title.help_text %}
-                <p class="text-sm text-gray-500 mt-1">{{ employee_form.job_title.help_text }}</p>
-              {% endif %}
-              {% for error in employee_form.job_title.errors %}
-                <p class="text-xs text-red-600 mt-1">{{ error }}</p>
-              {% endfor %}
-            </div>
-            <div class="form-group">
-              {% if employee_form.contract_type.label %}
-              <label for="{{ employee_form.contract_type.id_for_label }}" class="block text-sm font-medium text-gray-500 mb-1">
-                {{ employee_form.contract_type.label }}
-              </label>
-              {% endif %}
-              {{ employee_form.contract_type }}
-              {% if employee_form.contract_type.help_text %}
-                <p class="text-sm text-gray-500 mt-1">{{ employee_form.contract_type.help_text }}</p>
-              {% endif %}
-              {% for error in employee_form.contract_type.errors %}
-                <p class="text-xs text-red-600 mt-1">{{ error }}</p>
-              {% endfor %}
-            </div>
-            <div class="form-group">
-              {% if employee_form.date_of_employment.label %}
-                <label for="{{ employee_form.date_of_employment.id_for_label }}" class="block text-sm font-medium text-gray-500 mb-1">
-                  {{ employee_form.date_of_employment.label }}
-                </label>
-              {% endif %}
-              {{ employee_form.date_of_employment }}
-              {% if employee_form.date_of_employment.help_text %}
-                <p class="text-sm text-gray-500 mt-1">{{ employee_form.date_of_employment.help_text }}</p>
-              {% endif %}
-              {% for error in employee_form.date_of_employment.errors %}
-                <p class="text-xs text-red-600 mt-1">{{ error }}</p>
-              {% endfor %}
-            </div>
-            <div class="form-group">
-              {% if employee_form.employee_pay.label %}
-              <label for="{{ employee_form.employee_pay.id_for_label }}" class="block text-sm font-medium text-gray-500 mb-1">
-                {{ employee_form.employee_pay.label }}
-              </label>
-              {% endif %}
-              {{ employee_form.employee_pay }}
-              {% if employee_form.employee_pay.help_text %}
-                <p class="text-sm text-gray-500 mt-1">{{ employee_form.employee_pay.help_text }}</p>
-              {% endif %}
-              {% for error in employee_form.employee_pay.errors %}
-                <p class="text-xs text-red-600 mt-1">{{ error }}</p>
-              {% endfor %}
-            </div>
-            <div class="form-group">
-              {% if employee_form.pension_rsa.label %}
-              <label for="{{ employee_form.pension_rsa.id_for_label }}" class="block text-sm font-medium text-gray-500 mb-1">
-                {{ employee_form.pension_rsa.label }}
-              </label>
-              {% endif %}
-              {{ employee_form.pension_rsa }}
-              {% if employee_form.pension_rsa.help_text %}
-                <p class="text-sm text-gray-500 mt-1">{{ employee_form.pension_rsa.help_text }}</p>
-              {% endif %}
-              {% for error in employee_form.pension_rsa.errors %}
-                <p class="text-xs text-red-600 mt-1">{{ error }}</p>
-              {% endfor %}
-            </div>
-            <div class="form-group">
-              {% if employee_form.nin.label %}
-              <label for="{{ employee_form.nin.id_for_label }}" class="block text-sm font-medium text-gray-500 mb-1">
-                {{ employee_form.nin.label }}
-              </label>
-              {% endif %}
-              {{ employee_form.nin }}
-              {% if employee_form.nin.help_text %}
-                <p class="text-sm text-gray-500 mt-1">{{ employee_form.nin.help_text }}</p>
-              {% endif %}
-              {% for error in employee_form.nin.errors %}
-                <p class="text-xs text-red-600 mt-1">{{ error }}</p>
-              {% endfor %}
-            </div>
-            <div class="form-group">
-              {% if employee_form.tin_no.label %}
-              <label for="{{ employee_form.tin_no.id_for_label }}" class="block text-sm font-medium text-gray-500 mb-1">
-                {{ employee_form.tin_no.label }}
-              </label>
-              {% endif %}
-              {{ employee_form.tin_no }}
-              {% if employee_form.tin_no.help_text %}
-                <p class="text-sm text-gray-500 mt-1">{{ employee_form.tin_no.help_text }}</p>
-              {% endif %}
-              {% for error in employee_form.tin_no.errors %}
+              <label for="{{ user_form.password2.id_for_label }}" class="block text-sm font-medium text-gray-600 mb-1">{{ user_form.password2.label }}</label>
+              {{ user_form.password2 }}
+              {% for error in user_form.password2.errors %}
                 <p class="text-xs text-red-600 mt-1">{{ error }}</p>
               {% endfor %}
             </div>
           </div>
         </div>
 
-        <!-- Emergency Contact Information -->
-        <div class="bg-blue-50 rounded-xl p-6 space-y-4"> {# Changed gap-6 to gap-4 (implicitly via space-y) #}
-          <h3 class="text-xl font-semibold text-blue-800">Emergency Contact Information</h3>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4"> {# Changed gap-6 to gap-4 #}
-            <div class="form-group">
-              {% if employee_form.emergency_contact_name.label %}
-              <label for="{{ employee_form.emergency_contact_name.id_for_label }}" class="block text-sm font-medium text-gray-500 mb-1">
-                {{ employee_form.emergency_contact_name.label }}
-              </label>
-              {% endif %}
-              {{ employee_form.emergency_contact_name }}
-              {% if employee_form.emergency_contact_name.help_text %}
-                <p class="text-sm text-gray-500 mt-1">{{ employee_form.emergency_contact_name.help_text }}</p>
-              {% endif %}
-              {% for error in employee_form.emergency_contact_name.errors %}
-                <p class="text-xs text-red-600 mt-1">{{ error }}</p>
-              {% endfor %}
-            </div>
-            <div class="form-group">
-              {% if employee_form.emergency_contact_relationship.label %}
-              <label for="{{ employee_form.emergency_contact_relationship.id_for_label }}" class="block text-sm font-medium text-gray-500 mb-1">
-                {{ employee_form.emergency_contact_relationship.label }}
-              </label>
-              {% endif %}
-              {{ employee_form.emergency_contact_relationship }}
-              {% if employee_form.emergency_contact_relationship.help_text %}
-                <p class="text-sm text-gray-500 mt-1">{{ employee_form.emergency_contact_relationship.help_text }}</p>
-              {% endif %}
-              {% for error in employee_form.emergency_contact_relationship.errors %}
-                <p class="text-xs text-red-600 mt-1">{{ error }}</p>
-              {% endfor %}
-            </div>
-            <div class="form-group">
-              {% if employee_form.emergency_contact_phone.label %}
-              <label for="{{ employee_form.emergency_contact_phone.id_for_label }}" class="block text-sm font-medium text-gray-500 mb-1">
-                {{ employee_form.emergency_contact_phone.label }}
-              </label>
-              {% endif %}
-              {{ employee_form.emergency_contact_phone }}
-              {% if employee_form.emergency_contact_phone.help_text %}
-                <p class="text-sm text-gray-500 mt-1">{{ employee_form.emergency_contact_phone.help_text }}</p>
-              {% else %}
-                <p class="text-sm text-gray-500 mt-1">Example: +1234567890</p>
-              {% endif %}
-              {% for error in employee_form.emergency_contact_phone.errors %}
-                <p class="text-xs text-red-600 mt-1">{{ error }}</p>
-              {% endfor %}
-            </div>
-          </div>
-        </div>
+        {{ employee_form|crispy }}
 
-        <!-- Next of Kin Information -->
-        <div class="bg-blue-50 rounded-xl p-6 space-y-4"> {# Changed gap-6 to gap-4 (implicitly via space-y) #}
-          <h3 class="text-xl font-semibold text-blue-800">Next of Kin Information</h3>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4"> {# Changed gap-6 to gap-4 #}
-            <div class="form-group">
-              {% if employee_form.next_of_kin_name.label %}
-              <label for="{{ employee_form.next_of_kin_name.id_for_label }}" class="block text-sm font-medium text-gray-500 mb-1">
-                {{ employee_form.next_of_kin_name.label }}
-              </label>
-              {% endif %}
-              {{ employee_form.next_of_kin_name }}
-              {% if employee_form.next_of_kin_name.help_text %}
-                <p class="text-sm text-gray-500 mt-1">{{ employee_form.next_of_kin_name.help_text }}</p>
-              {% endif %}
-              {% for error in employee_form.next_of_kin_name.errors %}
-                <p class="text-xs text-red-600 mt-1">{{ error }}</p>
-              {% endfor %}
-            </div>
-            <div class="form-group">
-              {% if employee_form.next_of_kin_relationship.label %}
-              <label for="{{ employee_form.next_of_kin_relationship.id_for_label }}" class="block text-sm font-medium text-gray-500 mb-1">
-                {{ employee_form.next_of_kin_relationship.label }}
-              </label>
-              {% endif %}
-              {{ employee_form.next_of_kin_relationship }}
-              {% if employee_form.next_of_kin_relationship.help_text %}
-                <p class="text-sm text-gray-500 mt-1">{{ employee_form.next_of_kin_relationship.help_text }}</p>
-              {% endif %}
-              {% for error in employee_form.next_of_kin_relationship.errors %}
-                <p class="text-xs text-red-600 mt-1">{{ error }}</p>
-              {% endfor %}
-            </div>
-            <div class="form-group">
-              {% if employee_form.next_of_kin_phone.label %}
-              <label for="{{ employee_form.next_of_kin_phone.id_for_label }}" class="block text-sm font-medium text-gray-500 mb-1">
-                {{ employee_form.next_of_kin_phone.label }}
-              </label>
-              {% endif %}
-              {{ employee_form.next_of_kin_phone }}
-              {% if employee_form.next_of_kin_phone.help_text %}
-                <p class="text-sm text-gray-500 mt-1">{{ employee_form.next_of_kin_phone.help_text }}</p>
-              {% else %}
-                <p class="text-sm text-gray-500 mt-1">Example: +1234567890</p>
-              {% endif %}
-              {% for error in employee_form.next_of_kin_phone.errors %}
-                <p class="text-xs text-red-600 mt-1">{{ error }}</p>
-              {% endfor %}
-            </div>
-          </div>
-        </div>
-
-        <!-- Banking Section -->
-        <div class="bg-blue-50 rounded-xl p-6 space-y-4"> {# Changed gap-6 to gap-4 (implicitly via space-y) #}
-          <h3 class="text-xl font-semibold text-blue-800">Banking Information</h3>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4"> {# Changed gap-6 to gap-4 #}
-            <div class="form-group">
-              {% if employee_form.bank.label %}
-              <label for="{{ employee_form.bank.id_for_label }}" class="block text-sm font-medium text-gray-500 mb-1">
-                {{ employee_form.bank.label }}
-              </label>
-              {% endif %}
-              {{ employee_form.bank }}
-              {% if employee_form.bank.help_text %}
-                <p class="text-sm text-gray-500 mt-1">{{ employee_form.bank.help_text }}</p>
-              {% endif %}
-              {% for error in employee_form.bank.errors %}
-                <p class="text-xs text-red-600 mt-1">{{ error }}</p>
-              {% endfor %}
-            </div>
-            <div class="form-group">
-              {% if employee_form.bank_account_name.label %}
-              <label for="{{ employee_form.bank_account_name.id_for_label }}" class="block text-sm font-medium text-gray-500 mb-1">
-                {{ employee_form.bank_account_name.label }}
-              </label>
-              {% endif %}
-              {{ employee_form.bank_account_name }}
-              {% if employee_form.bank_account_name.help_text %}
-                <p class="text-sm text-gray-500 mt-1">{{ employee_form.bank_account_name.help_text }}</p>
-              {% endif %}
-              {% for error in employee_form.bank_account_name.errors %}
-                <p class="text-xs text-red-600 mt-1">{{ error }}</p>
-              {% endfor %}
-            </div>
-            <div class="form-group">
-              {% if employee_form.bank_account_number.label %}
-              <label for="{{ employee_form.bank_account_number.id_for_label }}" class="block text-sm font-medium text-gray-500 mb-1">
-                {{ employee_form.bank_account_number.label }}
-              </label>
-              {% endif %}
-              {{ employee_form.bank_account_number }}
-              {% if employee_form.bank_account_number.help_text %}
-                <p class="text-sm text-gray-500 mt-1">{{ employee_form.bank_account_number.help_text }}</p>
-              {% else %}
-                <p class="text-sm text-gray-500 mt-1">Enter your account number</p>
-              {% endif %}
-              {% for error in employee_form.bank_account_number.errors %}
-                <p class="text-xs text-red-600 mt-1">{{ error }}</p>
-              {% endfor %}
-            </div>
-          </div>
-        </div>
-
-        <!-- Profile Photo Upload -->
-        <div class="border-2 border-dashed border-gray-200 rounded-xl p-8 text-center">
-          <div class="max-w-xs mx-auto">
-            <svg class="w-12 h-12 mx-auto text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path>
-            </svg>
-            {% if employee_form.photo.label %}
-            <label for="{{ employee_form.photo.id_for_label }}" class="block text-sm font-medium text-gray-500 mb-1">
-              {{ employee_form.photo.label }}
-            </label>
-            {% endif %}
-            {{ employee_form.photo }}
-            {% if employee_form.photo.help_text %}
-              <p class="text-sm text-gray-500 mt-1">{{ employee_form.photo.help_text }}</p>
-            {% else %}
-              <p class="mt-2 text-sm text-gray-500">PNG, JPG up to 2MB</p>
-            {% endif %}
-            {% for error in employee_form.photo.errors %}
-              <p class="text-xs text-red-600 mt-1">{{ error }}</p>
-            {% endfor %}
-          </div>
-        </div>
-
-        <!-- Submit Button -->
         <div class="flex justify-end">
           <button type="submit" class="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl shadow-sm focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 flex items-center justify-center space-x-2 text-sm">
             <span>Create Profile</span>
@@ -471,30 +73,23 @@
             </svg>
           </button>
         </div>
+
       </form>
     </div>
   </div>
 </div>
 
-<!-- Custom Styles -->
 <style>
   .form-group label {
-    @apply block text-sm font-medium text-gray-500 mb-1; /* Adjusted to guideline */
+    @apply block text-sm font-semibold text-gray-600 mb-1;
   }
-
   .form-group input,
   .form-group select,
-  .form-group textarea { /* Added textarea for consistency */
-    @apply w-full border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm p-2.5;
-    /* Removed dark mode classes, hover effects for now */
+  .form-group textarea {
+    @apply w-full border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm p-3 bg-gray-50;
   }
-
-  /* Removed specific :focus style block as it's incorporated above */
-
-  .form-group .custom-file-input, /* Assuming crispy forms might use this or similar for file inputs */
-  .form-group input[type="file"] { /* More generic file input styling */
+  .form-group input[type="file"] {
     @apply block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100;
-     /* Basic styling for file inputs, actual appearance heavily browser-dependent and crispy-dependent */
   }
 </style>
 {% endblock %}
