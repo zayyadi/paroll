@@ -120,7 +120,7 @@
                 <ul class="divide-y divide-gray-100">
                     {% for leave in recent_leave_requests %}
                     <li class="p-3 hover:bg-gray-50 transition-colors">
-                        <a href="{% url 'custom_admin:generic_update' app_label='payroll' model_name='leaverequest' pk=leave.pk %}" class="block">
+                        <a href="{% url 'custom_admin:payroll_leaverequest_update' pk=leave.pk %}" class="block">
                             <div class="flex items-center space-x-3">
                                 <div class="p-2 bg-orange-100 text-orange-600 rounded-full">
                                    <i data-lucide="calendar-clock" class="w-5 h-5"></i>
@@ -144,7 +144,7 @@
                 <ul class="divide-y divide-gray-100">
                     {% for iou in recent_ious %}
                     <li class="p-3 hover:bg-gray-50 transition-colors">
-                         <a href="{% url 'custom_admin:generic_update' app_label='payroll' model_name='iou' pk=iou.pk %}" class="block">
+                         <a href="{% url 'custom_admin:payroll_iou_update' pk=iou.pk %}" class="block">
                             <div class="flex items-center space-x-3">
                                 <div class="p-2 bg-yellow-100 text-yellow-600 rounded-full">
                                    <i data-lucide="credit-card" class="w-5 h-5"></i>
