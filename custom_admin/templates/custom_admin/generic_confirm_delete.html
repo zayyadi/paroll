@@ -1,0 +1,40 @@
+{% extends "custom_admin/base_admin.html" %}
+
+{% block admin_title %}Confirm Delete {{ model_verbose_name|capfirst }} - Custom Admin{% endblock %}
+
+{% block admin_page_header %}
+    <h1 class="text-2xl font-semibold text-gray-800">Delete {{ model_verbose_name|capfirst }}</h1>
+{% endblock %}
+
+{% block admin_content %}
+    <div class="bg-white p-6 md:p-8 rounded-lg shadow">
+        <p class="text-lg text-gray-700 mb-4">
+            Are you sure you want to delete the {{ model_verbose_name }} titled:
+            <strong class="font-semibold">"{{ object }}"</strong>?
+        </p>
+        <p class="text-sm text-gray-600 mb-6">
+            This action cannot be undone. All associated data might also be affected depending on the model's relationships.
+        </p>
+
+        <form method="post">
+            {% csrf_token %}
+            <div class="mt-8 border-t pt-6 flex items-center space-x-3">
+                <button type="submit" class="bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-5 rounded-lg shadow-md focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 flex items-center">
+                    <i data-lucide="trash-2" class="mr-2 h-5 w-5"></i>
+                    Yes, Confirm Delete
+                </button>
+                {# The success_url is where it goes after delete; for cancel, list view is more appropriate #}
+                <a href="{% url 'custom_admin:generic_list' app_label=app_label model_name=model_name %}"
+                   class="text-gray-600 hover:text-gray-800 py-2 px-4 rounded-lg border border-gray-300 hover:bg-gray-50">
+                    Cancel
+                </a>
+            </div>
+        </form>
+    </div>
+    <script>
+        // Ensure icons render.
+        if (typeof lucide !== 'undefined') {
+            lucide.createIcons();
+        }
+    </script>
+{% endblock %}
