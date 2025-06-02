@@ -15,9 +15,43 @@
 {% endblock %}
 
 {% block admin_content %}
-    <!-- Placeholder for Search and Filters -->
-    <div class="mb-4 p-4 bg-white rounded-lg shadow">
-        <p class="text-gray-600">Search and filter controls will go here.</p>
+    <!-- Search and Filters -->
+    <div class="mb-6 p-4 bg-white rounded-lg shadow">
+        <form method="get" class="flex items-center space-x-2">
+            <input type="text" name="q" value="{{ search_query|default:'' }}" placeholder="Search..." class="flex-grow p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+            {# Preserve existing filters when searching #}
+            {% for key, value in current_filters.items %}
+                {% if value %}
+                    <input type="hidden" name="{{ key }}" value="{{ value }}">
+                {% endif %}
+            {% endfor %}
+            <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 flex items-center">
+                <i data-lucide="search" class="h-5 w-5 mr-2"></i>Search
+            </button>
+        </form>
+
+        {% if filters_data %}
+        <form method="get" class="mt-4">
+            <div class="flex flex-wrap items-end gap-4"> {# items-end to align button with bottom of selects #}
+                <input type="hidden" name="q" value="{{ search_query|default:'' }}"> {# Preserve search query #}
+                {% for filter_item in filters_data %}
+                    <div>
+                        <label for="filter_{{ filter_item.name }}" class="block text-sm font-medium text-gray-700">{{ filter_item.verbose_name|capfirst }}</label>
+                        <select name="{{ filter_item.name }}" id="filter_{{ filter_item.name }}" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md" style="min-width: 150px;">
+                            <option value="">All</option>
+                            {% for val, display in filter_item.options %}
+                                <option value="{{ val }}" {% if filter_item.current_value == val|stringformat:"s" %}selected{% endif %}>{{ display }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                {% endfor %}
+                <div class="flex space-x-2">
+                    <button type="submit" class="px-4 py-2 h-10 bg-gray-600 text-white rounded-md hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2">Apply Filters</button>
+                    <a href="{% url 'custom_admin:generic_list' app_label=app_label model_name=model_name %}" class="px-4 py-2 h-10 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 flex items-center">Clear</a>
+                </div>
+            </div>
+        </form>
+        {% endif %}
     </div>
 
     <div class="bg-white shadow-md rounded-lg overflow-x-auto">
@@ -38,9 +72,28 @@
                 {% for object in object_list %}
                     <tr>
                         {% for field_name in model_fields %}
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                                {{ object|getattr_filter:field_name|truncatechars:50 }}
-                            </td>
+                            {% with value=object|get_field_value:field_name is_boolean=object|is_boolean_field:field_name is_fk_oto=object|is_foreign_key_or_one_to_one_field:field_name is_date=object|is_date_field_filter:field_name is_datetime=object|is_datetime_field_filter:field_name is_numeric=object|is_numeric_field_filter:field_name %}
+                                <td class="px-6 py-4 whitespace-nowrap text-sm {% if is_numeric %}text-right text-gray-800{% else %}text-left text-gray-700{% endif %}">
+                                    {% if is_boolean %}
+                                        <div class="flex justify-center"> {# Center boolean icons regardless of td text-align #}
+                                            {% if value is True %}<i data-lucide="check-circle" class="h-5 w-5 text-green-600"></i>
+                                            {% elif value is False %}<i data-lucide="x-circle" class="h-5 w-5 text-red-600"></i>
+                                            {% else %}<span class="text-gray-400">-</span>{% endif %}
+                                        </div>
+                                    {% elif is_fk_oto and value %}
+                                        {% with edit_url=value|get_custom_admin_edit_url %}
+                                            {% if edit_url %}<a href="{{ edit_url }}" class="text-indigo-600 hover:text-indigo-800 hover:underline">{{ value|truncatechars:50|default:"-" }}</a>
+                                            {% else %}{{ value|truncatechars:50|default:"-" }}{% endif %}
+                                        {% endwith %}
+                                    {% elif is_datetime and value %}
+                                        {{ value|date:"Y-m-d H:i"|default:"-" }}
+                                    {% elif is_date and value %}
+                                        {{ value|date:"Y-m-d"|default:"-" }}
+                                    {% else %}
+                                        {{ value|truncatechars:50|default:"-" }}
+                                    {% endif %}
+                                </td>
+                            {% endwith %}
                         {% endfor %}
                         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
                             {# URLs for edit and delete - will be defined later #}
@@ -79,10 +132,10 @@
             </div>
         </div>
     {% endif %}
-    <script>
+    <script> 
         // Ensure icons like 'plus' render. This might be redundant if base_admin.html already calls it effectively.
         if (typeof lucide !== 'undefined') {
-            lucide.createIcons();
+            lucide.createIcons(); 
         }
     </script>
 {% endblock %}
