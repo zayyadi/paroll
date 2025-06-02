@@ -32,9 +32,9 @@ INSTALLED_APPS = [
     "crispy_forms",
     "crispy_tailwind",
     "custom_admin.apps.CustomAdminConfig",
+    "widget_tweaks", # Added widget_tweaks
     "mathfilters",
     "django.contrib.humanize",
-    # "widget_tweaks",
     # "adminlte3",
     # "storages",
     "monthyear",

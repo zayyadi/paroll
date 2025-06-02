@@ -1,7 +1,8 @@
 {% extends "custom_admin/base_admin.html" %}
 {% load static %}
+{% load humanize %} {# For timesince filter, though timesince is often available by default #}
 
-{% block admin_title %}Admin Dashboard - Custom Admin{% endblock %}
+{% block admin_title %}{{ dashboard_title|default:"Admin Dashboard" }} - Custom Admin{% endblock %}
 
 {% block admin_page_header %}
     <h1 class="text-2xl font-semibold text-gray-800">Dashboard</h1>
@@ -14,47 +15,47 @@
     <section>
         <h2 class="text-xl font-semibold text-gray-700 mb-4">Overview</h2>
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <div class="bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow">
+            <a href="{% url 'custom_admin:generic_list' app_label='payroll' model_name='employeeprofile' %}" class="block bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow">
                 <div class="flex items-center">
                     <div class="p-3 bg-blue-500 text-white rounded-full mr-4">
                         <i data-lucide="users" class="w-6 h-6"></i>
                     </div>
                     <div>
-                        <h3 class="text-lg font-semibold text-gray-700">Total Users (Placeholder)</h3>
-                        <p class="text-3xl font-bold text-gray-900">1,234</p>
+                        <h3 class="text-lg font-semibold text-gray-700">Total Employees</h3>
+                        <p class="text-3xl font-bold text-gray-900">{{ total_employees|default:"0" }}</p>
                     </div>
                 </div>
-            </div>
-            <div class="bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow">
+            </a>
+            <a href="{% url 'custom_admin:payroll_leaverequest_list' %}?status=PENDING" class="block bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow">
                 <div class="flex items-center">
-                    <div class="p-3 bg-green-500 text-white rounded-full mr-4">
-                        <i data-lucide="clipboard-list" class="w-6 h-6"></i>
+                    <div class="p-3 bg-orange-500 text-white rounded-full mr-4">
+                        <i data-lucide="calendar-clock" class="w-6 h-6"></i>
                     </div>
                     <div>
-                        <h3 class="text-lg font-semibold text-gray-700">Pending Approvals (Placeholder)</h3>
-                        <p class="text-3xl font-bold text-gray-900">56</p>
+                        <h3 class="text-lg font-semibold text-gray-700">Pending Leave Requests</h3>
+                        <p class="text-3xl font-bold text-gray-900">{{ pending_leave_requests_count|default:"0" }}</p>
                     </div>
                 </div>
-            </div>
-            <div class="bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow">
+            </a>
+            <a href="{% url 'custom_admin:payroll_iou_list' %}?status=PENDING" class="block bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow">
                 <div class="flex items-center">
                     <div class="p-3 bg-yellow-500 text-white rounded-full mr-4">
-                        <i data-lucide="alert-triangle" class="w-6 h-6"></i>
+                        <i data-lucide="credit-card" class="w-6 h-6"></i>
                     </div>
                     <div>
-                        <h3 class="text-lg font-semibold text-gray-700">System Alerts (Placeholder)</h3>
-                        <p class="text-3xl font-bold text-gray-900">3</p>
+                        <h3 class="text-lg font-semibold text-gray-700">Pending IOU Approvals</h3>
+                        <p class="text-3xl font-bold text-gray-900">{{ pending_iou_approvals_count|default:"0" }}</p>
                     </div>
                 </div>
-            </div>
-            <div class="bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow">
+            </a>
+            <a href="{% url 'custom_admin:payroll_payroll_list' %}?status=active" class="block bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow">
                 <div class="flex items-center">
-                    <div class="p-3 bg-red-500 text-white rounded-full mr-4">
-                        <i data-lucide="server-crash" class="w-6 h-6"></i>
+                    <div class="p-3 bg-green-500 text-white rounded-full mr-4">
+                        <i data-lucide="archive" class="w-6 h-6"></i>
                     </div>
                     <div>
-                        <h3 class="text-lg font-semibold text-gray-700">Errors Today (Placeholder)</h3>
-                        <p class="text-3xl font-bold text-gray-900">0</p>
+                        <h3 class="text-lg font-semibold text-gray-700">Active Payrolls</h3>
+                        <p class="text-3xl font-bold text-gray-900">{{ active_payroll_count|default:"0" }}</p>
                     </div>
                 </div>
             </div>
@@ -65,17 +66,21 @@
     <section>
         <h2 class="text-xl font-semibold text-gray-700 mb-4">Quick Actions</h2>
         <div class="flex flex-wrap gap-4">
-            <a href="#" class="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-3 px-6 rounded-lg shadow-md hover:shadow-lg transition-shadow flex items-center space-x-2">
+            <a href="{% url 'custom_admin:payroll_employeeprofile_create' %}" class="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-3 px-6 rounded-lg shadow-md hover:shadow-lg transition-shadow flex items-center space-x-2">
                 <i data-lucide="user-plus" class="w-5 h-5"></i>
-                <span>Add New Employee (Placeholder)</span>
+                <span>Add New Employee</span>
             </a>
-            <a href="#" class="bg-green-500 hover:bg-green-600 text-white font-semibold py-3 px-6 rounded-lg shadow-md hover:shadow-lg transition-shadow flex items-center space-x-2">
-                <i data-lucide="file-text" class="w-5 h-5"></i>
-                <span>Generate Report (Placeholder)</span>
+            <a href="{% url 'custom_admin:payroll_payroll_create' %}" class="bg-teal-500 hover:bg-teal-600 text-white font-semibold py-3 px-6 rounded-lg shadow-md hover:shadow-lg transition-shadow flex items-center space-x-2">
+                <i data-lucide="dollar-sign" class="w-5 h-5"></i>
+                <span>Create Payroll Record</span>
             </a>
-            <a href="#" class="bg-purple-500 hover:bg-purple-600 text-white font-semibold py-3 px-6 rounded-lg shadow-md hover:shadow-lg transition-shadow flex items-center space-x-2">
-                <i data-lucide="settings" class="w-5 h-5"></i>
-                <span>Manage Settings (Placeholder)</span>
+            <a href="{% url 'custom_admin:payroll_leaverequest_list' %}" class="bg-green-500 hover:bg-green-600 text-white font-semibold py-3 px-6 rounded-lg shadow-md hover:shadow-lg transition-shadow flex items-center space-x-2">
+                <i data-lucide="calendar-check-2" class="w-5 h-5"></i>
+                <span>View Leave Requests</span>
+            </a>
+            <a href="{% url 'custom_admin:payroll_iou_list' %}" class="bg-purple-500 hover:bg-purple-600 text-white font-semibold py-3 px-6 rounded-lg shadow-md hover:shadow-lg transition-shadow flex items-center space-x-2">
+                <i data-lucide="credit-card" class="w-5 h-5"></i>
+                <span>View IOUs</span>
             </a>
         </div>
     </section>
@@ -83,47 +88,79 @@
     <!-- Recent Activities -->
     <section>
         <h2 class="text-xl font-semibold text-gray-700 mb-4">Recent Activities</h2>
-        <div class="bg-white rounded-lg shadow-md">
-            <ul class="divide-y divide-gray-200">
-                <li class="p-4 hover:bg-gray-50 transition-colors">
-                    <div class="flex items-center space-x-3">
-                        <div class="p-2 bg-blue-100 text-blue-600 rounded-full">
-                           <i data-lucide="user-check" class="w-5 h-5"></i>
-                        </div>
-                        <div>
-                            <p class="text-sm text-gray-700">User 'admin@example.com' logged in. (Placeholder)</p>
-                            <p class="text-xs text-gray-500">10 minutes ago</p>
-                        </div>
-                    </div>
-                </li>
-                <li class="p-4 hover:bg-gray-50 transition-colors">
-                    <div class="flex items-center space-x-3">
-                        <div class="p-2 bg-green-100 text-green-600 rounded-full">
-                           <i data-lucide="file-plus-2" class="w-5 h-5"></i>
-                        </div>
-                        <div>
-                            <p class="text-sm text-gray-700">New employee profile 'John Doe' created. (Placeholder)</p>
-                            <p class="text-xs text-gray-500">1 hour ago</p>
-                        </div>
-                    </div>
-                </li>
-                <li class="p-4 hover:bg-gray-50 transition-colors">
-                     <div class="flex items-center space-x-3">
-                        <div class="p-2 bg-yellow-100 text-yellow-600 rounded-full">
-                           <i data-lucide="dollar-sign" class="w-5 h-5"></i>
-                        </div>
-                        <div>
-                            <p class="text-sm text-gray-700">Payroll processed for 'Jane Smith'. (Placeholder)</p>
-                            <p class="text-xs text-gray-500">3 hours ago</p>
-                        </div>
-                    </div>
-                </li>
-                <li class="p-4 hover:bg-gray-50 transition-colors">
-                    <div class="flex items-center justify-center text-sm text-blue-600 hover:text-blue-800 pt-2">
-                        <a href="#">View all activities (Placeholder)</a>
-                    </div>
-                </li>
-            </ul>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            
+            <!-- Recent Employees -->
+            <div class="bg-white rounded-lg shadow-md">
+                <h3 class="text-lg font-semibold text-gray-800 p-4 border-b border-gray-200">New Employees</h3>
+                <ul class="divide-y divide-gray-100">
+                    {% for employee in recent_employees %}
+                    <li class="p-3 hover:bg-gray-50 transition-colors">
+                        <a href="{% url 'custom_admin:payroll_employeeprofile_update' pk=employee.pk %}" class="block">
+                            <div class="flex items-center space-x-3">
+                                <div class="p-2 bg-blue-100 text-blue-600 rounded-full">
+                                   <i data-lucide="user-plus" class="w-5 h-5"></i>
+                                </div>
+                                <div>
+                                    <p class="text-sm text-gray-700 font-medium">{{ employee.first_name }} {{ employee.last_name }} ({{ employee.emp_id }})</p>
+                                    <p class="text-xs text-gray-500">Added {{ employee.created|timesince }} ago.</p>
+                                </div>
+                            </div>
+                        </a>
+                    </li>
+                    {% empty %}
+                    <li class="p-4 text-sm text-gray-500">No recent employees found.</li>
+                    {% endfor %}
+                </ul>
+            </div>
+
+            <!-- Recent Leave Requests -->
+            <div class="bg-white rounded-lg shadow-md">
+                <h3 class="text-lg font-semibold text-gray-800 p-4 border-b border-gray-200">Leave Requests</h3>
+                <ul class="divide-y divide-gray-100">
+                    {% for leave in recent_leave_requests %}
+                    <li class="p-3 hover:bg-gray-50 transition-colors">
+                        <a href="{% url 'custom_admin:generic_update' app_label='payroll' model_name='leaverequest' pk=leave.pk %}" class="block">
+                            <div class="flex items-center space-x-3">
+                                <div class="p-2 bg-orange-100 text-orange-600 rounded-full">
+                                   <i data-lucide="calendar-clock" class="w-5 h-5"></i>
+                                </div>
+                                <div>
+                                    <p class="text-sm text-gray-700 font-medium">Leave for {{ leave.employee }} ({{ leave.leave_type }}) - {{ leave.status }}</p>
+                                    <p class="text-xs text-gray-500">Submitted {{ leave.created_at|timesince }} ago.</p>
+                                </div>
+                            </div>
+                        </a>
+                    </li>
+                    {% empty %}
+                    <li class="p-4 text-sm text-gray-500">No recent leave requests found.</li>
+                    {% endfor %}
+                </ul>
+            </div>
+
+            <!-- Recent IOUs -->
+            <div class="bg-white rounded-lg shadow-md">
+                <h3 class="text-lg font-semibold text-gray-800 p-4 border-b border-gray-200">IOU Requests</h3>
+                <ul class="divide-y divide-gray-100">
+                    {% for iou in recent_ious %}
+                    <li class="p-3 hover:bg-gray-50 transition-colors">
+                         <a href="{% url 'custom_admin:generic_update' app_label='payroll' model_name='iou' pk=iou.pk %}" class="block">
+                            <div class="flex items-center space-x-3">
+                                <div class="p-2 bg-yellow-100 text-yellow-600 rounded-full">
+                                   <i data-lucide="credit-card" class="w-5 h-5"></i>
+                                </div>
+                                <div>
+                                    <p class="text-sm text-gray-700 font-medium">IOU for {{ iou.employee_id }} (Amount: {{ iou.amount }}) - {{ iou.status }}</p>
+                                    <p class="text-xs text-gray-500">Requested {{ iou.created_at|timesince }} ago.</p>
+                                </div>
+                            </div>
+                        </a>
+                    </li>
+                    {% empty %}
+                    <li class="p-4 text-sm text-gray-500">No recent IOU requests found.</li>
+                    {% endfor %}
+                </ul>
+            </div>
         </div>
     </section>
 
