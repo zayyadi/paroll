@@ -24,6 +24,8 @@ class EmployeeProfileForm(forms.ModelForm):
             "date_of_employment",
             "employee_pay",
             "pension_rsa",
+            "nin",
+            "tin_no",
             "emergency_contact_name",
             "emergency_contact_relationship",
             "emergency_contact_phone",
