@@ -1,10 +1,12 @@
-from django.shortcuts import render, Http404
+from django.shortcuts import render, Http404, redirect
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.views.generic import ListView, CreateView, UpdateView, DeleteView
 from django.apps import apps
 from django.urls import reverse_lazy
 from django import forms
+from django.contrib import messages
+from django.http import Http404 # Already imported via shortcut, but good for clarity
 
 # Model imports
 # from payroll.models.employee_profile import EmployeeProfile, Department # Already imported in apps.py, but good for clarity if needed directly
@@ -155,7 +157,83 @@ class BaseListView(AdminUserPassesTestMixin, LoginRequiredMixin, ListView):
 
         context['filters_data'] = filters_data
         context['current_filters'] = current_filters
+        context['actions'] = self.get_actions() # Add actions to context
         return context
+
+    def get_actions(self):
+        """
+        Returns a dictionary of actions. 
+        Keys are action names (used in POST), values are display names.
+        Example: {'delete_selected': 'Delete selected items'}
+        """
+        return {}
+
+    def perform_action(self, action_name, selected_pks):
+        """
+        Performs the given action on the items with the given primary keys.
+        Should return the number of affected items, or None if messages are handled manually.
+        """
+        # Base implementation does nothing, or could raise NotImplementedError
+        # messages.info(self.request, f"Action '{action_name}' not implemented in BaseListView.")
+        return 0 
+
+    def post(self, request, *args, **kwargs):
+        # Ensure model and other necessary attributes are set up, similar to dispatch
+        # This is important because ListView's default post doesn't set these up for us.
+        self.app_label = self.kwargs.get('app_label')
+        self.model_name = self.kwargs.get('model_name')
+        try:
+            self.model = apps.get_model(self.app_label, self.model_name)
+        except LookupError:
+            raise Http404(f"Model {self.app_label}.{self.model_name} not found.")
+        
+        # Set other meta attributes that might be used by get_actions or perform_action
+        self.model_verbose_name = self.model._meta.verbose_name
+        self.model_verbose_name_plural = self.model._meta.verbose_name_plural
+        # If get_queryset needs these (it shouldn't if super().get_queryset() is called in perform_action's context)
+        # we might need to call self.object_list = self.get_queryset() here.
+        # However, perform_action typically works on selected_pks directly.
+
+        action_name = request.POST.get('action')
+        selected_pks_str = request.POST.getlist('selected_ids')
+
+        if not action_name:
+            messages.warning(request, "No action was selected.")
+            return redirect(request.get_full_path() or request.path_info)
+
+        if not selected_pks_str:
+            messages.warning(request, "No items were selected for the action.")
+            return redirect(request.get_full_path() or request.path_info)
+
+        # Convert PKs to the correct type
+        selected_pks = []
+        pk_field_to_python = self.model._meta.pk.to_python
+        try:
+            for pk_str in selected_pks_str:
+                selected_pks.append(pk_field_to_python(pk_str))
+        except Exception: # Broad exception for conversion errors (e.g., ValueError)
+            messages.error(request, f"Invalid item ID found in selection.")
+            return redirect(request.get_full_path() or request.path_info)
+        
+        available_actions = self.get_actions()
+        if action_name not in available_actions:
+            messages.error(request, f"Invalid action: '{action_name}'.")
+            return redirect(request.get_full_path() or request.path_info)
+
+        # Call perform_action which should be overridden by subclasses
+        affected_count = self.perform_action(action_name, selected_pks)
+
+        if affected_count is not None: # Allow perform_action to handle messages by returning None
+            action_display_name = available_actions.get(action_name, action_name.replace('_', ' ').title())
+            if affected_count > 0:
+                messages.success(request, f"Successfully performed action '{action_display_name}' on {affected_count} item(s).")
+            else:
+                # Provide more nuanced feedback if action was valid but affected 0 items vs. not implemented fully
+                # For now, this message covers both.
+                messages.info(request, f"Action '{action_display_name}' completed. 0 items were affected.")
+        
+        return redirect(request.get_full_path() or request.path_info)
+
 
 class BaseCreateView(AdminUserPassesTestMixin, LoginRequiredMixin, CreateView):
     template_name = 'custom_admin/generic_form.html'
@@ -361,6 +439,49 @@ class LeaveRequestListView(BaseListView):
     model = LeaveRequest
     list_filter_fields = ['status', 'leave_type', 'employee']
     search_fields = ['employee__first_name', 'employee__last_name', 'leave_type', 'status'] # Added search_fields
+
+    def get_actions(self):
+        return {
+            'approve_selected': 'Mark Selected as Approved',
+            'reject_selected': 'Mark Selected as Rejected',
+        }
+
+    def perform_action(self, action_name, selected_pks):
+        # self.model is already set to LeaveRequest by the view's configuration
+        queryset = self.model.objects.filter(pk__in=selected_pks)
+        updated_count = 0
+        
+        # Define valid target statuses for actions
+        valid_statuses_for_action = ['PENDING'] # Example: only act on PENDING requests
+
+        if action_name == 'approve_selected':
+            # Filter for requests that can be approved
+            approvable_requests = queryset.filter(status__in=valid_statuses_for_action)
+            updated_count = approvable_requests.update(status='APPROVED')
+            
+            # Notify if some selected items were not in a state to be approved
+            if updated_count < queryset.count(): # queryset.count() is the number of initially selected items
+                skipped_count = queryset.count() - updated_count
+                messages.warning(self.request, f"{skipped_count} selected item(s) were not in a state to be approved (e.g., not PENDING) and were skipped.")
+        
+        elif action_name == 'reject_selected':
+            # Filter for requests that can be rejected
+            rejectable_requests = queryset.filter(status__in=valid_statuses_for_action)
+            updated_count = rejectable_requests.update(status='REJECTED')
+
+            # Notify if some selected items were not in a state to be rejected
+            if updated_count < queryset.count():
+                skipped_count = queryset.count() - updated_count
+                messages.warning(self.request, f"{skipped_count} selected item(s) were not in a state to be rejected (e.g., not PENDING) and were skipped.")
+        else:
+            # This case should ideally not be reached if action_name is validated in BaseListView.post
+            # but as a safeguard:
+            # The message for unknown action is already handled by BaseListView.post
+            # Here, we just ensure we return 0 if this specific view doesn't handle an action
+            # that somehow passed validation (e.g. if get_actions was dynamically changed by another mixin)
+            return 0 
+
+        return updated_count
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
