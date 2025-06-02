@@ -40,14 +40,53 @@
                         {% elif field.field.widget.input_type == "select" %}
                             {{ field|add_class:"mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md appearance-none" }}
                         {% elif field.field.widget.input_type == "file" %}
-                            {# File inputs might need more specific styling later or a custom widget #}
-                            {{ field|add_class:"mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100" }}
+                            <div class="mt-1">
+                                <label for="{{ field.id_for_label }}" 
+                                       class="cursor-pointer group relative flex items-center px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium bg-white hover:bg-gray-50 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-indigo-500 w-full sm:w-auto">
+                                    <i data-lucide="upload-cloud" class="h-5 w-5 mr-2 text-gray-400 group-hover:text-gray-500"></i>
+                                    <span class="selected-file-name-{{ field.auto_id }} text-gray-700 group-hover:text-gray-800 truncate">
+                                        {% if field.value %}{{ field.value.name|filename|default:"Change file..." }}{% else %}Choose a file...{% endif %}
+                                    </span>
+                                    {# Actual file input, visually hidden but accessible #}
+                                    {{ field|add_class:"sr-only" }}
+                                </label>
+                                {% if field.value and field.value.url %}
+                                <div class="mt-2 text-sm">
+                                    Current file: <a href="{{ field.value.url }}" target="_blank" class="text-indigo-600 hover:underline">{{ field.value.name|filename }}</a>
+                                    {# Django's default ClearableFileInput shows a "Currently" and "Clear" checkbox. #}
+                                    {# This simplified version doesn't include the "Clear" checkbox functionality. #}
+                                    {# To add "Clear" functionality, the form field/widget itself often needs to handle it (e.g. ClearableFileInput) #}
+                                    {# and the template would render {{ field.clear_checkbox_label }} {{ field.clear_checkbox_id }} etc. #}
+                                    {# For now, this is display only. #}
+                                </div>
+                                {% endif %}
+                            </div>
+                            <script>
+                            (function() {
+                                var inputId = '{{ field.id_for_label }}';
+                                var fileInput = document.getElementById(inputId);
+                                var fileNameSpan = document.querySelector('label[for="' + inputId + '"] .selected-file-name-{{ field.auto_id }}');
+
+                                if (fileInput && fileNameSpan) {
+                                    fileInput.addEventListener('change', function(e) {
+                                        var fileName = e.target.files[0] ? e.target.files[0].name : '{% if field.value %}{{ field.value.name|filename|default:"Change file..." }}{% else %}Choose a file...{% endif %}'; // Revert to original if no file selected
+                                        fileNameSpan.textContent = fileName;
+                                        var currentFileDisplay = fileNameSpan.closest('.mt-1').querySelector('.mt-2.text-sm');
+                                        if (currentFileDisplay && e.target.files[0]) {
+                                            currentFileDisplay.style.display = 'none';
+                                        } else if (currentFileDisplay) {
+                                            currentFileDisplay.style.display = 'block'; // Show current file if new selection is cleared
+                                        }
+                                    });
+                                }
+                            })();
+                            </script>
                         {% elif field.field.widget|widget_type == "checkboxselectmultiple" %}
                             <div class="mt-1 border border-gray-300 rounded-md p-3 max-h-72 overflow-y-auto space-y-2 bg-white"> 
                                 {# Scrollable container for checkbox list #}
                                 {% for choice in field %} {# field is the BoundField, iterating over it yields sub-widgets (choices) #}
                                     <div class="flex items-center p-1 hover:bg-gray-50 rounded">
-                                        {{ choice.tag|add_class:"h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-offset-0 focus:ring-indigo-500" }}
+                                        {{ choice.tag|add_class:"h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-2 focus:ring-offset-0 focus:ring-indigo-500" }}
                                         <label for="{{ choice.id_for_label }}" class="ml-2 block text-sm text-gray-800 select-none">
                                             {{ choice.choice_label }}
                                         </label>
@@ -58,7 +97,7 @@
                              {{ field|add_class:"mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"|attr:"rows:4" }}
                         {% elif field.field.widget.input_type == "checkbox" %}
                             <div class="mt-1 flex items-center">
-                                {{ field|add_class:"h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-offset-0 focus:ring-indigo-500" }}
+                                {{ field|add_class:"h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-2 focus:ring-offset-0 focus:ring-indigo-500" }}
                                 {# The main field label is already rendered above by the generic label tag. #}
                                 {# For BooleanFields, this is usually sufficient. #}
                                 {# For CheckboxSelectMultiple, this would style each checkbox box, but labels would need more. #}
@@ -84,7 +123,7 @@
                     {{ form_action_type|default:"Save" }} {{ model_verbose_name|capfirst }}
                 </button>
                 <a href="{% url 'custom_admin:generic_list' app_label=app_label model_name=model_name %}" 
-                   class="text-gray-600 hover:text-gray-800 py-2 px-4 rounded-lg border border-gray-300 hover:bg-gray-50">
+                   class="text-gray-600 hover:text-gray-800 py-2 px-4 rounded-lg border border-gray-300 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400">
                     Cancel
                 </a>
             </div>
