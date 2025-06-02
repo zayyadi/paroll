@@ -76,7 +76,18 @@
               {{ employee_form.email|as_crispy_field }}
             </div>
             <div class="form-group">
-              {{ employee_form.date_of_birth|as_crispy_field }}
+              {% if employee_form.date_of_birth.label %}
+                <label for="{{ employee_form.date_of_birth.id_for_label }}" class="block text-sm font-medium text-gray-500 mb-1">
+                  {{ employee_form.date_of_birth.label }}
+                </label>
+              {% endif %}
+              {{ employee_form.date_of_birth }}
+              {% if employee_form.date_of_birth.help_text %}
+                <p class="text-sm text-gray-500 mt-1">{{ employee_form.date_of_birth.help_text }}</p>
+              {% endif %}
+              {% for error in employee_form.date_of_birth.errors %}
+                <p class="text-xs text-red-600 mt-1">{{ error }}</p>
+              {% endfor %}
             </div>
             <div class="form-group">
               {{ employee_form.gender|as_crispy_field }}
@@ -103,13 +114,30 @@
               {{ employee_form.contract_type|as_crispy_field }}
             </div>
             <div class="form-group">
-              {{ employee_form.date_of_employment|as_crispy_field }}
+              {% if employee_form.date_of_employment.label %}
+                <label for="{{ employee_form.date_of_employment.id_for_label }}" class="block text-sm font-medium text-gray-500 mb-1">
+                  {{ employee_form.date_of_employment.label }}
+                </label>
+              {% endif %}
+              {{ employee_form.date_of_employment }}
+              {% if employee_form.date_of_employment.help_text %}
+                <p class="text-sm text-gray-500 mt-1">{{ employee_form.date_of_employment.help_text }}</p>
+              {% endif %}
+              {% for error in employee_form.date_of_employment.errors %}
+                <p class="text-xs text-red-600 mt-1">{{ error }}</p>
+              {% endfor %}
             </div>
             <div class="form-group">
               {{ employee_form.employee_pay|as_crispy_field }}
             </div>
             <div class="form-group">
               {{ employee_form.pension_rsa|as_crispy_field }}
+            </div>
+            <div class="form-group">
+              {{ employee_form.nin|as_crispy_field }}
+            </div>
+            <div class="form-group">
+              {{ employee_form.tin_no|as_crispy_field }}
             </div>
           </div>
         </div>
