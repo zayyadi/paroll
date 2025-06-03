@@ -9,18 +9,18 @@ from monthyear.util import string_type
 class MonthSelectorWidget(widgets.MultiWidget):
     def __init__(self, attrs=None):
         attrs = attrs or {} # Ensure attrs is a dict
-        
+
         # Base style for sub-widgets, suitable for inline display
         sub_widget_base_class = "px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
 
         # Month widget (Select)
-        month_widget_attrs = attrs.copy() 
-        month_widget_attrs['class'] = (month_widget_attrs.get('class', '') + f' {sub_widget_base_class} flex-grow min-w-0 w-monthyear-month').strip() 
+        month_widget_attrs = attrs.copy()
+        month_widget_attrs['class'] = (month_widget_attrs.get('class', '') + f' {sub_widget_base_class} flex-grow min-w-0 w-monthyear-month').strip()
         # Added w-monthyear-month for any specific JS/CSS targeting if still used
 
         # Year widget (NumberInput)
-        year_widget_attrs = attrs.copy() 
-        year_widget_attrs['class'] = (year_widget_attrs.get('class', '') + f' {sub_widget_base_class} w-24 min-w-0 w-monthyear-year').strip() 
+        year_widget_attrs = attrs.copy()
+        year_widget_attrs['class'] = (year_widget_attrs.get('class', '') + f' {sub_widget_base_class} w-24 min-w-0 w-monthyear-year').strip()
         # Added w-monthyear-year
 
         _widgets = [

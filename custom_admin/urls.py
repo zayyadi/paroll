@@ -12,11 +12,11 @@ from .views import (
 from .views import (
 from .views import (
     BaseListView, BaseCreateView, BaseUpdateView, BaseDeleteView,
-    EmployeeProfileListView, EmployeeProfileCreateView, 
+    EmployeeProfileListView, EmployeeProfileCreateView,
     EmployeeProfileUpdateView, EmployeeProfileDeleteView,
     PayrollListView, PayrollCreateView, PayrollUpdateView, PayrollDeleteView,
     PayVarListView, PayVarCreateView, PayVarUpdateView, PayVarDeleteView,
-    LeaveRequestListView, LeaveRequestCreateView, LeaveRequestUpdateView, LeaveRequestDeleteView, 
+    LeaveRequestListView, LeaveRequestCreateView, LeaveRequestUpdateView, LeaveRequestDeleteView,
     IOUListView, IOUCreateView, IOUUpdateView, IOUDeleteView,
     DepartmentListView, DepartmentCreateView, DepartmentUpdateView, DepartmentDeleteView,
     AllowanceListView, AllowanceCreateView, AllowanceUpdateView, AllowanceDeleteView,
@@ -37,7 +37,7 @@ urlpatterns = [
     # Payroll specific URLs
     path('payroll/payroll/', PayrollListView.as_view(), name='payroll_payroll_list'),
     path('payroll/payroll/add/', PayrollCreateView.as_view(), name='payroll_payroll_create'),
-    path('payroll/payroll/<int:pk>/edit/', PayrollUpdateView.as_view(), name='payroll_payroll_update'), 
+    path('payroll/payroll/<int:pk>/edit/', PayrollUpdateView.as_view(), name='payroll_payroll_update'),
     path('payroll/payroll/<int:pk>/delete/', PayrollDeleteView.as_view(), name='payroll_payroll_delete'),
 
     # PayVar specific URLs
@@ -51,7 +51,7 @@ urlpatterns = [
     path('payroll/leaverequest/add/', LeaveRequestCreateView.as_view(), name='payroll_leaverequest_create'),
     path('payroll/leaverequest/<int:pk>/edit/', LeaveRequestUpdateView.as_view(), name='payroll_leaverequest_update'),
     path('payroll/leaverequest/<int:pk>/delete/', LeaveRequestDeleteView.as_view(), name='payroll_leaverequest_delete'),
-    
+
     # IOU specific list URL
     path('payroll/iou/', IOUListView.as_view(), name='payroll_iou_list'),
     path('payroll/iou/add/', IOUCreateView.as_view(), name='payroll_iou_create'),

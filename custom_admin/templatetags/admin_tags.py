@@ -31,12 +31,12 @@ def get_field_value(obj, field_name_str): # Renamed from getattr_filter
             # If it's a method that needs to be called (e.g. get_absolute_url), then call it.
             # Let's assume if it's callable and not a field, it's a method to be called.
             # This might need refinement if properties are complex.
-            
+
             # Simplified: if it's callable, call it. If not, access it.
             # If it's a field, direct getattr below will get its value.
             # If it's a property, direct getattr will get its value.
             # If it's a method to be called for display, then call it.
-            
+
             # A robust way is to check if it is a field first.
             if hasattr(obj, '_meta') and name_str in [f.name for f in obj._meta.get_fields()]:
                  return getattr(obj, name_str) # It's a field, get its value
@@ -47,9 +47,9 @@ def get_field_value(obj, field_name_str): # Renamed from getattr_filter
 
             # Otherwise, it's an attribute or property
             return getattr(obj, name_str)
-            
+
     except AttributeError:
-        return None 
+        return None
     except Exception as e:
         # Optionally log other errors for debugging
         # print(f"Error in get_field_value: {e} while trying to get {field_name_str} from {obj}")
@@ -69,7 +69,7 @@ def is_foreign_key_or_one_to_one_field(obj, field_name_str):
 def get_custom_admin_edit_url(related_obj_instance):
     if not hasattr(related_obj_instance, '_meta') or not hasattr(related_obj_instance, 'pk'):
         return None
-    
+
     app_label = related_obj_instance._meta.app_label
     model_name = related_obj_instance._meta.model_name
 

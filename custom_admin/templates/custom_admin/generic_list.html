@@ -7,7 +7,7 @@
 {% block admin_page_header %}
     <div class="flex justify-between items-center">
         <h1 class="text-2xl font-semibold text-gray-800">{{ title|default:"Objects List" }}</h1>
-        <a href="{% url 'custom_admin:generic_create' app_label=app_label model_name=model_name %}" 
+        <a href="{% url 'custom_admin:generic_create' app_label=app_label model_name=model_name %}"
            class="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg shadow flex items-center focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-700">
             <i data-lucide="plus" class="mr-2 h-5 w-5"></i>Add New {{ model_verbose_name|capfirst }}
         </a>
@@ -23,7 +23,7 @@
         <div class="my-4 p-3 bg-gray-50 rounded-md border border-gray-200 shadow-sm">
             <div class="flex items-center space-x-3">
                 <label for="action-select" class="text-sm font-medium text-gray-700 sr-only">Action:</label> {# Screen-reader only label as visual is clear #}
-                <select name="action" id="action-select" 
+                <select name="action" id="action-select"
                         class="block w-auto py-2 pl-3 pr-9 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
                     <option value="" selected>Select an action</option>
                     {% for action_value, action_display_name in actions.items %}
@@ -73,7 +73,7 @@
                 {% endfor %}
                 <div class="flex space-x-2">
                     <button type="submit" class="px-4 py-2 h-10 bg-gray-600 text-white rounded-md hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500">Apply Filters</button>
-                    <a href="{% url 'custom_admin:generic_list' app_label=app_label model_name=model_name %}" 
+                    <a href="{% url 'custom_admin:generic_list' app_label=app_label model_name=model_name %}"
                        class="px-4 py-2 h-10 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 flex items-center focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400">Clear</a>
                 </div>
             </div>
@@ -131,10 +131,10 @@
                             {% endwith %}
                         {% endfor %}
                         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-center">
-                            <a href="{% url 'custom_admin:generic_update' app_label=app_label model_name=model_name pk=object.pk %}" 
+                            <a href="{% url 'custom_admin:generic_update' app_label=app_label model_name=model_name pk=object.pk %}"
                                class="text-indigo-600 hover:text-indigo-800 hover:underline focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-1 rounded-sm px-1 py-0.5">Edit</a>
                             <span class="text-gray-300 mx-1">|</span>
-                            <a href="{% url 'custom_admin:generic_delete' app_label=app_label model_name=model_name pk=object.pk %}" 
+                            <a href="{% url 'custom_admin:generic_delete' app_label=app_label model_name=model_name pk=object.pk %}"
                                class="text-red-600 hover:text-red-800 hover:underline focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-offset-1 rounded-sm px-1 py-0.5">Delete</a>
                         </td>
                     </tr>
@@ -169,10 +169,10 @@
             </div>
         </div>
     {% endif %}
-    <script> 
+    <script>
         // Ensure icons like 'plus' render. This might be redundant if base_admin.html already calls it effectively.
         if (typeof lucide !== 'undefined') {
-            lucide.createIcons(); 
+            lucide.createIcons();
         }
     </script>
 </form> {# End main form for row actions #}
@@ -182,7 +182,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const selectAllCheckbox = document.getElementById('select-all-checkbox');
     const rowCheckboxes = document.querySelectorAll('.row-checkbox');
     const selectedItemsCountSpan = document.getElementById('selected-items-count');
-    
+
     function updateSelectedCount() {
         if (selectedItemsCountSpan) {
             const count = document.querySelectorAll('.row-checkbox:checked').length;
@@ -215,7 +215,7 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         });
         updateSelectedCount(); // Initial count on page load
-    } else if (rowCheckboxes.length > 0) { 
+    } else if (rowCheckboxes.length > 0) {
         // Fallback if no select-all, but row checkboxes exist (e.g. if table is empty initially)
         rowCheckboxes.forEach(checkbox => {
              checkbox.addEventListener('change', updateSelectedCount);

@@ -8,9 +8,9 @@ class CustomAdminConfig(AppConfig):
         # Import models here to avoid AppRegistryNotReady errors
         from payroll.models.employee_profile import EmployeeProfile, Department
         from payroll.models.payroll import Payroll, PayVar, LeaveRequest, IOU, Allowance, Deduction, LeavePolicy, PayT # New import
-        
+
         from .admin_config import register_model
-        
+
         register_model(EmployeeProfile)
         register_model(Payroll)
         register_model(PayVar)

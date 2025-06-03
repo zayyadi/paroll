@@ -11,7 +11,7 @@ from django.http import Http404 # Already imported via shortcut, but good for cl
 # Model imports
 # from payroll.models.employee_profile import EmployeeProfile, Department # Already imported in apps.py, but good for clarity if needed directly
 # from payroll.models.payroll import Payroll, PayVar, LeaveRequest, IOU, Allowance, Deduction, LeavePolicy, PayT # Already imported in apps.py for registration
-from payroll.models.employee_profile import Department 
+from payroll.models.employee_profile import Department
 from payroll.models.payroll import Allowance, Deduction, LeavePolicy, PayT # Explicit import for model usage
 
 # Generic Base Views (already defined in this file)
@@ -30,7 +30,7 @@ class AdminUserPassesTestMixin(UserPassesTestMixin):
 def dashboard(request):
     total_employees = EmployeeProfile.objects.count()
     # Assuming LeaveRequest status choices include 'PENDING' (or similar)
-    pending_leave_requests_count = LeaveRequest.objects.filter(status='PENDING').count() 
+    pending_leave_requests_count = LeaveRequest.objects.filter(status='PENDING').count()
     # Assuming IOU status choices include 'PENDING' (or similar)
     pending_iou_approvals_count = IOU.objects.filter(status='PENDING').count()
     # Payroll model has status with default 'active'
@@ -42,7 +42,7 @@ def dashboard(request):
     # LeaveRequest has 'created_at' (DateTimeField)
     recent_leave_requests = LeaveRequest.objects.order_by('-created_at')[:5]
     # IOU has 'created_at' (DateField) - adjust if it's DateTimeField for more precision
-    recent_ious = IOU.objects.order_by('-created_at')[:5] 
+    recent_ious = IOU.objects.order_by('-created_at')[:5]
 
     context = {
         'total_employees': total_employees,
@@ -52,7 +52,7 @@ def dashboard(request):
         'recent_employees': recent_employees,
         'recent_leave_requests': recent_leave_requests,
         'recent_ious': recent_ious,
-        'dashboard_title': 'Admin Dashboard Overview' 
+        'dashboard_title': 'Admin Dashboard Overview'
     }
     return render(request, 'custom_admin/dashboard.html', context)
 
@@ -78,10 +78,10 @@ class BaseListView(AdminUserPassesTestMixin, LoginRequiredMixin, ListView):
 
         self.model_verbose_name = self.model._meta.verbose_name
         self.model_verbose_name_plural = self.model._meta.verbose_name_plural
-        
+
         # Get concrete fields that are not many-to-many or one-to-many
         self.model_fields = [
-            field.name for field in self.model._meta.get_fields() 
+            field.name for field in self.model._meta.get_fields()
             if field.concrete and not field.many_to_many and not field.one_to_many and not field.one_to_one
         ]
         # A more refined field list might exclude primary keys or certain other field types by default,
@@ -97,7 +97,7 @@ class BaseListView(AdminUserPassesTestMixin, LoginRequiredMixin, ListView):
 
     def get_queryset(self):
         queryset = super().get_queryset() # Gets self.model.objects.all() or as overridden
-        
+
         # Search Logic
         search_query = self.request.GET.get('q', '').strip()
         if search_query and hasattr(self, 'search_fields') and self.search_fields:
@@ -123,10 +123,10 @@ class BaseListView(AdminUserPassesTestMixin, LoginRequiredMixin, ListView):
         context['model_verbose_name_plural'] = self.model_verbose_name_plural
         context['model_fields'] = self.model_fields # These are for table columns
         context['title'] = f"{self.model_verbose_name_plural.capitalize()} List"
-        
+
         # Add search query to context
         context['search_query'] = self.request.GET.get('q', '').strip()
-        
+
         # Prepare data for filter dropdowns
         filters_data = []
         current_filters = {}
@@ -142,7 +142,7 @@ class BaseListView(AdminUserPassesTestMixin, LoginRequiredMixin, ListView):
                         related_model = model_field.related_model
                         # Format as (value, display) tuples
                         options_list = [(obj.pk, str(obj)) for obj in related_model.objects.all()]
-                    
+
                     if options_list: # Only add filter if there are options to choose from
                         filters_data.append({
                             'name': field_name,
@@ -162,7 +162,7 @@ class BaseListView(AdminUserPassesTestMixin, LoginRequiredMixin, ListView):
 
     def get_actions(self):
         """
-        Returns a dictionary of actions. 
+        Returns a dictionary of actions.
         Keys are action names (used in POST), values are display names.
         Example: {'delete_selected': 'Delete selected items'}
         """
@@ -175,7 +175,7 @@ class BaseListView(AdminUserPassesTestMixin, LoginRequiredMixin, ListView):
         """
         # Base implementation does nothing, or could raise NotImplementedError
         # messages.info(self.request, f"Action '{action_name}' not implemented in BaseListView.")
-        return 0 
+        return 0
 
     def post(self, request, *args, **kwargs):
         # Ensure model and other necessary attributes are set up, similar to dispatch
@@ -186,7 +186,7 @@ class BaseListView(AdminUserPassesTestMixin, LoginRequiredMixin, ListView):
             self.model = apps.get_model(self.app_label, self.model_name)
         except LookupError:
             raise Http404(f"Model {self.app_label}.{self.model_name} not found.")
-        
+
         # Set other meta attributes that might be used by get_actions or perform_action
         self.model_verbose_name = self.model._meta.verbose_name
         self.model_verbose_name_plural = self.model._meta.verbose_name_plural
@@ -214,7 +214,7 @@ class BaseListView(AdminUserPassesTestMixin, LoginRequiredMixin, ListView):
         except Exception: # Broad exception for conversion errors (e.g., ValueError)
             messages.error(request, f"Invalid item ID found in selection.")
             return redirect(request.get_full_path() or request.path_info)
-        
+
         available_actions = self.get_actions()
         if action_name not in available_actions:
             messages.error(request, f"Invalid action: '{action_name}'.")
@@ -231,7 +231,7 @@ class BaseListView(AdminUserPassesTestMixin, LoginRequiredMixin, ListView):
                 # Provide more nuanced feedback if action was valid but affected 0 items vs. not implemented fully
                 # For now, this message covers both.
                 messages.info(request, f"Action '{action_display_name}' completed. 0 items were affected.")
-        
+
         return redirect(request.get_full_path() or request.path_info)
 
 
@@ -250,7 +250,7 @@ class BaseCreateView(AdminUserPassesTestMixin, LoginRequiredMixin, CreateView):
             self.model = apps.get_model(self.app_label, self.model_name)
         except LookupError:
             raise Http404(f"Model {self.app_label}.{self.model_name} not found.")
-        
+
         self.model_verbose_name = self.model._meta.verbose_name
         return super().dispatch(request, *args, **kwargs)
 
@@ -290,7 +290,7 @@ class BaseUpdateView(AdminUserPassesTestMixin, LoginRequiredMixin, UpdateView):
             self.model = apps.get_model(self.app_label, self.model_name)
         except LookupError:
             raise Http404(f"Model {self.app_label}.{self.model_name} not found.")
-        
+
         self.model_verbose_name = self.model._meta.verbose_name
         return super().dispatch(request, *args, **kwargs)
 
@@ -302,7 +302,7 @@ class BaseUpdateView(AdminUserPassesTestMixin, LoginRequiredMixin, UpdateView):
             Meta = type('Meta', (object,), {'model': self.model, 'fields': self.fields})
             GeneratedForm = type(f'{self.model_name}ModelForm', (forms.ModelForm,), {'Meta': Meta})
             return GeneratedForm
-            
+
     def get_success_url(self):
         return reverse_lazy('custom_admin:generic_list', kwargs={'app_label': self.app_label, 'model_name': self.model_name})
 
@@ -330,7 +330,7 @@ class BaseDeleteView(AdminUserPassesTestMixin, LoginRequiredMixin, DeleteView):
             self.model = apps.get_model(self.app_label, self.model_name)
         except LookupError:
             raise Http404(f"Model {self.app_label}.{self.model_name} not found.")
-        
+
         self.model_verbose_name = self.model._meta.verbose_name
         return super().dispatch(request, *args, **kwargs)
 
@@ -351,7 +351,7 @@ class EmployeeProfileListView(BaseListView):
     model = EmployeeProfile
     search_fields = ['first_name', 'last_name', 'email', 'emp_id']
     list_filter_fields = ['department', 'status', 'job_title'] # Added job_title
-    
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         # Override model_fields for the EmployeeProfile list template columns
@@ -362,11 +362,11 @@ class EmployeeProfileListView(BaseListView):
 class EmployeeProfileCreateView(BaseCreateView):
     model = EmployeeProfile
     fields = [
-        'first_name', 'last_name', 'email', 'department', 'job_title', 
-        'contract_type', 'date_of_employment', 'date_of_birth', 'gender', 
-        'phone', 'address', 'employee_pay', 'pension_rsa', 'bank', 
-        'bank_account_name', 'bank_account_number', 'photo', 
-        'emergency_contact_name', 'emergency_contact_relationship', 'emergency_contact_phone', 
+        'first_name', 'last_name', 'email', 'department', 'job_title',
+        'contract_type', 'date_of_employment', 'date_of_birth', 'gender',
+        'phone', 'address', 'employee_pay', 'pension_rsa', 'bank',
+        'bank_account_name', 'bank_account_number', 'photo',
+        'emergency_contact_name', 'emergency_contact_relationship', 'emergency_contact_phone',
         'next_of_kin_name', 'next_of_kin_relationship', 'next_of_kin_phone', 'status'
     ]
     # Note: 'user' field is typically handled separately (e.g., linked to request.user or auto-created)
@@ -375,11 +375,11 @@ class EmployeeProfileCreateView(BaseCreateView):
 class EmployeeProfileUpdateView(BaseUpdateView):
     model = EmployeeProfile
     fields = [
-        'first_name', 'last_name', 'email', 'department', 'job_title', 
-        'contract_type', 'date_of_employment', 'date_of_birth', 'gender', 
-        'phone', 'address', 'employee_pay', 'pension_rsa', 'bank', 
-        'bank_account_name', 'bank_account_number', 'photo', 
-        'emergency_contact_name', 'emergency_contact_relationship', 'emergency_contact_phone', 
+        'first_name', 'last_name', 'email', 'department', 'job_title',
+        'contract_type', 'date_of_employment', 'date_of_birth', 'gender',
+        'phone', 'address', 'employee_pay', 'pension_rsa', 'bank',
+        'bank_account_name', 'bank_account_number', 'photo',
+        'emergency_contact_name', 'emergency_contact_relationship', 'emergency_contact_phone',
         'next_of_kin_name', 'next_of_kin_relationship', 'next_of_kin_phone', 'status'
     ]
 
@@ -391,7 +391,7 @@ class PayrollListView(BaseListView):
     model = Payroll
     search_fields = ['id', 'status']
     list_filter_fields = ['status']
-    
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['model_fields'] = ['id', 'basic_salary', 'gross_income', 'payee', 'status', 'timestamp']
@@ -415,7 +415,7 @@ class PayVarListView(BaseListView):
     model = PayVar
     search_fields = ['id', 'pays__first_name', 'pays__last_name', 'pays__email', 'status']
     list_filter_fields = ['status', 'pays', 'allowance_id', 'deduction_id', 'is_housing', 'is_nhif']
-    
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['model_fields'] = ['id', 'pays', 'allowance_id', 'deduction_id', 'is_housing', 'is_nhif', 'status', 'netpay']
@@ -450,7 +450,7 @@ class LeaveRequestListView(BaseListView):
         # self.model is already set to LeaveRequest by the view's configuration
         queryset = self.model.objects.filter(pk__in=selected_pks)
         updated_count = 0
-        
+
         # Define valid target statuses for actions
         valid_statuses_for_action = ['PENDING'] # Example: only act on PENDING requests
 
@@ -458,12 +458,12 @@ class LeaveRequestListView(BaseListView):
             # Filter for requests that can be approved
             approvable_requests = queryset.filter(status__in=valid_statuses_for_action)
             updated_count = approvable_requests.update(status='APPROVED')
-            
+
             # Notify if some selected items were not in a state to be approved
             if updated_count < queryset.count(): # queryset.count() is the number of initially selected items
                 skipped_count = queryset.count() - updated_count
                 messages.warning(self.request, f"{skipped_count} selected item(s) were not in a state to be approved (e.g., not PENDING) and were skipped.")
-        
+
         elif action_name == 'reject_selected':
             # Filter for requests that can be rejected
             rejectable_requests = queryset.filter(status__in=valid_statuses_for_action)
@@ -479,7 +479,7 @@ class LeaveRequestListView(BaseListView):
             # The message for unknown action is already handled by BaseListView.post
             # Here, we just ensure we return 0 if this specific view doesn't handle an action
             # that somehow passed validation (e.g. if get_actions was dynamically changed by another mixin)
-            return 0 
+            return 0
 
         return updated_count
 
@@ -547,7 +547,7 @@ class DepartmentDeleteView(BaseDeleteView):
 # Allowance Specific Views
 class AllowanceListView(BaseListView):
     model = Allowance
-    search_fields = ['name'] 
+    search_fields = ['name']
     list_filter_fields = ['name']
 
     def get_context_data(self, **kwargs):

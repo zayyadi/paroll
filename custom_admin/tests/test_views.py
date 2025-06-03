@@ -22,7 +22,7 @@ def create_test_department(name="Test Department", description="Test Description
     # This will get the department if it exists, or create it if it doesn't.
     # Useful if multiple tests might try to create the same department.
     department, created = Department.objects.get_or_create(
-        name=name, 
+        name=name,
         defaults={'description': description}
     )
     # If it already existed and you want to ensure the description is updated:
@@ -32,9 +32,9 @@ def create_test_department(name="Test Department", description="Test Description
     return department
 
 def create_test_employee_profile(user, department=None, **kwargs):
-    # The signal create_employee_profile in payroll.models.employee_profile 
+    # The signal create_employee_profile in payroll.models.employee_profile
     # automatically creates an EmployeeProfile when a CustomUser is created.
-    
+
     # Try to get the profile created by the signal first
     try:
         profile = EmployeeProfile.objects.get(user=user)
@@ -57,7 +57,7 @@ def create_test_employee_profile(user, department=None, **kwargs):
         # 'date_of_employment': Month(year=2020, month=1), # Example
         # employee_pay (ForeignKey to Payroll) is nullable/blank, can be omitted or set in kwargs
     }
-    
+
     # Merge provided kwargs, overriding defaults
     for key, value in kwargs.items():
         defaults[key] = value
@@ -124,15 +124,15 @@ class EmployeeProfileAdminCrudTests(TestCase):
     @classmethod
     def setUpTestData(cls):
         cls.staff_user = create_test_user(username='crud_staff', is_staff=True, first_name="Staff", last_name="Admin")
-        
+
         cls.dept_hr = create_test_department(name="Human Resources")
         cls.dept_eng = create_test_department(name="Engineering")
 
         # User for emp1
         cls.user_emp1 = create_test_user(username='emp1', first_name="Alice", last_name="Smith", email="alice@example.com")
         cls.emp1 = create_test_employee_profile(
-            user=cls.user_emp1, department=cls.dept_hr, 
-            job_title='MANAGER', status='active', 
+            user=cls.user_emp1, department=cls.dept_hr,
+            job_title='MANAGER', status='active',
             pension_rsa="RSAEMP1", gender='FEMALE' # Added gender
         )
 
@@ -140,10 +140,10 @@ class EmployeeProfileAdminCrudTests(TestCase):
         cls.user_emp2 = create_test_user(username='emp2', first_name="Bob", last_name="Johnson", email="bob@example.com")
         cls.emp2 = create_test_employee_profile(
             user=cls.user_emp2, department=cls.dept_eng,
-            job_title='STAFF', status='pending', 
+            job_title='STAFF', status='pending',
             pension_rsa="RSAEMP2", gender='MALE' # Added gender
         )
-        
+
         cls.list_url = reverse('custom_admin:payroll_employeeprofile_list')
         cls.create_url = reverse('custom_admin:payroll_employeeprofile_create')
 
@@ -172,7 +172,7 @@ class EmployeeProfileAdminCrudTests(TestCase):
         response = self.client.get(self.list_url, {'status': 'active'})
         self.assertContains(response, self.emp1.first_name)
         self.assertNotContains(response, self.emp2.first_name)
-    
+
     def test_list_view_filter_department(self):
         response = self.client.get(self.list_url, {'department': self.dept_hr.id})
         self.assertContains(response, self.emp1.first_name)
@@ -199,7 +199,7 @@ class EmployeeProfileAdminCrudTests(TestCase):
             # 'emergency_contact_name', etc. are nullable
         }
         response = self.client.post(self.create_url, data=form_data)
-        
+
         # Check for redirect to list_url on success
         self.assertRedirects(response, self.list_url, msg_prefix=f"Form errors: {response.context.get('form').errors if response.context else 'No form context'}")
         self.assertEqual(EmployeeProfile.objects.count(), initial_count + 1)
@@ -209,7 +209,7 @@ class EmployeeProfileAdminCrudTests(TestCase):
     def test_create_view_post_invalid_missing_required(self):
         initial_count = EmployeeProfile.objects.count()
         # Missing required fields like first_name, last_name, email, pension_rsa, gender, etc.
-        form_data = {'department': self.dept_eng.id, 'status': 'active'} 
+        form_data = {'department': self.dept_eng.id, 'status': 'active'}
         response = self.client.post(self.create_url, data=form_data)
         self.assertEqual(response.status_code, 200) # Re-renders form
         self.assertTrue(response.context['form'].errors)
@@ -229,19 +229,19 @@ class EmployeeProfileAdminCrudTests(TestCase):
         updated_first_name = "AliciaUpdated"
         # Construct form_data with all fields required by the form
         # Fields for EmployeeProfileUpdateView:
-        # ['first_name', 'last_name', 'email', 'department', 'job_title', 'contract_type', 
-        #  'date_of_employment', 'date_of_birth', 'gender', 'phone', 'address', 'employee_pay', 
-        #  'pension_rsa', 'bank', 'bank_account_name', 'bank_account_number', 'photo', 
-        #  'emergency_contact_name', 'emergency_contact_relationship', 'emergency_contact_phone', 
+        # ['first_name', 'last_name', 'email', 'department', 'job_title', 'contract_type',
+        #  'date_of_employment', 'date_of_birth', 'gender', 'phone', 'address', 'employee_pay',
+        #  'pension_rsa', 'bank', 'bank_account_name', 'bank_account_number', 'photo',
+        #  'emergency_contact_name', 'emergency_contact_relationship', 'emergency_contact_phone',
         #  'next_of_kin_name', 'next_of_kin_relationship', 'next_of_kin_phone', 'status']
         form_data = {
-            'first_name': updated_first_name, 
-            'last_name': self.emp1.last_name, 
-            'email': self.emp1.email, 
-            'department': self.emp1.department.id, 
-            'job_title': self.emp1.job_title, 
+            'first_name': updated_first_name,
+            'last_name': self.emp1.last_name,
+            'email': self.emp1.email,
+            'department': self.emp1.department.id,
+            'job_title': self.emp1.job_title,
             'status': self.emp1.status,
-            'pension_rsa': self.emp1.pension_rsa, 
+            'pension_rsa': self.emp1.pension_rsa,
             'gender': self.emp1.gender,
             'phone': self.emp1.phone or '', # Ensure required fields have values
             'address': self.emp1.address or '',
@@ -265,7 +265,7 @@ class EmployeeProfileAdminCrudTests(TestCase):
             'date_of_birth_1': self.emp1.date_of_birth.year if self.emp1.date_of_birth else '',
         }
         # Photo field is FileInput, not including it in POST data unless testing file upload
-        
+
         response = self.client.post(update_url, data=form_data)
         self.assertRedirects(response, self.list_url, msg_prefix=f"Form errors: {response.context.get('form').errors if response.context else 'No form context'}")
         self.emp1.refresh_from_db()
@@ -288,7 +288,7 @@ class EmployeeProfileAdminCrudTests(TestCase):
         )
         delete_url = reverse('custom_admin:payroll_employeeprofile_delete', kwargs={'pk': profile_to_delete.pk})
         initial_count = EmployeeProfile.objects.count()
-        
+
         response = self.client.post(delete_url) # POST to confirm deletion
         self.assertRedirects(response, self.list_url)
         self.assertEqual(EmployeeProfile.objects.count(), initial_count - 1)
@@ -305,10 +305,10 @@ class LeaveRequestAdminActionsTests(TestCase):
     @classmethod
     def setUpTestData(cls):
         cls.staff_user = create_test_user(username='action_staff', is_staff=True)
-        
+
         user1 = create_test_user(username='emp_leave1')
         cls.emp_profile1 = create_test_employee_profile(user=user1, first_name="LeaveEmp1")
-        
+
         user2 = create_test_user(username='emp_leave2')
         cls.emp_profile2 = create_test_employee_profile(user=user2, first_name="LeaveEmp2")
 
@@ -350,7 +350,7 @@ class LeaveRequestAdminActionsTests(TestCase):
         self.lr_pending2.refresh_from_db()
         self.assertEqual(self.lr_pending1.status, 'APPROVED')
         self.assertEqual(self.lr_pending2.status, 'APPROVED')
-        
+
         messages_list = list(get_messages(response.wsgi_request))
         self.assertTrue(any("Successfully performed action" in str(m) for m in messages_list))
         self.assertTrue(any("on 2 item(s)" in str(m) for m in messages_list))
@@ -379,9 +379,9 @@ class LeaveRequestAdminActionsTests(TestCase):
         self.assertEqual(response.status_code, 302)
         self.lr_pending1.refresh_from_db()
         self.lr_already_approved.refresh_from_db()
-        self.assertEqual(self.lr_pending1.status, 'APPROVED') 
-        self.assertEqual(self.lr_already_approved.status, 'APPROVED') 
-        
+        self.assertEqual(self.lr_pending1.status, 'APPROVED')
+        self.assertEqual(self.lr_already_approved.status, 'APPROVED')
+
         messages_list = list(get_messages(response.wsgi_request))
         self.assertTrue(any("1 selected item(s) were not in a state to be approved" in str(m) for m in messages_list))
         self.assertTrue(any("Successfully performed action" in str(m) and "on 1 item(s)" in str(m) for m in messages_list))
@@ -389,14 +389,14 @@ class LeaveRequestAdminActionsTests(TestCase):
 
     def test_action_no_action_selected(self):
         response = self.client.post(self.list_url, {'selected_ids': [self.lr_pending1.pk]})
-        self.assertEqual(response.status_code, 302) 
+        self.assertEqual(response.status_code, 302)
         messages_list = list(get_messages(response.wsgi_request))
         self.assertTrue(any("No action was selected" in str(m) for m in messages_list))
         self.lr_pending1.refresh_from_db()
-        self.assertEqual(self.lr_pending1.status, 'PENDING') 
+        self.assertEqual(self.lr_pending1.status, 'PENDING')
 
     def test_action_no_items_selected(self):
         response = self.client.post(self.list_url, {'action': 'approve_selected'})
-        self.assertEqual(response.status_code, 302) 
+        self.assertEqual(response.status_code, 302)
         messages_list = list(get_messages(response.wsgi_request))
         self.assertTrue(any("No items were selected" in str(m) for m in messages_list))

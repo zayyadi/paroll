@@ -1,5 +1,5 @@
 {% extends "custom_admin/base_admin.html" %}
-{% load admin_tags %} 
+{% load admin_tags %}
 {% load widget_tweaks %} {# Load widget_tweaks #}
 
 {% block admin_title %}{{ title|default:"Form" }} - Custom Admin{% endblock %}
@@ -12,9 +12,9 @@
     <div class="bg-white p-6 md:p-8 rounded-lg shadow">
         <form method="post" enctype="multipart/form-data"> {# Added enctype for file uploads #}
             {% csrf_token %}
-            
+
             {{ form.management_form }} {# For formsets, if used #}
-            
+
             {% if form.non_field_errors %}
                 <div class="mb-6 p-3 bg-red-50 text-red-700 border border-red-200 rounded-lg">
                     {% for error in form.non_field_errors %}
@@ -31,7 +31,7 @@
                         <label for="{{ field.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">
                             {{ field.label }}
                         </label>
-                        
+
                         {# Apply classes based on widget type to avoid mis-styling checkboxes, radios, file inputs #}
                         {% if field.field.widget.__class__.__name__ == 'MonthSelectorWidget' %}
                             <div class="mt-1 flex items-baseline space-x-2"> {# items-baseline for better alignment #}
@@ -41,7 +41,7 @@
                             {{ field|add_class:"mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md appearance-none" }}
                         {% elif field.field.widget.input_type == "file" %}
                             <div class="mt-1">
-                                <label for="{{ field.id_for_label }}" 
+                                <label for="{{ field.id_for_label }}"
                                        class="cursor-pointer group relative flex items-center px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium bg-white hover:bg-gray-50 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-indigo-500 w-full sm:w-auto">
                                     <i data-lucide="upload-cloud" class="h-5 w-5 mr-2 text-gray-400 group-hover:text-gray-500"></i>
                                     <span class="selected-file-name-{{ field.auto_id }} text-gray-700 group-hover:text-gray-800 truncate">
@@ -82,7 +82,7 @@
                             })();
                             </script>
                         {% elif field.field.widget|widget_type == "checkboxselectmultiple" %}
-                            <div class="mt-1 border border-gray-300 rounded-md p-3 max-h-72 overflow-y-auto space-y-2 bg-white"> 
+                            <div class="mt-1 border border-gray-300 rounded-md p-3 max-h-72 overflow-y-auto space-y-2 bg-white">
                                 {# Scrollable container for checkbox list #}
                                 {% for choice in field %} {# field is the BoundField, iterating over it yields sub-widgets (choices) #}
                                     <div class="flex items-center p-1 hover:bg-gray-50 rounded">
@@ -116,23 +116,23 @@
                     {% endif %}
                 </div>
             {% endfor %}
-            
+
             <div class="mt-8 border-t pt-6 flex items-center space-x-3">
                 <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-5 rounded-lg shadow-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 flex items-center">
                     <i data-lucide="save" class="mr-2 h-5 w-5"></i>
                     {{ form_action_type|default:"Save" }} {{ model_verbose_name|capfirst }}
                 </button>
-                <a href="{% url 'custom_admin:generic_list' app_label=app_label model_name=model_name %}" 
+                <a href="{% url 'custom_admin:generic_list' app_label=app_label model_name=model_name %}"
                    class="text-gray-600 hover:text-gray-800 py-2 px-4 rounded-lg border border-gray-300 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400">
                     Cancel
                 </a>
             </div>
         </form>
     </div>
-    <script> 
+    <script>
         // Ensure icons like 'save' render.
         if (typeof lucide !== 'undefined') {
-            lucide.createIcons(); 
+            lucide.createIcons();
         }
     </script>
 {% endblock %}
