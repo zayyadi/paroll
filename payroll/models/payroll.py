@@ -6,6 +6,7 @@ from django.utils.translation import gettext_lazy as _
 from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator
 
+from django.utils import timezone  # Import timezone
 
 from autoslug import AutoSlugField
 
@@ -407,7 +408,7 @@ class PayT(models.Model):
     def get_absolute_url(self):
         from django.urls import reverse
 
-        return reverse("payroll:payslip", args=[self.slug])
+        return reverse("payroll:pay_period_detail", args=[self.slug])
 
     def __str__(self):
         return str(self.paydays)
@@ -524,11 +525,21 @@ class IOU(SoftDeleteModel):
             raise ValidationError({"tenor": "Tenor must be at least 1 month."})
 
     def save(self, *args, **kwargs):
-        if not self.due_date:
-            if self.approved_at is not None:
-                self.due_date = self.approved_at + timedelta(days=365 / 12 * self.tenor)
-            else:
-                self.due_date = self.created_at + timedelta(days=365 / 12 * self.tenor)
+        # Ensure created_at is set if this is a new instance and it's not already set
+        if not self.pk and not self.created_at:  # self.pk is None for new instances
+            self.created_at = timezone.now().date()
+
+        if (
+            not self.due_date and self.tenor
+        ):  # Only calculate if due_date is not set and tenor is available
+            base_date_for_due_calc = self.approved_at  # Prioritize approved_at
+            if not base_date_for_due_calc:
+                base_date_for_due_calc = self.created_at  # Fallback to created_at
+
+            if base_date_for_due_calc:  # Ensure we have a base date
+                self.due_date = base_date_for_due_calc + timedelta(
+                    days=(365 / 12) * self.tenor
+                )  # Consider using dateutil.relativedelta for more accuracy
         super().save(*args, **kwargs)
 
 
@@ -558,8 +569,17 @@ class LeaveRequest(models.Model):
         on_delete=models.CASCADE,
         related_name="leave_requests",
     )
-    leave_type = models.ForeignKey(
-        LeavePolicy, on_delete=models.PROTECT, related_name="leave_requests_by_type"
+    LEAVE_CHOICES = [
+        ("CASUAL", "Casual Leave"),
+        ("SICK", "Sick Leave"),
+        ("ANNUAL", "Annual Leave"),
+        ("MATERNITY", "Maternity Leave"),
+        ("PATERNITY", "Paternity Leave"),
+    ]
+    leave_type = models.CharField(
+        max_length=20,
+        choices=LEAVE_CHOICES,
+        default="ANNUAL",
     )
     start_date = models.DateField()
     end_date = models.DateField()

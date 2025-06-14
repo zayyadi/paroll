@@ -31,8 +31,7 @@ INSTALLED_APPS = [
     "tailwind",
     "crispy_forms",
     "crispy_tailwind",
-    "custom_admin.apps.CustomAdminConfig",
-    "widget_tweaks", # Added widget_tweaks
+    "widget_tweaks",  # Added widget_tweaks
     "mathfilters",
     "django.contrib.humanize",
     # "adminlte3",
@@ -78,7 +77,6 @@ TEMPLATES = [
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
                 "django.template.context_processors.i18n",
-                "custom_admin.context_processors.custom_admin_nav",
             ],
         },
     },

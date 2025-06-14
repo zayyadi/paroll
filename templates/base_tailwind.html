@@ -7,6 +7,7 @@
     <!-- <link href="{% static 'css/output.css' %}" rel="stylesheet"> -->
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
     <script>
       lucide.createIcons();
     </script>
@@ -83,9 +84,6 @@
                     <a href="{% url 'payroll:performance_reviews' %}" class="block py-2 px-3 text-gray-700 hover:bg-gray-100 rounded">Performance Reviews</a>
                     <a href="{% url 'payroll:leave_requests' %}" class="block py-2 px-3 text-gray-700 hover:bg-gray-100 rounded">Leave Requests</a>
                 {% endif %}
-                {% if request.user.is_superuser %}
-                    <a href="#" class="block py-2 px-3 text-gray-700 hover:bg-gray-100 rounded">Admin Section (Placeholder)</a>
-                {% endif %}
                 {% comment %} TODO: Add more role-based links {% endcomment %}
             </div>
         </div>
@@ -109,9 +107,7 @@
                         <a href="{% url 'payroll:performance_reviews' %}" class="block py-2 px-3 text-gray-700 hover:bg-gray-100 rounded">Performance Reviews</a>
                         <a href="{% url 'payroll:leave_requests' %}" class="block py-2 px-3 text-gray-700 hover:bg-gray-100 rounded">Leave Requests</a>
                     {% endif %}
-                    {% if request.user.is_superuser %}
-                        <a href="#" class="block py-2 px-3 text-gray-700 hover:bg-gray-100 rounded">Admin Section (Placeholder)</a>
-                    {% endif %}
+                   
                     {% comment %} TODO: Add more role-based links {% endcomment %}
                 </div>
             </div>

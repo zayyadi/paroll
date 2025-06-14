@@ -28,7 +28,22 @@ urlpatterns = [
         views.varview_download,
         name="varviewDownload",
     ),
-    path("payday", views.AddPay.as_view(), name="payday"),
+    # PayT (Pay Period) URLs
+    path("pay-period/", views.pay_period_list, name="pay_period_list"),
+    path(
+        "pay-period/create/", views.AddPay.as_view(), name="payday"
+    ),  # Existing create view, renamed for clarity if desired or keep as 'payday'
+    path("pay-periods/<slug:slug>/", views.pay_period_detail, name="pay_period_detail"),
+    path(
+        "pay-periods/<slug:slug>/update/",
+        views.PayPeriodUpdateView.as_view(),
+        name="pay_period_update",
+    ),
+    path(
+        "pay-periods/<slug:slug>/delete/",
+        views.PayPeriodDeleteView.as_view(),
+        name="pay_period_delete",
+    ),
     path("payslip/<int:id>/", views.payslip, name="payslip"),
     path("payslip/pdf/<int:id>/", views.payslip_pdf, name="payslip_pdf"),
     path("bank", views.bank_reports, name="bank"),
@@ -109,6 +124,8 @@ urlpatterns = [
     ),
     path("request-iou/", views.request_iou, name="request_iou"),
     path("approve-iou/<int:iou_id>/", views.approve_iou, name="approve_iou"),
+    path("iou/<int:pk>/update/", views.IOUUpdateView.as_view(), name="iou_update"),
+    path("iou/<int:pk>/delete/", views.IOUDeleteView.as_view(), name="iou_delete"),
     path("iou-history/", views.iou_history, name="iou_history"),
     path(
         "iou/",

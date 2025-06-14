@@ -1,24 +1,112 @@
-{% extends 'base.html' %}
+{% extends 'base_tailwind.html' %}
+{% load humanize %} {# For better number formatting, e.g., iou.amount|intcomma #}
+{% block page_header %}IOU Requests{% endblock %}
 
 {% block content %}
-  <div class="container mx-auto p-4">
-    <h2 class="text-2xl font-bold mb-4">IOU List</h2>
-    <a href="{% url 'payroll:request_iou' %}" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded mb-4 inline-block">Create New IOU</a>
-    <ul class="list-none" id="iou-list">
-      {% for iou in ious %}
-        <li class="mb-2"><a href="{% url 'payroll:iou_detail' pk=iou.pk %}" class="text-blue-500 hover:text-blue-700">{{ iou }}</a></li>
-      {% endfor %}
-    </ul>
+  <div class="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div class="sm:flex sm:items-center sm:justify-between mb-6">
+        <h2 class="text-2xl font-bold leading-7 text-gray-900 sm:truncate sm:text-3xl sm:tracking-tight">
+            Active IOU Requests
+        </h2>
+        <div class="mt-4 sm:ml-16 sm:mt-0">
+            <a href="{% url 'payroll:request_iou' %}"
+               class="inline-flex items-center rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
+                <i data-lucide="plus-circle" class="w-4 h-4 mr-2"></i>
+                Request New IOU
+            </a>
+        </div>
+  </div>
+
+  <div class="overflow-x-auto bg-white shadow-sm rounded-lg">
+        <table class="min-w-full divide-y divide-gray-200" id="iou-table">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Employee
+                    </th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Amount (₦)
+                    </th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Requested On
+                    </th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Status
+                    </th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Reason
+                    </th>
+                    <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Actions
+                    </th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+                {% for iou in ious %}
+                    {% if iou.status == 'Pending' or iou.status == 'Approved' %} {# Filter for active IOUs #}
+                    <tr>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm font-medium text-gray-900">{{ iou.employee_id.first_name }} {{ iou.employee_id.last_name }}</div>
+                            <div class="text-xs text-gray-500">ID: {{ iou.employee_id.emp_id }}</div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                            {{ iou.amount|floatformat:2|intcomma }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                            {{ iou.requested_at|date:"d M Y" }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                {% if iou.status == 'Pending' %} bg-yellow-100 text-yellow-800 
+                                {% elif iou.status == 'Approved' %} bg-green-100 text-green-800
+                                {% elif iou.status == 'Rejected' %} bg-red-100 text-red-800
+                                {% elif iou.status == 'Paid' %} bg-blue-100 text-blue-800
+                                {% else %} bg-gray-100 text-gray-800 {% endif %}">
+                                {{ iou.get_status_display|default:iou.status }}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700 max-w-xs truncate" title="{{ iou.reason }}">
+                            {{ iou.reason|truncatewords:10 }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-center text-sm font-medium space-x-2">
+                            <a href="{% url 'payroll:iou_detail' pk=iou.pk %}" class="text-indigo-600 hover:text-indigo-900" title="View Details"><i data-lucide="eye"></i></a>
+                            {% if user.is_staff or user.is_superuser %} {# Or your specific permission check #}
+                                {% if iou.status == 'Pending' %}
+                                <a href="{% url 'payroll:approve_iou' iou_id=iou.pk %}" class="text-green-600 hover:text-green-900" title="Approve/Reject"><i data-lucide="check-circle"></i></a>
+                                {% endif %}
+                                <a href="{% url 'payroll:iou_update' pk=iou.pk %}" class="text-blue-600 hover:text-blue-900" title="Edit"><i data-lucide="edit-2"></i></a>
+                                <a href="{% url 'payroll:iou_delete' pk=iou.pk %}" class="text-red-600 hover:text-red-900" title="Delete"><i data-lucide="trash-2"></i></a>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endif %}
+                {% empty %}
+                    <tr>
+                        <td colspan="6" class="px-6 py-12 text-center text-sm text-gray-500">
+                            No active IOU requests found.
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
   </div>
 
   <script>
     document.addEventListener('DOMContentLoaded', function() {
-      const iouList = document.getElementById('iou-list');
-      iouList.style.opacity = 0;
-      iouList.style.transition = 'opacity 1s ease-in-out';
-      setTimeout(() => {
-        iouList.style.opacity = 1;
-      }, 100);
+      
+      const iouTable = document.getElementById('iou-table'); // Target the table
+      if (iouTable) {
+        iouTable.style.opacity = 0;
+        iouTable.style.transition = 'opacity 0.7s ease-in-out';
+        setTimeout(() => {
+            iouTable.style.opacity = 1;
+        }, 50); // Shorter delay for a quicker fade-in
+      }
+      // Ensure Lucide icons are rendered
+      if (typeof lucide !== 'undefined') {
+        lucide.createIcons();
+      }
     });
   </script>
 {% endblock %}
