@@ -106,6 +106,67 @@ class EmployeeProfileForm(forms.ModelForm):
         # exclude = ["created",]
 
 
+class EmployeeProfileUpdateForm(forms.ModelForm):
+    class Meta:
+        model = models.EmployeeProfile
+        fields = [
+            "first_name",
+            "last_name",
+            "email",
+            "date_of_birth",
+            "gender",
+            "phone",
+            "address",
+            "photo",
+        ]
+        widgets = {
+            "first_name": forms.TextInput(
+                attrs={
+                    "class": "appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                }
+            ),
+            "last_name": forms.TextInput(
+                attrs={
+                    "class": "appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                }
+            ),
+            "email": forms.EmailInput(
+                attrs={
+                    "class": "appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                }
+            ),
+            "date_of_birth": forms.DateInput(
+                attrs={
+                    "class": "appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm",
+                    "type": "date",
+                }
+            ),
+            "gender": forms.Select(
+                attrs={
+                    "class": "appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                }
+            ),
+            "phone": forms.TextInput(
+                attrs={
+                    "class": "appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                }
+            ),
+            "address": forms.TextInput(
+                attrs={
+                    "class": "appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                }
+            ),
+            "photo": forms.FileInput(
+                attrs={
+                    "class": "block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-600 hover:file:bg-indigo-100"
+                }
+            ),
+        }
+        extra_kwargs = {
+            "date_of_birth": {"required": False},
+        }
+
+
 class PayrollForm(forms.ModelForm):
     class Meta:
         model = models.Payroll
@@ -115,6 +176,12 @@ class PayrollForm(forms.ModelForm):
 class AllowanceForm(forms.ModelForm):
     class Meta:
         model = models.Allowance
+        fields = "__all__"
+
+
+class DeductionForm(forms.ModelForm):
+    class Meta:
+        model = models.Deduction
         fields = "__all__"
 
 

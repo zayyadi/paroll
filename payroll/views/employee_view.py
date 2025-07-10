@@ -1,8 +1,11 @@
 from payroll.forms import (
     EmployeeProfileForm,
+    EmployeeProfileUpdateForm,
     PerformanceReviewForm,
 )
 from payroll import models
+from django.contrib.auth.decorators import login_required
+
 
 from django.db.models import Q, Count
 from django.shortcuts import render, redirect, get_object_or_404
@@ -61,6 +64,27 @@ def index(request):
         except models.EmployeeProfile.DoesNotExist:
             context["employee_slug"] = None
         return render(request, "home_normal.html", context)
+
+
+@login_required
+def update_employee_profile(request):
+    try:
+        employee_profile = request.user.employee_user
+    except models.EmployeeProfile.DoesNotExist:
+        raise Http404("Employee profile not found.")
+
+    if request.method == "POST":
+        form = EmployeeProfileUpdateForm(
+            request.POST, request.FILES, instance=employee_profile
+        )
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Your profile has been updated successfully.")
+            return redirect("payroll:employee_profile")
+    else:
+        form = EmployeeProfileUpdateForm(instance=employee_profile)
+
+    return render(request, "employee/update_profile.html", {"form": form})
 
 
 @login_required

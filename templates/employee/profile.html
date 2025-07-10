@@ -22,6 +22,11 @@
             <p class="text-sm text-gray-500">{{ emp.job_title_display|default:emp.job_title|default:"N/A" }}</p>
             <p class="text-sm text-gray-500">{{ emp.department.name|default:"N/A" }}</p>
         </div>
+        <div class="ml-auto">
+            <a href="{% url 'payroll:employee_profile' %}" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+                Update Profile
+            </a>
+        </div>
     </div>
 
     {# Personal Details Card #}

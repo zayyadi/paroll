@@ -13,7 +13,7 @@
         <a href="{% url 'payroll:index' %}" class="text-gray-600 hover:text-gray-900 transition duration-300 ease-in-out">Home</a>
         <a href="{% url 'payroll:dashboard' %}" class="text-gray-600 hover:text-gray-900 transition duration-300 ease-in-out">Dashboard</a>
         <a href="{% url 'payroll:bank' %}" class="text-gray-600 hover:text-gray-900 transition duration-300 ease-in-out">Bank Report</a>
-        <a href="{% url 'payroll:profile' request.user.id %}" class="text-gray-600 hover:text-gray-900 transition duration-300 ease-in-out">Profile</a>
+        <a href="{% url 'payroll:employee_profile' %}" class="text-gray-600 hover:text-gray-900 transition duration-300 ease-in-out">Profile</a>
       </div>
 
       <!-- Mobile Menu Toggle -->
@@ -34,7 +34,7 @@
               </svg>
             </button>
             <div class="absolute right-0 mt-2 py-2 w-48 bg-white shadow-lg rounded-md hidden" id="dropdownMenu">
-              <a href="{% url 'payroll:profile' request.user.id %}" class="block px-4 py-2 text-gray-800 hover:bg-gray-100">Profile</a>
+              <a href="{% url 'payroll:employee_profile' %}" class="block px-4 py-2 text-gray-800 hover:bg-gray-100">Profile</a>
               <a href="{% url 'users:logout' %}" class="block px-4 py-2 text-gray-800 hover:bg-gray-100">Logout</a>
             </div>
           </div>
@@ -52,7 +52,7 @@
       <a href="{% url 'payroll:index' %}" class="block text-gray-600 hover:text-gray-900 transition duration-300 ease-in-out py-2">Home</a>
       <a href="{% url 'payroll:dashboard' %}" class="block text-gray-600 hover:text-gray-900 transition duration-300 ease-in-out py-2">Dashboard</a>
       <a href="{% url 'payroll:bank' %}" class="block text-gray-600 hover:text-gray-900 transition duration-300 ease-in-out py-2">Bank Report</a>
-      <a href="{% url 'payroll:profile' request.user.id %}" class="block text-gray-600 hover:text-gray-900 transition duration-300 ease-in-out py-2">Profile</a>
+      <a href="{% url 'payroll:employee_profile' %}" class="block text-gray-600 hover:text-gray-900 transition duration-300 ease-in-out py-2">Profile</a>
       {% if user.is_authenticated %}
         <a href="{% url 'users:logout' %}" class="block text-gray-600 hover:text-gray-900 transition duration-300 ease-in-out py-2">Logout</a>
       {% else %}

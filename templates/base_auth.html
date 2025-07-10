@@ -1,4 +1,3 @@
-{% comment %} File: templates/base_auth.html {% endcomment %}
 {% extends "base_tailwind.html" %}
 {% load static %}
 
@@ -25,7 +24,7 @@
     {# The actual page background (bg-gray-50) comes from base_tailwind.html's body tag #}
     <div class="w-full max-w-md">
         {# Flash messages specific to auth pages, if needed, or rely on global ones from base_tailwind #}
-        {% include 'includes/messages_auth_specific.html' ignore missing %} {# Optional separate message include #}
+        {% include 'includes/messages_auth_specific.html' %} {# Optional separate message include #}
 
         {% block auth_content %}
         {# Content for login, register, password reset forms will go here #}

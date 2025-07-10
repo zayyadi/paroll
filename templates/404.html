@@ -1,0 +1,22 @@
+{% extends 'base_tailwind.html' %}
+{% load static %}
+
+{% block title %}Page Not Found{% endblock title %}
+
+{% block content %}
+<div class="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-md w-full space-y-8 text-center bg-white rounded-2xl shadow-xl p-8 sm:p-12">
+        <h1 class="text-6xl font-extrabold text-blue-600">404</h1>
+        <h2 class="mt-6 text-3xl font-bold text-gray-900">Page Not Found</h2>
+        <p class="mt-2 text-lg text-gray-600">
+            Oops! The page you're looking for doesn't exist. It might have been moved or deleted.
+        </p>
+        <div class="mt-8">
+            <a href="{% url 'payroll:index' %}" class="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200 transform hover:scale-[1.02]">
+                Go to Homepage
+                <svg class="ml-3 -mr-1 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"></path></svg>
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock content %}

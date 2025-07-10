@@ -6,34 +6,57 @@
 {% tailwind_css %}
 {% load custom_tags %}
 
-{% block title %}PayDay View{% endblock %}
+{% block title %}Pay Period Reports{% endblock %}
 
 {% block content %}
-<div class="container mx-auto py-8">
-    <div class="flex items-center justify-between mb-4">
-        <h1 class="text-2xl font-semibold text-gray-800">NHIF Reports</h1>
-    </div>
-    <div class="overflow-x-auto">
-        <table class="min-w-full bg-white shadow-md rounded-lg">
-            <thead class="bg-gray-200">
+<div class="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50">
+  <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+    <div class="space-y-8">
+      <!-- Heading Section -->
+      <div class="text-center space-y-2">
+        <h1 class="text-5xl font-bold text-gray-900">Pay Period Reports</h1>
+        <p class="text-lg text-gray-600">Select a pay period to view detailed variable reports</p>
+      </div>
+
+      <!-- Content Section -->
+      <div class="bg-white rounded-2xl shadow-xl p-8 sm:p-12 transition-all duration-300 hover:shadow-2xl">
+        {% if pay_var %}
+          <div class="flex items-center justify-between mb-6">
+            <h2 class="text-2xl font-bold text-gray-800">Available Pay Periods</h2>
+          </div>
+
+          <div class="overflow-x-auto">
+            <table class="min-w-full bg-white border border-gray-200 rounded-lg overflow-hidden">
+              <thead class="bg-gray-100">
                 <tr>
-                    <th class="px-4 py-2 border-b">#</th>
-                    <th class="px-4 py-2 border-b">Year-Month</th>
-                    <th class="px-4 py-2 border-b">Report</th>
+                  <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider">#</th>
+                  <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider">Year-Month</th>
+                  <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider">Actions</th>
                 </tr>
-            </thead>
-            <tbody>
+              </thead>
+              <tbody class="divide-y divide-gray-200">
                 {% for month in pay_var %}
-                <tr class="bg-white even:bg-gray-50">
-                    <td class="px-4 py-2 border-b text-center">{{ forloop.counter }}</td>
-                    <td class="px-4 py-2 border-b text-center">{{ dates|index:forloop.counter0 }}</td>
-                    <td class="px-4 py-2 border-b text-center">
-                        <a href="{{ month.paydays }}/" class="btn btn-info">View Report</a>
+                <tr class="hover:bg-gray-50">
+                    <td class="py-3 px-4 text-sm text-gray-800">{{ forloop.counter }}</td>
+                    <td class="py-3 px-4 text-sm text-gray-800">{{ dates|index:forloop.counter0 }}</td>
+                    <td class="py-3 px-4 text-sm text-gray-800">
+                        <a href="{{ month.paydays }}/" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-md shadow-sm transition-all duration-200 transform hover:scale-[1.02]">
+                            View Report
+                        </a>
                     </td>
                 </tr>
                 {% endfor %}
-            </tbody>
-        </table>
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <div class="text-center py-10">
+            <p class="text-lg text-gray-600 mb-4">No pay periods available for variable reports.</p>
+            <p class="text-sm text-gray-500">Please ensure pay periods are created and employees have been assigned payroll variables.</p>
+          </div>
+        {% endif %}
+      </div>
     </div>
+  </div>
 </div>
-{% endblock %}
+{% endblock content %}

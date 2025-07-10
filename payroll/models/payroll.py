@@ -168,16 +168,18 @@ class Payroll(models.Model):
 
 
 class Allowance(models.Model):
-    name = models.CharField(
+    employee = models.ForeignKey(
+        EmployeeProfile,
+        on_delete=models.CASCADE,
+        related_name="allowances",
+        null=True,
+        blank=True,
+    )
+    allowance_type = models.CharField(
         max_length=50,
         choices=choices.ALLOWANCES,
-        verbose_name=(_("Name of allowance to be added")),
-    )
-    percentage = models.DecimalField(
-        decimal_places=2,
-        max_digits=4,
-        verbose_name="percentage of allowance to be given",
-        default=0.0,
+        verbose_name=(_("Type of allowance")),
+        default="OTHER",
     )
     amount = models.DecimalField(
         max_digits=12,
@@ -185,41 +187,46 @@ class Allowance(models.Model):
         default=0.0,
         verbose_name=(_("Amount of allowance earned")),
     )
+    created_at = models.DateTimeField(default=timezone.now)
 
     class Meta:
-        verbose_name_plural = "Allowance"
+        verbose_name_plural = "Allowances"
 
-    def __str__(self):
-        return f"{self.name} Allowance"
-
-    # @property
-    # def calc_amount(self):
-    #     return (self.payee.employee_pay.basic_salary * 12) * self.percentage / 100
-
-    # def save(self, *args, **kwargs):
-    #     self.amount = self.calc_amount
-
-    #     super(Allowance, self).save(*args, **kwargs)
+    # def __str__(self):
+    #     # return f"{self.employee.first_name} {self.employee.last_name} - {self.allowance_type} ({self.amount})"
+    #     pass
 
 
 class Deduction(models.Model):
-    name = models.CharField(
+    employee = models.ForeignKey(
+        EmployeeProfile,
+        on_delete=models.CASCADE,
+        related_name="deductions",
+        null=True,
+        blank=True,
+    )
+    deduction_type = models.CharField(
         max_length=50,
         choices=choices.DEDUCTIONS,
-        verbose_name=(_("Name of deduction to be added")),
+        verbose_name=(_("Type of deduction")),
+        default="OTHER",
     )
-    percentage = models.DecimalField(
+    amount = models.DecimalField(
+        max_digits=12,
         decimal_places=2,
-        max_digits=4,
-        verbose_name="percentage of Deductions to be deducted",
         default=0.0,
+        verbose_name=(_("Amount of deduction")),
     )
+    reason = models.TextField(
+        blank=True, null=True, verbose_name=(_("Reason for disciplinary deduction"))
+    )
+    created_at = models.DateTimeField(default=timezone.now)
 
     class Meta:
         verbose_name_plural = "Deductions"
 
     def __str__(self):
-        return f"{self.name} Deduction"
+        return f"{self.employee.first_name} {self.employee.last_name} - {self.deduction_type} ({self.amount})"
 
 
 #    @property
@@ -241,19 +248,7 @@ class PayVar(models.Model):
     pays = models.ForeignKey(
         EmployeeProfile, related_name="pays", on_delete=models.CASCADE
     )
-    allowance_id = models.ForeignKey(
-        Allowance,
-        related_name="pay_allowance",
-        on_delete=models.CASCADE,
-        null=True,
-        blank=True,
-    )
-    deduction_id = models.ForeignKey(
-        Deduction,
-        on_delete=models.CASCADE,
-        null=True,
-        blank=True,
-    )
+
     is_housing = models.BooleanField(
         verbose_name="is NHF deductable",
         default=False,
@@ -305,15 +300,46 @@ class PayVar(models.Model):
 
     @property
     def calc_allowance(self):
-        if self.allowance_id and self.allowance_id.percentage:
-            return self.pays.net_pay * self.allowance_id.percentage / 100
-        return Decimal(0)
+        # Old implementation (commented out):
+        # if self.allowance_id and self.allowance_id.percentage:
+        #     return self.pays.net_pay * self.allowance_id.percentage / 100
+        # return Decimal(0)
+
+        # New implementation: Sum allowances for the employee within the payroll period
+        # Assuming 'self.paydays_id.paydays' gives the month/year for this payroll
+        if not hasattr(self, "paydays_id") or not self.paydays_id:
+            return Decimal(0)
+
+        payroll_month = self.paydays_id.paydays.month
+        payroll_year = self.paydays_id.paydays.year
+
+        total_allowance = Decimal(0)
+        for allowance in self.pays.allowances.filter(
+            created_at__month=payroll_month, created_at__year=payroll_year
+        ):
+            total_allowance += allowance.amount
+        return total_allowance
 
     @property
     def calc_deduction(self):
-        if self.deduction_id and self.deduction_id.percentage:
-            return self.pays.net_pay * self.deduction_id.percentage / 100
-        return Decimal(0)
+        # Old implementation (commented out):
+        # if self.deduction_id and self.deduction_id.percentage:
+        #     return self.pays.net_pay * self.deduction_id.percentage / 100
+        # return Decimal(0)
+
+        # New implementation: Sum deductions for the employee within the payroll period
+        if not hasattr(self, "paydays_id") or not self.paydays_id:
+            return Decimal(0)
+
+        payroll_month = self.paydays_id.paydays.month
+        payroll_year = self.paydays_id.paydays.year
+
+        total_deduction = Decimal(0)
+        for deduction in self.pays.deductions.filter(
+            created_at__month=payroll_month, created_at__year=payroll_year
+        ):
+            total_deduction += deduction.amount
+        return total_deduction
 
     @property
     def calc_housing(self) -> Decimal:

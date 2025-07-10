@@ -1,9 +1,11 @@
 {% extends 'base.html' %}
-{% load static %}
 {% load crispy_forms_tags %}
-{% load tailwind_filters %} {# Ensure these are loaded for crispy forms #}
+{% load tailwind_filters %}
+{% load tailwind_tags %}
+{% tailwind_preload_css %}
+{% tailwind_css %}
 
-{% block title %}Create Pay Day{% endblock title %}
+{% block title %}Create Deduction{% endblock title %}
 
 {% block content %}
 <div class="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50">
@@ -11,13 +13,13 @@
     <div class="space-y-8">
       <!-- Heading Section -->
       <div class="text-center space-y-2">
-        <h1 class="text-5xl font-bold text-gray-900">Create New Payday</h1>
-        <p class="text-lg text-gray-600">Set up new payroll periods and assign employees</p>
+        <h1 class="text-5xl font-bold text-gray-900">Create New Deduction</h1>
+        <p class="text-lg text-gray-600">Define new deduction types for payroll</p>
       </div>
 
       <!-- Form Section -->
       <div class="bg-white rounded-2xl shadow-xl p-8 sm:p-12 transition-all duration-300 hover:shadow-2xl">
-        <form method="POST" enctype="multipart/form-data" class="space-y-8">
+        <form method="post" enctype="multipart/form-data" class="space-y-8">
           {% csrf_token %}
 
           <!-- Messages -->
@@ -46,38 +48,12 @@
             </div>
           {% endif %}
 
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div class="form-group">
-                {{ form.name|as_crispy_field }}
-            </div>
-            <div class="form-group">
-                {{ form.paydays|as_crispy_field }} {# Render MonthField with crispy #}
-            </div>
-            <div class="form-group">
-                {{ form.is_active|as_crispy_field }}
-            </div>
-            <div class="form-group">
-                {{ form.closed|as_crispy_field }}
-            </div>
-          </div>
-
-          <div class="bg-blue-50 rounded-xl p-6 space-y-6">
-            <h3 class="text-xl font-semibold text-blue-800 mb-4">Select Employees for this Payday</h3>
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {% for checkbox in form.payroll_payday %}
-                    <label for="{{ checkbox.id_for_label }}" class="flex items-center p-4 bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200 cursor-pointer border border-gray-200">
-                        <input type="checkbox" name="{{ checkbox.name }}" id="{{ checkbox.id_for_label }}" value="{{ checkbox.data.value }}" {% if checkbox.data.selected %}checked{% endif %}
-                               class="h-5 w-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
-                        <span class="ml-3 text-gray-800 font-medium">{{ checkbox.choice_label }}</span>
-                    </label>
-                {% endfor %}
-            </div>
-          </div>
-
+          {{ form|crispy }}
+          
           <!-- Submit Button -->
           <div class="flex justify-end">
             <button type="submit" class="px-10 py-4 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-semibold rounded-lg shadow-md transition-all duration-200 transform hover:scale-[1.02] flex items-center justify-center space-x-2">
-              <span>Save Payday</span>
+              <span>Save Deduction</span>
               <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"></path>
               </svg>

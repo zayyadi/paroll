@@ -1,11 +1,13 @@
 from django.urls import path
 
 from payroll import views
+from payroll.views import payroll_view
 
 app_name = "payroll"
 
 urlpatterns = [
     path("", views.index, name="index"),
+    path("employee-profile/", views.update_employee_profile, name="employee_profile"),
     path("hr-dashboard/", views.hr_dashboard, name="hr_dashboard"),
     path("employees/", views.employee_list, name="employee_list"),
     path("performance-reviews/", views.performance_reviews, name="performance_reviews"),
@@ -18,6 +20,7 @@ urlpatterns = [
     path("dashboard", views.dashboard, name="dashboard"),
     path("list_payslip/<slug:emp_slug>/", views.list_payslip, name="list-payslip"),
     path("add_allowance/", views.create_allowance, name="add-allowance"),
+    path("add_deduction/", payroll_view.AddDeduction.as_view(), name="add-deduction"),
     path("edit_allowance/<int:id>/", views.edit_allowance, name="edit-allowance"),
     path("delete-allowance", views.delete_allowance, name="delete-allowance"),
     # Removed duplicate: path("add_allowance", views.create_allowance, name="add_allowance"),
