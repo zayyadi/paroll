@@ -1,3 +1,7 @@
+{% load tailwind_filters %}
+{% load tailwind_tags %}
+{% tailwind_preload_css %}
+{% tailwind_css %}
 {% load static %}
 <!DOCTYPE html>
 <html lang="en">
@@ -5,7 +9,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <!-- <link href="{% static 'css/output.css' %}" rel="stylesheet"> -->
-    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <!-- <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script> -->
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
     <script>
@@ -32,10 +36,26 @@
             </div>
             <div class="text-xl font-semibold text-blue-600">PayrollCo</div>
         </div>
-        <div>
+        <div x-data="{ open: false }" @click.away="open = false" class="relative">
             {% if user.is_authenticated %}
-                <span class="mr-4">Welcome, {{ user.first_name|default:user.email }}!</span>
-                <a href="{% url 'users:logout' %}" class="text-blue-600 hover:text-blue-800">Logout</a>
+                <button @click="open = !open" class="flex items-center space-x-2 text-gray-700 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500 rounded-full p-1">
+                    {% if user.employee_user.photo %}
+                        <img class="h-8 w-8 rounded-full object-cover" src="{{ user.employee_user.photo.url }}" alt="User Avatar">
+                    {% else %}
+                        <div class="h-8 w-8 rounded-full bg-blue-200 flex items-center justify-center text-blue-800 font-semibold text-sm">
+                            {{ user.first_name|first|default:user.email|first|upper }}
+                        </div>
+                    {% endif %}
+                    <span class="hidden md:block text-sm font-medium">{{ user.first_name|default:user.email }}</span>
+                    <i data-lucide="chevron-down" class="h-4 w-4 text-gray-500"></i>
+                </button>
+
+                <!-- Dropdown menu -->
+                <div x-show="open" x-transition:enter="transition ease-out duration-100" x-transition:enter-start="transform opacity-0 scale-95" x-transition:enter-end="transform opacity-100 scale-100" x-transition:leave="transition ease-in duration-75" x-transition:leave-start="transform opacity-100 scale-100" x-transition:leave-end="transform opacity-0 scale-95"
+                     class="absolute right-0 mt-2 w-48 rounded-md shadow-lg py-1 bg-white ring-1 ring-black ring-opacity-5 focus:outline-none z-50" role="menu" aria-orientation="vertical" aria-labelledby="user-menu-button" tabindex="-1">
+                    <a href="{% url 'payroll:profile' user.id %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" role="menuitem" tabindex="-1" id="user-menu-item-0">Your Profile</a>
+                    <a href="{% url 'users:logout' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" role="menuitem" tabindex="-1" id="user-menu-item-1">Sign out</a>
+                </div>
             {% else %}
                 <a href="{% url 'users:login' %}" class="text-blue-600 hover:text-blue-800">Login</a>
             {% endif %}

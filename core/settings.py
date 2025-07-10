@@ -13,6 +13,7 @@ ALLOWED_HOSTS = []
 
 
 INSTALLED_APPS = [
+    "jazzmin",
     # "adminlte3_theme",
     "django.contrib.admin",
     "django.contrib.auth",
@@ -39,6 +40,7 @@ INSTALLED_APPS = [
     "monthyear",
     "import_export",
     "social_django",
+    "accounting",
 ]
 
 SITE_ID = 1
@@ -268,3 +270,48 @@ SITE_TITLE = os.getenv("SITE_TITLE", "Demo Site")
 SITE_TAGLINE = os.getenv("SITE_TAGLINE", "Demo Site")
 SITE_DESCRIPTION = "SITE_DESCRIPTION"
 SITE_LOGO = os.getenv("SITE_LOGO", "http://localhost:8001/static/logo.png")
+
+JAZZMIN_SETTINGS = {
+    "site_title": "Payroll Admin",
+    "site_header": "Payroll",
+    "site_brand": "Payroll",
+    "site_logo": "images/logo.png",
+    "login_logo": "images/logo.png",
+    "login_logo_dark": "images/logo.png",
+    "site_logo_classes": "img-circle",
+    "site_icon": "images/logo.png",
+    "welcome_sign": "Welcome to the Payroll Admin",
+    "copyright": "Payroll Ltd",
+    "search_model": "auth.User",
+    "user_avatar": "employee_user.photo",
+    "topmenu_links": [
+        {"name": "Home", "url": "admin:index", "permissions": ["auth.view_user"]},
+        {"name": "Support", "url": "https://github.com/farridav/django-jazzmin/issues", "new_window": True},
+        {"model": "auth.User"},
+    ],
+    "usermenu_links": [
+        {"name": "Support", "url": "https://github.com/farridav/django-jazzmin/issues", "new_window": True},
+        {"model": "auth.user"}
+    ],
+    "show_sidebar": True,
+    "navigation_expanded": True,
+    "hide_apps": [],
+    "hide_models": [],
+    "order_with_respect_to": ["auth", "payroll", "payroll.EmployeeProfile", "payroll.Payroll"],
+    "icons": {
+        "auth": "fas fa-users-cog",
+        "auth.user": "fas fa-user",
+        "auth.Group": "fas fa-users",
+        "payroll.EmployeeProfile": "fas fa-user-tie",
+        "payroll.Payroll": "fas fa-money-check-alt",
+    },
+    "default_icon_parents": "fas fa-chevron-circle-right",
+    "default_icon_children": "fas fa-circle",
+    "related_modal_active": False,
+    "custom_css": None,
+    "custom_js": None,
+    "use_google_fonts_cdn": True,
+    "show_ui_builder": True,
+    "changeform_format": "horizontal_tabs",
+    "changeform_format_overrides": {"auth.user": "collapsible", "auth.group": "vertical_tabs"},
+}

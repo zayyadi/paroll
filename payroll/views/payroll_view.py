@@ -27,6 +27,7 @@ from payroll.forms import (
     LeaveRequestForm,
     PaydayForm,
     PayrollForm,
+    DeductionForm,  # Import DeductionForm
 )
 from payroll.models import (
     EmployeeProfile,
@@ -38,6 +39,7 @@ from payroll.models import (
     Allowance,
     IOU,
     AuditTrail,
+    Deduction,  # Import Deduction model
 )
 from payroll import utils
 
@@ -128,6 +130,21 @@ def delete_allowance(request, id):
     return redirect("payroll:dashboard")  # Or a list view for allowances
 
 
+# @permission_required("payroll.add_deduction", raise_exception=True)
+class AddDeduction(PermissionRequiredMixin, CreateView):
+    model = Deduction
+    form_class = DeductionForm
+    template_name = "pay/add_deduction.html"  # New template for deductions
+    success_url = reverse_lazy(
+        "payroll:dashboard_hr"
+    )  # Redirect to HR dashboard or a list of deductions
+    permission_required = "payroll.add_deduction"
+
+    def form_valid(self, form):
+        messages.success(self.request, "Deduction created successfully!!")
+        return super().form_valid(form)
+
+
 class AddPay(
     PermissionRequiredMixin, CreateView
 ):  # Removed LoginRequiredMixin, UserPassesTestMixin
@@ -140,9 +157,18 @@ class AddPay(
     # Removed get and post methods if standard CreateView behavior is sufficient with form_class
     # If custom logic within get/post is needed beyond form_valid, it can be kept.
     # For now, assuming standard CreateView. If issues arise, these can be re-evaluated.
-    def form_valid(self, form):  # CreateView calls this
+    def form_valid(self, form):
+        # Save the PayT instance first
+        self.object = form.save(commit=False)
+        self.object.save()  # Now save the PayT instance to the database
+
+        # Handle the ManyToMany field with the 'through' model
+        selected_payvars = form.cleaned_data["payroll_payday"]
+        for payvar_obj in selected_payvars:
+            Payday.objects.create(paydays_id=self.object, payroll_id=payvar_obj)
+
         messages.success(self.request, "Payday (PayT) created successfully!!")
-        return super().form_valid(form)  # The object is saved here
+        return super().form_valid(form)  # This will now just handle the redirect
 
 
 @permission_required("payroll.view_payt", raise_exception=True)

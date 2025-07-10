@@ -7,41 +7,64 @@
 {% block title %} Payroll Report {% endblock %}
 
 {% block content %}
-<div class="container mx-auto py-8">
-    <div class="flex items-center justify-between mb-6">
-        <h1 class="text-2xl font-semibold text-gray-800">Payroll Report for {{ dates }}</h1>
-        <a href="download/" class="btn btn-info flex items-center shadow-sm">
-            <i class="fas fa-download fa-sm text-white-50 mr-2"></i> Generate Report
-        </a>
-    </div>
+<div class="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50">
+  <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+    <div class="space-y-8">
+      <!-- Heading Section -->
+      <div class="text-center space-y-2">
+        <h1 class="text-5xl font-bold text-gray-900">Payroll Report for {{ dates }}</h1>
+        <p class="text-lg text-gray-600">Detailed breakdown of payroll variables for the selected period</p>
+      </div>
 
-    <div class="overflow-x-auto">
-        <table class="min-w-full bg-white shadow-md rounded-lg">
-            <thead class="bg-gray-800 text-white">
+      <!-- Content Section -->
+      <div class="bg-white rounded-2xl shadow-xl p-8 sm:p-12 transition-all duration-300 hover:shadow-2xl">
+        {% if pay_var %}
+          <div class="flex items-center justify-between mb-6">
+            <h2 class="text-2xl font-bold text-gray-800">Employee Payroll Details</h2>
+            <a href="download/" class="px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-semibold rounded-lg shadow-md transition-all duration-200 transform hover:scale-[1.02] flex items-center justify-center space-x-2">
+              <span>Generate Report</span>
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+              </svg>
+            </a>
+          </div>
+
+          <div class="overflow-x-auto">
+            <table class="min-w-full bg-white border border-gray-200 rounded-lg overflow-hidden">
+              <thead class="bg-gray-100">
                 <tr>
-                    <th class="py-2 px-4">ID</th>
-                    <th class="py-2 px-4">Employee Name</th>
-                    <th class="py-2 px-4">Gross Amount</th>
-                    <th class="py-2 px-4">Payee</th>
-                    <th class="py-2 px-4">Net Pay</th>
+                    <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider">ID</th>
+                    <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider">Employee Name</th>
+                    <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider">Gross Amount</th>
+                    <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider">Payee</th>
+                    <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider">Net Pay</th>
                 </tr>
-            </thead>
-            <tbody>
+              </thead>
+              <tbody class="divide-y divide-gray-200">
                 {% for pays in pay_var %}
-                <tr class="border-b">
-                    <td class="py-2 px-4">{{ pays.id }}</td>
-                    <td class="py-2 px-4">{{ pays.payroll_id.pays.first_name }} {{ pays.payroll_id.pays.last_name }}</td>
-                    <td class="py-2 px-4">{{ pays.payroll_id.pays.employee_pay.basic_salary }}</td>
-                    <td class="py-2 px-4">{{ pays.payroll_id.pays.employee_pay.payee }}</td>
-                    <td class="py-2 px-4">{{ pays.payroll_id.netpay }}</td>
+                <tr class="hover:bg-gray-50">
+                    <td class="py-3 px-4 text-sm text-gray-800">{{ pays.id }}</td>
+                    <td class="py-3 px-4 text-sm text-gray-800">{{ pays.payroll_id.pays.first_name }} {{ pays.payroll_id.pays.last_name }}</td>
+                    <td class="py-3 px-4 text-sm text-gray-800">{{ pays.payroll_id.pays.employee_pay.basic_salary }}</td>
+                    <td class="py-3 px-4 text-sm text-gray-800">{{ pays.payroll_id.pays.employee_pay.payee }}</td>
+                    <td class="py-3 px-4 text-sm text-gray-800">{{ pays.payroll_id.netpay }}</td>
                 </tr>
                 {% endfor %}
-                <tr class="bg-gray-200">
-                    <td colspan="4" class="py-2 px-4 font-bold text-right">Total Net Pay</td>
-                    <td class="py-2 px-4 font-bold">{{ total }}</td>
+                <tr class="bg-gray-100 font-bold">
+                    <td colspan="4" class="py-3 px-4 text-right text-gray-800">Total Net Pay</td>
+                    <td class="py-3 px-4 text-gray-800">{{ total }}</td>
                 </tr>
-            </tbody>
-        </table>
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <div class="text-center py-10">
+            <p class="text-lg text-gray-600 mb-4">No payroll data available for this report.</p>
+            <p class="text-sm text-gray-500">Please ensure a pay period is selected and employees have assigned payroll variables.</p>
+          </div>
+        {% endif %}
+      </div>
     </div>
+  </div>
 </div>
-{% endblock %}
+{% endblock content %}

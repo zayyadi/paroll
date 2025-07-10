@@ -6,17 +6,17 @@
 {% block title %}Create Pay Day{% endblock title %}
 
 {% block content %}
-<div class="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 dark:from-gray-900 dark:to-gray-800">
+<div class="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50">
   <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
     <div class="space-y-8">
       <!-- Heading Section -->
       <div class="text-center space-y-2">
-        <h1 class="text-5xl font-bold text-gray-900 dark:text-white">Create New Payday</h1>
-        <p class="text-lg text-gray-600 dark:text-gray-300">Set up new payroll periods and assign employees</p>
+        <h1 class="text-5xl font-bold text-gray-900">Create New Payday</h1>
+        <p class="text-lg text-gray-600">Set up new payroll periods and assign employees</p>
       </div>
 
       <!-- Form Section -->
-      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8 sm:p-12 transition-all duration-300 hover:shadow-2xl">
+      <div class="bg-white rounded-2xl shadow-xl p-8 sm:p-12 transition-all duration-300 hover:shadow-2xl">
         <form method="POST" enctype="multipart/form-data" class="space-y-8">
           {% csrf_token %}
 
@@ -56,16 +56,20 @@
             <div class="form-group">
                 {{ form.is_active|as_crispy_field }}
             </div>
+            <div class="form-group">
+                {{ form.closed|as_crispy_field }}
+            </div>
           </div>
 
-          <div class="bg-blue-50 dark:bg-gray-700 rounded-xl p-6 space-y-6">
-            <h3 class="text-xl font-semibold text-blue-800 dark:text-blue-200 mb-4">Select Employees for this Payday</h3>
+          <div class="bg-blue-50 rounded-xl p-6 space-y-6">
+            <h3 class="text-xl font-semibold text-blue-800 mb-4">Select Employees for this Payday</h3>
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {% for checkbox in form.payroll_payday %}
-                    <div class="flex items-center">
-                        {{ checkbox.tag }}
-                        <label for="{{ checkbox.id_for_label }}" class="ml-2 text-gray-700 dark:text-gray-300">{{ checkbox.choice_label }}</label>
-                    </div>
+                    <label for="{{ checkbox.id_for_label }}" class="flex items-center p-4 bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200 cursor-pointer border border-gray-200">
+                        <input type="checkbox" name="{{ checkbox.name }}" id="{{ checkbox.id_for_label }}" value="{{ checkbox.data.value }}" {% if checkbox.data.selected %}checked{% endif %}
+                               class="h-5 w-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
+                        <span class="ml-3 text-gray-800 font-medium">{{ checkbox.choice_label }}</span>
+                    </label>
                 {% endfor %}
             </div>
           </div>
