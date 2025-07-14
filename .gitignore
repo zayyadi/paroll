@@ -37,3 +37,6 @@ theme/
 templ
 templ
 *.jpg
+resume.json
+workflow.json
+junks
