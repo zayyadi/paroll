@@ -7,9 +7,16 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SECRET_KEY = os.environ.get("SECRET_KEY")
 
 
-DEBUG = True
+DEBUG = os.environ.get("DEBUG", "False").lower() in (
+    "true",
+    "1",
+    "t",
+)  # Set to False in production
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [
+    "localhost",
+    "127.0.0.1",
+]
 
 
 INSTALLED_APPS = [
@@ -23,15 +30,15 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "django.contrib.sites",
     # "compressor",
+    "tailwind", # Moved up
+    "crispy_forms", # Moved up
+    "crispy_tailwind", # Moved up
     "api",
     "rest_framework",
     "users",
     "payroll",
     "theme",
     # "django_browser_reload",
-    "tailwind",
-    "crispy_forms",
-    "crispy_tailwind",
     "widget_tweaks",  # Added widget_tweaks
     "mathfilters",
     "django.contrib.humanize",
@@ -286,18 +293,31 @@ JAZZMIN_SETTINGS = {
     "user_avatar": "employee_user.photo",
     "topmenu_links": [
         {"name": "Home", "url": "admin:index", "permissions": ["auth.view_user"]},
-        {"name": "Support", "url": "https://github.com/farridav/django-jazzmin/issues", "new_window": True},
+        {
+            "name": "Support",
+            "url": "https://github.com/farridav/django-jazzmin/issues",
+            "new_window": True,
+        },
         {"model": "auth.User"},
     ],
     "usermenu_links": [
-        {"name": "Support", "url": "https://github.com/farridav/django-jazzmin/issues", "new_window": True},
-        {"model": "auth.user"}
+        {
+            "name": "Support",
+            "url": "https://github.com/farridav/django-jazzmin/issues",
+            "new_window": True,
+        },
+        {"model": "auth.user"},
     ],
     "show_sidebar": True,
     "navigation_expanded": True,
     "hide_apps": [],
     "hide_models": [],
-    "order_with_respect_to": ["auth", "payroll", "payroll.EmployeeProfile", "payroll.Payroll"],
+    "order_with_respect_to": [
+        "auth",
+        "payroll",
+        "payroll.EmployeeProfile",
+        "payroll.Payroll",
+    ],
     "icons": {
         "auth": "fas fa-users-cog",
         "auth.user": "fas fa-user",
@@ -313,5 +333,8 @@ JAZZMIN_SETTINGS = {
     "use_google_fonts_cdn": True,
     "show_ui_builder": True,
     "changeform_format": "horizontal_tabs",
-    "changeform_format_overrides": {"auth.user": "collapsible", "auth.group": "vertical_tabs"},
+    "changeform_format_overrides": {
+        "auth.user": "collapsible",
+        "auth.group": "vertical_tabs",
+    },
 }

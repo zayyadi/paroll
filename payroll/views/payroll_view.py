@@ -226,9 +226,9 @@ class PayPeriodDeleteView(
     success_message = "Pay Period deleted successfully."
 
 
-@permission_required(
-    "payroll.add_leaverequest", raise_exception=True
-)  # Corrected app_label
+# @permission_required(
+#     "payroll.add_leaverequest", raise_exception=True
+# )  # Corrected app_label
 def apply_leave(request):
     try:
         current_user = request.user.id
@@ -258,14 +258,17 @@ def apply_leave(request):
 
 @login_required  # leave_requests view shows user's own requests; filtering is the primary control
 def leave_requests(request):
-    if request.user.has_perm("payroll.view_iou"):  # Staff/HR with general view perm
-        requests = LeaveRequest.objects.all()
-    elif hasattr(request.user, "employee_profile"):
-        requests = LeaveRequest.objects.filter(
-            employee=request.user.employee_profile
-        ).order_by("-created_at")
-    else:
+    try:
+        employee_profile = request.user.employee_user
+        if request.user.has_perm("payroll.view_leaverequest"):  # Staff/HR with general view perm
+            requests = LeaveRequest.objects.all().order_by("-created_at")
+        else:
+            requests = LeaveRequest.objects.filter(
+                employee=employee_profile
+            ).order_by("-created_at")
+    except EmployeeProfile.DoesNotExist:
         requests = LeaveRequest.objects.none()
+        messages.info(request, "Your user account is not linked to an employee profile.")
     return render(request, "employee/leave_requests.html", {"requests": requests})
 
 
@@ -360,9 +363,9 @@ def view_leave_request(request, pk):
     )
 
 
-@permission_required(
-    "payroll.add_iou", raise_exception=True
-)  # User needs permission to add any IOU (usually self)
+# @permission_required(
+#     "payroll.add_iou", raise_exception=True
+# )  # User needs permission to add any IOU (usually self)
 def request_iou(request):
     # Try to get the employee profile linked to the current user
     try:
@@ -457,12 +460,15 @@ class IOUDeleteView(LoginRequiredMixin, SuccessMessageMixin, DeleteView):
 
 @login_required  # Shows user's own IOUs or all if staff/has permission
 def iou_history(request):
-    if request.user.has_perm("payroll.view_iou"):  # Staff/HR with general view perm
-        ious = IOU.objects.all()
-    elif hasattr(request.user, "employee_profile"):  # Employee viewing own
-        ious = IOU.objects.filter(employee_id=request.user.id)
-    else:
+    try:
+        employee_profile = request.user.employee_user
+        if request.user.has_perm("payroll.view_iou"):  # Staff/HR with general view perm
+            ious = IOU.objects.all().order_by("-created_at")
+        else:
+            ious = IOU.objects.filter(employee_id=employee_profile).order_by("-created_at")
+    except EmployeeProfile.DoesNotExist:
         ious = IOU.objects.none()
+        messages.info(request, "Your user account is not linked to an employee profile.")
     return render(request, "iou/iou_history.html", {"ious": ious})
 
 

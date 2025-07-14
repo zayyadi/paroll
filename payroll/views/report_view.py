@@ -151,10 +151,14 @@ def payslip_pdf(request, id):  # id here is EmployeeProfile.id
     if not payroll_entry:
         return HttpResponse("No payroll data available to generate PDF.", status=404)
     template_path = "pay/payslip_pdf.html"
-    html_string = render_to_string(template_path, {"payroll": payroll_entry})
+    num2word = num2words(payroll_entry.netpay)
+    html_string = render_to_string(
+        template_path, context={"payroll": payroll_entry, "num2words": num2word}
+    )
     pdf_file_name = (
         f"{payroll_entry.pays.first_name}-{payroll_entry.pays.last_name}-payslip.pdf"
     )
+
     pdf_file_path = f"/tmp/{pdf_file_name}"
     html = HTML(string=html_string, base_url=request.build_absolute_uri())
     html.write_pdf(target=pdf_file_path)
