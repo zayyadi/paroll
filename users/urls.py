@@ -7,10 +7,22 @@ app_name = "users"
 
 
 urlpatterns = [
-    path("register", views.RegisterView.as_view(), name="register"),
+    path("register", views.CustomRegisterView.as_view(), name="register"),
+    path("send_otp/", views.send_otp_view, name="send_otp"),
+    path("verify_otp/", views.verify_otp_view, name="verify_otp"),
+    path(
+        "verify_registration_otp/<str:email>/",
+        views.verify_registration_otp_view,
+        name="verify_registration_otp",
+    ),
+    # path(
+    #     "verify_password_reset_otp/<str:email>/",
+    #     views.verify_password_reset_otp_view,
+    #     name="verify_password_reset_otp",
+    # ),
     path(
         "password_reset/",
-        views.CustomPasswordResetView.as_view(),
+        views.CustomPasswordResetView.as_view(form_class=views.CustomPasswordResetForm),
         name="password_reset",
     ),
     path(

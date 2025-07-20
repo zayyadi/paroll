@@ -9,15 +9,19 @@ from django.db.models import Q
 from django.views.generic import CreateView, UpdateView, DeleteView  # Import DeleteView
 from django.contrib import messages
 from django.contrib.messages.views import SuccessMessageMixin
-from django.http import HttpResponseForbidden
+from django.http import HttpResponseForbidden, HttpResponse
 from django.contrib.auth.mixins import (
     LoginRequiredMixin,
     PermissionRequiredMixin,
-)  # Added PermissionRequiredMixin, removed UserPassesTestMixin
-
-# user_passes_test is removed as it's no longer used
+)
 from django.conf import settings
 from django.core.cache.backends.base import DEFAULT_TIMEOUT
+from django.template.loader import render_to_string
+from django.urls import reverse
+from users.email_backend import send_mail as custom_send_mail
+from core.settings import DEFAULT_FROM_EMAIL
+import io
+from xhtml2pdf import pisa  # Assuming xhtml2pdf is installed for PDF generation
 
 from payroll.forms import (
     AllowanceForm,
@@ -27,7 +31,7 @@ from payroll.forms import (
     LeaveRequestForm,
     PaydayForm,
     PayrollForm,
-    DeductionForm,  # Import DeductionForm
+    DeductionForm,
 )
 from payroll.models import (
     EmployeeProfile,
@@ -39,21 +43,71 @@ from payroll.models import (
     Allowance,
     IOU,
     AuditTrail,
-    Deduction,  # Import Deduction model
+    Deduction,
 )
 from payroll import utils
 
 CACHE_TTL = getattr(settings, "CACHE_TTL", DEFAULT_TIMEOUT)
 
-# check_super function is removed
+
+def generate_payslip_pdf(payslip_data, template_path="pay/payslip_pdf.html"):
+    """Generates a PDF payslip from an HTML template."""
+    template = render_to_string(template_path, payslip_data)
+    result = io.BytesIO()
+    pdf = pisa.pisaDocument(io.BytesIO(template.encode("UTF-8")), result)
+    if not pdf.err:
+        return result.getvalue()
+    return None
 
 
 @permission_required("payroll.add_payroll", raise_exception=True)
 def add_pay(request):
     form = PayrollForm(request.POST or None)
     if form.is_valid():
-        form.save()
+        payroll_instance = form.save()
         messages.success(request, "Pay created successfully")
+
+        # Send payslip email
+        employee = payroll_instance.pays  # Assuming 'pays' links to EmployeeProfile
+        if employee and employee.user and employee.user.email:
+            payslip_data = {
+                "payroll": payroll_instance,
+                "employee": employee,
+                # Add any other data needed for the payslip template
+            }
+            pdf_content = generate_payslip_pdf(payslip_data)
+
+            if pdf_content:
+                subject = f"Your Payslip for {payroll_instance.month_year}"
+                context = {
+                    "user": employee.user,
+                    "payroll": payroll_instance,
+                    "month_year": payroll_instance.month_year,
+                }
+
+                # Prepare attachments for custom_send_mail
+                attachments = [
+                    {
+                        "filename": f"payslip_{employee.user.username}_{payroll_instance.month_year}.pdf",
+                        "content": pdf_content,
+                        "mimetype": "application/pdf",
+                    }
+                ]
+
+                custom_send_mail(
+                    subject,
+                    "email/payslip_email.html",
+                    context,
+                    DEFAULT_FROM_EMAIL,
+                    [employee.user.email],
+                    attachments=attachments,
+                )
+                messages.info(request, f"Payslip sent to {employee.user.email}")
+            else:
+                messages.error(request, "Failed to generate payslip PDF.")
+        else:
+            messages.warning(request, "Employee email not found, payslip not sent.")
+
         return redirect("payroll:index")
     context = {"form": form}
     return render(request, "pay/add_pay.html", context)
@@ -260,15 +314,19 @@ def apply_leave(request):
 def leave_requests(request):
     try:
         employee_profile = request.user.employee_user
-        if request.user.has_perm("payroll.view_leaverequest"):  # Staff/HR with general view perm
+        if request.user.has_perm(
+            "payroll.view_leaverequest"
+        ):  # Staff/HR with general view perm
             requests = LeaveRequest.objects.all().order_by("-created_at")
         else:
-            requests = LeaveRequest.objects.filter(
-                employee=employee_profile
-            ).order_by("-created_at")
+            requests = LeaveRequest.objects.filter(employee=employee_profile).order_by(
+                "-created_at"
+            )
     except EmployeeProfile.DoesNotExist:
         requests = LeaveRequest.objects.none()
-        messages.info(request, "Your user account is not linked to an employee profile.")
+        messages.info(
+            request, "Your user account is not linked to an employee profile."
+        )
     return render(request, "employee/leave_requests.html", {"requests": requests})
 
 
@@ -465,10 +523,14 @@ def iou_history(request):
         if request.user.has_perm("payroll.view_iou"):  # Staff/HR with general view perm
             ious = IOU.objects.all().order_by("-created_at")
         else:
-            ious = IOU.objects.filter(employee_id=employee_profile).order_by("-created_at")
+            ious = IOU.objects.filter(employee_id=employee_profile).order_by(
+                "-created_at"
+            )
     except EmployeeProfile.DoesNotExist:
         ious = IOU.objects.none()
-        messages.info(request, "Your user account is not linked to an employee profile.")
+        messages.info(
+            request, "Your user account is not linked to an employee profile."
+        )
     return render(request, "iou/iou_history.html", {"ious": ious})
 
 

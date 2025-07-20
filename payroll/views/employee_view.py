@@ -20,6 +20,7 @@ from django.contrib.auth.mixins import (
     PermissionRequiredMixin,
 )  # Added PermissionRequiredMixin, removed UserPassesTestMixin
 from django.contrib import messages
+from django.views.decorators.cache import cache_page
 
 # Removed user_passes_test as it's replaced by permission_required or custom logic in views
 from django.conf import settings
@@ -115,6 +116,7 @@ def dashboard(request):
 @permission_required(
     "payroll.view_employeeprofile", raise_exception=True
 )  # Example permission for HR dashboard
+@cache_page(CACHE_TTL)
 def hr_dashboard(request):
     # Counts for the new "Approvals" section links
     pending_leave_requests_count = models.LeaveRequest.objects.filter(
@@ -164,6 +166,7 @@ def hr_dashboard(request):
 
 
 @permission_required("payroll.view_employeeprofile", raise_exception=True)
+@cache_page(CACHE_TTL)
 def employee_list(request):
     query = request.GET.get("q")
     department_filter = request.GET.get("department")
@@ -280,6 +283,7 @@ def delete_employee(request, id):  # FBV for delete
 
 
 @login_required  # Object-level permission logic inside
+@cache_page(CACHE_TTL)
 def employee(request, user_id: int):  # user_id here is CustomUser.id
     target_user_profile = get_object_or_404(models.EmployeeProfile, user_id=user_id)
 
@@ -299,6 +303,7 @@ def employee(request, user_id: int):  # user_id here is CustomUser.id
 
 
 @permission_required("payroll.view_performancereview", raise_exception=True)
+@cache_page(CACHE_TTL)
 def performance_reviews(request):  # List all reviews
     query = request.GET.get("q")
     reviews = models.PerformanceReview.objects.all()
@@ -312,6 +317,7 @@ def performance_reviews(request):  # List all reviews
 
 
 @permission_required("payroll.view_performancereview", raise_exception=True)
+@cache_page(CACHE_TTL)
 def performance_review_list(
     request,
 ):  # This view lists all reviews, so general perm is fine
@@ -325,6 +331,7 @@ def performance_review_list(
 
 
 @login_required  # Object-level permission logic inside
+@cache_page(CACHE_TTL)
 def performance_review_detail(request, review_id):
     review = get_object_or_404(models.PerformanceReview, id=review_id)
     # User can view if it's their review, or if they have general view perm for all reviews (e.g., HR)

@@ -7,12 +7,10 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SECRET_KEY = os.environ.get("SECRET_KEY")
 
 
-DEBUG = os.environ.get("DEBUG", "False").lower() in (
-    "true",
-    "1",
-    "t",
-)  # Set to False in production
-
+DEBUG = bool(os.environ.get("DEBUG"))
+# print(
+#     f"DEBUG: {DEBUG} and the type of debug is :  {type(DEBUG)}"
+# )  # Debugging line to check DEBUG value
 ALLOWED_HOSTS = [
     "localhost",
     "127.0.0.1",
@@ -30,12 +28,13 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "django.contrib.sites",
     # "compressor",
-    "tailwind", # Moved up
-    "crispy_forms", # Moved up
-    "crispy_tailwind", # Moved up
+    "tailwind",  # Moved up
+    "crispy_forms",  # Moved up
+    "crispy_tailwind",  # Moved up
     "api",
     "rest_framework",
     "users",
+    "users.email_backend",
     "payroll",
     "theme",
     # "django_browser_reload",
@@ -60,6 +59,7 @@ INTERNAL_IPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    # 'whitenoise.middleware.WhiteNoiseMiddleware',
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -97,24 +97,32 @@ WSGI_APPLICATION = "core.wsgi.application"
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql_psycopg2",
-        "NAME": os.environ.get("DB_NAME"),
-        "USER": os.environ.get("DB_USER"),
-        "PASSWORD": os.environ.get("DB_PASSWORD"),
-        "HOST": os.environ.get("DB_HOST"),
-        "PORT": os.environ.get("PORT"),
+        "NAME": os.environ.get(
+            "DB_NAME", "payroll_db"
+        ),  # Default to 'payroll_db' if not set
+        "USER": os.environ.get("DB_USER", "payroll_user"),  # Default to 'payroll_user'
+        "PASSWORD": os.environ.get(
+            "DB_PASSWORD", "payroll_password"
+        ),  # Default to 'payroll_password'
+        "HOST": os.environ.get(
+            "DB_HOST", "localhost"
+        ),  # Default to 'localhost' for local PostgreSQL
+        "PORT": os.environ.get(
+            "DB_PORT", "5432"
+        ),  # Use DB_PORT for PostgreSQL, default to 5432
     }
 }
 
 
-# CACHES = {
-#     "default": {
-#         "BACKEND": "django_redis.cache.RedisCache",
-#         "LOCATION": os.environ.get("REDIS_LOCATION"),
-#         "OPTIONS": {
-#             "CLIENT_CLASS": "django_redis.client.DefaultClient",
-#         },
-#     }
-# }
+CACHES = {
+    "default": {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": os.environ.get("REDIS_LOCATION", "redis://127.0.0.1:6379/1"),
+        "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient",
+        },
+    }
+}
 
 # Password validation
 # https://docs.djangoproject.com/en/4.1/ref/settings/#auth-password-validators
@@ -142,14 +150,6 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
-CACHES = {
-    "default": {
-        "BACKEND": "django_redis.cache.RedisCache",
-        "LOCATION": "redis://127.0.0.1:6379/1",
-        "OPTIONS": {"CLIENT_CLASS": "django_redis.client.DefaultClient"},
-        "KEY_PREFIX": "example",
-    }
-}
 
 SITE_TITLE = os.getenv("SITE_TITLE", "PAYROLL")
 
@@ -213,15 +213,13 @@ CRISPY_TEMPLATE_PACK = "tailwind"
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/4.1/howto/static-files/
 
-STATIC_URL = "/static/"
+STATIC_URL = "static/"
+MEDIA_URL = "/media/"
 
-STATICFILES_DIRS = [
-    os.path.join(BASE_DIR, "static"),
-    os.path.join(BASE_DIR, "static"),
-]
-
-STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
 MEDIA_ROOT = os.path.join(BASE_DIR, "media/")
+STATICFILES_DIRS = [os.path.join(BASE_DIR, "static")]
+STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
+
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.1/ref/settings/#default-auto-field
@@ -258,15 +256,16 @@ X_FRAME_OPTIONS = "SAMEORIGIN"
 
 
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
-EMAIL_HOST = "smtp.mailtrap.io"
-EMAIL_HOST_USER = os.environ.get("EMAIL_USERNAME")
-EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_PASSWORD")
-EMAIL_PORT = os.environ.get("EMAIL_PORT")
-EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "True")
+EMAIL_HOST = os.environ.get("EMAIL_HOST")
+EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER")
+EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD")
+EMAIL_PORT = int(os.environ.get("EMAIL_PORT", 587))
+EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "True").lower() == "true"
 DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL")
 EMAIL_FILE_PATH = os.getenv("EMAIL_FILE_PATH", os.path.join(BASE_DIR, "test-emails"))
+if not os.path.exists(EMAIL_FILE_PATH):
+    os.makedirs(EMAIL_FILE_PATH)
 
-EMAIL_USE_SSL: False
 
 AUTH_USER_MODEL = "users.CustomUser"
 AUTH_USER_DEFAULT_GROUP = "payroll-members"
@@ -276,7 +275,7 @@ DEFAULT_EMAIL_DOMAIN = "example.com"
 SITE_TITLE = os.getenv("SITE_TITLE", "Demo Site")
 SITE_TAGLINE = os.getenv("SITE_TAGLINE", "Demo Site")
 SITE_DESCRIPTION = "SITE_DESCRIPTION"
-SITE_LOGO = os.getenv("SITE_LOGO", "http://localhost:8001/static/logo.png")
+SITE_LOGO = os.getenv("SITE_LOGO", "http://localhost:8000/static/logo.png")
 
 JAZZMIN_SETTINGS = {
     "site_title": "Payroll Admin",

@@ -6,6 +6,7 @@ from django.contrib.auth.decorators import (
 from django.db.models import Sum
 from django.template.loader import render_to_string
 from django.http import Http404, HttpResponse, HttpResponseForbidden
+from django.views.decorators.cache import cache_page
 
 # user_passes_test is removed as it's no longer used
 from django.conf import settings
@@ -29,6 +30,7 @@ CACHE_TTL = getattr(settings, "CACHE_TTL", DEFAULT_TIMEOUT)
 
 
 @login_required
+@cache_page(CACHE_TTL)
 def payslip(request, id):
     pay_id = get_object_or_404(Payday, id=id)
     target_employee_user = pay_id.payroll_id.pays.user
@@ -109,6 +111,7 @@ def try_parse_date(date_str):
 
 
 @permission_required("payroll.view_payt", raise_exception=True)
+@cache_page(CACHE_TTL)
 def varview_report(request, paydays):
     # paydays is a string like 'YYYY-MM-DD' from the URL
     # Ensure PayT objects are filtered correctly if 'paydays' in PayT is a DateField
@@ -169,6 +172,7 @@ def payslip_pdf(request, id):  # id here is EmployeeProfile.id
 
 
 @permission_required("payroll.view_payt", raise_exception=True)
+@cache_page(CACHE_TTL)
 def bank_reports(request):
     payroll = PayT.objects.order_by("paydays").distinct("paydays")
     dates = [
@@ -180,6 +184,7 @@ def bank_reports(request):
 
 
 @permission_required("payroll.view_payt", raise_exception=True)
+@cache_page(CACHE_TTL)
 def bank_report(request, pay_id):  # pay_id here is PayT.id
     pay_period_obj = get_object_or_404(PayT, id=pay_id)
     payroll_data = Payday.objects.filter(
@@ -231,6 +236,7 @@ def bank_report_download(request, pay_id):
 
 
 @permission_required("payroll.view_payt", raise_exception=True)
+@cache_page(CACHE_TTL)
 def nhis_reports(request):
     payroll = PayT.objects.order_by("paydays").distinct("paydays")
     dates = [
@@ -242,6 +248,7 @@ def nhis_reports(request):
 
 
 @permission_required("payroll.view_payt", raise_exception=True)
+@cache_page(CACHE_TTL)
 def nhis_report(request, pay_id):
     pay_period_obj = get_object_or_404(PayT, id=pay_id)
     payroll_data = Payday.objects.filter(paydays_id=pay_period_obj)
@@ -289,6 +296,7 @@ def nhis_report_download(request, pay_id):
 
 
 @permission_required("payroll.view_payt", raise_exception=True)
+@cache_page(CACHE_TTL)
 def nhf_reports(request):
     payroll = PayT.objects.order_by("paydays").distinct("paydays")
     dates = [
@@ -298,6 +306,7 @@ def nhf_reports(request):
 
 
 @permission_required("payroll.view_payt", raise_exception=True)
+@cache_page(CACHE_TTL)
 def nhf_report(request, pay_id):
     pay_period_obj = get_object_or_404(PayT, id=pay_id)
     payroll_data = Payday.objects.filter(paydays_id=pay_period_obj)
@@ -347,6 +356,7 @@ def nhf_report_download(request, pay_id):
 @permission_required(
     "payroll.view_payt", raise_exception=True
 )  # Assuming these list PayT periods for selection
+@cache_page(CACHE_TTL)
 def payee_reports(request):
     payroll = PayT.objects.order_by("paydays").distinct("paydays")
     dates = [
@@ -360,6 +370,7 @@ def payee_reports(request):
 @permission_required(
     "payroll.view_payt", raise_exception=True
 )  # Specific report for a PayT period
+@cache_page(CACHE_TTL)
 def payee_report(request, pay_id):
     pay_period_obj = get_object_or_404(PayT, id=pay_id)
     payroll_data = Payday.objects.filter(paydays_id=pay_period_obj)
@@ -409,6 +420,7 @@ def payee_report_download(request, pay_id):
 @permission_required(
     "payroll.view_payt", raise_exception=True
 )  # Assuming these list PayT periods
+@cache_page(CACHE_TTL)
 def pension_reports(request):
     payroll = PayT.objects.order_by("paydays").distinct("paydays")
     dates = [
@@ -422,6 +434,7 @@ def pension_reports(request):
 @permission_required(
     "payroll.view_payt", raise_exception=True
 )  # Specific report for a PayT period
+@cache_page(CACHE_TTL)
 def pension_report(request, pay_id):
     pay_period_obj = get_object_or_404(PayT, id=pay_id)
     payroll_data = Payday.objects.filter(paydays_id=pay_period_obj)
