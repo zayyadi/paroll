@@ -36,7 +36,7 @@
         <td class="p-3 text-sm text-gray-800">{{ employee.emp_id|default:"N/A" }}</td>
         <td class="p-3 text-sm text-gray-800">{{ employee.email|default:"N/A" }}</td>
         <td class="p-3 text-sm text-gray-800">{{ employee.department.name|default:"N/A" }}</td>
-        <td class="p-3 text-sm text-gray-800">{{ employee.job_title|default:"N/A" }}</td>
+        <td class="p-3 text-sm text-gray-800">{{ employee.job_title.get_display|default:"N/A" }}</td>
         <td class="p-3 text-sm text-gray-800">{{ employee.date_of_employment|date:"d M Y"|default:"N/A" }}</td>
         <td class="p-3 text-sm text-gray-800 whitespace-nowrap">
           <a href="{% url 'payroll:profile' employee.id %}" class="text-blue-600 hover:text-blue-800 hover:underline mr-2">View</a>

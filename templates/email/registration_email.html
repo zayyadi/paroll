@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Welcome to Payroll</title>
+</head>
+<body>
+    <p>Dear {{ user.username }},</p>
+    <p>Welcome to Payroll! We are excited to have you on board.</p>
+    <p>Your One-Time Password (OTP) for registration is: <strong>{{ otp }}</strong></p>
+    <p>Please use this OTP to complete your registration. This OTP is valid for a limited time.</p>
+    <p>You can verify your email using the following link:</p>
+    <p><a href="{{ login_url }}">Verify Email</a></p>
+    <p>If you have any questions, feel free to contact us.</p>
+    <p>Best regards,</p>
+    <p>The Payroll Team</p>
+</body>
+</html>

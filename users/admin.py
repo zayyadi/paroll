@@ -1,8 +1,10 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
+from django.urls import path
 
 from .forms import CustomUserCreationForm, CustomUserChangeForm
 from .models import CustomUser
+from .admin_views import logged_in_users_view
 
 
 class CustomUserAdmin(UserAdmin):
@@ -44,7 +46,14 @@ class CustomUserAdmin(UserAdmin):
         ),
     )
     search_fields = ("email",)
-    ordering = ("email",)
+    ordering = ('email',)
+
+    def get_urls(self):
+        urls = super().get_urls()
+        my_urls = [
+            path('logged-in-users/', self.admin_site.admin_view(logged_in_users_view), name="logged-in-users"),
+        ]
+        return my_urls + urls
 
 
 admin.site.register(CustomUser, CustomUserAdmin)

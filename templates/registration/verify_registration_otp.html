@@ -1,0 +1,34 @@
+{% extends "base_auth.html" %}
+{% load crispy_forms_tags %}
+
+{% block title %}Verify Registration OTP{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-center min-h-screen bg-gray-100">
+    <div class="px-8 py-6 mt-4 text-left bg-white shadow-lg">
+        <h3 class="text-2xl font-bold text-center">Verify Registration OTP</h3>
+        {% if messages %}
+            <ul class="messages">
+                {% for message in messages %}
+                    <li{% if message.tags %} class="{{ message.tags }}"{% endif %}>{{ message }}</li>
+                {% endfor %}
+            </ul>
+        {% endif %}
+        <form method="post">
+            {% csrf_token %}
+            <div class="mt-4">
+                <div>
+                    <label class="block" for="otp">OTP</label>
+                    <input type="text" name="otp" id="otp" placeholder="Enter OTP"
+                           class="w-full px-4 py-2 mt-2 border rounded-md focus:outline-none focus:ring-1 focus:ring-blue-600" required>
+                </div>
+                <input type="hidden" name="email" value="{{ email }}">
+                <div class="flex items-baseline justify-between">
+                    <button type="submit"
+                            class="px-6 py-2 mt-4 text-white bg-blue-600 rounded-lg hover:bg-blue-900">Verify</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
