@@ -1,0 +1,279 @@
+{% extends "accounting/base.html" %}
+
+{% block title %}Journal Reversal with Correction{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-warning text-dark">
+                    <h4 class="card-title">
+                        <i class="fas fa-exchange-alt"></i> Journal Reversal with Correction
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <!-- Information Message -->
+                    <div class="alert alert-warning" role="alert">
+                        <h5><i class="fas fa-exclamation-triangle"></i> Reversal with Correction</h5>
+                        <p>This will create two journals: one to reverse the original journal and another with the corrected entries.</p>
+                        <p><strong>Original Reason:</strong> {{ reason|linebreaks }}</p>
+                    </div>
+
+                    <!-- Journal Information -->
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <h5>Original Journal</h5>
+                            <table class="table table-sm">
+                                <tr>
+                                    <th>Transaction Number:</th>
+                                    <td>{{ journal.transaction_number }}</td>
+                                </tr>
+                                <tr>
+                                    <th>Description:</th>
+                                    <td>{{ journal.description }}</td>
+                                </tr>
+                                <tr>
+                                    <th>Date:</th>
+                                    <td>{{ journal.date }}</td>
+                                </tr>
+                                <tr>
+                                    <th>Period:</th>
+                                    <td>{{ journal.period }}</td>
+                                </tr>
+                            </table>
+                        </div>
+                        <div class="col-md-6">
+                            <h5>Reversal Details</h5>
+                            <table class="table table-sm">
+                                <tr>
+                                    <th>Reversal Type:</th>
+                                    <td><span class="badge badge-warning">Reversal with Correction</span></td>
+                                </tr>
+                                <tr>
+                                    <th>Reversal Date:</th>
+                                    <td>{% now "Y-m-d" %}</td>
+                                </tr>
+                                <tr>
+                                    <th>Performed By:</th>
+                                    <td>{{ request.user.get_full_name|default:request.user.username }}</td>
+                                </tr>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Original Entries -->
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <h5>Original Entries (to be Reversed)</h5>
+                            <div class="table-responsive">
+                                <table class="table table-striped">
+                                    <thead>
+                                        <tr>
+                                            <th>Account</th>
+                                            <th>Type</th>
+                                            <th>Amount</th>
+                                            <th>Memo</th>
+                                            <th>Reversal Type</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for entry in entries %}
+                                        <tr>
+                                            <td>{{ entry.account.name }}</td>
+                                            <td>
+                                                <span class="badge badge-{{ entry.entry_type|lower }}">
+                                                    {{ entry.get_entry_type_display }}
+                                                </span>
+                                            </td>
+                                            <td class="text-right">{{ entry.amount }}</td>
+                                            <td>{{ entry.memo|default:"-" }}</td>
+                                            <td>
+                                                <span class="badge badge-warning">
+                                                    {% if entry.entry_type == "DEBIT" %}CREDIT{% else %}DEBIT{% endif %}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                    <tfoot>
+                                        <tr class="font-weight-bold">
+                                            <td colspan="2">Totals:</td>
+                                            <td class="text-right">{{ total_debits }}</td>
+                                            <td class="text-right">{{ total_credits }}</td>
+                                            <td></td>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Correction Form -->
+                    <div class="row">
+                        <div class="col-12">
+                            <form method="post">
+                                {% csrf_token %}
+                                
+                                <div class="form-group">
+                                    <label for="{{ form.reason.id_for_label }}" class="form-label">
+                                        {{ form.reason.label }} <span class="text-danger">*</span>
+                                    </label>
+                                    {{ form.reason }}
+                                    {% if form.reason.help_text %}
+                                    <small class="form-text text-muted">{{ form.reason.help_text }}</small>
+                                    {% endif %}
+                                    {% if form.reason.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {% for error in form.reason.errors %}{{ error }}{% endfor %}
+                                    </div>
+                                    {% endif %}
+                                </div>
+
+                                <h5>Correction Entries</h5>
+                                <div class="alert alert-info">
+                                    <i class="fas fa-info-circle"></i>
+                                    Enter the corrected journal entries. These must balance (debits = credits).
+                                </div>
+
+                                {{ correction_formset.management_form }}
+                                <div class="table-responsive mb-4">
+                                    <table class="table table-striped" id="correction-entries-table">
+                                        <thead>
+                                            <tr>
+                                                <th width="5%">Delete</th>
+                                                <th width="25%">Account</th>
+                                                <th width="15%">Type</th>
+                                                <th width="15%">Amount</th>
+                                                <th width="40%">Memo</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for form in correction_formset %}
+                                            <tr>
+                                                <td>{{ form.DELETE }}</td>
+                                                <td>{{ form.account }}</td>
+                                                <td>{{ form.entry_type }}</td>
+                                                <td>{{ form.amount }}</td>
+                                                <td>{{ form.memo }}</td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                <div class="form-group">
+                                    <button type="button" class="btn btn-outline-primary" onclick="addCorrectionEntry()">
+                                        <i class="fas fa-plus"></i> Add Entry
+                                    </button>
+                                    <button type="submit" class="btn btn-warning">
+                                        <i class="fas fa-exchange-alt"></i> Create Reversal with Correction
+                                    </button>
+                                    <a href="{% url 'accounting:journal_detail' journal.pk %}" class="btn btn-secondary">
+                                        <i class="fas fa-times"></i> Cancel
+                                    </a>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .badge-draft { background-color: #6c757d; }
+    .badge-pending_approval { background-color: #ffc107; }
+    .badge-approved { background-color: #17a2b8; }
+    .badge-posted { background-color: #28a745; }
+    .badge-cancelled { background-color: #dc3545; }
+    .badge-reversed { background-color: #6f42c1; }
+    .badge-debit { background-color: #28a745; }
+    .badge-credit { background-color: #dc3545; }
+    
+    input[type="radio"]:checked + label {
+        font-weight: bold;
+    }
+    
+    .form-row {
+        margin-bottom: 10px;
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let formCount = {{ correction_formset|length }};
+
+function addCorrectionEntry() {
+    const formsetPrefix = '{{ correction_formset.management_form.prefix }}';
+    const totalFormsInput = document.getElementById(`id_${formsetPrefix}-TOTAL_FORMS`);
+    
+    // Create new form row
+    const newFormHtml = `
+        <tr id="form-${formCount}">
+            <td><input type="checkbox" name="${formsetPrefix}-${formCount}-DELETE" id="id_${formsetPrefix}-${formCount}-DELETE"></td>
+            <td><select name="${formsetPrefix}-${formCount}-account" class="form-control" id="id_${formsetPrefix}-${formCount}-account">
+                {% for account in form.fields.account.queryset %}
+                <option value="{{ account.pk }}">{{ account.name }}</option>
+                {% endfor %}
+            </select></td>
+            <td>
+                <div class="form-check form-check-inline">
+                    <input class="form-check-input" type="radio" name="${formsetPrefix}-${formCount}-entry_type" value="DEBIT" id="id_${formsetPrefix}-${formCount}-entry_type_0" required>
+                    <label class="form-check-label" for="id_${formsetPrefix}-${formCount}-entry_type_0">Debit</label>
+                </div>
+                <div class="form-check form-check-inline">
+                    <input class="form-check-input" type="radio" name="${formsetPrefix}-${formCount}-entry_type" value="CREDIT" id="id_${formsetPrefix}-${formCount}-entry_type_1" required>
+                    <label class="form-check-label" for="id_${formsetPrefix}-${formCount}-entry_type_1">Credit</label>
+                </div>
+            </td>
+            <td><input type="number" name="${formsetPrefix}-${formCount}-amount" step="0.01" min="0.01" class="form-control" id="id_${formsetPrefix}-${formCount}-amount" required></td>
+            <td><input type="text" name="${formsetPrefix}-${formCount}-memo" maxlength="255" class="form-control" id="id_${formsetPrefix}-${formCount}-memo"></td>
+        </tr>
+    `;
+    
+    const tbody = document.querySelector('#correction-entries-table tbody');
+    tbody.insertAdjacentHTML('beforeend', newFormHtml);
+    
+    // Update form count
+    formCount++;
+    totalFormsInput.value = formCount;
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Form validation
+    const form = document.querySelector('form');
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            const debitTotal = calculateTotal('DEBIT');
+            const creditTotal = calculateTotal('CREDIT');
+            
+            if (Math.abs(debitTotal - creditTotal) > 0.01) {
+                e.preventDefault();
+                alert(`Correction entries must balance. Debits: ${debitTotal}, Credits: ${creditTotal}`);
+                return false;
+            }
+        });
+    }
+});
+
+function calculateTotal(entryType) {
+    let total = 0;
+    const entries = document.querySelectorAll(`input[name^="{{ correction_formset.management_form.prefix }}-"][name$="-entry_type"][value="${entryType}"]:checked`);
+    
+    entries.forEach(entry => {
+        const row = entry.closest('tr');
+        const amountInput = row.querySelector('input[name$="-amount"]');
+        if (amountInput && amountInput.value) {
+            total += parseFloat(amountInput.value);
+        }
+    });
+    
+    return total;
+}
+</script>
+{% endblock %}

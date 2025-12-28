@@ -1,5 +1,5 @@
 from decimal import Decimal
-
+import uuid
 
 from django.db import models
 from django.utils.translation import gettext_lazy as _
@@ -8,9 +8,9 @@ from django.core.validators import MinValueValidator
 
 from django.utils import timezone  # Import timezone
 
-from autoslug import AutoSlugField
+# from autoslug import AutoSlugField  # Temporarily commented out for testing
 
-from datetime import timedelta
+from datetime import date, timedelta
 
 
 from core import settings
@@ -61,19 +61,19 @@ class Payroll(models.Model):
     )
     pension_employee = models.DecimalField(
         max_digits=12,
-        default=0.0,
+        default=Decimal(0.0),
         decimal_places=2,
         blank=True,
     )
     pension_employer = models.DecimalField(
         max_digits=12,
-        default=0.0,
+        default=Decimal(0.0),
         decimal_places=2,
         blank=True,
     )
     pension = models.DecimalField(
         max_digits=12,
-        default=0.0,
+        default=Decimal(0.0),
         decimal_places=2,
         blank=True,
     )
@@ -85,7 +85,7 @@ class Payroll(models.Model):
     )
     consolidated_relief = models.DecimalField(
         max_digits=12,
-        default=0.0,
+        default=Decimal(0.0),
         decimal_places=2,
         blank=True,
     )
@@ -131,7 +131,7 @@ class Payroll(models.Model):
 
     @property
     def get_nsitf(self):
-        return self.basic_salary * 1 / 100
+        return self.basic_salary * Decimal(1) / Decimal(100)
 
     @property
     def get_gross_income(self):
@@ -184,7 +184,7 @@ class Allowance(models.Model):
     amount = models.DecimalField(
         max_digits=12,
         decimal_places=2,
-        default=0.0,
+        default=Decimal(0.0),
         verbose_name=(_("Amount of allowance earned")),
     )
     created_at = models.DateTimeField(default=timezone.now)
@@ -205,6 +205,16 @@ class Deduction(models.Model):
         null=True,
         blank=True,
     )
+    iou = models.ForeignKey(
+        "IOU",
+        on_delete=models.SET_NULL,
+        # --- CHANGE THIS LINE ---
+        related_name="repayment_installments",  # Give it a unique name
+        # ----------------------
+        null=True,
+        blank=True,
+        help_text="The IOU this deduction is repaying, if any.",
+    )
     deduction_type = models.CharField(
         max_length=50,
         choices=choices.DEDUCTIONS,
@@ -214,7 +224,7 @@ class Deduction(models.Model):
     amount = models.DecimalField(
         max_digits=12,
         decimal_places=2,
-        default=0.0,
+        default=Decimal(0.0),
         verbose_name=(_("Amount of deduction")),
     )
     reason = models.TextField(
@@ -261,25 +271,25 @@ class PayVar(models.Model):
         max_digits=12,
         decimal_places=2,
         blank=True,
-        default=0.0,
+        default=Decimal(0.0),
     )
     employee_health = models.DecimalField(
         max_digits=12,
         decimal_places=2,
         blank=True,
-        default=0.0,
+        default=Decimal(0.0),
     )
     nhif = models.DecimalField(
         max_digits=12,
         decimal_places=2,
         blank=True,
-        default=0.0,
+        default=Decimal(0.0),
     )
     emplyr_health = models.DecimalField(
         max_digits=12,
         decimal_places=2,
         blank=True,
-        default=0.0,
+        default=Decimal(0.0),
     )
     status = models.CharField(
         max_length=10,
@@ -288,7 +298,7 @@ class PayVar(models.Model):
     )
     netpay = models.DecimalField(
         max_digits=12,
-        default=0.0,
+        default=Decimal(0.0),
         decimal_places=2,
         blank=True,
     )
@@ -339,6 +349,11 @@ class PayVar(models.Model):
             created_at__month=payroll_month, created_at__year=payroll_year
         ):
             total_deduction += deduction.amount
+
+        for iou_deduction in self.pays.iou_deductions.filter(
+            payday__paydays__month=payroll_month, payday__paydays__year=payroll_year
+        ):
+            total_deduction += iou_deduction.amount
         return total_deduction
 
     @property
@@ -410,10 +425,11 @@ class PayT(models.Model):
         unique=True,
         default="test",
     )
-    slug = AutoSlugField(
-        populate_from="name",
-        editable=True,
-        always_update=True,
+    slug = models.SlugField(
+        unique=True,
+        max_length=255,
+        editable=False,
+        db_index=True,
     )  # type: ignore
     paydays = MonthField(
         "Month Value",
@@ -445,6 +461,15 @@ class PayT(models.Model):
         return utils.convert_month_to_word(str(self.paydays))
 
     def save(self, *args, **kwargs):
+        from django.utils.text import slugify
+
+        if not self.slug:
+            # Generate slug from paydays field (YYYY-MM format)
+            if self.paydays:
+                self.slug = slugify(f"pay-period-{self.paydays.strftime('%Y-%m')}")
+            else:
+                self.slug = slugify(f"pay-period-{uuid.uuid4().hex[:8]}")
+
         if self.pk and PayT.objects.filter(pk=self.pk, closed=True).exists():
             raise ValidationError("This entry is closed and cannot be edited.")
         # self.paydays_str = self.save_month_str
@@ -463,6 +488,24 @@ class Payday(models.Model):
         on_delete=models.CASCADE,
         related_name="payroll_paydays",
     )
+
+
+class IOUDeduction(models.Model):
+    iou = models.ForeignKey("IOU", on_delete=models.CASCADE, related_name="deductions")
+    employee = models.ForeignKey(
+        "EmployeeProfile", on_delete=models.CASCADE, related_name="iou_deductions"
+    )
+    payday = models.ForeignKey(
+        "PayT", on_delete=models.CASCADE, related_name="iou_deductions"
+    )
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ("iou", "payday")
+
+    def __str__(self):
+        return f"Deduction of {self.amount} for {self.employee} in {self.payday}"
 
 
 class IOU(SoftDeleteModel):
@@ -499,7 +542,7 @@ class IOU(SoftDeleteModel):
     interest_rate = models.DecimalField(
         decimal_places=2,
         max_digits=5,
-        default=0.0,
+        default=Decimal(0.0),
         help_text="Interest rate (e.g., 5.0 for 5%)",
     )
     payment_method = models.CharField(
@@ -569,6 +612,14 @@ class IOU(SoftDeleteModel):
         super().save(*args, **kwargs)
 
 
+class PublicHoliday(models.Model):
+    name = models.CharField(max_length=255)
+    date = models.DateField(unique=True)
+
+    def __str__(self):
+        return f"{self.name} ({self.date})"
+
+
 class LeavePolicy(models.Model):
     LEAVE_TYPES = [
         ("CASUAL", "Casual Leave"),
@@ -584,17 +635,30 @@ class LeavePolicy(models.Model):
         return f"{self.leave_type} - {self.max_days} days"
 
 
+class LeaveBalance(models.Model):
+    employee = models.OneToOneField(
+        EmployeeProfile, on_delete=models.CASCADE, related_name="leave_balance"
+    )
+
+    year = models.PositiveIntegerField()
+
+    annual_leave = models.PositiveIntegerField(default=10)
+    sick_leave = models.PositiveIntegerField(default=5)
+    casual_leave = models.PositiveIntegerField(default=3)
+    maternity_leave = models.PositiveIntegerField(default=40)
+    paternity_leave = models.PositiveIntegerField(default=14)
+
+    class Meta:
+        unique_together = ("employee", "year")
+
+
 class LeaveRequest(models.Model):
     STATUS_CHOICES = [
         ("PENDING", "Pending"),
         ("APPROVED", "Approved"),
         ("REJECTED", "Rejected"),
     ]
-    employee = models.ForeignKey(
-        EmployeeProfile,
-        on_delete=models.CASCADE,
-        related_name="leave_requests",
-    )
+
     LEAVE_CHOICES = [
         ("CASUAL", "Casual Leave"),
         ("SICK", "Sick Leave"),
@@ -602,17 +666,162 @@ class LeaveRequest(models.Model):
         ("MATERNITY", "Maternity Leave"),
         ("PATERNITY", "Paternity Leave"),
     ]
-    leave_type = models.CharField(
-        max_length=20,
-        choices=LEAVE_CHOICES,
-        default="ANNUAL",
+
+    employee = models.ForeignKey(
+        "EmployeeProfile", on_delete=models.CASCADE, related_name="leave_requests"
     )
+
+    leave_type = models.CharField(max_length=20, choices=LEAVE_CHOICES)
     start_date = models.DateField()
     end_date = models.DateField()
+
+    is_half_day = models.BooleanField(default=False)
+
     reason = models.TextField()
+
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="PENDING")
+
+    # HR / Manager controls
+    approved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="approved_leaves",
+    )
+
+    hr_override = models.BooleanField(default=False)
+    override_reason = models.TextField(blank=True, null=True)
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    @property
+    def calculate_days(self) -> int:
+        """
+        Returns number of days between two dates (inclusive).
+        """
+        if self.start_date > self.end_date:
+            raise ValueError("Start date cannot be after end date")
+
+        return (self.end_date - self.start_date).days + 1
+
+    @property
+    def duration(self):
+        if self.start_date > self.end_date:
+            return 0
+
+        total_days = 0
+        current = self.start_date
+
+        holidays = set(
+            PublicHoliday.objects.filter(
+                date__range=(self.start_date, self.end_date)
+            ).values_list("date", flat=True)
+        )
+
+        while current <= self.end_date:
+            if current.weekday() < 5:
+                # and current not in holidays:
+                total_days += 1
+            current += timedelta(days=1)
+
+        if self.is_half_day:
+            return 0.5
+
+        return total_days
+
+    def clean(self):
+        super().clean()
+
+        if self.start_date > self.end_date:
+            raise ValidationError("End date cannot be before start date.")
+
+        if self.status == "APPROVED" and not self.hr_override:
+            balance = get_leave_balance(self.employee, self.start_date.year)
+            days = self.duration
+
+            leave_map = {
+                "ANNUAL": balance.annual_leave,
+                "SICK": balance.sick_leave,
+                "CASUAL": balance.casual_leave,
+                "MATERNITY": balance.maternity_leave,
+                "PATERNITY": balance.paternity_leave,
+            }
+
+            if leave_map[self.leave_type] < days:
+                raise ValidationError(
+                    f"Insufficient {self.leave_type.lower()} leave balance."
+                )
+
+    def save(self, *args, **kwargs):
+        user = kwargs.pop("user", None)
+
+        is_new = self.pk is None
+        previous_status = None
+
+        if not is_new:
+            previous_status = LeaveRequest.objects.get(pk=self.pk).status
+
+        self.full_clean()
+        super().save(*args, **kwargs)
+
+        # Deduct leave only once
+        if self.status == "APPROVED" and previous_status != "APPROVED":
+            balance = get_leave_balance(self.employee, self.start_date.year)
+            days = self.duration
+
+            if not self.hr_override:
+                if self.leave_type == "ANNUAL":
+                    balance.annual_leave -= days
+                elif self.leave_type == "SICK":
+                    balance.sick_leave -= days
+                elif self.leave_type == "CASUAL":
+                    balance.casual_leave -= days
+                elif self.leave_type == "MATERNITY":
+                    balance.maternity_leave -= days
+                elif self.leave_type == "PATERNITY":
+                    balance.paternity_leave -= days
+
+                balance.save()
+
+        # Audit logging
+        action = "CREATED" if is_new else f"STATUS_CHANGED_TO_{self.status}"
+        LeaveAuditLog.objects.create(
+            leave_request=self, action=action, performed_by=user
+        )
+
+
+class LeaveAuditLog(models.Model):
+    leave_request = models.ForeignKey(
+        LeaveRequest, on_delete=models.CASCADE, related_name="audit_logs"
+    )
+
+    action = models.CharField(max_length=100)
+    performed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL
+    )
+
+    timestamp = models.DateTimeField(auto_now_add=True)
+    note = models.TextField(blank=True)
+
     def __str__(self):
-        return f"{self.employee.first_name} - {self.leave_type} ({self.status})"
+        return f"{self.action} - {self.leave_request}"
+
+
+def get_leave_balance(employee, year=None):
+    if not year:
+        year = date.today().year
+
+    balance, _ = LeaveBalance.objects.get_or_create(
+        employee=employee,
+        year=year,
+        defaults={
+            "annual_leave": 20,
+            "sick_leave": 10,
+            "casual_leave": 7,
+            "maternity_leave": 90,
+            "paternity_leave": 14,
+        },
+    )
+    return balance

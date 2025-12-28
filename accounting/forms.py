@@ -1,0 +1,366 @@
+from django import forms
+from django.forms import formset_factory
+from django.forms.models import inlineformset_factory
+from .models import Account, Journal, JournalEntry, FiscalYear, AccountingPeriod
+
+
+class AccountForm(forms.ModelForm):
+    """
+    Form for creating and editing accounts
+    """
+
+    class Meta:
+        model = Account
+        fields = ["name", "account_number", "type", "description"]
+        widgets = {
+            "description": forms.Textarea(attrs={"rows": 3}),
+        }
+
+
+class JournalForm(forms.ModelForm):
+    """
+    Form for creating and editing journals
+    """
+
+    class Meta:
+        model = Journal
+        fields = ["description", "date", "period"]
+        widgets = {
+            "date": forms.DateInput(attrs={"type": "date"}),
+            "description": forms.TextInput(attrs={"class": "form-control"}),
+        }
+
+
+class JournalEntryForm(forms.ModelForm):
+    """
+    Form for creating and editing journal entries
+    """
+
+    class Meta:
+        model = JournalEntry
+        fields = ["account", "entry_type", "amount", "memo"]
+        widgets = {
+            "amount": forms.NumberInput(attrs={"step": "0.01", "min": "0"}),
+            "memo": forms.TextInput(attrs={"class": "form-control"}),
+        }
+
+
+# Create formset for journal entries
+JournalEntryFormSet = inlineformset_factory(
+    Journal,
+    JournalEntry,
+    form=JournalEntryForm,
+    extra=2,
+    can_delete=True,
+    min_num=2,
+    validate_min=True,
+)
+
+
+class JournalApprovalForm(forms.Form):
+    """
+    Form for approving or rejecting journals
+    """
+
+    ACTION_CHOICES = [
+        ("approve", "Approve"),
+        ("reject", "Reject"),
+    ]
+
+    action = forms.ChoiceField(
+        choices=ACTION_CHOICES, widget=forms.RadioSelect, label="Action"
+    )
+    reason = forms.CharField(
+        widget=forms.Textarea(attrs={"rows": 3}),
+        required=False,
+        label="Reason (optional)",
+    )
+
+
+class JournalReversalForm(forms.Form):
+    """
+    Form for reversing journals
+    """
+
+    reason = forms.CharField(
+        widget=forms.Textarea(attrs={"rows": 4}),
+        label="Reason for reversal",
+        help_text="Please provide a detailed reason for reversing this journal.",
+    )
+
+
+class FiscalYearForm(forms.ModelForm):
+    """
+    Form for creating and editing fiscal years
+    """
+
+    class Meta:
+        model = FiscalYear
+        fields = ["year", "name", "start_date", "end_date"]
+        widgets = {
+            "start_date": forms.DateInput(attrs={"type": "date"}),
+            "end_date": forms.DateInput(attrs={"type": "date"}),
+        }
+
+
+class AccountingPeriodForm(forms.ModelForm):
+    """
+    Form for creating and editing accounting periods
+    """
+
+    class Meta:
+        model = AccountingPeriod
+        fields = ["fiscal_year", "period_number", "name", "start_date", "end_date"]
+        widgets = {
+            "start_date": forms.DateInput(attrs={"type": "date"}),
+            "end_date": forms.DateInput(attrs={"type": "date"}),
+        }
+
+
+class AccountSearchForm(forms.Form):
+    """
+    Form for searching accounts
+    """
+
+    search = forms.CharField(
+        max_length=100,
+        required=False,
+        widget=forms.TextInput(attrs={"placeholder": "Search by name or number..."}),
+    )
+
+
+class JournalSearchForm(forms.Form):
+    """
+    Form for searching journals
+    """
+
+    search = forms.CharField(
+        max_length=100,
+        required=False,
+        widget=forms.TextInput(
+            attrs={"placeholder": "Search by description or number..."}
+        ),
+    )
+    status = forms.ChoiceField(
+        choices=[("", "All Status")] + list(Journal.JournalStatus.choices),
+        required=False,
+    )
+    start_date = forms.DateField(
+        required=False, widget=forms.DateInput(attrs={"type": "date"})
+    )
+    end_date = forms.DateField(
+        required=False, widget=forms.DateInput(attrs={"type": "date"})
+    )
+
+
+class TrialBalanceForm(forms.Form):
+    """
+    Form for generating trial balance
+    """
+
+    period = forms.ModelChoiceField(
+        queryset=AccountingPeriod.objects.all(),
+        required=False,
+        empty_label="Select a period",
+    )
+    as_of_date = forms.DateField(
+        required=False,
+        widget=forms.DateInput(attrs={"type": "date"}),
+        label="As of date (if no period selected)",
+    )
+
+
+class AccountActivityForm(forms.Form):
+    """
+    Form for generating account activity report
+    """
+
+    account = forms.ModelChoiceField(
+        queryset=Account.objects.all(),
+        widget=forms.Select(attrs={"class": "form-control"}),
+    )
+    start_date = forms.DateField(
+        required=False, widget=forms.DateInput(attrs={"type": "date"})
+    )
+    end_date = forms.DateField(
+        required=False, widget=forms.DateInput(attrs={"type": "date"})
+    )
+
+
+class JournalReversalInitiationForm(forms.Form):
+    """
+    Form for initiating a journal reversal
+    """
+
+    REVERSAL_TYPE_CHOICES = [
+        ("full", "Full Reversal"),
+        ("partial", "Partial Reversal"),
+        ("correction", "Reversal with Correction"),
+    ]
+
+    reversal_type = forms.ChoiceField(
+        choices=REVERSAL_TYPE_CHOICES,
+        widget=forms.RadioSelect,
+        label="Reversal Type",
+        help_text="Select the type of reversal you want to perform",
+    )
+
+    reason = forms.CharField(
+        widget=forms.Textarea(attrs={"rows": 4}),
+        label="Reason for reversal",
+        help_text="Please provide a detailed reason for reversing this journal.",
+    )
+
+
+class JournalPartialReversalForm(forms.Form):
+    """
+    Form for partial journal reversal
+    """
+
+    def __init__(self, journal_entries, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.journal_entries = journal_entries
+
+        # Add fields for each entry
+        for entry in journal_entries:
+            field_name = f"entry_{entry.id}"
+            self.fields[field_name] = forms.BooleanField(
+                required=False,
+                label=f"{entry.account.name} - {entry.get_entry_type_display()} - {entry.amount}",
+                help_text=f"Check to reverse this entry (Original: {entry.memo or 'No memo'})",
+            )
+
+            # Add amount field for partial amount reversal
+            amount_field_name = f"amount_{entry.id}"
+            self.fields[amount_field_name] = forms.DecimalField(
+                required=False,
+                min_value=0.01,
+                max_digits=12,
+                decimal_places=2,
+                widget=forms.NumberInput(attrs={"step": "0.01"}),
+                label=f"Amount to reverse (Max: {entry.amount})",
+                help_text="Leave blank to reverse full amount",
+            )
+
+    def clean(self):
+        cleaned_data = super().clean()
+        has_selected_entries = False
+
+        for entry in self.journal_entries:
+            field_name = f"entry_{entry.id}"
+            if cleaned_data.get(field_name):
+                has_selected_entries = True
+                amount_field_name = f"amount_{entry.id}"
+                amount = cleaned_data.get(amount_field_name)
+                if amount and amount > entry.amount:
+                    self.add_error(
+                        amount_field_name,
+                        f"Amount cannot exceed original entry amount ({entry.amount})",
+                    )
+
+        if not has_selected_entries:
+            raise forms.ValidationError("Please select at least one entry to reverse")
+
+        return cleaned_data
+
+
+class JournalCorrectionForm(forms.Form):
+    """
+    Form for reversal with correction entries
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # We'll use JavaScript to dynamically add correction entry fields
+
+    reason = forms.CharField(
+        widget=forms.Textarea(attrs={"rows": 4}),
+        label="Reason for reversal and correction",
+        help_text="Please provide a detailed reason for reversing and correcting this journal.",
+    )
+
+
+class CorrectionEntryForm(forms.Form):
+    """
+    Form for a single correction entry
+    """
+
+    account = forms.ModelChoiceField(
+        queryset=Account.objects.all(),
+        widget=forms.Select(attrs={"class": "form-control"}),
+        label="Account",
+    )
+
+    entry_type = forms.ChoiceField(
+        choices=JournalEntry.EntryType.choices,
+        widget=forms.RadioSelect,
+        label="Entry Type",
+    )
+
+    amount = forms.DecimalField(
+        min_value=0.01,
+        max_digits=12,
+        decimal_places=2,
+        widget=forms.NumberInput(attrs={"step": "0.01", "class": "form-control"}),
+        label="Amount",
+    )
+
+    memo = forms.CharField(
+        max_length=255,
+        required=False,
+        widget=forms.TextInput(attrs={"class": "form-control"}),
+        label="Memo",
+    )
+
+
+# Create formset for correction entries
+CorrectionEntryFormSet = formset_factory(
+    CorrectionEntryForm,
+    extra=2,
+    can_delete=True,
+    min_num=2,
+    validate_min=True,
+)
+
+
+class BatchJournalReversalForm(forms.Form):
+    """
+    Form for batch journal reversal
+    """
+
+    journals = forms.ModelMultipleChoiceField(
+        queryset=Journal.objects.filter(status=Journal.JournalStatus.POSTED),
+        widget=forms.CheckboxSelectMultiple,
+        label="Journals to Reverse",
+        help_text="Select all journals you want to reverse",
+    )
+
+    reason = forms.CharField(
+        widget=forms.Textarea(attrs={"rows": 4}),
+        label="Reason for batch reversal",
+        help_text="Please provide a detailed reason for reversing these journals.",
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Filter out journals that are already reversed
+        self.fields["journals"].queryset = Journal.objects.filter(
+            status=Journal.JournalStatus.POSTED, reversed_journal__isnull=True
+        ).select_related("period", "created_by")
+
+
+class JournalReversalConfirmationForm(forms.Form):
+    """
+    Form for confirming journal reversal
+    """
+
+    confirm = forms.BooleanField(
+        label="I confirm that I want to reverse this journal",
+        help_text="This action cannot be undone. Please confirm you want to proceed.",
+    )
+
+    final_reason = forms.CharField(
+        widget=forms.Textarea(attrs={"rows": 3}),
+        label="Final confirmation reason",
+        help_text="Please restate the reason for this reversal for audit purposes.",
+    )

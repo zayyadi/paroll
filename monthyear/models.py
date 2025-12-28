@@ -38,7 +38,7 @@ class MonthField(models.DateField):
     def get_prep_value(self, value):
         month = self.to_python(value)
         if month is not None:
-            return month.first_day()
+            return month.first_day()  # <--- This is the correct method
         return None
 
     def from_db_value(self, value, expression, connection):
@@ -53,4 +53,3 @@ class MonthField(models.DateField):
         defaults = {"form_class": forms.MonthField}
         defaults.update(kwargs)
         return super(MonthField, self).formfield(**defaults)
-

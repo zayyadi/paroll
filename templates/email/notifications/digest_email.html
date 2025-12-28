@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ subject }}</title>
+    <style>
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f9f9f9;
+        }
+        .container {
+            background-color: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+            padding: 30px;
+            text-align: center;
+        }
+        .header h1 {
+            color: #ffffff;
+            font-size: 24px;
+            font-weight: 600;
+            margin: 0;
+        }
+        .header p {
+            color: #ffffff;
+            font-size: 14px;
+            margin: 10px 0 0 0;
+            opacity: 0.9;
+        }
+        .content {
+            padding: 30px;
+        }
+        .summary {
+            background-color: #eff6ff;
+            border-radius: 6px;
+            padding: 20px;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        .summary h2 {
+            color: #1e40af;
+            font-size: 20px;
+            font-weight: 600;
+            margin: 0 0 15px 0;
+        }
+        .summary p {
+            color: #1e40af;
+            font-size: 14px;
+            margin: 0;
+        }
+        .summary .count {
+            font-size: 32px;
+            font-weight: 700;
+            color: #2563eb;
+        }
+        .notification-group {
+            margin-bottom: 25px;
+        }
+        .notification-group h3 {
+            color: #1f2937;
+            font-size: 16px;
+            font-weight: 600;
+            margin: 0 0 15px 0;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #e5e7eb;
+        }
+        .notification-item {
+            padding: 15px;
+            margin-bottom: 10px;
+            border-left: 3px solid #3b82f6;
+            background-color: #f9fafb;
+            border-radius: 4px;
+        }
+        .notification-item:last-child {
+            margin-bottom: 0;
+        }
+        .notification-item h4 {
+            margin: 0 0 10px 0;
+            font-size: 14px;
+            color: #1f2937;
+        }
+        .notification-item p {
+            margin: 0 0 10px 0;
+            font-size: 13px;
+            color: #4b5563;
+            line-height: 1.5;
+        }
+        .notification-item .meta {
+            font-size: 12px;
+            color: #6b7280;
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid #e5e7eb;
+        }
+        .btn {
+            display: inline-block;
+            padding: 12px 24px;
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+            color: #ffffff;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: 500;
+            margin-top: 15px;
+            transition: all 0.2s;
+        }
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+        }
+        .footer {
+            text-align: center;
+            padding: 20px;
+            color: #6b7280;
+            font-size: 12px;
+            border-top: 1px solid #e5e7eb;
+            background-color: #f9fafb;
+        }
+        .footer a {
+            color: #3b82f6;
+            text-decoration: none;
+        }
+        .footer a:hover {
+            text-decoration: underline;
+        }
+        .priority-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            margin-left: 10px;
+        }
+        .priority-badge.critical {
+            background-color: #fef2f2;
+            color: #dc2626;
+        }
+        .priority-badge.high {
+            background-color: #fff7ed;
+            color: #f97316;
+        }
+        .priority-badge.medium {
+            background-color: #eff6ff;
+            color: #3b82f6;
+        }
+        .priority-badge.low {
+            background-color: #f3f4f6;
+            color: #6b7280;
+        }
+        @media only screen and (max-width: 600px) {
+            body {
+                padding: 10px;
+            }
+            .header {
+                padding: 20px;
+            }
+            .content {
+                padding: 20px;
+            }
+            .notification-item {
+                padding: 12px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>PayrollCo</h1>
+            <p>Your {{ frequency|title }} Notification Digest</p>
+        </div>
+
+        <!-- Content -->
+        <div class="content">
+            <!-- Summary -->
+            <div class="summary">
+                <h2>📬 You have {{ total_count }} new notifications</h2>
+                <p class="count">{{ total_count }}</p>
+            </div>
+
+            <!-- Notification Groups -->
+            {% for type, notifications in grouped.items %}
+            <div class="notification-group">
+                <h3>
+                    {{ type|title }}
+                    <span class="priority-badge medium">{{ notifications|length }}</span>
+                </h3>
+                
+                {% for notification in notifications %}
+                <div class="notification-item">
+                    <h4>{{ notification.title }}</h4>
+                    <p>{{ notification.message }}</p>
+                    <div class="meta">
+                        <i>📅</i> {{ notification.created_at|date:"F j, Y, g:i A" }}
+                        {% if notification.priority %}
+                            <span class="priority-badge {{ notification.priority|lower }}">{{ notification.get_priority_display }}</span>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% endfor %}
+
+            <!-- View All Button -->
+            <div style="text-align: center;">
+                <a href="{{ view_all_url }}" class="btn">
+                    View All Notifications
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer">
+        <p>
+            © {% now "Y" %} PayrollCo. All rights reserved.
+        </p>
+        <p>
+            <a href="{{ unsubscribe_url }}">Unsubscribe from digests</a> | 
+            <a href="{{ preferences_url }}">Manage notification preferences</a>
+        </p>
+    </div>
+</body>
+</html>

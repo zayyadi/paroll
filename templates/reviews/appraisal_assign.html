@@ -1,0 +1,16 @@
+{% extends "base_tailwind.html" %}
+{% load crispy_forms_tags %}
+
+{% block page_header %}Assign Appraisal{% endblock %}
+
+{% block content %}
+<div class="bg-white shadow-md rounded-lg p-6">
+  <form method="post" class="space-y-6">
+    {% csrf_token %}
+    {{ form|crispy }}
+    <div class="flex justify-end">
+      <button type="submit" class="bg-primary text-white px-6 py-2 rounded-lg hover:bg-opacity-90">Assign</button>
+    </div>
+  </form>
+</div>
+{% endblock %}

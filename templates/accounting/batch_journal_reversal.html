@@ -1,0 +1,240 @@
+{% extends "accounting/base.html" %}
+
+{% block title %}Batch Journal Reversal{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-danger text-white">
+                    <h4 class="card-title">
+                        <i class="fas fa-undo-alt"></i> Batch Journal Reversal
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <!-- Warning Message -->
+                    <div class="alert alert-danger" role="alert">
+                        <h5><i class="fas fa-exclamation-triangle"></i> Warning: Mass Reversal Action</h5>
+                        <p>You are about to reverse multiple journals in a single operation. This action cannot be undone and will be logged for audit purposes.</p>
+                        <p><strong>Total journals available for reversal:</strong> {{ total_journals }}</p>
+                    </div>
+
+                    <!-- Batch Reversal Form -->
+                    <div class="row">
+                        <div class="col-12">
+                            <form method="post">
+                                {% csrf_token %}
+                                
+                                <div class="form-group">
+                                    <label for="{{ form.journals.id_for_label }}" class="form-label">
+                                        {{ form.journals.label }} <span class="text-danger">*</span>
+                                    </label>
+                                    {{ form.journals }}
+                                    {% if form.journals.help_text %}
+                                    <small class="form-text text-muted">{{ form.journals.help_text }}</small>
+                                    {% endif %}
+                                    {% if form.journals.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {% for error in form.journals.errors %}{{ error }}{% endfor %}
+                                    </div>
+                                    {% endif %}
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="{{ form.reason.id_for_label }}" class="form-label">
+                                        {{ form.reason.label }} <span class="text-danger">*</span>
+                                    </label>
+                                    {{ form.reason }}
+                                    {% if form.reason.help_text %}
+                                    <small class="form-text text-muted">{{ form.reason.help_text }}</small>
+                                    {% endif %}
+                                    {% if form.reason.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {% for error in form.reason.errors %}{{ error }}{% endfor %}
+                                    </div>
+                                    {% endif %}
+                                </div>
+
+                                <div class="form-group">
+                                    <button type="button" class="btn btn-outline-primary" onclick="selectAllJournals()">
+                                        <i class="fas fa-check-square"></i> Select All
+                                    </button>
+                                    <button type="button" class="btn btn-outline-secondary" onclick="deselectAllJournals()">
+                                        <i class="fas fa-square"></i> Deselect All
+                                    </button>
+                                    <button type="button" class="btn btn-outline-info" onclick="showSelectedCount()">
+                                        <i class="fas fa-info-circle"></i> Show Count
+                                    </button>
+                                </div>
+
+                                <div class="form-group">
+                                    <button type="submit" class="btn btn-danger" onclick="return confirmBatchReversal()">
+                                        <i class="fas fa-undo-alt"></i> Reverse Selected Journals
+                                    </button>
+                                    <a href="{% url 'accounting:journal_list' %}" class="btn btn-secondary">
+                                        <i class="fas fa-times"></i> Cancel
+                                    </a>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .checkbox-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+        gap: 15px;
+        margin-top: 15px;
+    }
+    
+    .checkbox-item {
+        border: 1px solid #ddd;
+        border-radius: 5px;
+        padding: 15px;
+        background-color: #f8f9fa;
+        transition: all 0.3s ease;
+    }
+    
+    .checkbox-item:hover {
+        background-color: #e9ecef;
+        border-color: #adb5bd;
+    }
+    
+    .checkbox-item.selected {
+        background-color: #d1ecf1;
+        border-color: #bee5eb;
+    }
+    
+    .checkbox-item input[type="checkbox"] {
+        margin-right: 10px;
+        transform: scale(1.2);
+    }
+    
+    .checkbox-item label {
+        font-weight: 500;
+        margin-bottom: 0;
+        cursor: pointer;
+    }
+    
+    .journal-details {
+        font-size: 0.9em;
+        color: #6c757d;
+        margin-top: 5px;
+    }
+    
+    .badge-draft { background-color: #6c757d; }
+    .badge-pending_approval { background-color: #ffc107; }
+    .badge-approved { background-color: #17a2b8; }
+    .badge-posted { background-color: #28a745; }
+    .badge-cancelled { background-color: #dc3545; }
+    .badge-reversed { background-color: #6f42c1; }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function selectAllJournals() {
+    const checkboxes = document.querySelectorAll('input[name="journals"]');
+    checkboxes.forEach(checkbox => {
+        checkbox.checked = true;
+        updateCheckboxItem(checkbox);
+    });
+    updateSelectedCount();
+}
+
+function deselectAllJournals() {
+    const checkboxes = document.querySelectorAll('input[name="journals"]');
+    checkboxes.forEach(checkbox => {
+        checkbox.checked = false;
+        updateCheckboxItem(checkbox);
+    });
+    updateSelectedCount();
+}
+
+function updateCheckboxItem(checkbox) {
+    const item = checkbox.closest('.checkbox-item');
+    if (item) {
+        if (checkbox.checked) {
+            item.classList.add('selected');
+        } else {
+            item.classList.remove('selected');
+        }
+    }
+}
+
+function showSelectedCount() {
+    const checkboxes = document.querySelectorAll('input[name="journals"]:checked');
+    alert(`Selected ${checkboxes.length} journals for reversal.`);
+}
+
+function updateSelectedCount() {
+    const checkboxes = document.querySelectorAll('input[name="journals"]:checked');
+    const count = checkboxes.length;
+    
+    // Update display if element exists
+    const countDisplay = document.getElementById('selected-count');
+    if (countDisplay) {
+        countDisplay.textContent = count;
+    }
+}
+
+function confirmBatchReversal() {
+    const checkboxes = document.querySelectorAll('input[name="journals"]:checked');
+    
+    if (checkboxes.length === 0) {
+        alert('Please select at least one journal to reverse.');
+        return false;
+    }
+    
+    const message = `You are about to reverse ${checkboxes.length} journal(s). This action cannot be undone.\n\nDo you want to continue?`;
+    
+    return confirm(message);
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Wrap checkboxes in custom containers
+    const checkboxes = document.querySelectorAll('input[name="journals"]');
+    checkboxes.forEach(checkbox => {
+        const label = document.querySelector(`label[for="${checkbox.id}"]`);
+        if (label && !label.closest('.checkbox-item')) {
+            const item = document.createElement('div');
+            item.className = 'checkbox-item';
+            
+            // Extract journal details from label text
+            const labelText = label.textContent.trim();
+            const journalNumber = labelText.match(/TXN\d+/);
+            const description = labelText.match(/- (.+?) \(/);
+            
+            item.innerHTML = `
+                <div class="d-flex align-items-center">
+                    ${checkbox.outerHTML}
+                    <label for="${checkbox.id}" class="mb-0">${journalNumber ? journalNumber[0] : ''}</label>
+                </div>
+                <div class="journal-details">
+                    ${description ? description[1] : labelText}
+                </div>
+            `;
+            
+            checkbox.parentNode.replaceChild(item, checkbox);
+            
+            // Add event listener to new checkbox
+            const newCheckbox = item.querySelector('input[type="checkbox"]');
+            newCheckbox.addEventListener('change', function() {
+                updateCheckboxItem(this);
+                updateSelectedCount();
+            });
+        }
+    });
+    
+    updateSelectedCount();
+});
+</script>
+{% endblock %}

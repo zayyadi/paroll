@@ -1,1 +1,40 @@
 whitenoise==6.2.0
+weasyprint==61.2
+django-weasyprint==1.2.0
+django-jazzmin==2.6.0
+
+# ============================================================================
+# NOTIFICATION SYSTEM DEPENDENCIES
+# ============================================================================
+# Architecture Reference: plans/NOTIFICATION_SYSTEM_ARCHITECTURE.md (Section 20)
+
+# Celery for async task processing
+celery>=5.3.0
+redis>=5.0.0
+django-redis>=5.4.0
+django-celery-beat>=2.5.0
+
+# Django Channels for real-time WebSocket updates
+channels>=4.0.0
+channels-redis>=4.1.0
+daphne>=4.0.0
+
+# SMS notifications via Twilio
+twilio>=8.10.0
+
+# Push notifications via Firebase Cloud Messaging
+firebase-admin>=6.2.0
+fcm-django>=2.0.0
+pyfcm>=4.0.0
+
+# Email template enhancements
+django-templated-mail>=1.1.1
+premailer>=3.10.0
+
+# Monitoring and analytics (optional)
+django-prometheus>=2.3.1
+sentry-sdk>=1.40.0
+
+# Testing support for Channels and Celery
+channels-testing>=0.8.0
+celery-test>=0.0.3

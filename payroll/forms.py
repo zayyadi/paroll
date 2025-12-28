@@ -50,6 +50,12 @@ class EmployeeProfileForm(forms.ModelForm):
                     "class": "h-10 border mt-1 rounded px-4 w-full bg-gray-50",
                 }
             ),
+            "slug": forms.TextInput(
+                attrs={
+                    "label": "block text-white text-sm font-bold mb-2",
+                    "class": "h-10 border mt-1 rounded px-4 w-full bg-gray-50",
+                }
+            ),
             "address": forms.TextInput(
                 attrs={
                     "label": "block text-white text-sm font-bold mb-2",
@@ -64,18 +70,6 @@ class EmployeeProfileForm(forms.ModelForm):
                     "class": "h-10 border mt-1 rounded px-4 w-full bg-gray-50",
                 }
             ),
-            # "date_of_birth": forms.TextInput(
-            #     attrs={
-            #         "label": "block text-white text-sm font-bold mb-2",
-            #         "class": "h-10 border mt-1 rounded px-4 w-full bg-gray-50",
-            #     }
-            # ),
-            # "date_of_employment": forms.TextInput(
-            #     attrs={
-            #         "label": "block text-white text-sm font-bold mb-2",
-            #         "class": "h-10 border mt-1 rounded px-4 w-full bg-gray-50",
-            #     }
-            # ),
             "contract_type": forms.Select(),
             "phone": forms.TextInput(
                 attrs={
@@ -167,10 +161,9 @@ class EmployeeProfileUpdateForm(forms.ModelForm):
         }
 
 
-class PayrollForm(forms.ModelForm):
-    class Meta:
-        model = models.Payroll
-        fields = ("basic_salary",)
+class PayrollForm(forms.Form):
+    employee = forms.ModelChoiceField(queryset=models.EmployeeProfile.objects.all())
+    basic_salary = forms.DecimalField(max_digits=12, decimal_places=2)
 
 
 class AllowanceForm(forms.ModelForm):
@@ -333,16 +326,173 @@ class AuditTrailForm(forms.ModelForm):
         ]  # Excluded 'timestamp' as it is non-editable.
 
 
-class PerformanceReviewForm(forms.ModelForm):
+class AppraisalForm(forms.ModelForm):
     class Meta:
-        model = models.PerformanceReview
-        fields = ["employee", "review_date", "rating", "comments"]
+        model = models.Appraisal
+        fields = ["name", "start_date", "end_date"]
         widgets = {
-            "review_date": forms.DateInput(
-                attrs={"type": "date", "class": "border rounded p-2"}
-            ),
-            "rating": forms.Select(attrs={"class": "border rounded p-2"}),
-            "comments": forms.Textarea(
-                attrs={"rows": 4, "class": "border rounded p-2"}
-            ),
+            "start_date": forms.DateInput(attrs={"type": "date"}),
+            "end_date": forms.DateInput(attrs={"type": "date"}),
         }
+
+
+class ReviewForm(forms.ModelForm):
+    class Meta:
+        model = models.Review
+        fields = ["self_assessment"]
+
+
+class RatingForm(forms.ModelForm):
+    class Meta:
+        model = models.Rating
+        fields = ["metric", "rating", "comments"]
+
+
+BaseRatingFormSet = forms.inlineformset_factory(
+    models.Review, models.Rating, form=RatingForm, extra=0, can_delete=False
+)
+
+
+class AppraisalAssignmentForm(forms.ModelForm):
+    class Meta:
+        model = models.AppraisalAssignment
+        fields = ["appraisal", "appraisee", "appraiser"]
+
+
+class PaydayCreateForm(forms.Form):
+    """Enhanced form for creating PayT (Pay Period) with efficient employee selection."""
+
+    name = forms.CharField(
+        label="Pay Period Name",
+        required=True,
+        widget=forms.TextInput(
+            attrs={
+                "class": "w-full px-4 py-2.5 border border-secondary-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm",
+                "placeholder": "e.g., December 2024 Payroll",
+            }
+        ),
+    )
+    paydays = MonthField(
+        label="Month",
+        required=True,
+    )
+    is_active = forms.BooleanField(
+        label="Mark as Active",
+        required=False,
+        widget=forms.CheckboxInput(
+            attrs={
+                "class": "h-4 w-4 text-primary-600 border-secondary-300 rounded focus:ring-primary-500"
+            }
+        ),
+    )
+    closed = forms.BooleanField(
+        label="Close for Editing",
+        required=False,
+        widget=forms.CheckboxInput(
+            attrs={
+                "class": "h-4 w-4 text-primary-600 border-secondary-300 rounded focus:ring-primary-500"
+            }
+        ),
+    )
+
+    # Hidden field to store selected employee IDs
+    payroll_payday = forms.CharField(
+        widget=forms.HiddenInput(attrs={"name": "payroll_payday"}),
+        required=False,
+    )
+
+    def save(self):
+        """Create PayT instance and related PayVar/Payday entries."""
+        from payroll.models import PayT, PayVar, Payday, EmployeeProfile
+
+        # Create the PayT instance
+        payt = PayT.objects.create(
+            name=self.cleaned_data["name"],
+            paydays=self.cleaned_data["paydays"],
+            is_active=self.cleaned_data.get("is_active", False),
+            closed=self.cleaned_data.get("closed", False),
+        )
+
+        # Get selected employee IDs
+        employee_ids_str = self.cleaned_data.get("payroll_payday", "")
+        if employee_ids_str:
+            employee_ids = [
+                int(eid.strip()) for eid in employee_ids_str.split(",") if eid.strip()
+            ]
+
+            # Create PayVar and Payday entries for selected employees
+            for emp_id in employee_ids:
+                try:
+                    employee = EmployeeProfile.objects.get(id=emp_id)
+                    payvar = PayVar.objects.create(pays=employee)
+                    Payday.objects.create(paydays_id=payt, payroll_id=payvar)
+                except EmployeeProfile.DoesNotExist:
+                    continue
+
+        return payt
+
+
+class PayVarCreateForm(forms.Form):
+    """Enhanced form for creating PayVar (Payroll Variables) for multiple employees."""
+
+    employee_ids = forms.CharField(
+        widget=forms.HiddenInput(attrs={"name": "employee_ids"}),
+        required=False,
+    )
+    is_housing = forms.BooleanField(
+        label="NHF Deductable",
+        required=False,
+        widget=forms.CheckboxInput(
+            attrs={
+                "class": "h-4 w-4 text-primary-600 border-secondary-300 rounded focus:ring-primary-500"
+            }
+        ),
+    )
+    is_nhif = forms.BooleanField(
+        label="NHIF Deductable",
+        required=False,
+        widget=forms.CheckboxInput(
+            attrs={
+                "class": "h-4 w-4 text-primary-600 border-secondary-300 rounded focus:ring-primary-500"
+            }
+        ),
+    )
+    status = forms.ChoiceField(
+        label="Status",
+        choices=models.PayVar._meta.get_field("status").choices,
+        initial="pending",
+        widget=forms.Select(
+            attrs={
+                "class": "w-full px-4 py-2.5 border border-secondary-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm bg-white"
+            }
+        ),
+    )
+
+    def save(self):
+        """Create PayVar entries for selected employees."""
+        from payroll.models import PayVar, EmployeeProfile
+
+        payvars = []
+
+        # Get selected employee IDs
+        employee_ids_str = self.cleaned_data.get("employee_ids", "")
+        if employee_ids_str:
+            employee_ids = [
+                int(eid.strip()) for eid in employee_ids_str.split(",") if eid.strip()
+            ]
+
+            # Create PayVar entries for selected employees
+            for emp_id in employee_ids:
+                try:
+                    employee = EmployeeProfile.objects.get(id=emp_id)
+                    payvar = PayVar.objects.create(
+                        pays=employee,
+                        is_housing=self.cleaned_data.get("is_housing", False),
+                        is_nhif=self.cleaned_data.get("is_nhif", False),
+                        status=self.cleaned_data.get("status", "pending"),
+                    )
+                    payvars.append(payvar)
+                except EmployeeProfile.DoesNotExist:
+                    continue
+
+        return payvars

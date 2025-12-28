@@ -1,0 +1,273 @@
+{% extends "accounting/base.html" %}
+
+{% block title %}Journal Reversal History{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-info text-white">
+                    <h4 class="card-title">
+                        <i class="fas fa-history"></i> Journal Reversal History
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <!-- Journal Information -->
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <h5>Journal Information</h5>
+                            <table class="table table-sm">
+                                <tr>
+                                    <th>Transaction Number:</th>
+                                    <td>{{ journal.transaction_number }}</td>
+                                </tr>
+                                <tr>
+                                    <th>Description:</th>
+                                    <td>{{ journal.description }}</td>
+                                </tr>
+                                <tr>
+                                    <th>Date:</th>
+                                    <td>{{ journal.date }}</td>
+                                </tr>
+                                <tr>
+                                    <th>Period:</th>
+                                    <td>{{ journal.period }}</td>
+                                </tr>
+                                <tr>
+                                    <th>Status:</th>
+                                    <td>
+                                        <span class="badge badge-{{ journal.status|lower }}">
+                                            {{ journal.get_status_display }}
+                                        </span>
+                                    </td>
+                                </tr>
+                            </table>
+                        </div>
+                        <div class="col-md-6">
+                            <h5>Reversal Status</h5>
+                            <table class="table table-sm">
+                                <tr>
+                                    <th>Is Reversed:</th>
+                                    <td>
+                                        {% if is_reversed %}
+                                            <span class="badge badge-danger">Yes</span>
+                                        {% else %}
+                                            <span class="badge badge-success">No</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th>Is Reversal:</th>
+                                    <td>
+                                        {% if is_reversal %}
+                                            <span class="badge badge-warning">Yes</span>
+                                        {% else %}
+                                            <span class="badge badge-success">No</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% if reversal_reason %}
+                                <tr>
+                                    <th>Reversal Reason:</th>
+                                    <td>{{ reversal_reason|linebreaks }}</td>
+                                </tr>
+                                {% endif %}
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Reversal History -->
+                    {% if reversal_history %}
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <h5>Reversal History</h5>
+                            <div class="table-responsive">
+                                <table class="table table-striped">
+                                    <thead>
+                                        <tr>
+                                            <th>Type</th>
+                                            <th>Journal Number</th>
+                                            <th>Description</th>
+                                            <th>Date</th>
+                                            <th>User</th>
+                                            <th>Reason</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for history_item in reversal_history %}
+                                        <tr>
+                                            <td>
+                                                {% if history_item.type == "reversed_by" %}
+                                                    <span class="badge badge-danger">Reversed By</span>
+                                                {% elif history_item.type == "reversal_of" %}
+                                                    <span class="badge badge-warning">Reversal Of</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                <a href="{% url 'accounting:journal_detail' history_item.journal.pk %}">
+                                                    {{ history_item.journal.transaction_number }}
+                                                </a>
+                                            </td>
+                                            <td>{{ history_item.journal.description }}</td>
+                                            <td>{{ history_item.timestamp|date:"Y-m-d H:i" }}</td>
+                                            <td>{{ history_item.user.get_full_name|default:history_item.user.username }}</td>
+                                            <td>{{ history_item.reason|default:"-"|truncatechars:50 }}</td>
+                                            <td>
+                                                <a href="{% url 'accounting:journal_detail' history_item.journal.pk %}" 
+                                                   class="btn btn-sm btn-outline-primary" title="View Details">
+                                                    <i class="fas fa-eye"></i>
+                                                </a>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- Audit Trail -->
+                    {% if audit_entries %}
+                    <div class="row">
+                        <div class="col-12">
+                            <h5>Audit Trail</h5>
+                            <div class="table-responsive">
+                                <table class="table table-striped">
+                                    <thead>
+                                        <tr>
+                                            <th>Timestamp</th>
+                                            <th>User</th>
+                                            <th>Action</th>
+                                            <th>Changes</th>
+                                            <th>Reason</th>
+                                            <th>IP Address</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for entry in audit_entries %}
+                                        <tr>
+                                            <td>{{ entry.timestamp|date:"Y-m-d H:i:s" }}</td>
+                                            <td>{{ entry.user.get_full_name|default:entry.user.username }}</td>
+                                            <td>
+                                                <span class="badge badge-{{ entry.action|lower }}">
+                                                    {{ entry.get_action_display }}
+                                                </span>
+                                            </td>
+                                            <td>
+                                                {% if entry.changes %}
+                                                    <button type="button" class="btn btn-sm btn-outline-info" 
+                                                            data-toggle="modal" data-target="#changesModal{{ entry.pk }}">
+                                                        <i class="fas fa-code"></i> View
+                                                    </button>
+                                                {% else %}
+                                                    -
+                                                {% endif %}
+                                            </td>
+                                            <td>{{ entry.reason|default:"-"|truncatechars:50 }}</td>
+                                            <td>{{ entry.ip_address|default:"-" }}</td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- Action Buttons -->
+                    <div class="row">
+                        <div class="col-12">
+                            <div class="form-group">
+                                <a href="{% url 'accounting:journal_detail' journal.pk %}" class="btn btn-primary">
+                                    <i class="fas fa-arrow-left"></i> Back to Journal
+                                </a>
+                                
+                                {% if can_reverse and not is_reversed %}
+                                <a href="{% url 'accounting:journal_reversal_initiation' journal.pk %}" 
+                                   class="btn btn-warning">
+                                    <i class="fas fa-undo"></i> Reverse Journal
+                                </a>
+                                {% endif %}
+                                
+                                <a href="{% url 'accounting:journal_list' %}" class="btn btn-secondary">
+                                    <i class="fas fa-list"></i> Journal List
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Changes Modal -->
+{% for entry in audit_entries %}
+{% if entry.changes %}
+<div class="modal fade" id="changesModal{{ entry.pk }}" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Audit Changes - {{ entry.timestamp|date:"Y-m-d H:i:s" }}</h5>
+                <button type="button" class="close" data-dismiss="modal">
+                    <span>&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <pre class="bg-light p-3 rounded"><code>{{ entry.changes|pprint }}</code></pre>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endfor %}
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .badge-draft { background-color: #6c757d; }
+    .badge-pending_approval { background-color: #ffc107; }
+    .badge-approved { background-color: #17a2b8; }
+    .badge-posted { background-color: #28a745; }
+    .badge-cancelled { background-color: #dc3545; }
+    .badge-reversed { background-color: #6f42c1; }
+    .badge-create { background-color: #28a745; }
+    .badge-update { background-color: #17a2b8; }
+    .badge-delete { background-color: #dc3545; }
+    .badge-approve { background-color: #28a745; }
+    .badge-reject { background-color: #dc3545; }
+    .badge-post { background-color: #28a745; }
+    .badge-reverse { background-color: #6f42c1; }
+    .badge-close_period { background-color: #fd7e14; }
+    .badge-close_fiscal_year { background-color: #e83e8c; }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Add tooltips for action buttons
+    const actionButtons = document.querySelectorAll('[title]');
+    actionButtons.forEach(button => {
+        if (!button.getAttribute('data-toggle')) {
+            button.setAttribute('data-toggle', 'tooltip');
+            button.setAttribute('data-placement', 'top');
+        }
+    });
+    
+    // Initialize tooltips if Bootstrap is available
+    if (typeof bootstrap !== 'undefined') {
+        const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-toggle="tooltip"]'));
+        tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl);
+        });
+    }
+});
+</script>
+{% endblock %}

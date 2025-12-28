@@ -1,11 +1,11 @@
-{% extends "base.html" %}
+{% extends "base_tailwind.html" %}
 {% load static %}
 {% load tailwind_filters %}
 {% load tailwind_tags %}
 {% tailwind_preload_css %}
 {% tailwind_css %}
 {% block title %}
-  Bank REPORTS
+Bank REPORTS
 {% endblock title %}
 
 {% block content %}
@@ -24,13 +24,15 @@
             </thead>
             <tbody>
                 {% for payroll in payroll %}
-                    <tr class="bg-white even:bg-gray-50">
-                        <td class="px-4 py-2 border-b text-center">{{ forloop.counter }}</td>
-                        <td class="px-4 py-2 border-b text-center">{{ payroll.paydays }}</td>
-                        <td class="px-4 py-2 border-b text-center">
-                            <a href="{% url 'payroll:bankReport' payroll.id %}" class="inline-block bg-blue-500 text-white py-1 px-3 rounded hover:bg-blue-600">View Report</a>
-                        </td>
-                    </tr>
+                <tr class="bg-white even:bg-gray-50">
+                    <td class="px-4 py-2 border-b text-center">{{ forloop.counter }}</td>
+                    <td class="px-4 py-2 border-b text-center">{{ payroll.paydays }}</td>
+                    <td class="px-4 py-2 border-b text-center">
+                        <a href="{% url 'payroll:bankReport' payroll.id %}"
+                            class="inline-block bg-blue-500 text-white py-1 px-3 rounded hover:bg-blue-600">View
+                            Report</a>
+                    </td>
+                </tr>
                 {% endfor %}
             </tbody>
         </table>

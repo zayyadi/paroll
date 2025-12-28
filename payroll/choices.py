@@ -26,6 +26,7 @@ ALLOWANCES = (
 
 DEDUCTIONS = (
     ("NULL", "NULL"),
+    ("IOU", "IOU Repayment"),
     ("LT", "Lateness"),
     ("AB", "Absensce"),
     ("DM", "Damages"),

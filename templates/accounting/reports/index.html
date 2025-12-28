@@ -1,0 +1,196 @@
+{% extends "accounting/base.html" %}
+{% load static %}
+
+{% block page_title %}Financial Reports{% endblock %}
+
+{% block breadcrumbs %}
+{% with breadcrumbs=breadcrumbs|default:"[{'title': 'Financial Reports'}]" %}
+{{ block.super }}
+{% endwith %}
+{% endblock %}
+
+{% block accounting_content %}
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <!-- Report Categories -->
+    <div class="lg:col-span-2 space-y-6">
+        <!-- Financial Reports -->
+        <div class="bg-white rounded-lg shadow-soft">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <h3 class="text-lg font-semibold text-secondary-900">Financial Reports</h3>
+            </div>
+            <div class="p-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <a href="{% url 'accounting:trial_balance' %}" class="block p-4 border border-secondary-200 rounded-lg hover:border-primary-300 hover:bg-primary-50 transition-colors">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0 bg-primary-100 rounded-lg p-3">
+                                <i data-lucide="scale" class="h-6 w-6 text-primary-600"></i>
+                            </div>
+                            <div class="ml-4">
+                                <h4 class="text-base font-medium text-secondary-900">Trial Balance</h4>
+                                <p class="mt-1 text-sm text-secondary-600">View account balances for a specific period</p>
+                            </div>
+                        </div>
+                    </a>
+                    
+                    <a href="{% url 'accounting:general_ledger' %}" class="block p-4 border border-secondary-200 rounded-lg hover:border-primary-300 hover:bg-primary-50 transition-colors">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0 bg-success-100 rounded-lg p-3">
+                                <i data-lucide="book" class="h-6 w-6 text-success-600"></i>
+                            </div>
+                            <div class="ml-4">
+                                <h4 class="text-base font-medium text-secondary-900">General Ledger</h4>
+                                <p class="mt-1 text-sm text-secondary-600">Detailed transaction history for all accounts</p>
+                            </div>
+                        </div>
+                    </a>
+                    
+                    <a href="{% url 'accounting:balance_sheet' %}" class="block p-4 border border-secondary-200 rounded-lg hover:border-primary-300 hover:bg-primary-50 transition-colors">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0 bg-warning-100 rounded-lg p-3">
+                                <i data-lucide="pie-chart" class="h-6 w-6 text-warning-600"></i>
+                            </div>
+                            <div class="ml-4">
+                                <h4 class="text-base font-medium text-secondary-900">Balance Sheet</h4>
+                                <p class="mt-1 text-sm text-secondary-600">Assets, liabilities, and equity summary</p>
+                            </div>
+                        </div>
+                    </a>
+                    
+                    <a href="{% url 'accounting:income_statement' %}" class="block p-4 border border-secondary-200 rounded-lg hover:border-primary-300 hover:bg-primary-50 transition-colors">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0 bg-info-100 rounded-lg p-3">
+                                <i data-lucide="trending-up" class="h-6 w-6 text-info-600"></i>
+                            </div>
+                            <div class="ml-4">
+                                <h4 class="text-base font-medium text-secondary-900">Income Statement</h4>
+                                <p class="mt-1 text-sm text-secondary-600">Revenue and expense summary</p>
+                            </div>
+                        </div>
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Account Reports -->
+        <div class="bg-white rounded-lg shadow-soft">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <h3 class="text-lg font-semibold text-secondary-900">Account Reports</h3>
+            </div>
+            <div class="p-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <a href="{% url 'accounting:account_activity' %}" class="block p-4 border border-secondary-200 rounded-lg hover:border-primary-300 hover:bg-primary-50 transition-colors">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0 bg-purple-100 rounded-lg p-3">
+                                <i data-lucide="activity" class="h-6 w-6 text-purple-600"></i>
+                            </div>
+                            <div class="ml-4">
+                                <h4 class="text-base font-medium text-secondary-900">Account Activity</h4>
+                                <p class="mt-1 text-sm text-secondary-600">Transaction history for specific accounts</p>
+                            </div>
+                        </div>
+                    </a>
+                    
+                    <a href="{% url 'accounting:account_balance' %}" class="block p-4 border border-secondary-200 rounded-lg hover:border-primary-300 hover:bg-primary-50 transition-colors">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0 bg-indigo-100 rounded-lg p-3">
+                                <i data-lucide="dollar-sign" class="h-6 w-6 text-indigo-600"></i>
+                            </div>
+                            <div class="ml-4">
+                                <h4 class="text-base font-medium text-secondary-900">Account Balance</h4>
+                                <p class="mt-1 text-sm text-secondary-600">Balance analysis for accounts</p>
+                            </div>
+                        </div>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Report Generator -->
+    <div class="space-y-6">
+        <!-- Trial Balance Quick Form -->
+        <div class="bg-white rounded-lg shadow-soft">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <h3 class="text-lg font-semibold text-secondary-900">Quick Trial Balance</h3>
+            </div>
+            <div class="p-6">
+                <form method="get" action="{% url 'accounting:trial_balance' %}" class="space-y-4">
+                    <div>
+                        <label for="period" class="block text-sm font-medium text-secondary-700 mb-1">Period</label>
+                        <select name="period" id="period" class="form-input block w-full px-3 py-2 border border-secondary-300 rounded-md leading-5 bg-white focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500 sm:text-sm">
+                            <option value="">Select a period</option>
+                            {% for period in periods %}
+                            <option value="{{ period.pk }}">{{ period.name }} ({{ period.fiscal_year.name }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label for="as_of_date" class="block text-sm font-medium text-secondary-700 mb-1">Or As Of Date</label>
+                        <input type="date" name="as_of_date" id="as_of_date" 
+                               class="form-input block w-full px-3 py-2 border border-secondary-300 rounded-md leading-5 bg-white focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500 sm:text-sm">
+                    </div>
+                    <button type="submit" class="w-full btn-primary inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white">
+                        <i data-lucide="file-text" class="mr-2 h-4 w-4"></i>
+                        Generate Report
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Account Activity Quick Form -->
+        <div class="bg-white rounded-lg shadow-soft">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <h3 class="text-lg font-semibold text-secondary-900">Quick Account Activity</h3>
+            </div>
+            <div class="p-6">
+                <form method="get" action="{% url 'accounting:account_activity' %}" class="space-y-4">
+                    <div>
+                        <label for="account" class="block text-sm font-medium text-secondary-700 mb-1">Account</label>
+                        <select name="account" id="account" class="form-input block w-full px-3 py-2 border border-secondary-300 rounded-md leading-5 bg-white focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500 sm:text-sm">
+                            <option value="">Select an account</option>
+                            {% for account in accounts %}
+                            <option value="{{ account.pk }}">{{ account.name }} ({{ account.account_number|default:"—" }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label for="start_date" class="block text-sm font-medium text-secondary-700 mb-1">Start Date</label>
+                            <input type="date" name="start_date" id="start_date" 
+                                   class="form-input block w-full px-3 py-2 border border-secondary-300 rounded-md leading-5 bg-white focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500 sm:text-sm">
+                        </div>
+                        <div>
+                            <label for="end_date" class="block text-sm font-medium text-secondary-700 mb-1">End Date</label>
+                            <input type="date" name="end_date" id="end_date" 
+                                   class="form-input block w-full px-3 py-2 border border-secondary-300 rounded-md leading-5 bg-white focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500 sm:text-sm">
+                        </div>
+                    </div>
+                    <button type="submit" class="w-full btn-primary inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white">
+                        <i data-lucide="activity" class="mr-2 h-4 w-4"></i>
+                        Generate Report
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Export Options -->
+        <div class="bg-white rounded-lg shadow-soft">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <h3 class="text-lg font-semibold text-secondary-900">Export Options</h3>
+            </div>
+            <div class="p-6">
+                <div class="space-y-3">
+                    <a href="{% url 'accounting:export_reports' %}?format=excel" class="block w-full text-center px-4 py-2 border border-secondary-300 text-sm font-medium rounded-md text-secondary-700 bg-white hover:bg-secondary-50">
+                        <i data-lucide="file-spreadsheet" class="inline h-4 w-4 mr-2"></i>
+                        Export to Excel
+                    </a>
+                    <a href="{% url 'accounting:export_reports' %}?format=pdf" class="block w-full text-center px-4 py-2 border border-danger-300 text-sm font-medium rounded-md text-danger-700 bg-danger-50 hover:bg-danger-100">
+                        <i data-lucide="file-text" class="inline h-4 w-4 mr-2"></i>
+                        Export to PDF
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

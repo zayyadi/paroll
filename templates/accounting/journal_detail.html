@@ -1,0 +1,227 @@
+{% extends "accounting/base.html" %}
+{% load static %}
+
+{% block page_title %}Journal Entry Details{% endblock %}
+
+{% block breadcrumbs %}
+{% with breadcrumbs=breadcrumbs|default:"[{'title': 'General Journal', 'url': '/accounting/journals/'}, {'title': journal.transaction_number}]" %}
+{{ block.super }}
+{% endwith %}
+{% endblock %}
+
+{% block accounting_content %}
+<!-- Journal Header -->
+<div class="bg-white rounded-lg shadow-soft mb-6">
+    <div class="px-6 py-4 border-b border-gray-200">
+        <div class="flex items-center justify-between">
+            <div>
+                <h3 class="text-lg font-semibold text-secondary-900">{{ journal.transaction_number }}</h3>
+                <p class="text-sm text-secondary-600">{{ journal.date|date:"F d, Y" }}</p>
+            </div>
+            <div class="flex items-center space-x-3">
+                <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium
+                    {% if journal.status == 'DRAFT' %}bg-warning-100 text-warning-800
+                    {% elif journal.status == 'PENDING_APPROVAL' %}bg-primary-100 text-primary-800
+                    {% elif journal.status == 'APPROVED' %}bg-info-100 text-info-800
+                    {% elif journal.status == 'POSTED' %}bg-success-100 text-success-800
+                    {% elif journal.status == 'CANCELLED' %}bg-danger-100 text-danger-800
+                    {% elif journal.status == 'REVERSED' %}bg-secondary-100 text-secondary-800
+                    {% endif %}">
+                    {{ journal.get_status_display }}
+                </span>
+            </div>
+        </div>
+    </div>
+    <div class="px-6 py-4">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+                <p class="text-sm font-medium text-secondary-500">Description</p>
+                <p class="text-sm text-secondary-900 mt-1">{{ journal.description }}</p>
+            </div>
+            <div>
+                <p class="text-sm font-medium text-secondary-500">Period</p>
+                <p class="text-sm text-secondary-900 mt-1">{{ journal.period.name }} ({{ journal.period.fiscal_year.name }})</p>
+            </div>
+            <div>
+                <p class="text-sm font-medium text-secondary-500">Created By</p>
+                <p class="text-sm text-secondary-900 mt-1">{{ journal.created_by.first_name|default:journal.created_by.email|default:"—" }}</p>
+            </div>
+            <div>
+                <p class="text-sm font-medium text-secondary-500">Created At</p>
+                <p class="text-sm text-secondary-900 mt-1">{{ journal.created_at|date:"F d, Y H:i" }}</p>
+            </div>
+            {% if journal.approved_by %}
+            <div>
+                <p class="text-sm font-medium text-secondary-500">Approved By</p>
+                <p class="text-sm text-secondary-900 mt-1">{{ journal.approved_by.first_name|default:journal.approved_by.email }}</p>
+            </div>
+            <div>
+                <p class="text-sm font-medium text-secondary-500">Approved At</p>
+                <p class="text-sm text-secondary-900 mt-1">{{ journal.approved_at|date:"F d, Y H:i" }}</p>
+            </div>
+            {% endif %}
+            {% if journal.posted_by %}
+            <div>
+                <p class="text-sm font-medium text-secondary-500">Posted By</p>
+                <p class="text-sm text-secondary-900 mt-1">{{ journal.posted_by.first_name|default:journal.posted_by.email }}</p>
+            </div>
+            <div>
+                <p class="text-sm font-medium text-secondary-500">Posted At</p>
+                <p class="text-sm text-secondary-900 mt-1">{{ journal.posted_at|date:"F d, Y H:i" }}</p>
+            </div>
+            {% endif %}
+            {% if journal.reversal_reason %}
+            <div class="md:col-span-2">
+                <p class="text-sm font-medium text-secondary-500">Reversal Reason</p>
+                <p class="text-sm text-secondary-900 mt-1">{{ journal.reversal_reason }}</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Journal Entries -->
+<div class="bg-white rounded-lg shadow-soft mb-6">
+    <div class="px-6 py-4 border-b border-gray-200">
+        <div class="flex items-center justify-between">
+            <h3 class="text-lg font-semibold text-secondary-900">Journal Entries</h3>
+            <div class="flex items-center space-x-4">
+                <div class="text-sm">
+                    <span class="font-medium text-secondary-900">Total Debits:</span>
+                    <span class="font-bold text-danger-600">${{ total_debits|floatformat:2 }}</span>
+                </div>
+                <div class="text-sm">
+                    <span class="font-medium text-secondary-900">Total Credits:</span>
+                    <span class="font-bold text-success-600">${{ total_credits|floatformat:2 }}</span>
+                </div>
+                <div class="text-sm">
+                    <span class="font-medium text-secondary-900">Balanced:</span>
+                    {% if is_balanced %}
+                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-success-100 text-success-800">Yes</span>
+                    {% else %}
+                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-danger-100 text-danger-800">No</span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">
+                            Account
+                        </th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">
+                            Type
+                        </th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">
+                            Amount
+                        </th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">
+                            Memo
+                        </th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for entry in entries %}
+                    <tr class="table-row-hover">
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm font-medium text-secondary-900">{{ entry.account.name }}</div>
+                            <div class="text-sm text-secondary-500">{{ entry.account.account_number|default:"—" }}</div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                                {% if entry.entry_type == 'DEBIT' %}bg-red-100 text-red-800
+                                {% elif entry.entry_type == 'CREDIT' %}bg-green-100 text-green-800
+                                {% endif %}">
+                                {{ entry.get_entry_type_display }}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm font-medium text-secondary-900">
+                                {% if entry.entry_type == 'DEBIT' %}
+                                <span class="text-danger-600">${{ entry.amount|floatformat:2 }}</span>
+                                {% else %}
+                                <span class="text-success-600">${{ entry.amount|floatformat:2 }}</span>
+                                {% endif %}
+                            </div>
+                        </td>
+                        <td class="px-6 py-4">
+                            <div class="text-sm text-secondary-500 max-w-xs truncate">
+                                {{ entry.memo|default:"—" }}
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot class="bg-gray-50">
+                    <tr>
+                        <td colspan="2" class="px-6 py-3 text-right text-sm font-medium text-secondary-900">
+                            Totals:
+                        </td>
+                        <td class="px-6 py-3 whitespace-nowrap text-sm">
+                            <div class="font-medium text-danger-600">${{ total_debits|floatformat:2 }}</div>
+                        </td>
+                        <td class="px-6 py-3 whitespace-nowrap text-sm">
+                            <div class="font-medium text-success-600">${{ total_credits|floatformat:2 }}</div>
+                        </td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Actions -->
+<div class="bg-white rounded-lg shadow-soft">
+    <div class="px-6 py-4 border-b border-gray-200">
+        <h3 class="text-lg font-semibold text-secondary-900">Actions</h3>
+    </div>
+    <div class="px-6 py-4">
+        <div class="flex flex-wrap gap-3">
+            {% if can_edit %}
+            <a href="{% url 'accounting:journal_edit' journal.pk %}" class="inline-flex items-center px-4 py-2 border border-secondary-300 text-sm font-medium rounded-md text-secondary-700 bg-white hover:bg-secondary-50">
+                <i data-lucide="edit" class="mr-2 h-4 w-4"></i>
+                Edit
+            </a>
+            {% endif %}
+            {% if can_approve %}
+            <a href="{% url 'accounting:journal_approve' journal.pk %}" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white btn-primary">
+                <i data-lucide="check-square" class="mr-2 h-4 w-4"></i>
+                Review & Approve
+            </a>
+            {% endif %}
+            {% if can_reverse %}
+            <a href="{% url 'accounting:journal_reversal_initiation' journal.pk %}" class="inline-flex items-center px-4 py-2 border border-warning-300 text-sm font-medium rounded-md text-warning-700 bg-warning-50 hover:bg-warning-100">
+                <i data-lucide="rotate-ccw" class="mr-2 h-4 w-4"></i>
+                Reverse
+            </a>
+            {% endif %}
+            {% if journal.reversed_journal %}
+            <a href="{% url 'accounting:journal_detail' journal.reversed_journal.pk %}" class="inline-flex items-center px-4 py-2 border border-info-300 text-sm font-medium rounded-md text-info-700 bg-info-50 hover:bg-info-100">
+                <i data-lucide="eye" class="mr-2 h-4 w-4"></i>
+                View Reversal
+            </a>
+            {% endif %}
+            
+            {% if is_reversal %}
+            <a href="{% url 'accounting:journal_detail' reversal_of.pk %}" class="inline-flex items-center px-4 py-2 border border-secondary-300 text-sm font-medium rounded-md text-secondary-700 bg-secondary-50 hover:bg-secondary-100">
+                <i data-lucide="corner-up-left" class="mr-2 h-4 w-4"></i>
+                View Original
+            </a>
+            {% endif %}
+            
+            <a href="{% url 'accounting:journal_reversal_history' journal.pk %}" class="inline-flex items-center px-4 py-2 border border-purple-300 text-sm font-medium rounded-md text-purple-700 bg-purple-50 hover:bg-purple-100">
+                <i data-lucide="history" class="mr-2 h-4 w-4"></i>
+                Reversal History
+            </a>
+            <button onclick="window.print()" class="inline-flex items-center px-4 py-2 border border-secondary-300 text-sm font-medium rounded-md text-secondary-700 bg-white hover:bg-secondary-50">
+                <i data-lucide="printer" class="mr-2 h-4 w-4"></i>
+                Print
+            </button>
+        </div>
+    </div>
+</div>
+{% endblock %}

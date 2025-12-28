@@ -47,6 +47,17 @@
 +*   **User Management:**
 +    *   Integration with Django's `CustomUser` model.
 +    *   Automatic creation of `EmployeeProfile` upon `CustomUser` creation.
++*   **Notification System V2:**
++    *   Enterprise-grade notification system with priority-based delivery
++    *   Multi-channel support (in-app, email, push, SMS)
++    *   User preferences for granular control
++    *   Asynchronous processing using Celery
++    *   Real-time updates via Django Channels
++    *   Intelligent aggregation to reduce notification fatigue
++    *   Performance optimization through Redis caching
++    *   Automated archiving for data retention
++    *   Comprehensive delivery tracking and monitoring
++    *   See [`NOTIFICATION_SYSTEM_V2_IMPLEMENTATION.md`](NOTIFICATION_SYSTEM_V2_IMPLEMENTATION.md) for complete documentation
 +
 +## Prerequisites
 +

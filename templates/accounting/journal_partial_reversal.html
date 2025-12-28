@@ -1,0 +1,228 @@
+{% extends "accounting/base.html" %}
+
+{% block title %}Partial Journal Reversal{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-info text-white">
+                    <h4 class="card-title">
+                        <i class="fas fa-cut"></i> Partial Journal Reversal
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <!-- Information Message -->
+                    <div class="alert alert-info" role="alert">
+                        <h5><i class="fas fa-info-circle"></i> Partial Reversal Information</h5>
+                        <p>Select the entries you want to reverse and optionally specify partial amounts. This action will create a new reversal journal for the selected entries only.</p>
+                        <p><strong>Original Reason:</strong> {{ reason|linebreaks }}</p>
+                    </div>
+
+                    <!-- Journal Information -->
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <h5>Original Journal</h5>
+                            <table class="table table-sm">
+                                <tr>
+                                    <th>Transaction Number:</th>
+                                    <td>{{ journal.transaction_number }}</td>
+                                </tr>
+                                <tr>
+                                    <th>Description:</th>
+                                    <td>{{ journal.description }}</td>
+                                </tr>
+                                <tr>
+                                    <th>Date:</th>
+                                    <td>{{ journal.date }}</td>
+                                </tr>
+                                <tr>
+                                    <th>Period:</th>
+                                    <td>{{ journal.period }}</td>
+                                </tr>
+                            </table>
+                        </div>
+                        <div class="col-md-6">
+                            <h5>Reversal Details</h5>
+                            <table class="table table-sm">
+                                <tr>
+                                    <th>Reversal Type:</th>
+                                    <td><span class="badge badge-info">Partial Reversal</span></td>
+                                </tr>
+                                <tr>
+                                    <th>Reversal Date:</th>
+                                    <td>{% now "Y-m-d" %}</td>
+                                </tr>
+                                <tr>
+                                    <th>Performed By:</th>
+                                    <td>{{ request.user.get_full_name|default:request.user.username }}</td>
+                                </tr>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Partial Reversal Form -->
+                    <div class="row">
+                        <div class="col-12">
+                            <form method="post">
+                                {% csrf_token %}
+                                
+                                <div class="table-responsive mb-4">
+                                    <table class="table table-striped">
+                                        <thead>
+                                            <tr>
+                                                <th width="5%">Select</th>
+                                                <th width="20%">Account</th>
+                                                <th width="10%">Type</th>
+                                                <th width="15%">Original Amount</th>
+                                                <th width="15%">Amount to Reverse</th>
+                                                <th width="35%">Memo</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for entry in entries %}
+                                            <tr>
+                                                <td>
+                                                    <div class="form-check">
+                                                        <input type="checkbox" class="form-check-input" 
+                                                               id="{{ form.entry_|add:entry.id|add:"_id_for_label" }}" 
+                                                               name="{{ form.entry_|add:entry.id|add:"_html_name" }}"
+                                                               onchange="toggleAmountField({{ entry.id }})">
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <label for="{{ form.entry_|add:entry.id|add:"_id_for_label" }}" class="form-check-label">
+                                                        {{ entry.account.name }}
+                                                    </label>
+                                                </td>
+                                                <td>
+                                                    <span class="badge badge-{{ entry.entry_type|lower }}">
+                                                        {{ entry.get_entry_type_display }}
+                                                    </span>
+                                                </td>
+                                                <td class="text-right">{{ entry.amount }}</td>
+                                                <td>
+                                                    <input type="number" 
+                                                           class="form-control" 
+                                                           id="{{ form.amount_|add:entry.id|add:"_id_for_label" }}" 
+                                                           name="{{ form.amount_|add:entry.id|add:"_html_name" }}"
+                                                           min="0.01" 
+                                                           max="{{ entry.amount }}" 
+                                                           step="0.01" 
+                                                           placeholder="Full amount ({{ entry.amount }})"
+                                                           disabled>
+                                                </td>
+                                                <td>{{ entry.memo|default:"-" }}</td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                <div class="form-group">
+                                    <button type="submit" class="btn btn-info">
+                                        <i class="fas fa-cut"></i> Create Partial Reversal
+                                    </button>
+                                    <a href="{% url 'accounting:journal_detail' journal.pk %}" class="btn btn-secondary">
+                                        <i class="fas fa-times"></i> Cancel
+                                    </a>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .badge-draft { background-color: #6c757d; }
+    .badge-pending_approval { background-color: #ffc107; }
+    .badge-approved { background-color: #17a2b8; }
+    .badge-posted { background-color: #28a745; }
+    .badge-cancelled { background-color: #dc3545; }
+    .badge-reversed { background-color: #6f42c1; }
+    .badge-debit { background-color: #28a745; }
+    .badge-credit { background-color: #dc3545; }
+    
+    .form-check-input:checked {
+        background-color: #17a2b8;
+        border-color: #17a2b8;
+    }
+    
+    input[type="number"]:disabled {
+        background-color: #f8f9fa;
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function toggleAmountField(entryId) {
+    const checkbox = document.querySelector(`input[name="entry_${entryId}"]`);
+    const amountField = document.querySelector(`input[name="amount_${entryId}"]`);
+    
+    if (checkbox && amountField) {
+        amountField.disabled = !checkbox.checked;
+        if (!checkbox.checked) {
+            amountField.value = '';
+        }
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Add validation for amount fields
+    const amountFields = document.querySelectorAll('input[name^="amount_"]');
+    
+    amountFields.forEach(field => {
+        field.addEventListener('input', function() {
+            const entryId = this.name.split('_')[1];
+            const checkbox = document.querySelector(`input[name="entry_${entryId}"]`);
+            const maxAmount = parseFloat(this.getAttribute('max'));
+            
+            if (this.value && parseFloat(this.value) > maxAmount) {
+                this.value = maxAmount;
+            }
+        });
+    });
+    
+    // Form validation
+    const form = document.querySelector('form');
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            const checkboxes = document.querySelectorAll('input[name^="entry_"]:checked');
+            
+            if (checkboxes.length === 0) {
+                e.preventDefault();
+                alert('Please select at least one entry to reverse.');
+                return false;
+            }
+            
+            // Validate amount fields
+            let isValid = true;
+            checkboxes.forEach(checkbox => {
+                const entryId = checkbox.name.split('_')[1];
+                const amountField = document.querySelector(`input[name="amount_${entryId}"]`);
+                
+                if (amountField.value && parseFloat(amountField.value) <= 0) {
+                    isValid = false;
+                    amountField.classList.add('is-invalid');
+                } else {
+                    amountField.classList.remove('is-invalid');
+                }
+            });
+            
+            if (!isValid) {
+                e.preventDefault();
+                alert('Please enter valid amounts for all selected entries.');
+                return false;
+            }
+        });
+    }
+});
+</script>
+{% endblock %}

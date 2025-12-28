@@ -1,0 +1,231 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: {
+                            50: '#eff6ff',
+                            100: '#dbeafe',
+                            200: '#bfdbfe',
+                            300: '#93c5fd',
+                            400: '#60a5fa',
+                            500: '#3b82f6',
+                            600: '#2563eb',
+                            700: '#1d4ed8',
+                            800: '#1e40af',
+                            900: '#1e3a8a',
+                        },
+                        secondary: {
+                            50: '#f8fafc',
+                            100: '#f1f5f9',
+                            200: '#e2e8f0',
+                            300: '#cbd5e1',
+                            400: '#94a3b8',
+                            500: '#64748b',
+                            600: '#475569',
+                            700: '#334155',
+                            800: '#1e293b',
+                            900: '#0f172a',
+                        },
+                        success: {
+                            50: '#f0fdf4',
+                            100: '#dcfce7',
+                            200: '#bbf7d0',
+                            300: '#86efac',
+                            400: '#4ade80',
+                            500: '#22c55e',
+                            600: '#16a34a',
+                            700: '#15803d',
+                            800: '#166534',
+                            900: '#14532d',
+                        },
+                        warning: {
+                            50: '#fffbeb',
+                            100: '#fef3c7',
+                            200: '#fde68a',
+                            300: '#fcd34d',
+                            400: '#fbbf24',
+                            500: '#f59e0b',
+                            600: '#d97706',
+                            700: '#b45309',
+                            800: '#92400e',
+                            900: '#78350f',
+                        },
+                        danger: {
+                            50: '#fef2f2',
+                            100: '#fee2e2',
+                            200: '#fecaca',
+                            300: '#fca5a5',
+                            400: '#f87171',
+                            500: '#ef4444',
+                            600: '#dc2626',
+                            700: '#b91c1c',
+                            800: '#991b1b',
+                            900: '#7f1d1d',
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    boxShadow: {
+                        'soft': '0 2px 15px -3px rgba(0, 0, 0, 0.07), 0 10px 20px -2px rgba(0, 0, 0, 0.04)',
+                        'medium': '0 4px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+                    },
+                    animation: {
+                        'fade-in': 'fadeIn 0.5s ease-in-out',
+                        'slide-up': 'slideUp 0.3s ease-out',
+                    }
+                },
+            },
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+
+            to {
+                opacity: 1;
+            }
+        }
+
+        @keyframes slideUp {
+            from {
+                transform: translateY(10px);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        [x-cloak] {
+            display: none !important;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+            transition: all 0.2s ease;
+        }
+
+        .btn-primary:hover {
+            background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+        }
+
+        .form-input {
+            transition: all 0.2s ease;
+        }
+
+        .form-input:focus {
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+
+        .notification {
+            animation: slideUp 0.3s ease-out;
+        }
+
+        .auth-card {
+            animation: fadeIn 0.5s ease-in-out;
+        }
+    </style>
+    {% block page_title_in_head %}<title>PayrollCo - Employee Management System</title>{% endblock %}
+    {% block extra_head %}{% endblock %}
+</head>
+
+<body class="bg-gradient-to-br from-primary-50 via-white to-secondary-50 min-h-screen flex flex-col">
+    <!-- Simple header for auth pages -->
+    <header class="py-6 px-4 sm:px-6 lg:px-8">
+        <div class="max-w-7xl mx-auto flex justify-center">
+            <a href="{% url 'payroll:index' %}" class="flex items-center">
+                <div class="h-10 w-10 bg-primary-600 rounded-lg flex items-center justify-center">
+                    <i data-lucide="users" class="h-6 w-6 text-white"></i>
+                </div>
+                <span class="ml-3 text-2xl font-bold text-secondary-900">PayrollCo</span>
+            </a>
+        </div>
+    </header>
+
+    <!-- Main content -->
+    <main class="flex-grow flex items-center justify-center px-4 sm:px-6 lg:px-8 py-12">
+        <div class="max-w-md w-full space-y-8">
+            <!-- Flash messages -->
+            {% if messages %}
+            <div class="space-y-2">
+                {% for message in messages %}
+                <div x-data="{ show: true }" x-show="show" x-transition:enter="transition ease-out duration-300"
+                    x-transition:enter-start="opacity-0 transform translate-y-2"
+                    x-transition:enter-end="opacity-100 transform translate-y-0"
+                    x-transition:leave="transition ease-in duration-200"
+                    x-transition:leave-start="opacity-100 transform translate-y-0"
+                    x-transition:leave-end="opacity-0 transform translate-y-2"
+                    class="notification rounded-md p-4 flex items-start
+                    {% if message.tags == 'success' %}bg-success-50 text-success-800 border border-success-200
+                    {% elif message.tags == 'error' %}bg-danger-50 text-danger-800 border border-danger-200
+                    {% elif message.tags == 'info' %}bg-primary-50 text-primary-800 border border-primary-200
+                    {% elif message.tags == 'warning' %}bg-warning-50 text-warning-800 border border-warning-200
+                    {% endif %}">
+
+                    <div class="flex-shrink-0 mr-3">
+                        {% if message.tags == 'success' %}<i data-lucide="check-circle"
+                            class="h-5 w-5 text-success-600"></i>
+                        {% elif message.tags == 'error' %}<i data-lucide="alert-circle"
+                            class="h-5 w-5 text-danger-600"></i>
+                        {% elif message.tags == 'info' %}<i data-lucide="info" class="h-5 w-5 text-primary-600"></i>
+                        {% elif message.tags == 'warning' %}<i data-lucide="alert-triangle"
+                            class="h-5 w-5 text-warning-600"></i>
+                        {% endif %}
+                    </div>
+                    <div class="flex-grow text-sm">{{ message }}</div>
+                    <div class="ml-3">
+                        <button @click="show = false" type="button"
+                            class="inline-flex text-secondary-400 hover:text-secondary-600 focus:outline-none">
+                            <span class="sr-only">Dismiss</span>
+                            <i data-lucide="x" class="h-4 w-4"></i>
+                        </button>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <!-- Auth content -->
+            {% block auth_content %}{% endblock %}
+        </div>
+    </main>
+
+    <!-- Simple footer for auth pages -->
+    <footer class="py-6 text-center text-sm text-secondary-500">
+        <p>&copy; {% now "Y" %} PayrollCo. All rights reserved.</p>
+    </footer>
+
+    <!-- Initialize Lucide icons -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            lucide.createIcons();
+        });
+    </script>
+
+    {% block extra_js %}{% endblock %}
+</body>
+
+</html>

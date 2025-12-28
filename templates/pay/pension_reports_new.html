@@ -1,0 +1,87 @@
+{% extends "base_new.html" %}
+{% load static %}
+{% load humanize %}
+{% block page_header %}Pension Reports{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Header Section -->
+    <div class="bg-gradient-to-r from-primary-500 to-primary-600 rounded-2xl p-6 text-white shadow-medium">
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between">
+            <div>
+                <h1 class="text-2xl font-bold mb-2">Pension Reports</h1>
+                <p class="text-primary-100">Generate and download pension contribution reports for payroll processing</p>
+            </div>
+            <div class="mt-4 md:mt-0">
+                <span class="bg-white bg-opacity-20 text-white text-sm font-medium px-4 py-2 rounded-full">
+                    {% now "F j, Y" %}
+                </span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pay Period Selection -->
+    <div class="bg-white rounded-xl shadow-soft overflow-hidden">
+        <div class="px-6 py-4 border-b border-secondary-200">
+            <h2 class="text-lg font-semibold text-secondary-900 flex items-center">
+                <i data-lucide="calendar" class="h-5 w-5 mr-2 text-primary-600"></i>
+                Select Pay Period
+            </h2>
+        </div>
+        
+        <div class="overflow-x-auto">
+            <table class="min-w-full bg-white border border-gray-50">
+                <thead class="bg-gray-100">
+                    <tr>
+                        <th class="px-4 py-2 border-b">#</th>
+                        <th class="px-4 py-2 border-b">Year-Month</th>
+                        <th class="px-4 py-2 border-b">Report</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for payrol in payroll %}
+                    <tr class="bg-white even:bg-gray-50">
+                        <td class="px-4 py-2 border-b text-center">{{ forloop.counter }}</td>
+                        <td class="px-4 py-2 border-b text-center">{{ payrol.paydays }}</td>
+                        <td class="px-4 py-2 border-b text-center">
+                            <a href="{% url 'payroll:pensionReport' payrol.id %}" class="inline-block bg-blue-500 text-white py-1 px-3 rounded hover:bg-blue-600">View Report</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Instructions -->
+    <div class="bg-white rounded-xl shadow-soft p-6">
+        <h2 class="text-lg font-semibold text-secondary-900 mb-4 flex items-center">
+            <i data-lucide="info" class="h-5 w-5 mr-2 text-primary-600"></i>
+            Pension Contribution Information
+        </h2>
+        <div class="space-y-4">
+            <div class="p-4 bg-blue-50 rounded-lg">
+                <p class="text-sm text-blue-800">
+                    <strong>Important:</strong> Pension contribution reports are generated for compliance with pension fund regulations. Please ensure all employee pension information is accurate.
+                </p>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <h3 class="text-sm font-medium text-secondary-900 mb-2">Report Format</h3>
+                    <p class="text-sm text-secondary-600">The pension reports are generated in Excel format compatible with pension fund administration systems.</p>
+                </div>
+                <div>
+                    <h3 class="text-sm font-medium text-secondary-900 mb-2">Contribution Requirements</h3>
+                    <p class="text-sm text-secondary-600">Reports should be submitted to pension fund administrators according to the statutory schedule.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        lucide.createIcons();
+    });
+</script>
+{% endblock %}

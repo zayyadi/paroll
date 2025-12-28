@@ -1,4 +1,8 @@
-{% extends "base.html" %}
+{% extends "base_tailwind.html" %}
+{% load static %}
+
+{% block page_header %}User Dashboard{% endblock %}
+
 {% block content %}
 <div class="max-w-7xl mx-auto px-4 py-6">
     <!-- Messages -->
@@ -27,10 +31,10 @@
 
     <!-- User Specific Quick Links -->
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <a href="{% url 'payroll:employee' request.user.id %}" class="group bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg hover:shadow-xl transition-all transform hover:scale-105">
+        <a href="{% url 'payroll:profile' request.user.id %}" class="group bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg hover:shadow-xl transition-all transform hover:scale-105">
             <div class="flex items-center space-x-4">
-                <div class="p-3 bg-blue-100 dark:bg-blue-900 rounded-lg group-hover:bg-blue-600 transition-colors">
-                    <i class="fas fa-user text-blue-600 dark:text-blue-300 group-hover:text-white text-xl"></i>
+                <div class="p-3 bg-indigo-50 dark:bg-indigo-900 rounded-lg group-hover:bg-primary transition-colors">
+                    <span class="material-icons-outlined text-primary dark:text-indigo-300 group-hover:text-white text-xl">person</span>
                 </div>
                 <div>
                     <h3 class="text-xl font-semibold text-gray-900 dark:text-white">My Profile</h3>
@@ -41,7 +45,7 @@
         <a href="{% url 'payroll:leave_requests' %}" class="group bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg hover:shadow-xl transition-all transform hover:scale-105">
             <div class="flex items-center space-x-4">
                 <div class="p-3 bg-purple-100 dark:bg-purple-900 rounded-lg group-hover:bg-purple-600 transition-colors">
-                    <i class="fas fa-calendar-alt text-purple-600 dark:text-purple-300 group-hover:text-white text-xl"></i>
+                    <span class="material-icons-outlined text-purple-600 dark:text-purple-300 group-hover:text-white text-xl">event</span>
                 </div>
                 <div>
                     <h3 class="text-xl font-semibold text-gray-900 dark:text-white">My Leave Requests</h3>
@@ -52,7 +56,7 @@
         <a href="{% url 'payroll:request_iou' %}" class="group bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg hover:shadow-xl transition-all transform hover:scale-105">
             <div class="flex items-center space-x-4">
                 <div class="p-3 bg-green-100 dark:bg-green-900 rounded-lg group-hover:bg-green-600 transition-colors">
-                    <i class="fas fa-money-bill-wave text-green-600 dark:text-green-300 group-hover:text-white text-xl"></i>
+                    <span class="material-icons-outlined text-green-600 dark:text-green-300 group-hover:text-white text-xl">payments</span>
                 </div>
                 <div>
                     <h3 class="text-xl font-semibold text-gray-900 dark:text-white">Request IOU</h3>
@@ -60,6 +64,25 @@
                 </div>
             </div>
         </a>
+    </div>
+
+    <div class="mt-8">
+        <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-4">My Appraisal Assignments</h2>
+        <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg">
+            <ul class="divide-y divide-gray-200 dark:divide-gray-700">
+                {% for assignment in assignments %}
+                    <li class="py-4 flex justify-between items-center">
+                        <div>
+                            <p class="text-lg font-semibold text-gray-900 dark:text-white">{{ assignment.appraisee.first_name }} {{ assignment.appraisee.last_name }}</p>
+                            <p class="text-sm text-gray-500 dark:text-gray-400">{{ assignment.appraisal.name }}</p>
+                        </div>
+                        <a href="{% url 'payroll:review_create' assignment.appraisal.pk assignment.appraisee.pk %}" class="bg-primary text-white px-4 py-2 rounded-lg hover:bg-opacity-90">Start Appraisal</a>
+                    </li>
+                {% empty %}
+                    <li class="py-4 text-center text-gray-500 dark:text-gray-400">You have no appraisal assignments.</li>
+                {% endfor %}
+            </ul>
+        </div>
     </div>
 </div>
 {% endblock %}

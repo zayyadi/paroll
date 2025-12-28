@@ -1,0 +1,162 @@
+{% extends "accounting/base.html" %}
+{% load static %}
+
+{% block page_title %}Fiscal Year Details{% endblock %}
+
+{% block breadcrumbs %}
+{% with breadcrumbs=breadcrumbs|default:"[{'title': 'Fiscal Years', 'url': '/accounting/fiscal-years/'}, {'title': fiscal_year.name}]" %}
+{{ block.super }}
+{% endwith %}
+{% endblock %}
+
+{% block accounting_content %}
+<!-- Fiscal Year Header -->
+<div class="bg-white rounded-lg shadow-soft mb-6">
+    <div class="px-6 py-4 border-b border-gray-200">
+        <div class="flex items-center justify-between">
+            <div>
+                <h3 class="text-lg font-semibold text-secondary-900">{{ fiscal_year.name }}</h3>
+                <p class="text-sm text-secondary-600">Fiscal Year {{ fiscal_year.year }}</p>
+            </div>
+            <div class="flex items-center space-x-3">
+                {% if fiscal_year.is_closed %}
+                <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-danger-100 text-danger-800">Closed</span>
+                {% elif fiscal_year.is_active %}
+                <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-success-100 text-success-800">Active</span>
+                {% else %}
+                <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-secondary-100 text-secondary-800">Inactive</span>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    <div class="px-6 py-4">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div>
+                <p class="text-sm font-medium text-secondary-500">Start Date</p>
+                <p class="text-sm text-secondary-900 mt-1">{{ fiscal_year.start_date|date:"F d, Y" }}</p>
+            </div>
+            <div>
+                <p class="text-sm font-medium text-secondary-500">End Date</p>
+                <p class="text-sm text-secondary-900 mt-1">{{ fiscal_year.end_date|date:"F d, Y" }}</p>
+            </div>
+            <div>
+                <p class="text-sm font-medium text-secondary-500">Total Journals</p>
+                <p class="text-sm text-secondary-900 mt-1">{{ journal_count }}</p>
+            </div>
+        </div>
+        {% if fiscal_year.is_closed and fiscal_year.closed_by %}
+        <div class="mt-4 pt-4 border-t border-gray-200">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <p class="text-sm font-medium text-secondary-500">Closed By</p>
+                    <p class="text-sm text-secondary-900 mt-1">{{ fiscal_year.closed_by.first_name|default:fiscal_year.closed_by.email }}</p>
+                </div>
+                <div>
+                    <p class="text-sm font-medium text-secondary-500">Closed At</p>
+                    <p class="text-sm text-secondary-900 mt-1">{{ fiscal_year.closed_at|date:"F d, Y H:i" }}</p>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Accounting Periods -->
+<div class="bg-white rounded-lg shadow-soft">
+    <div class="px-6 py-4 border-b border-gray-200">
+        <div class="flex items-center justify-between">
+            <h3 class="text-lg font-semibold text-secondary-900">Accounting Periods</h3>
+            {% if is_accountant and not fiscal_year.is_closed %}
+            <a href="{% url 'accounting:period_create' %}?fiscal_year={{ fiscal_year.pk }}" class="btn-primary inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white">
+                <i data-lucide="plus" class="mr-2 h-4 w-4"></i>
+                New Period
+            </a>
+            {% endif %}
+        </div>
+    </div>
+    <div class="overflow-hidden">
+        {% if periods %}
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">
+                            Period
+                        </th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">
+                            Name
+                        </th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">
+                            Date Range
+                        </th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">
+                            Status
+                        </th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">
+                            Journals
+                        </th>
+                        <th scope="col" class="relative px-6 py-3">
+                            <span class="sr-only">Actions</span>
+                        </th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for period in periods %}
+                    <tr class="table-row-hover">
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-secondary-900">
+                            {{ period.period_number }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm font-medium text-secondary-900">{{ period.name }}</div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm text-secondary-900">{{ period.start_date|date:"M d, Y" }}</div>
+                            <div class="text-sm text-secondary-500">to {{ period.end_date|date:"M d, Y" }}</div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            {% if period.is_closed %}
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-danger-100 text-danger-800">Closed</span>
+                            {% elif period.is_active %}
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-success-100 text-success-800">Active</span>
+                            {% else %}
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-secondary-100 text-secondary-800">Inactive</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-secondary-900">
+                            {{ period.journals.count }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <div class="flex items-center justify-end space-x-2">
+                                <a href="{% url 'accounting:period_detail' period.pk %}" class="text-primary-600 hover:text-primary-900">
+                                    View
+                                </a>
+                                {% if is_auditor and period.is_active and not period.is_closed %}
+                                <a href="{% url 'accounting:period_close' period.pk %}" class="text-warning-600 hover:text-warning-900">
+                                    Close
+                                </a>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center py-12">
+            <i data-lucide="calendar-days" class="mx-auto h-12 w-12 text-secondary-400"></i>
+            <h3 class="mt-2 text-sm font-medium text-secondary-900">No periods found</h3>
+            <p class="mt-1 text-sm text-secondary-500">This fiscal year has no accounting periods yet.</p>
+            <div class="mt-6">
+                {% if is_accountant and not fiscal_year.is_closed %}
+                <a href="{% url 'accounting:period_create' %}?fiscal_year={{ fiscal_year.pk }}" class="btn-primary inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white">
+                    <i data-lucide="plus" class="mr-2 h-4 w-4"></i>
+                    New Period
+                </a>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

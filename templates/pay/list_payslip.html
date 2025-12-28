@@ -24,7 +24,7 @@
 
     <div class="flex justify-between items-center mb-6">
         <h1 class="text-3xl font-bold text-gray-900 dark:text-white">Payslip List for {{ emp.first_name }} {{ emp.last_name }}</h1>
-        <a href="{% url 'payroll:employee' emp.user.id %}" class="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700 transition-colors">Back to Profile</a>
+        <a href="{% url 'payroll:profile' emp.user.id %}" class="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700 transition-colors">Back to Profile</a>
     </div>
 
     <div class="bg-white dark:bg-gray-800 shadow-lg rounded-lg overflow-hidden">

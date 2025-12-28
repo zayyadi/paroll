@@ -1,4 +1,5 @@
 from django.db import models
+from decimal import Decimal
 from payroll.models.utils import SoftDeleteModel, path_and_rename
 
 
@@ -47,7 +48,7 @@ class EmployeeProfile(SoftDeleteModel):
         db_index=True,
     )
     slug = models.CharField(
-        unique=True,
+        # unique=True,
         max_length=50,
         verbose_name=_("Employee slug to identify and route the employee."),
         db_index=True,
@@ -112,8 +113,10 @@ class EmployeeProfile(SoftDeleteModel):
         editable=False,
     )
     pension_rsa = models.CharField(
-        unique=True,
+        # unique=True,
         max_length=50,
+        null=True,
+        blank=True,
     )
     date_of_birth = MonthField(
         "Date of Birth",
@@ -140,7 +143,7 @@ class EmployeeProfile(SoftDeleteModel):
         ],
         max_length=17,
         blank=True,
-        unique=True,
+        # unique=True,
         verbose_name="phone number",
     )
     gender = models.CharField(
@@ -237,7 +240,7 @@ class EmployeeProfile(SoftDeleteModel):
     )
     net_pay = models.DecimalField(
         max_digits=12,
-        default=0.0,
+        default=Decimal(0.0),
         decimal_places=2,
         blank=True,
         editable=False,
@@ -284,8 +287,8 @@ class EmployeeProfile(SoftDeleteModel):
         self.net_pay = utils.get_net_pay(self)  # noqa: F405
         self.email = self.get_email()
 
-        if not self.pension_rsa.startswith("RSA-"):
-            self.pension_rsa = f"RSA-{self.pension_rsa}"
+        # if not self.pension_rsa.startswith("RSA-"):
+        #     self.pension_rsa = f"RSA-{self.pension_rsa}"
 
         if self.pk is None or (
             self.first_name != self.__original_first_name
@@ -319,18 +322,58 @@ def create_employee_profile(sender, instance, created, **kwargs):
         )
 
 
-class PerformanceReview(models.Model):
-    employee = models.ForeignKey(
-        EmployeeProfile, on_delete=models.CASCADE, related_name="performance_reviews"
-    )
-    review_date = models.DateField()
-    rating = models.IntegerField(choices=[(i, i) for i in range(1, 11)])  # 1-10 rating
-    comments = models.TextField()
+class Appraisal(models.Model):
+    name = models.CharField(max_length=100)
+    start_date = models.DateField()
+    end_date = models.DateField()
 
     def __str__(self):
-        employee_name = (
-            self.employee.user.get_full_name()
-            if hasattr(self.employee.user, "get_full_name")
-            else "Unknown"
-        )
-        return f"Review for {employee_name} on {self.review_date}"
+        return self.name
+
+
+class AppraisalAssignment(models.Model):
+    appraisal = models.ForeignKey(Appraisal, on_delete=models.CASCADE)
+    appraisee = models.ForeignKey(
+        EmployeeProfile, on_delete=models.CASCADE, related_name="appraisee_assignments"
+    )
+    appraiser = models.ForeignKey(
+        EmployeeProfile, on_delete=models.CASCADE, related_name="appraiser_assignments"
+    )
+
+    class Meta:
+        unique_together = ("appraisal", "appraisee", "appraiser")
+
+    def __str__(self):
+        return f"{self.appraiser} to appraise {self.appraisee} for {self.appraisal}"
+
+
+class Metric(models.Model):
+    name = models.CharField(max_length=100)
+    description = models.TextField()
+
+    def __str__(self):
+        return self.name
+
+
+class Review(models.Model):
+    appraisal = models.ForeignKey(Appraisal, on_delete=models.CASCADE)
+    employee = models.ForeignKey(
+        EmployeeProfile, on_delete=models.CASCADE, related_name="reviews_received"
+    )
+    reviewer = models.ForeignKey(
+        EmployeeProfile, on_delete=models.CASCADE, related_name="reviews_given"
+    )
+    self_assessment = models.TextField(blank=True, null=True)
+
+    def __str__(self):
+        return f"Review of {self.employee} by {self.reviewer} for {self.appraisal}"
+
+
+class Rating(models.Model):
+    review = models.ForeignKey(Review, on_delete=models.CASCADE)
+    metric = models.ForeignKey(Metric, on_delete=models.CASCADE)
+    rating = models.IntegerField(choices=[(i, i) for i in range(1, 6)])
+    comments = models.TextField(blank=True, null=True)
+
+    def __str__(self):
+        return f"{self.metric}: {self.rating}"

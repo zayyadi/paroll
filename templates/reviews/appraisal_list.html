@@ -1,0 +1,22 @@
+{% extends "base_tailwind.html" %}
+
+{% block page_header %}Appraisals{% endblock %}
+
+{% block content %}
+<div class="bg-white shadow-md rounded-lg p-6">
+  <div class="flex justify-between items-center mb-4">
+    <h2 class="text-xl font-semibold text-gray-800">Appraisal Periods</h2>
+    <a href="{% url 'payroll:appraisal_create' %}" class="bg-primary text-white px-4 py-2 rounded-lg hover:bg-opacity-90">Create Appraisal</a>
+  </div>
+  <ul class="divide-y divide-gray-200">
+    {% for appraisal in object_list %}
+      <li class="py-4 flex justify-between items-center">
+        <a href="{% url 'payroll:appraisal_detail' appraisal.pk %}" class="text-lg font-medium text-primary hover:underline">{{ appraisal.name }}</a>
+        <span class="text-sm text-gray-500">{{ appraisal.start_date }} - {{ appraisal.end_date }}</span>
+      </li>
+    {% empty %}
+      <li class="py-4 text-center text-gray-500">No appraisals found.</li>
+    {% endfor %}
+  </ul>
+</div>
+{% endblock %}

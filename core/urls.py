@@ -15,6 +15,7 @@ urlpatterns = [
     path("users/", include("users.urls", namespace="users")),
     # path("account/", include("django.contrib.auth.urls")),
     path("", include("payroll.urls", namespace="payroll")),
+    path("accounting/", include("accounting.urls", namespace="accounting")),
     path("api/", include("api.urls", namespace="api")),
     path("oauth/", include("social_django.urls", namespace="social")),
     # path(
