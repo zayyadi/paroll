@@ -2,6 +2,8 @@ from django.urls import path
 
 from payroll import views
 from payroll.views import payroll_view
+from payroll.views.payroll_view import payslips, payslip_detail
+from payroll.views import notification_view
 
 app_name = "payroll"
 
@@ -10,32 +12,39 @@ urlpatterns = [
     path("employee-profile/", views.update_employee_profile, name="employee_profile"),
     path("hr-dashboard/", views.hr_dashboard, name="hr_dashboard"),
     path("employees/", views.employee_list, name="employee_list"),
-    path("performance-reviews/", views.performance_reviews, name="performance_reviews"),
-    # path("input_emp_no", views.input_id, name="input"),
     path("add_employee", views.add_employee, name="add_employee"),  # Changed name
-    # path("update_employee", views.delete_employee, name="update_employee"),
     path("delete_employee", views.delete_employee, name="delete_employee"),
     path("profile/<int:user_id>/", views.employee, name="profile"),
+    path("employees/<int:id>/update/", views.update_employee, name="update_employee"),
     path("add_pay", views.add_pay, name="add_pay"),
     path("dashboard", views.dashboard, name="dashboard"),
     path("list_payslip/<slug:emp_slug>/", views.list_payslip, name="list-payslip"),
+    path("payslips/", payslips, name="payslips"),
     path("add_allowance/", views.create_allowance, name="add-allowance"),
     path("add_deduction/", payroll_view.AddDeduction.as_view(), name="add-deduction"),
     path("edit_allowance/<int:id>/", views.edit_allowance, name="edit-allowance"),
     path("delete-allowance", views.delete_allowance, name="delete-allowance"),
-    # Removed duplicate: path("add_allowance", views.create_allowance, name="add_allowance"),
     path("varview/", views.varview, name="varview"),
+    path(
+        "varview/create-new/",
+        payroll_view.payvar_create_new,
+        name="payvar_create_new",
+    ),  # New enhanced view with efficient employee selection
     path("varview/<str:paydays>/", views.varview_report, name="varview-report"),
     path(
         "varview/<str:paydays>/download/",
         views.varview_download,
         name="varviewDownload",
     ),
-    # PayT (Pay Period) URLs
     path("pay-period/", views.pay_period_list, name="pay_period_list"),
     path(
         "pay-period/create/", views.AddPay.as_view(), name="payday"
     ),  # Existing create view, renamed for clarity if desired or keep as 'payday'
+    path(
+        "pay-period/create-new/",
+        payroll_view.payday_create_new,
+        name="payday_create_new",
+    ),  # New enhanced view with efficient employee selection
     path("pay-periods/<slug:slug>/", views.pay_period_detail, name="pay_period_detail"),
     path(
         "pay-periods/<slug:slug>/update/",
@@ -47,7 +56,7 @@ urlpatterns = [
         views.PayPeriodDeleteView.as_view(),
         name="pay_period_delete",
     ),
-    path("payslip/<int:id>/", views.payslip, name="payslip"),
+    path("payslip/<int:id>/", payslip_detail, name="payslip"),
     path("payslip/pdf/<int:id>/", views.payslip_pdf, name="payslip_pdf"),
     path("bank", views.bank_reports, name="bank"),
     path("bank/<int:pay_id>/", views.bank_report, name="bankReport"),
@@ -141,31 +150,6 @@ urlpatterns = [
         name="iou_detail",
     ),
     path(
-        "reviews/",
-        views.performance_review_list,
-        name="performance_review_list",
-    ),
-    path(
-        "reviews/add/",
-        views.add_performance_review,
-        name="add_performance_review",
-    ),
-    path(
-        "reviews/edit/<int:review_id>/",
-        views.edit_performance_review,
-        name="edit_performance_review",
-    ),
-    path(
-        "reviews/delete/<int:review_id>/",
-        views.delete_performance_review,
-        name="delete_performance_review",
-    ),
-    path(
-        "reviews/detail/<int:review_id>/",
-        views.performance_review_detail,
-        name="performance_review_detail",
-    ),
-    path(
         "audit-trail/",
         views.audit_trail_list,
         name="audit_trail_list",
@@ -174,5 +158,132 @@ urlpatterns = [
         "audit-trail/<int:id>/",
         views.audit_trail_detail,
         name="audit_trail_detail",
+    ),
+    path("appraisals/", views.AppraisalListView.as_view(), name="appraisal_list"),
+    path(
+        "appraisals/create/",
+        views.AppraisalCreateView.as_view(),
+        name="appraisal_create",
+    ),
+    path(
+        "appraisals/<int:pk>/",
+        views.AppraisalDetailView.as_view(),
+        name="appraisal_detail",
+    ),
+    path(
+        "appraisals/<int:pk>/update/",
+        views.AppraisalUpdateView.as_view(),
+        name="appraisal_update",
+    ),
+    path(
+        "appraisals/<int:pk>/delete/",
+        views.AppraisalDeleteView.as_view(),
+        name="appraisal_delete",
+    ),
+    path(
+        "appraisals/<int:appraisal_pk>/employees/<int:employee_pk>/reviews/create/",
+        views.ReviewCreateView.as_view(),
+        name="review_create",
+    ),
+    path("reviews/<int:pk>/", views.ReviewDetailView.as_view(), name="review_detail"),
+    path(
+        "reviews/<int:pk>/update/",
+        views.ReviewUpdateView.as_view(),
+        name="review_update",
+    ),
+    path(
+        "reviews/<int:pk>/delete/",
+        views.ReviewDeleteView.as_view(),
+        name="review_delete",
+    ),
+    path(
+        "appraisals/assign/",
+        views.AssignAppraisalView.as_view(),
+        name="appraisal_assign",
+    ),
+    # Notification URLs
+    path("notifications/", notification_view.notification_list, name="notifications"),
+    path(
+        "notifications/dropdown/",
+        notification_view.notification_dropdown,
+        name="notification_dropdown",
+    ),
+    path(
+        "notifications/<int:notification_id>/",
+        notification_view.notification_detail,
+        name="notification_detail",
+    ),
+    path(
+        "notifications/<int:notification_id>/mark-read/",
+        notification_view.mark_notification_read,
+        name="mark_notification_read",
+    ),
+    path(
+        "notifications/<int:notification_id>/mark-unread/",
+        notification_view.mark_notification_unread,
+        name="mark_notification_unread",
+    ),
+    path(
+        "notifications/<int:notification_id>/delete/",
+        notification_view.delete_notification,
+        name="delete_notification",
+    ),
+    path(
+        "notifications/mark-all-read/",
+        notification_view.mark_all_read,
+        name="mark_all_read",
+    ),
+    path(
+        "notifications/count/",
+        notification_view.notification_count,
+        name="notification_count",
+    ),
+    # Notification Preferences URLs
+    path(
+        "notifications/preferences/",
+        notification_view.notification_preferences,
+        name="notification_preferences",
+    ),
+    path(
+        "notifications/preferences/<str:notification_type>/",
+        notification_view.notification_type_preferences,
+        name="notification_type_preferences",
+    ),
+    # Aggregated Notifications URLs
+    path(
+        "notifications/aggregated/",
+        notification_view.aggregated_notifications,
+        name="aggregated_notifications",
+    ),
+    path(
+        "notifications/<int:notification_id>/expand/",
+        notification_view.expand_aggregated_notification,
+        name="expand_aggregated_notification",
+    ),
+    # Notification Digest URLs
+    path(
+        "notifications/digests/",
+        notification_view.notification_digests,
+        name="notification_digests",
+    ),
+    path(
+        "notifications/digest/enable-daily/",
+        notification_view.enable_daily_digest,
+        name="enable_daily_digest",
+    ),
+    path(
+        "notifications/digest/enable-weekly/",
+        notification_view.enable_weekly_digest,
+        name="enable_weekly_digest",
+    ),
+    path(
+        "notifications/digest/disable/",
+        notification_view.disable_digest,
+        name="disable_digest",
+    ),
+    path(
+        "notifications/digest/trigger/",
+        notification_view.trigger_manual_digest,
+        name="trigger_manual_digest",
     ),
 ]

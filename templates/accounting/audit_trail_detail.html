@@ -1,0 +1,220 @@
+{% extends "accounting/base.html" %}
+{% load static %}
+
+{% block page_title %}Audit Trail Details{% endblock %}
+
+{% block breadcrumbs %}
+{% with breadcrumbs=breadcrumbs|default:"[{'title': 'Audit Trail', 'url': '/accounting/audit/'}, {'title': 'Audit Log #'|add:audit_log.pk}]" %}
+{{ block.super }}
+{% endwith %}
+{% endblock %}
+
+{% block accounting_content %}
+<!-- Audit Log Header -->
+<div class="bg-white rounded-lg shadow-soft mb-6">
+    <div class="px-6 py-4 border-b border-gray-200">
+        <div class="flex items-center justify-between">
+            <h3 class="text-lg font-semibold text-secondary-900">Audit Log #{{ audit_log.pk }}</h3>
+            <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium
+                {% if audit_log.action == 'CREATE' %}bg-success-100 text-success-800
+                {% elif audit_log.action == 'UPDATE' %}bg-warning-100 text-warning-800
+                {% elif audit_log.action == 'DELETE' %}bg-danger-100 text-danger-800
+                {% elif audit_log.action == 'APPROVE' %}bg-primary-100 text-primary-800
+                {% elif audit_log.action == 'REJECT' %}bg-danger-100 text-danger-800
+                {% elif audit_log.action == 'POST' %}bg-info-100 text-info-800
+                {% elif audit_log.action == 'REVERSE' %}bg-warning-100 text-warning-800
+                {% elif audit_log.action == 'CLOSE_PERIOD' %}bg-secondary-100 text-secondary-800
+                {% elif audit_log.action == 'CLOSE_FISCAL_YEAR' %}bg-secondary-100 text-secondary-800
+                {% endif %}">
+                {{ audit_log.get_action_display }}
+            </span>
+        </div>
+    </div>
+    <div class="px-6 py-4">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+                <p class="text-sm font-medium text-secondary-500">Timestamp</p>
+                <p class="text-sm text-secondary-900 mt-1">{{ audit_log.timestamp|date:"F d, Y H:i:s" }}</p>
+            </div>
+            <div>
+                <p class="text-sm font-medium text-secondary-500">User</p>
+                <p class="text-sm text-secondary-900 mt-1">
+                    {% if audit_log.user %}
+                    {{ audit_log.user.first_name|default:audit_log.user.email }}
+                    {% else %}
+                    System
+                    {% endif %}
+                </p>
+            </div>
+            <div>
+                <p class="text-sm font-medium text-secondary-500">IP Address</p>
+                <p class="text-sm text-secondary-900 mt-1">{{ audit_log.ip_address|default:"—" }}</p>
+            </div>
+            <div>
+                <p class="text-sm font-medium text-secondary-500">User Agent</p>
+                <p class="text-sm text-secondary-900 mt-1 truncate max-w-xs">{{ audit_log.user_agent|default:"—" }}</p>
+            </div>
+            <div>
+                <p class="text-sm font-medium text-secondary-500">Object Type</p>
+                <p class="text-sm text-secondary-900 mt-1">{{ audit_log.content_type.name|title }}</p>
+            </div>
+            <div>
+                <p class="text-sm font-medium text-secondary-500">Object ID</p>
+                <p class="text-sm text-secondary-900 mt-1">{{ audit_log.object_id }}</p>
+            </div>
+            {% if audit_log.approval_level %}
+            <div>
+                <p class="text-sm font-medium text-secondary-500">Approval Level</p>
+                <p class="text-sm text-secondary-900 mt-1">{{ audit_log.approval_level }}</p>
+            </div>
+            {% endif %}
+            <div>
+                <p class="text-sm font-medium text-secondary-500">Approval Status</p>
+                <p class="text-sm text-secondary-900 mt-1">
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                        {% if audit_log.approval_status == 'PENDING' %}bg-warning-100 text-warning-800
+                        {% elif audit_log.approval_status == 'APPROVED' %}bg-success-100 text-success-800
+                        {% elif audit_log.approval_status == 'REJECTED' %}bg-danger-100 text-danger-800
+                        {% endif %}">
+                        {{ audit_log.get_approval_status_display }}
+                    </span>
+                </p>
+            </div>
+        </div>
+        {% if audit_log.reason %}
+        <div class="mt-4 pt-4 border-t border-gray-200">
+            <p class="text-sm font-medium text-secondary-500">Reason</p>
+            <p class="text-sm text-secondary-900 mt-1">{{ audit_log.reason }}</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Object Details -->
+<div class="bg-white rounded-lg shadow-soft mb-6">
+    <div class="px-6 py-4 border-b border-gray-200">
+        <h3 class="text-lg font-semibold text-secondary-900">Object Details</h3>
+    </div>
+    <div class="px-6 py-4">
+        {% if audit_log.content_object %}
+        {% if audit_log.content_type.model == 'journal' %}
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+                <p class="text-sm font-medium text-secondary-500">Transaction Number</p>
+                <p class="text-sm text-secondary-900 mt-1">{{ audit_log.content_object.transaction_number }}</p>
+            </div>
+            <div>
+                <p class="text-sm font-medium text-secondary-500">Description</p>
+                <p class="text-sm text-secondary-900 mt-1">{{ audit_log.content_object.description }}</p>
+            </div>
+            <div>
+                <p class="text-sm font-medium text-secondary-500">Date</p>
+                <p class="text-sm text-secondary-900 mt-1">{{ audit_log.content_object.date|date:"F d, Y" }}</p>
+            </div>
+            <div>
+                <p class="text-sm font-medium text-secondary-500">Status</p>
+                <p class="text-sm text-secondary-900 mt-1">{{ audit_log.content_object.get_status_display }}</p>
+            </div>
+        </div>
+        {% elif audit_log.content_type.model == 'account' %}
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+                <p class="text-sm font-medium text-secondary-500">Account Name</p>
+                <p class="text-sm text-secondary-900 mt-1">{{ audit_log.content_object.name }}</p>
+            </div>
+            <div>
+                <p class="text-sm font-medium text-secondary-500">Account Number</p>
+                <p class="text-sm text-secondary-900 mt-1">{{ audit_log.content_object.account_number|default:"—" }}</p>
+            </div>
+            <div>
+                <p class="text-sm font-medium text-secondary-500">Account Type</p>
+                <p class="text-sm text-secondary-900 mt-1">{{ audit_log.content_object.get_type_display }}</p>
+            </div>
+            <div>
+                <p class="text-sm font-medium text-secondary-500">Current Balance</p>
+                <p class="text-sm text-secondary-900 mt-1">${{ audit_log.content_object.balance|floatformat:2 }}</p>
+            </div>
+        </div>
+        {% elif audit_log.content_type.model == 'fiscalyear' %}
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+                <p class="text-sm font-medium text-secondary-500">Fiscal Year Name</p>
+                <p class="text-sm text-secondary-900 mt-1">{{ audit_log.content_object.name }}</p>
+            </div>
+            <div>
+                <p class="text-sm font-medium text-secondary-500">Year</p>
+                <p class="text-sm text-secondary-900 mt-1">{{ audit_log.content_object.year }}</p>
+            </div>
+            <div>
+                <p class="text-sm font-medium text-secondary-500">Start Date</p>
+                <p class="text-sm text-secondary-900 mt-1">{{ audit_log.content_object.start_date|date:"F d, Y" }}</p>
+            </div>
+            <div>
+                <p class="text-sm font-medium text-secondary-500">End Date</p>
+                <p class="text-sm text-secondary-900 mt-1">{{ audit_log.content_object.end_date|date:"F d, Y" }}</p>
+            </div>
+        </div>
+        {% elif audit_log.content_type.model == 'accountingperiod' %}
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+                <p class="text-sm font-medium text-secondary-500">Period Name</p>
+                <p class="text-sm text-secondary-900 mt-1">{{ audit_log.content_object.name }}</p>
+            </div>
+            <div>
+                <p class="text-sm font-medium text-secondary-500">Period Number</p>
+                <p class="text-sm text-secondary-900 mt-1">{{ audit_log.content_object.period_number }}</p>
+            </div>
+            <div>
+                <p class="text-sm font-medium text-secondary-500">Start Date</p>
+                <p class="text-sm text-secondary-900 mt-1">{{ audit_log.content_object.start_date|date:"F d, Y" }}</p>
+            </div>
+            <div>
+                <p class="text-sm font-medium text-secondary-500">End Date</p>
+                <p class="text-sm text-secondary-900 mt-1">{{ audit_log.content_object.end_date|date:"F d, Y" }}</p>
+            </div>
+        </div>
+        {% endif %}
+        {% else %}
+        <div class="text-center py-8">
+            <i data-lucide="alert-circle" class="mx-auto h-12 w-12 text-warning-400"></i>
+            <p class="mt-2 text-sm text-secondary-600">The object associated with this audit log has been deleted.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Changes Details -->
+{% if audit_log.changes %}
+<div class="bg-white rounded-lg shadow-soft mb-6">
+    <div class="px-6 py-4 border-b border-gray-200">
+        <h3 class="text-lg font-semibold text-secondary-900">Changes Details</h3>
+    </div>
+    <div class="px-6 py-4">
+        <div class="bg-gray-50 rounded-lg p-4">
+            <pre class="text-sm text-secondary-700 whitespace-pre-wrap">{{ audit_log.changes|pprint }}</pre>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Actions -->
+<div class="bg-white rounded-lg shadow-soft">
+    <div class="px-6 py-4 border-b border-gray-200">
+        <h3 class="text-lg font-semibold text-secondary-900">Actions</h3>
+    </div>
+    <div class="px-6 py-4">
+        <div class="flex flex-wrap gap-3">
+            {% if audit_log.content_object %}
+            <a href="{{ audit_log.content_object.get_absolute_url }}" class="inline-flex items-center px-4 py-2 border border-secondary-300 text-sm font-medium rounded-md text-secondary-700 bg-white hover:bg-secondary-50">
+                <i data-lucide="eye" class="mr-2 h-4 w-4"></i>
+                View Object
+            </a>
+            {% endif %}
+            <button onclick="window.print()" class="inline-flex items-center px-4 py-2 border border-secondary-300 text-sm font-medium rounded-md text-secondary-700 bg-white hover:bg-secondary-50">
+                <i data-lucide="printer" class="mr-2 h-4 w-4"></i>
+                Print
+            </button>
+        </div>
+    </div>
+</div>
+{% endblock %}

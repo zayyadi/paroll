@@ -1,0 +1,193 @@
+{% extends "accounting/base.html" %}
+{% load static %}
+
+{% block page_title %}Trial Balance Report{% endblock %}
+
+{% block breadcrumbs %}
+{% with breadcrumbs=breadcrumbs|default:"[{'title': 'Financial Reports', 'url': '/accounting/reports/'}, {'title': 'Trial Balance'}]" %}
+{{ block.super }}
+{% endwith %}
+{% endblock %}
+
+{% block accounting_content %}
+<!-- Report Header -->
+<div class="bg-white rounded-lg shadow-soft mb-6">
+    <div class="px-6 py-4 border-b border-gray-200">
+        <div class="flex items-center justify-between">
+            <div>
+                <h3 class="text-lg font-semibold text-secondary-900">{{ report_title }}</h3>
+                {% if period %}
+                <p class="text-sm text-secondary-600">{{ period.name }} ({{ period.fiscal_year.name }})</p>
+                {% elif as_of_date %}
+                <p class="text-sm text-secondary-600">As of {{ as_of_date }}</p>
+                {% endif %}
+            </div>
+            <div class="flex items-center space-x-3">
+                <button onclick="window.print()" class="inline-flex items-center px-4 py-2 border border-secondary-300 text-sm font-medium rounded-md text-secondary-700 bg-white hover:bg-secondary-50">
+                    <i data-lucide="printer" class="mr-2 h-4 w-4"></i>
+                    Print
+                </button>
+                <a href="{% url 'accounting:trial_balance_pdf' %}{% if period %}?period={{ period.pk }}{% elif as_of_date %}?as_of_date={{ as_of_date }}{% endif %}" class="inline-flex items-center px-4 py-2 border border-danger-300 text-sm font-medium rounded-md text-danger-700 bg-danger-50 hover:bg-danger-100">
+                    <i data-lucide="download" class="mr-2 h-4 w-4"></i>
+                    Export PDF
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Trial Balance Table -->
+<div class="bg-white rounded-lg shadow-soft">
+    <div class="px-6 py-4 border-b border-gray-200">
+        <div class="flex items-center justify-between">
+            <h3 class="text-lg font-semibold text-secondary-900">Trial Balance</h3>
+            <div class="flex items-center space-x-4">
+                <div class="text-sm">
+                    <span class="font-medium text-secondary-900">Total Debits:</span>
+                    <span class="font-bold text-danger-600">${{ trial_balance.values|sum:'debit_balance'|floatformat:2|default:"0.00" }}</span>
+                </div>
+                <div class="text-sm">
+                    <span class="font-medium text-secondary-900">Total Credits:</span>
+                    <span class="font-bold text-success-600">${{ trial_balance.values|sum:'credit_balance'|floatformat:2|default:"0.00" }}</span>
+                </div>
+                <div class="text-sm">
+                    <span class="font-medium text-secondary-900">Balanced:</span>
+                    {% if trial_balance.values|sum:'debit_balance' == trial_balance.values|sum:'credit_balance' %}
+                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-success-100 text-success-800">Yes</span>
+                    {% else %}
+                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-danger-100 text-danger-800">No</span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="overflow-hidden">
+        {% if trial_balance %}
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">
+                            Account Number
+                        </th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">
+                            Account Name
+                        </th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">
+                            Account Type
+                        </th>
+                        <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-secondary-500 uppercase tracking-wider">
+                            Debit Balance
+                        </th>
+                        <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-secondary-500 uppercase tracking-wider">
+                            Credit Balance
+                        </th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for account_id, account_data in trial_balance.items %}
+                    <tr class="table-row-hover">
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-secondary-900">
+                            {{ account_data.account.account_number|default:"—" }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm font-medium text-secondary-900">{{ account_data.account.name }}</div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                                {% if account_data.account.type == 'ASSET' %}bg-blue-100 text-blue-800
+                                {% elif account_data.account.type == 'LIABILITY' %}bg-yellow-100 text-yellow-800
+                                {% elif account_data.account.type == 'EQUITY' %}bg-green-100 text-green-800
+                                {% elif account_data.account.type == 'REVENUE' %}bg-purple-100 text-purple-800
+                                {% elif account_data.account.type == 'EXPENSE' %}bg-red-100 text-red-800
+                                {% endif %}">
+                                {{ account_data.account.get_type_display }}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium text-secondary-900">
+                            {% if account_data.debit_balance > 0 %}
+                            <span class="text-danger-600">${{ account_data.debit_balance|floatformat:2 }}</span>
+                            {% else %}
+                            —
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium text-secondary-900">
+                            {% if account_data.credit_balance > 0 %}
+                            <span class="text-success-600">${{ account_data.credit_balance|floatformat:2 }}</span>
+                            {% else %}
+                            —
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot class="bg-gray-50">
+                    <tr>
+                        <td colspan="3" class="px-6 py-3 text-right text-sm font-medium text-secondary-900">
+                            Totals:
+                        </td>
+                        <td class="px-6 py-3 whitespace-nowrap text-right text-sm">
+                            <div class="font-bold text-danger-600">${{ trial_balance.values|sum:'debit_balance'|floatformat:2|default:"0.00" }}</div>
+                        </td>
+                        <td class="px-6 py-3 whitespace-nowrap text-right text-sm">
+                            <div class="font-bold text-success-600">${{ trial_balance.values|sum:'credit_balance'|floatformat:2|default:"0.00" }}</div>
+                        </td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center py-12">
+            <i data-lucide="scale" class="mx-auto h-12 w-12 text-secondary-400"></i>
+            <h3 class="mt-2 text-sm font-medium text-secondary-900">No trial balance data available</h3>
+            <p class="mt-1 text-sm text-secondary-500">
+                {% if period %}
+                No account balances found for the selected period.
+                {% elif as_of_date %}
+                No account balances found as of the selected date.
+                {% else %}
+                No account balances found.
+                {% endif %}
+            </p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Report Filters -->
+<div class="bg-white rounded-lg shadow-soft mt-6">
+    <div class="px-6 py-4 border-b border-gray-200">
+        <h3 class="text-lg font-semibold text-secondary-900">Generate Different Report</h3>
+    </div>
+    <div class="px-6 py-4">
+        <form method="get" class="space-y-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label for="period" class="block text-sm font-medium text-secondary-700 mb-1">Period</label>
+                    <select name="period" id="period" class="form-input block w-full px-3 py-2 border border-secondary-300 rounded-md leading-5 bg-white focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500 sm:text-sm">
+                        <option value="">Select a period</option>
+                        {% for period in periods %}
+                        <option value="{{ period.pk }}" {% if period.pk == request.GET.period|add:"0" %}selected{% endif %}>{{ period.name }} ({{ period.fiscal_year.name }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label for="as_of_date" class="block text-sm font-medium text-secondary-700 mb-1">Or As Of Date</label>
+                    <input type="date" name="as_of_date" id="as_of_date" value="{{ request.GET.as_of_date }}" 
+                           class="form-input block w-full px-3 py-2 border border-secondary-300 rounded-md leading-5 bg-white focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500 sm:text-sm">
+                </div>
+            </div>
+            <div class="flex items-center space-x-3">
+                <button type="submit" class="btn-primary inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white">
+                    <i data-lucide="refresh-cw" class="mr-2 h-4 w-4"></i>
+                    Update Report
+                </button>
+                <a href="{% url 'accounting:reports' %}" class="inline-flex items-center px-4 py-2 border border-secondary-300 text-sm font-medium rounded-md text-secondary-700 bg-white hover:bg-secondary-50">
+                    <i data-lucide="arrow-left" class="mr-2 h-4 w-4"></i>
+                    Back to Reports
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

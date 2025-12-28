@@ -1,0 +1,360 @@
+{% extends "base_new.html" %}
+
+{% load static %}
+{% load custom_tags %}
+
+{% block title %}{{ notification.title }} - Notification{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Back Button -->
+    <div class="mb-6">
+        <a href="{% url 'payroll:notifications' %}" class="inline-flex items-center text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300">
+            <i data-lucide="arrow-left" class="h-4 w-4 mr-1"></i>
+            Back to Notifications
+        </a>
+    </div>
+
+    <!-- Notification Detail Card -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow border border-gray-200 dark:border-gray-700">
+        <!-- Header -->
+        <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+            <div class="flex items-start justify-between">
+                <div class="flex items-start space-x-4">
+                    <!-- Icon -->
+                    <div class="flex-shrink-0">
+                        <div class="w-12 h-12 rounded-full flex items-center justify-center
+                            {% if notification.color_class == 'green' %}bg-green-100 dark:bg-green-900/50 text-green-600 dark:text-green-400
+                            {% elif notification.color_class == 'red' %}bg-red-100 dark:bg-red-900/50 text-red-600 dark:text-red-400
+                            {% elif notification.color_class == 'yellow' %}bg-yellow-100 dark:bg-yellow-900/50 text-yellow-600 dark:text-yellow-400
+                            {% elif notification.color_class == 'blue' %}bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400
+                            {% elif notification.color_class == 'purple' %}bg-purple-100 dark:bg-purple-900/50 text-purple-600 dark:text-purple-400
+                            {% elif notification.color_class == 'gold' %}bg-amber-100 dark:bg-amber-900/50 text-amber-600 dark:text-amber-400
+                            {% else %}bg-gray-100 dark:bg-gray-900/50 text-gray-600 dark:text-gray-400{% endif %}">
+                            <i data-lucide="{{ notification.icon_class }}" class="h-6 w-6"></i>
+                        </div>
+                    </div>
+                    
+                    <!-- Title and Type -->
+                    <div>
+                        <div class="flex items-center space-x-2">
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                                {% if notification.color_class == 'green' %}bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-200
+                                {% elif notification.color_class == 'red' %}bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-200
+                                {% elif notification.color_class == 'yellow' %}bg-yellow-100 text-yellow-800 dark:bg-yellow-900/50 dark:text-yellow-200
+                                {% elif notification.color_class == 'blue' %}bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-200
+                                {% elif notification.color_class == 'purple' %}bg-purple-100 text-purple-800 dark:bg-purple-900/50 dark:text-purple-200
+                                {% elif notification.color_class == 'gold' %}bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-200
+                                {% else %}bg-gray-100 text-gray-800 dark:bg-gray-900/50 dark:text-gray-200{% endif %}">
+                                {{ notification.get_notification_type_display }}
+                            </span>
+                            {% if not notification.is_read %}
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-200">
+                                    Unread
+                                </span>
+                            {% endif %}
+                        </div>
+                        <h1 class="mt-2 text-xl font-semibold text-gray-900 dark:text-white">
+                            {{ notification.title }}
+                        </h1>
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="flex items-center space-x-2">
+                    {% if not notification.is_read %}
+                        <button onclick="markAsRead({{ notification.id }})" class="inline-flex items-center px-3 py-1.5 border border-gray-300 dark:border-gray-600 text-sm font-medium rounded-md text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
+                            <i data-lucide="check" class="h-4 w-4 mr-1.5"></i>
+                            Mark as Read
+                        </button>
+                    {% else %}
+                        <button onclick="markAsUnread({{ notification.id }})" class="inline-flex items-center px-3 py-1.5 border border-gray-300 dark:border-gray-600 text-sm font-medium rounded-md text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
+                            <i data-lucide="mail" class="h-4 w-4 mr-1.5"></i>
+                            Mark as Unread
+                        </button>
+                    {% endif %}
+                    <button onclick="deleteNotification({{ notification.id }})" class="inline-flex items-center px-3 py-1.5 border border-red-300 dark:border-red-600 text-sm font-medium rounded-md text-red-700 dark:text-red-300 bg-white dark:bg-gray-700 hover:bg-red-50 dark:hover:bg-red-900/20">
+                        <i data-lucide="trash-2" class="h-4 w-4 mr-1.5"></i>
+                        Delete
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Body -->
+        <div class="px-6 py-6">
+            <div class="prose dark:prose-invert max-w-none">
+                <p class="text-gray-700 dark:text-gray-300 text-lg leading-relaxed">
+                    {{ notification.message }}
+                </p>
+            </div>
+
+            <!-- Timestamp -->
+            <div class="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
+                <p class="text-sm text-gray-500 dark:text-gray-400">
+                    <i data-lucide="clock" class="h-4 w-4 inline mr-1"></i>
+                    Created {{ notification.created_at|timesince }} ago
+                    {% if notification.read_at %}
+                        <span class="mx-2">•</span>
+                        Read {{ notification.read_at|timesince }} ago
+                    {% endif %}
+                </p>
+            </div>
+
+            <!-- Delivery Status -->
+            <div class="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
+                <h3 class="text-sm font-medium text-gray-900 dark:text-white mb-3">Delivery Status</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <!-- In-App Status -->
+                    {% if notification.delivery_status.in_app %}
+                    <div class="flex items-center space-x-2 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                        <div class="w-8 h-8 rounded-full flex items-center justify-center
+                            {% if notification.delivery_status.in_app.status == 'DELIVERED' %}bg-green-100 dark:bg-green-900/50 text-green-600 dark:text-green-400
+                            {% elif notification.delivery_status.in_app.status == 'FAILED' %}bg-red-100 dark:bg-red-900/50 text-red-600 dark:text-red-400
+                            {% else %}bg-gray-100 dark:bg-gray-900/50 text-gray-600 dark:text-gray-400{% endif %}">
+                            <i data-lucide="bell" class="h-4 w-4"></i>
+                        </div>
+                        <div>
+                            <p class="text-sm font-medium text-gray-900 dark:text-white">In-App</p>
+                            <p class="text-xs text-gray-500 dark:text-gray-400">
+                                {{ notification.delivery_status.in_app.status }}
+                                {% if notification.delivery_status.in_app.at %}
+                                    • {{ notification.delivery_status.in_app.at|timesince }} ago
+                                {% endif %}
+                            </p>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- Email Status -->
+                    {% if notification.delivery_status.email %}
+                    <div class="flex items-center space-x-2 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                        <div class="w-8 h-8 rounded-full flex items-center justify-center
+                            {% if notification.delivery_status.email.status == 'DELIVERED' or notification.delivery_status.email.status == 'SENT' %}bg-green-100 dark:bg-green-900/50 text-green-600 dark:text-green-400
+                            {% elif notification.delivery_status.email.status == 'FAILED' %}bg-red-100 dark:bg-red-900/50 text-red-600 dark:text-red-400
+                            {% else %}bg-gray-100 dark:bg-gray-900/50 text-gray-600 dark:text-gray-400{% endif %}">
+                            <i data-lucide="mail" class="h-4 w-4"></i>
+                        </div>
+                        <div>
+                            <p class="text-sm font-medium text-gray-900 dark:text-white">Email</p>
+                            <p class="text-xs text-gray-500 dark:text-gray-400">
+                                {{ notification.delivery_status.email.status }}
+                                {% if notification.delivery_status.email.at %}
+                                    • {{ notification.delivery_status.email.at|timesince }} ago
+                                {% endif %}
+                            </p>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- Push Status -->
+                    {% if notification.delivery_status.push %}
+                    <div class="flex items-center space-x-2 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                        <div class="w-8 h-8 rounded-full flex items-center justify-center
+                            {% if notification.delivery_status.push.status == 'DELIVERED' or notification.delivery_status.push.status == 'SENT' %}bg-green-100 dark:bg-green-900/50 text-green-600 dark:text-green-400
+                            {% elif notification.delivery_status.push.status == 'FAILED' %}bg-red-100 dark:bg-red-900/50 text-red-600 dark:text-red-400
+                            {% else %}bg-gray-100 dark:bg-gray-900/50 text-gray-600 dark:text-gray-400{% endif %}">
+                            <i data-lucide="smartphone" class="h-4 w-4"></i>
+                        </div>
+                        <div>
+                            <p class="text-sm font-medium text-gray-900 dark:text-white">Push</p>
+                            <p class="text-xs text-gray-500 dark:text-gray-400">
+                                {{ notification.delivery_status.push.status }}
+                                {% if notification.delivery_status.push.at %}
+                                    • {{ notification.delivery_status.push.at|timesince }} ago
+                                {% endif %}
+                            </p>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- SMS Status -->
+                    {% if notification.delivery_status.sms %}
+                    <div class="flex items-center space-x-2 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                        <div class="w-8 h-8 rounded-full flex items-center justify-center
+                            {% if notification.delivery_status.sms.status == 'DELIVERED' or notification.delivery_status.sms.status == 'SENT' %}bg-green-100 dark:bg-green-900/50 text-green-600 dark:text-green-400
+                            {% elif notification.delivery_status.sms.status == 'FAILED' %}bg-red-100 dark:bg-red-900/50 text-red-600 dark:text-red-400
+                            {% else %}bg-gray-100 dark:bg-gray-900/50 text-gray-600 dark:text-gray-400{% endif %}">
+                            <i data-lucide="message-square" class="h-4 w-4"></i>
+                        </div>
+                        <div>
+                            <p class="text-sm font-medium text-gray-900 dark:text-white">SMS</p>
+                            <p class="text-xs text-gray-500 dark:text-gray-400">
+                                {{ notification.delivery_status.sms.status }}
+                                {% if notification.delivery_status.sms.at %}
+                                    • {{ notification.delivery_status.sms.at|timesince }} ago
+                                {% endif %}
+                            </p>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Related Object Info -->
+            {% if notification.leave_request %}
+                <div class="mt-6 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-600">
+                    <h3 class="text-sm font-medium text-gray-900 dark:text-white mb-2">Related Leave Request</h3>
+                    <div class="space-y-1 text-sm text-gray-600 dark:text-gray-400">
+                        <p><span class="font-medium">Type:</span> {{ notification.leave_request.get_leave_type_display }}</p>
+                        <p><span class="font-medium">Dates:</span> {{ notification.leave_request.start_date }} to {{ notification.leave_request.end_date }}</p>
+                        <p><span class="font-medium">Status:</span> 
+                            <span class="{% if notification.leave_request.status == 'APPROVED' %}text-green-600 dark:text-green-400{% elif notification.leave_request.status == 'REJECTED' %}text-red-600 dark:text-red-400{% else %}text-yellow-600 dark:text-yellow-400{% endif %}">
+                                {{ notification.leave_request.get_status_display }}
+                            </span>
+                        </p>
+                    </div>
+                    <div class="mt-3">
+                        <a href="{% url 'payroll:view_leave_request' notification.leave_request.pk %}" class="inline-flex items-center text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300">
+                            View Leave Request
+                            <i data-lucide="arrow-right" class="h-3 w-3 ml-1"></i>
+                        </a>
+                    </div>
+                </div>
+            {% endif %}
+
+            {% if notification.iou %}
+                <div class="mt-6 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-600">
+                    <h3 class="text-sm font-medium text-gray-900 dark:text-white mb-2">Related IOU</h3>
+                    <div class="space-y-1 text-sm text-gray-600 dark:text-gray-400">
+                        <p><span class="font-medium">Amount:</span> ₦{{ notification.iou.amount }}</p>
+                        <p><span class="font-medium">Tenor:</span> {{ notification.iou.tenor }} months</p>
+                        <p><span class="font-medium">Status:</span> 
+                            <span class="{% if notification.iou.status == 'APPROVED' %}text-green-600 dark:text-green-400{% elif notification.iou.status == 'REJECTED' %}text-red-600 dark:text-red-400{% elif notification.iou.status == 'PAID' %}text-blue-600 dark:text-blue-400{% else %}text-yellow-600 dark:text-yellow-400{% endif %}">
+                                {{ notification.iou.get_status_display }}
+                            </span>
+                        </p>
+                    </div>
+                    <div class="mt-3">
+                        <a href="{% url 'payroll:iou_detail' notification.iou.pk %}" class="inline-flex items-center text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300">
+                            View IOU Details
+                            <i data-lucide="arrow-right" class="h-3 w-3 ml-1"></i>
+                        </a>
+                    </div>
+                </div>
+            {% endif %}
+
+            {% if notification.payroll %}
+                <div class="mt-6 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-600">
+                    <h3 class="text-sm font-medium text-gray-900 dark:text-white mb-2">Related Payroll</h3>
+                    <div class="space-y-1 text-sm text-gray-600 dark:text-gray-400">
+                        <p><span class="font-medium">Period:</span> {{ notification.payroll.paydays }}</p>
+                        <p><span class="font-medium">Status:</span> 
+                            <span class="{% if notification.payroll.is_active %}text-green-600 dark:text-green-400{% else %}text-gray-600 dark:text-gray-400{% endif %}">
+                                {% if notification.payroll.is_active %}Processed{% else %}Pending{% endif %}
+                            </span>
+                        </p>
+                    </div>
+                    <div class="mt-3">
+                        <a href="{% url 'payroll:pay_period_detail' notification.payroll.slug %}" class="inline-flex items-center text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300">
+                            View Payroll Details
+                            <i data-lucide="arrow-right" class="h-3 w-3 ml-1"></i>
+                        </a>
+                    </div>
+                </div>
+            {% endif %}
+
+            {% if notification.appraisal %}
+                <div class="mt-6 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-600">
+                    <h3 class="text-sm font-medium text-gray-900 dark:text-white mb-2">Related Appraisal</h3>
+                    <div class="space-y-1 text-sm text-gray-600 dark:text-gray-400">
+                        <p><span class="font-medium">Name:</span> {{ notification.appraisal.name }}</p>
+                        <p><span class="font-medium">End Date:</span> {{ notification.appraisal.end_date }}</p>
+                    </div>
+                    <div class="mt-3">
+                        <a href="{% url 'payroll:appraisal_detail' notification.appraisal.pk %}" class="inline-flex items-center text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300">
+                            View Appraisal Details
+                            <i data-lucide="arrow-right" class="h-3 w-3 ml-1"></i>
+                        </a>
+                    </div>
+                </div>
+            {% endif %}
+
+            <!-- Action Link -->
+            {% if notification.action_url %}
+                <div class="mt-6">
+                    <a href="{{ notification.action_url }}" class="inline-flex items-center justify-center w-full sm:w-auto px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                        Take Action
+                        <i data-lucide="arrow-right" class="h-4 w-4 ml-2"></i>
+                    </a>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+function markAsRead(notificationId) {
+    fetch(`/payroll/notifications/${notificationId}/mark-read/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+            'Content-Type': 'application/json',
+        },
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        }
+    })
+    .catch(error => console.error('Error marking notification as read:', error));
+}
+
+function markAsUnread(notificationId) {
+    fetch(`/payroll/notifications/${notificationId}/mark-unread/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+            'Content-Type': 'application/json',
+        },
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        }
+    })
+    .catch(error => console.error('Error marking notification as unread:', error));
+}
+
+function deleteNotification(notificationId) {
+    if (!confirm('Delete this notification?')) return;
+    
+    fetch(`/payroll/notifications/${notificationId}/delete/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+            'Content-Type': 'application/json',
+        },
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            window.location.href = '{% url "payroll:notifications" %}';
+        }
+    })
+    .catch(error => console.error('Error deleting notification:', error));
+}
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+// Initialize Lucide icons
+if (typeof lucide !== 'undefined') {
+    lucide.createIcons();
+}
+</script>
+{% endblock %}

@@ -1,0 +1,29 @@
+PayrollCo Notification
+{{ notification_type|title }}
+================================================================================
+
+{{ notification.title }}
+
+{{ notification.message }}
+
+--------------------------------------------------------------------------------
+Details:
+- Created: {{ notification.created_at|date:"F j, Y, g:i A" }}
+{% if notification.read_at %}
+- Read: {{ notification.read_at|date:"F j, Y, g:i A" }}
+{% endif %}
+- Priority: {{ notification.get_priority_display }}
+
+{% if notification.action_url %}
+Action: {{ notification.action_label|default:"View Details" }}
+{{ notification.action_url }}
+{% endif %}
+
+--------------------------------------------------------------------------------
+Manage your notification preferences:
+{{ preferences_url }}
+
+To unsubscribe from notifications:
+{{ unsubscribe_url }}
+
+© {% now "Y" %} PayrollCo. All rights reserved.

@@ -1,0 +1,298 @@
+{% extends "base_new.html" %}
+
+{% block page_header %}User Dashboard{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Welcome Section -->
+    <div class="bg-gradient-to-r from-primary-500 to-primary-600 rounded-2xl p-6 text-white shadow-medium">
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between">
+            <div>
+                <h1 class="text-2xl font-bold mb-2">Welcome back, {{ user.first_name|default:user.email }}!</h1>
+                <p class="text-primary-100">Here's your personal overview</p>
+            </div>
+            <div class="mt-4 md:mt-0">
+                <span class="bg-white bg-opacity-20 text-white text-sm font-medium px-4 py-2 rounded-full">
+                    {% now "F Y" %}
+                </span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Personal Statistics -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div class="bg-white rounded-xl shadow-soft p-6 card-hover">
+            <div class="flex items-center">
+                <div class="flex-shrink-0 bg-primary-100 rounded-lg p-3">
+                    <i data-lucide="calendar" class="h-6 w-6 text-primary-600"></i>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-secondary-600">Leave Balance</p>
+                    <p class="text-2xl font-semibold text-secondary-900">{{ leave_balance|default:15 }} days</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-soft p-6 card-hover">
+            <div class="flex items-center">
+                <div class="flex-shrink-0 bg-success-100 rounded-lg p-3">
+                    <i data-lucide="dollar-sign" class="h-6 w-6 text-success-600"></i>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-secondary-600">Net Salary</p>
+                    <p class="text-2xl font-semibold text-secondary-900">₦{{ net_salary|default:"0"|intcomma }}</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-soft p-6 card-hover">
+            <div class="flex items-center">
+                <div class="flex-shrink-0 bg-warning-100 rounded-lg p-3">
+                    <i data-lucide="clock" class="h-6 w-6 text-warning-600"></i>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-secondary-600">Pending Requests</p>
+                    <p class="text-2xl font-semibold text-secondary-900">{{ pending_requests|default:0 }}</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-soft p-6 card-hover">
+            <div class="flex items-center">
+                <div class="flex-shrink-0 bg-purple-100 rounded-lg p-3">
+                    <i data-lucide="award" class="h-6 w-6 text-purple-600"></i>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-secondary-600">Performance Score</p>
+                    <p class="text-2xl font-semibold text-secondary-900">{{ performance_score|default:85 }}%</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="bg-white rounded-xl shadow-soft p-6">
+        <h2 class="text-lg font-semibold text-secondary-900 mb-4">Quick Actions</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <a href="{% url 'payroll:profile' request.user.id %}"
+                class="group flex flex-col items-center p-4 border border-secondary-200 rounded-lg hover:border-primary-300 hover:bg-primary-50 transition-all">
+                <i data-lucide="user" class="h-8 w-8 text-secondary-600 group-hover:text-primary-600 mb-2"></i>
+                <span class="text-sm font-medium text-secondary-700 group-hover:text-primary-700">My Profile</span>
+            </a>
+
+            <a href="{% url 'payroll:apply_leave' %}"
+                class="group flex flex-col items-center p-4 border border-secondary-200 rounded-lg hover:border-primary-300 hover:bg-primary-50 transition-all">
+                <i data-lucide="calendar-plus" class="h-8 w-8 text-secondary-600 group-hover:text-primary-600 mb-2"></i>
+                <span class="text-sm font-medium text-secondary-700 group-hover:text-primary-700">Apply for Leave</span>
+            </a>
+
+            <a href="{% url 'payroll:request_iou' %}"
+                class="group flex flex-col items-center p-4 border border-secondary-200 rounded-lg hover:border-primary-300 hover:bg-primary-50 transition-all">
+                <i data-lucide="credit-card" class="h-8 w-8 text-secondary-600 group-hover:text-primary-600 mb-2"></i>
+                <span class="text-sm font-medium text-secondary-700 group-hover:text-primary-700">Request IOU</span>
+            </a>
+
+            <a href="{% url 'payroll:payslips' %}"
+                class="group flex flex-col items-center p-4 border border-secondary-200 rounded-lg hover:border-primary-300 hover:bg-primary-50 transition-all">
+                <i data-lucide="file-text" class="h-8 w-8 text-secondary-600 group-hover:text-primary-600 mb-2"></i>
+                <span class="text-sm font-medium text-secondary-700 group-hover:text-primary-700">View Payslips</span>
+            </a>
+        </div>
+    </div>
+
+    <!-- Recent Activity -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Recent Payslips -->
+        <div class="bg-white rounded-xl shadow-soft p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-lg font-semibold text-secondary-900 flex items-center">
+                    <i data-lucide="file-text" class="h-5 w-5 mr-2 text-primary-600"></i>
+                    Recent Payslips
+                </h2>
+                <a href="{% url 'payroll:payslips' %}" class="text-sm text-primary-600 hover:text-primary-800">View
+                    all</a>
+            </div>
+            <div class="space-y-3">
+                {% for payslip in recent_payslips|default:empty_list %}
+                <div
+                    class="flex items-center justify-between p-3 bg-secondary-50 rounded-lg hover:bg-secondary-100 transition-colors">
+                    <div>
+                        <p class="font-medium text-secondary-900">{{ payslip.paydays_id.paydays|date:"F Y" }}</p>
+                        <p class="text-xs text-secondary-500">Net: ₦{{ payslip.payroll_id.netpay|intcomma }}</p>
+                    </div>
+                    <div class="flex space-x-2">
+                        <a href="{% url 'payroll:payslip' payslip.id %}"
+                            class="p-1.5 text-secondary-500 hover:text-primary-600" title="View Payslip">
+                            <i data-lucide="eye" class="h-4 w-4"></i>
+                        </a>
+                        <a href="{% url 'payroll:payslip_pdf' payslip.payroll_id.pays.id %}"
+                            class="p-1.5 text-secondary-500 hover:text-success-600" title="Download PDF">
+                            <i data-lucide="download" class="h-4 w-4"></i>
+                        </a>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="text-center py-4 text-secondary-500">
+                    <i data-lucide="file-text" class="h-8 w-8 mx-auto mb-2 text-secondary-400"></i>
+                    <p class="text-sm">No payslips available</p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Leave Requests -->
+        <div class="bg-white rounded-xl shadow-soft p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-lg font-semibold text-secondary-900 flex items-center">
+                    <i data-lucide="calendar" class="h-5 w-5 mr-2 text-primary-600"></i>
+                    Leave Requests
+                </h2>
+                <a href="{% url 'payroll:leave_requests' %}"
+                    class="text-sm text-primary-600 hover:text-primary-800">View all</a>
+            </div>
+            <div class="space-y-3">
+                {% for leave in recent_leaves|default:empty_list %}
+                <div
+                    class="flex items-center justify-between p-3 bg-secondary-50 rounded-lg hover:bg-secondary-100 transition-colors">
+                    <div>
+                        <p class="font-medium text-secondary-900">{{ leave.leave_type }}</p>
+                        <p class="text-xs text-secondary-500">{{ leave.start_date }} - {{ leave.end_date }}</p>
+                    </div>
+                    <span class="px-2 py-1 text-xs font-medium rounded-full
+                        {% if leave.status == 'Approved' %}bg-success-100 text-success-800{% endif %}
+                        {% if leave.status == 'Pending' %}bg-warning-100 text-warning-800{% endif %}
+                        {% if leave.status == 'Rejected' %}bg-danger-100 text-danger-800{% endif %}">
+                        {{ leave.status }}
+                    </span>
+                </div>
+                {% empty %}
+                <div class="text-center py-4 text-secondary-500">
+                    <i data-lucide="calendar" class="h-8 w-8 mx-auto mb-2 text-secondary-400"></i>
+                    <p class="text-sm">No leave requests</p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Appraisal Assignments -->
+    <div class="bg-white rounded-xl shadow-soft p-6">
+        <div class="flex items-center justify-between mb-4">
+            <h2 class="text-lg font-semibold text-secondary-900 flex items-center">
+                <i data-lucide="star" class="h-5 w-5 mr-2 text-primary-600"></i>
+                My Appraisal Assignments
+            </h2>
+            <a href="{% url 'payroll:appraisal_list' %}" class="text-sm text-primary-600 hover:text-primary-800">View
+                all</a>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-secondary-200">
+                <thead class="bg-secondary-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">
+                            Employee</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">
+                            Appraisal</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">
+                            Due Date</th>
+                        <th
+                            class="px-6 py-3 text-right text-xs font-medium text-secondary-500 uppercase tracking-wider">
+                            Action</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-secondary-200">
+                    {% for assignment in assignments %}
+                    <tr class="hover:bg-secondary-50">
+                        <td class="px-6 py-4 text-sm text-secondary-900">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0 h-8 w-8">
+                                    {% if assignment.appraisee.employee_user.photo %}
+                                    <img class="h-8 w-8 rounded-full object-cover"
+                                        src="{{ assignment.appraisee.employee_user.photo.url }}"
+                                        alt="{{ assignment.appraisee.first_name }}">
+                                    {% else %}
+                                    <div class="h-8 w-8 rounded-full bg-primary-200 flex items-center justify-center">
+                                        <span class="text-primary-800 font-medium text-xs">{{
+                                            assignment.appraisee.first_name|first|upper }}{{
+                                            assignment.appraisee.last_name|first|upper }}</span>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                                <div class="ml-3">
+                                    <div class="text-sm font-medium text-secondary-900">{{
+                                        assignment.appraisee.first_name }} {{ assignment.appraisee.last_name }}</div>
+                                    <div class="text-xs text-secondary-500">{{
+                                        assignment.appraisee.job_title_display|default:assignment.appraisee.job_title }}
+                                    </div>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 text-sm text-secondary-900">{{ assignment.appraisal.name }}</td>
+                        <td class="px-6 py-4 text-sm text-secondary-900">{{ assignment.due_date|date:"d M
+                            Y"|default:"N/A" }}</td>
+                        <td class="px-6 py-4 text-sm text-secondary-900 text-right">
+                            <a href="{% url 'payroll:review_create' assignment.appraisal.pk assignment.appraisee.pk %}"
+                                class="btn-primary py-1.5 px-3 text-white text-xs font-medium rounded-lg">
+                                Start Appraisal
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4" class="px-6 py-12 text-center">
+                            <i data-lucide="star" class="h-12 w-12 mx-auto text-secondary-400 mb-3"></i>
+                            <p class="text-sm text-secondary-500">You have no appraisal assignments.</p>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Performance Overview -->
+    <div class="bg-white rounded-xl shadow-soft p-6">
+        <h2 class="text-lg font-semibold text-secondary-900 mb-4 flex items-center">
+            <i data-lucide="trending-up" class="h-5 w-5 mr-2 text-primary-600"></i>
+            Performance Overview
+        </h2>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div>
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-sm font-medium text-secondary-600">Productivity</span>
+                    <span class="text-sm font-medium text-secondary-900">{{ productivity|default:85 }}%</span>
+                </div>
+                <div class="w-full bg-secondary-200 rounded-full h-2">
+                    <div class="bg-primary-600 h-2 rounded-full" style="width: 85%"></div>
+                </div>
+            </div>
+
+            <div>
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-sm font-medium text-secondary-600">Quality</span>
+                    <span class="text-sm font-medium text-secondary-900">{{ quality|default:90 }}%</span>
+                </div>
+                <div class="w-full bg-secondary-200 rounded-full h-2">
+                    <div class="bg-success-500 h-2 rounded-full" style="width: 90%"></div>
+                </div>
+            </div>
+
+            <div>
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-sm font-medium text-secondary-600">Teamwork</span>
+                    <span class="text-sm font-medium text-secondary-900">{{ teamwork|default:88 }}%</span>
+                </div>
+                <div class="w-full bg-secondary-200 rounded-full h-2">
+                    <div class="bg-purple-500 h-2 rounded-full" style="width: 88%"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        lucide.createIcons();
+    });
+</script>
+{% endblock %}

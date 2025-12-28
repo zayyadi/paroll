@@ -9,17 +9,22 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import (
     AdminPasswordChangeForm,
     PasswordChangeForm,
-    AuthenticationForm,
 )
+from django.contrib.auth.forms import PasswordResetForm
+from django.core.cache import cache
+import random
+import string
 from django.contrib.auth.views import PasswordResetView, PasswordResetConfirmView
 from django.urls import reverse_lazy
 from django.template.loader import render_to_string
 from django.utils.http import urlsafe_base64_encode
 from django.contrib.sites.shortcuts import get_current_site  # For dynamic domain
-from django.http import HttpResponseRedirect  # For returning from form_valid
+
+# from django.http import HttpResponseRedirect  # For returning from form_valid
 from django.utils.encoding import force_bytes
-from django.utils.encoding import force_str
-from django.utils.http import urlsafe_base64_decode
+
+# from django.utils.encoding import force_str
+# from django.utils.http import urlsafe_base64_decode
 from core.settings import DEFAULT_FROM_EMAIL
 from users.email_backend import send_mail as custom_send_mail
 
@@ -44,6 +49,8 @@ class RegisterView(views.View):
 
 
 class MyLoginView(LoginView):
+    template_name = "registration/login_new.html"
+
     def get_success_url(self):
         redirect_url = self.request.GET.get("next")
         if redirect_url:
@@ -222,15 +229,6 @@ def custom_password_reset_done(request):
 def custom_password_reset_complete(request):
     # Your custom password reset complete view logic
     return render(request, "registration/password_reset_complete.html")
-
-
-from django.views.decorators.http import require_POST
-from django.utils import timezone
-from datetime import timedelta
-from django.contrib.auth.forms import PasswordResetForm
-from django.core.cache import cache
-import random
-import string
 
 
 def logout_view(request):

@@ -27,7 +27,7 @@
           {% for req in requests %}
           <tr>
             <td class="p-3 text-sm text-gray-800">{{ req.employee.first_name }} {{ req.employee.last_name }}</td>
-            <td class="p-3 text-sm text-gray-800">{{ req.leave_type.leave_type }}</td>
+            <td class="p-3 text-sm text-gray-800">{{ req.leave_type }}</td>
             <td class="p-3 text-sm text-gray-800">{{ req.start_date|date:"d M Y" }}</td>
             <td class="p-3 text-sm text-gray-800">{{ req.end_date|date:"d M Y" }}</td>
             <td class="p-3 text-sm text-gray-800 truncate max-w-xs">{{ req.reason|truncatewords:10 }}</td>

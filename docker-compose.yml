@@ -1,6 +1,9 @@
 version: '3.8'
 
 services:
+  # ============================================================================
+  # WEB SERVICE
+  # ============================================================================
   web:
     build: .
     command: gunicorn core.wsgi:application --bind 0.0.0.0:8000
@@ -12,3 +15,111 @@ services:
       - ./.env
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    depends_on:
+      - db
+      - redis
+
+  # ============================================================================
+  # REDIS SERVICE
+  # ============================================================================
+  # Redis for caching, Celery broker, and Channels
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  # ============================================================================
+  # CELERY WORKER SERVICE
+  # ============================================================================
+  # Celery worker for processing notification tasks
+  celery-worker:
+    build: .
+    command: celery -A core worker -l INFO -Q notifications_critical,notifications_high,notifications_normal,notifications_low --concurrency=4
+    volumes:
+      - .:/app
+    depends_on:
+      - redis
+      - db
+    env_file:
+      - ./.env
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/2
+      - CELERY_RESULT_BACKEND=redis://redis:6379/2
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A core inspect ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # ============================================================================
+  # CELERY BEAT SERVICE
+  # ============================================================================
+  # Celery beat for scheduled tasks
+  celery-beat:
+    build: .
+    command: celery -A core beat -l INFO --scheduler django_celery_beat.schedulers:DatabaseScheduler
+    volumes:
+      - .:/app
+    depends_on:
+      - redis
+      - db
+    env_file:
+      - ./.env
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/2
+      - CELERY_RESULT_BACKEND=redis://redis:6379/2
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A core inspect ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # ============================================================================
+  # DAPHNE SERVICE (ASGI SERVER)
+  # ============================================================================
+  # Daphne for WebSocket support
+  daphne:
+    build: .
+    command: daphne -b 0.0.0.0 -p 8001 core.asgi:application
+    volumes:
+      - .:/app
+    ports:
+      - "8001:8001"
+    depends_on:
+      - redis
+    env_file:
+      - ./.env
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+# ============================================================================
+# VOLUMES
+# ============================================================================
+volumes:
+  redis_data:
+    driver: local
+
+# ============================================================================
+# NETWORKS
+# ============================================================================
+networks:
+  default:
+    name: payroll_network

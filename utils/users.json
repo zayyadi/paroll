@@ -1,0 +1,130 @@
+[
+    {
+        "id": 6,
+        "email": "kimberlybaker@example.org",
+        "first_name": "Sarah",
+        "last_name": "Huff",
+        "password": "pbkdf2_sha256$260000$4e7o1r8J3xbI3vwU$33EJR/ZRWBsFkDzuFaTIOvZPFuwpw/4Rc7w3IoBx8oo=",
+        "date_joined": "2023-10-15 14:08:11"
+    },
+    {
+        "id": 7,
+        "email": "thomasjames@example.net",
+        "first_name": "Miranda",
+        "last_name": "Patel",
+        "password": "pbkdf2_sha256$260000$AESWA9c1BexPpQgB$9TkqyrHBgyE3jpR+SEqNyPExYQGBxe8nEvBiQMyeZgo=",
+        "date_joined": "2024-04-23 04:18:49"
+    },
+    {
+        "id": 8,
+        "email": "perezcynthia@example.com",
+        "first_name": "Brent",
+        "last_name": "Jones",
+        "password": "pbkdf2_sha256$260000$CxNTaMMzs1kJAUT6$gWe5RQgWnscLIlyGWAKtSiW4E6/G6mPqHNDnY6wOc8A=",
+        "date_joined": "2024-03-20 01:27:11"
+    },
+    {
+        "id": 9,
+        "email": "franklinelizabeth@example.net",
+        "first_name": "Steve",
+        "last_name": "Yates",
+        "password": "pbkdf2_sha256$260000$b88a24rP9Yyb-zol$uxih4QvloHWHKbzs+vdjfZSa9GUYYFWAVhtEanRumEY=",
+        "date_joined": "2025-03-02 22:36:05"
+    },
+    {
+        "id": 10,
+        "email": "millermartin@example.com",
+        "first_name": "Lauren",
+        "last_name": "Hays",
+        "password": "pbkdf2_sha256$260000$1iR_Y4DPRBvailPk$OKnaK7vnEwDfEZL9grHA1vwfDI2ksH+qvVHVn9BYh8Q=",
+        "date_joined": "2024-03-04 20:04:23"
+    },
+    {
+        "id": 11,
+        "email": "bellpatricia@example.net",
+        "first_name": "Raymond",
+        "last_name": "Baldwin",
+        "password": "pbkdf2_sha256$260000$lgIkQyoQuh2lwwHI$qc6fEP4NEQWfNYWl2jniw25QqkbUXFsPKHiyzSjmCig=",
+        "date_joined": "2024-12-04 11:28:52"
+    },
+    {
+        "id": 12,
+        "email": "bushamy@example.net",
+        "first_name": "Lindsay",
+        "last_name": "Robinson",
+        "password": "pbkdf2_sha256$260000$2t56LtPX0ElioZQY$lz7S7iAlnoznfCP1s1nu1uoVnnWJcYOi3nIil+j/Tk8=",
+        "date_joined": "2025-07-19 23:57:09"
+    },
+    {
+        "id": 13,
+        "email": "richmondadam@example.net",
+        "first_name": "Richard",
+        "last_name": "Long",
+        "password": "pbkdf2_sha256$260000$ku3K_2ojgRL4nTVb$Fj+qGXEsSGmLnf4CP6AdEYQGnKQdKWOD+t1i3yOyyUI=",
+        "date_joined": "2025-03-29 09:38:13"
+    },
+    {
+        "id": 14,
+        "email": "estevens@example.com",
+        "first_name": "Megan",
+        "last_name": "Jones",
+        "password": "pbkdf2_sha256$260000$Qhqo2rQpgqE38NZu$YLlAtpshYdpKCML+lFlH258COqEs4+nuIyMIwbMPTC0=",
+        "date_joined": "2023-12-05 21:00:00"
+    },
+    {
+        "id": 15,
+        "email": "wheeleramy@example.net",
+        "first_name": "Isaac",
+        "last_name": "Bruce",
+        "password": "pbkdf2_sha256$260000$RF5pZCRsfXKejJIC$J8Y51KDOn8r0sDw4/o8q7tXEu2iKVY9Hss7e463Q1Mo=",
+        "date_joined": "2025-03-23 14:31:30"
+    },
+    {
+        "id": 16,
+        "email": "brian94@example.net",
+        "first_name": "Ebony",
+        "last_name": "Cruz",
+        "password": "pbkdf2_sha256$260000$VAmCSDMvnROxQjUC$lns6sRFL1RZC1c0lhTt2O+EbZTNxBm6JwucLgXyUvF8=",
+        "date_joined": "2024-02-09 11:17:05"
+    },
+    {
+        "id": 17,
+        "email": "xpearson@example.net",
+        "first_name": "Peter",
+        "last_name": "Benitez",
+        "password": "pbkdf2_sha256$260000$YDdNVdDgvWOOYOhg$7RL/udSiMVW8/kpf1EBrp1QqAWrFVCJ6AwTsMIvWCIY=",
+        "date_joined": "2024-12-31 05:51:25"
+    },
+    {
+        "id": 18,
+        "email": "turnerbeth@example.com",
+        "first_name": "William",
+        "last_name": "Knight",
+        "password": "pbkdf2_sha256$260000$VJZUXjmythYs9Sbj$PJpT2cNvTiowTCGfxXZocbMF8FV62BWRpolcC7Ctdnk=",
+        "date_joined": "2023-10-16 07:09:18"
+    },
+    {
+        "id": 19,
+        "email": "meghan03@example.org",
+        "first_name": "David",
+        "last_name": "Sims",
+        "password": "pbkdf2_sha256$260000$dlcktRLUypGy5Ptx$1ywfN1ud4qBnax3bXjCG3dWCdgbv6AnsyUY/5vOKkBg=",
+        "date_joined": "2024-08-24 18:48:27"
+    },
+    {
+        "id": 20,
+        "email": "smithnancy@example.com",
+        "first_name": "Kyle",
+        "last_name": "Faulkner",
+        "password": "pbkdf2_sha256$260000$l8eQzrV8s_BP0FHv$pwwAfPbx9CzuJ5XcBls+q12zXzzbZ7nsOhbv4tL69RA=",
+        "date_joined": "2025-08-05 16:55:44"
+    },
+    {
+        "id": 21,
+        "email": "acostakatherine@example.net",
+        "first_name": "Kaitlin",
+        "last_name": "Ramos",
+        "password": "pbkdf2_sha256$260000$-OaSosegLCf7Njp6$SWRz/UBXA8+c6ksVc9OrmeWEqAvCFlWsur8ww4RPpT8=",
+        "date_joined": "2025-09-05 15:27:13"
+    }
+]

@@ -1,0 +1,282 @@
+{% extends "accounting/base.html" %}
+{% load static %}
+
+{% block page_title %}{% if form.instance.pk %}Edit{% else %}Create{% endif %} Journal Entry{% endblock %}
+
+{% block breadcrumbs %}
+{% with breadcrumbs=breadcrumbs|default:"[{'title': 'General Journal', 'url': '/accounting/journals/'}, {'title': 'Create Entry'}]" %}
+{{ block.super }}
+{% endwith %}
+{% endblock %}
+
+{% block accounting_content %}
+<div class="bg-white rounded-lg shadow-soft">
+    <div class="px-6 py-4 border-b border-gray-200">
+        <h3 class="text-lg font-semibold text-secondary-900">{% if form.instance.pk %}Edit{% else %}Create{% endif %} Journal Entry</h3>
+    </div>
+    
+    <form method="post" class="space-y-6">
+        {% csrf_token %}
+        
+        <!-- Journal Information -->
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h4 class="text-md font-medium text-secondary-900 mb-4">Journal Information</h4>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <label for="{{ form.date.id_for_label }}" class="block text-sm font-medium text-secondary-700 mb-1">
+                        Date <span class="text-danger-500">*</span>
+                    </label>
+                    {{ form.date }}
+                    {% if form.date.errors %}
+                    <p class="mt-1 text-sm text-danger-600">{{ form.date.errors.0 }}</p>
+                    {% endif %}
+                </div>
+                <div>
+                    <label for="{{ form.period.id_for_label }}" class="block text-sm font-medium text-secondary-700 mb-1">
+                        Period <span class="text-danger-500">*</span>
+                    </label>
+                    {{ form.period }}
+                    {% if form.period.errors %}
+                    <p class="mt-1 text-sm text-danger-600">{{ form.period.errors.0 }}</p>
+                    {% endif %}
+                </div>
+                <div class="md:col-span-2">
+                    <label for="{{ form.description.id_for_label }}" class="block text-sm font-medium text-secondary-700 mb-1">
+                        Description <span class="text-danger-500">*</span>
+                    </label>
+                    {{ form.description }}
+                    {% if form.description.errors %}
+                    <p class="mt-1 text-sm text-danger-600">{{ form.description.errors.0 }}</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- Journal Entries -->
+        <div class="px-6 py-4">
+            <h4 class="text-md font-medium text-secondary-900 mb-4">Journal Entries</h4>
+            <div class="mb-4">
+                <p class="text-sm text-secondary-600">
+                    <i data-lucide="info" class="inline h-4 w-4 mr-1"></i>
+                    Add at least 2 entries. Total debits must equal total credits for the journal to balance.
+                </p>
+            </div>
+            
+            {{ entry_formset.management_form }}
+            
+            <div class="space-y-4" id="entries-container">
+                {% for form in entry_formset %}
+                <div class="entry-form bg-gray-50 p-4 rounded-lg border border-gray-200">
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <div>
+                            <label for="{{ form.account.id_for_label }}" class="block text-sm font-medium text-secondary-700 mb-1">
+                                Account <span class="text-danger-500">*</span>
+                            </label>
+                            {{ form.account }}
+                            {% if form.account.errors %}
+                            <p class="mt-1 text-sm text-danger-600">{{ form.account.errors.0 }}</p>
+                            {% endif %}
+                        </div>
+                        <div>
+                            <label for="{{ form.entry_type.id_for_label }}" class="block text-sm font-medium text-secondary-700 mb-1">
+                                Type <span class="text-danger-500">*</span>
+                            </label>
+                            {{ form.entry_type }}
+                            {% if form.entry_type.errors %}
+                            <p class="mt-1 text-sm text-danger-600">{{ form.entry_type.errors.0 }}</p>
+                            {% endif %}
+                        </div>
+                        <div>
+                            <label for="{{ form.amount.id_for_label }}" class="block text-sm font-medium text-secondary-700 mb-1">
+                                Amount <span class="text-danger-500">*</span>
+                            </label>
+                            {{ form.amount }}
+                            {% if form.amount.errors %}
+                            <p class="mt-1 text-sm text-danger-600">{{ form.amount.errors.0 }}</p>
+                            {% endif %}
+                        </div>
+                        <div>
+                            <label for="{{ form.memo.id_for_label }}" class="block text-sm font-medium text-secondary-700 mb-1">
+                                Memo
+                            </label>
+                            {{ form.memo }}
+                            {% if form.memo.errors %}
+                            <p class="mt-1 text-sm text-danger-600">{{ form.memo.errors.0 }}</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% if form.DELETE %}
+                    <div class="mt-2">
+                        {{ form.DELETE }}
+                        <label for="{{ form.DELETE.id_for_label }}" class="text-sm text-danger-600">Remove this entry</label>
+                    </div>
+                    {% endif %}
+                    {{ form.id }}
+                </div>
+                {% endfor %}
+            </div>
+            
+            <div class="mt-4">
+                <button type="button" id="add-entry" class="inline-flex items-center px-4 py-2 border border-secondary-300 text-sm font-medium rounded-md text-secondary-700 bg-white hover:bg-secondary-50">
+                    <i data-lucide="plus" class="mr-2 h-4 w-4"></i>
+                    Add Entry
+                </button>
+            </div>
+        </div>
+        
+        <!-- Balance Summary -->
+        <div class="px-6 py-4 bg-gray-50 border-t border-gray-200">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div>
+                    <p class="text-sm font-medium text-secondary-500">Total Debits</p>
+                    <p class="text-2xl font-bold text-danger-600" id="total-debits">$0.00</p>
+                </div>
+                <div>
+                    <p class="text-sm font-medium text-secondary-500">Total Credits</p>
+                    <p class="text-2xl font-bold text-success-600" id="total-credits">$0.00</p>
+                </div>
+                <div>
+                    <p class="text-sm font-medium text-secondary-500">Balance</p>
+                    <p class="text-2xl font-bold" id="balance-difference">$0.00</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Form Actions -->
+        <div class="px-6 py-4 bg-gray-50 border-t border-gray-200">
+            <div class="flex justify-end space-x-3">
+                <a href="{% url 'accounting:journal_list' %}" class="inline-flex items-center px-4 py-2 border border-secondary-300 text-sm font-medium rounded-md text-secondary-700 bg-white hover:bg-secondary-50">
+                    Cancel
+                </a>
+                <button type="submit" class="btn-primary inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white">
+                    <i data-lucide="save" class="mr-2 h-4 w-4"></i>
+                    {% if form.instance.pk %}Update{% else %}Create{% endif %} Journal
+                </button>
+            </div>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize Lucide icons
+    lucide.createIcons();
+    
+    // Add entry functionality
+    const addEntryBtn = document.getElementById('add-entry');
+    const entriesContainer = document.getElementById('entries-container');
+    const totalFormsInput = document.querySelector('input[name="entry_form-TOTAL_FORMS"]');
+    
+    addEntryBtn.addEventListener('click', function() {
+        const totalForms = parseInt(totalFormsInput.value);
+        const newFormHtml = `
+            <div class="entry-form bg-gray-50 p-4 rounded-lg border border-gray-200">
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div>
+                        <label for="id_entry_form-${totalForms}-account" class="block text-sm font-medium text-secondary-700 mb-1">
+                            Account <span class="text-danger-500">*</span>
+                        </label>
+                        <select name="entry_form-${totalForms}-account" id="id_entry_form-${totalForms}-account" class="form-input block w-full px-3 py-2 border border-secondary-300 rounded-md leading-5 bg-white focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500 sm:text-sm">
+                            {% for account in form.fields.account.queryset %}
+                            <option value="{{ account.pk }}">{{ account.name }} ({{ account.account_number|default:"—" }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label for="id_entry_form-${totalForms}-entry_type" class="block text-sm font-medium text-secondary-700 mb-1">
+                            Type <span class="text-danger-500">*</span>
+                        </label>
+                        <select name="entry_form-${totalForms}-entry_type" id="id_entry_form-${totalForms}-entry_type" class="form-input block w-full px-3 py-2 border border-secondary-300 rounded-md leading-5 bg-white focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500 sm:text-sm">
+                            <option value="DEBIT">Debit</option>
+                            <option value="CREDIT">Credit</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="id_entry_form-${totalForms}-amount" class="block text-sm font-medium text-secondary-700 mb-1">
+                            Amount <span class="text-danger-500">*</span>
+                        </label>
+                        <input type="number" name="entry_form-${totalForms}-amount" id="id_entry_form-${totalForms}-amount" step="0.01" min="0" class="form-input block w-full px-3 py-2 border border-secondary-300 rounded-md leading-5 bg-white focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500 sm:text-sm">
+                    </div>
+                    <div>
+                        <label for="id_entry_form-${totalForms}-memo" class="block text-sm font-medium text-secondary-700 mb-1">
+                            Memo
+                        </label>
+                        <input type="text" name="entry_form-${totalForms}-memo" id="id_entry_form-${totalForms}-memo" class="form-input block w-full px-3 py-2 border border-secondary-300 rounded-md leading-5 bg-white placeholder-secondary-500 focus:outline-none focus:placeholder-secondary-400 focus:ring-1 focus:ring-primary-500 focus:border-primary-500 sm:text-sm">
+                    </div>
+                </div>
+                <input type="hidden" name="entry_form-${totalForms}-id" id="id_entry_form-${totalForms}-id">
+            </div>
+        `;
+        
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = newFormHtml;
+        entriesContainer.appendChild(tempDiv.firstElementChild);
+        
+        totalFormsInput.value = totalForms + 1;
+        
+        // Re-initialize Lucide icons
+        lucide.createIcons();
+        
+        // Update balance calculation
+        updateBalanceCalculation();
+    });
+    
+    // Balance calculation
+    function updateBalanceCalculation() {
+        let totalDebits = 0;
+        let totalCredits = 0;
+        
+        const entryForms = document.querySelectorAll('.entry-form');
+        entryForms.forEach(form => {
+            const deleteCheckbox = form.querySelector('input[name$="-DELETE"]');
+            if (deleteCheckbox && deleteCheckbox.checked) {
+                return; // Skip deleted forms
+            }
+            
+            const amountInput = form.querySelector('input[name$="-amount"]');
+            const typeSelect = form.querySelector('select[name$="-entry_type"]');
+            
+            if (amountInput && typeSelect && amountInput.value) {
+                const amount = parseFloat(amountInput.value) || 0;
+                if (typeSelect.value === 'DEBIT') {
+                    totalDebits += amount;
+                } else {
+                    totalCredits += amount;
+                }
+            }
+        });
+        
+        document.getElementById('total-debits').textContent = '$' + totalDebits.toFixed(2);
+        document.getElementById('total-credits').textContent = '$' + totalCredits.toFixed(2);
+        
+        const difference = totalDebits - totalCredits;
+        const balanceElement = document.getElementById('balance-difference');
+        balanceElement.textContent = '$' + Math.abs(difference).toFixed(2);
+        
+        if (difference === 0) {
+            balanceElement.className = 'text-2xl font-bold text-success-600';
+        } else {
+            balanceElement.className = 'text-2xl font-bold text-danger-600';
+        }
+    }
+    
+    // Add event listeners for real-time balance calculation
+    document.addEventListener('input', function(e) {
+        if (e.target.matches('input[name$="-amount"]')) {
+            updateBalanceCalculation();
+        }
+    });
+    
+    document.addEventListener('change', function(e) {
+        if (e.target.matches('select[name$="-entry_type"]') || e.target.matches('input[name$="-DELETE"]')) {
+            updateBalanceCalculation();
+        }
+    });
+    
+    // Initial balance calculation
+    updateBalanceCalculation();
+});
+</script>
+{% endblock %}

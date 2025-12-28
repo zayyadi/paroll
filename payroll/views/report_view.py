@@ -47,7 +47,7 @@ def payslip(request, id):
         "num2words": num2word,
         "dates": dates,
     }
-    return render(request, "pay/payslip.html", context)
+    return render(request, "pay/payslip_new.html", context)
 
 
 # Helper function for Excel report generation (remains unchanged from previous step)
@@ -179,7 +179,7 @@ def bank_reports(request):
         utils.convert_month_to_word(str(varss.paydays)) for varss in payroll
     ]  # Access .paydays
     return render(
-        request, "pay/bank_reports.html", {"payroll": payroll, "dates": dates}
+        request, "pay/bank_reports_new.html", {"payroll": payroll, "dates": dates}
     )
 
 
@@ -194,7 +194,7 @@ def bank_report(request, pay_id):  # pay_id here is PayT.id
     netpay_total = payroll_data.aggregate(Sum("payroll_id__netpay"))
     return render(
         request,
-        "pay/bank_report.html",
+        "pay/bank_report_new.html",
         {
             "payroll": payroll_data,
             "dates": dates,
@@ -363,7 +363,7 @@ def payee_reports(request):
         utils.convert_month_to_word(str(varss.paydays)) for varss in payroll
     ]  # Access .paydays
     return render(
-        request, "pay/payee_reports.html", {"payroll": payroll, "dates": dates}
+        request, "pay/payee_reports_new.html", {"payroll": payroll, "dates": dates}
     )
 
 
@@ -378,7 +378,7 @@ def payee_report(request, pay_id):
     payee_total = payroll_data.aggregate(Sum("payroll_id__pays__employee_pay__payee"))
     return render(
         request,
-        "pay/payee_report.html",
+        "pay/payee_report_new.html",
         {
             "payroll": payroll_data,
             "total": payee_total["payroll_id__pays__employee_pay__payee__sum"],
@@ -427,7 +427,7 @@ def pension_reports(request):
         utils.convert_month_to_word(str(varss.paydays)) for varss in payroll
     ]  # Access .paydays
     return render(
-        request, "pay/pension_reports.html", {"payroll": payroll, "dates": dates}
+        request, "pay/pension_reports_new.html", {"payroll": payroll, "dates": dates}
     )
 
 
@@ -444,7 +444,7 @@ def pension_report(request, pay_id):
     )
     return render(
         request,
-        "pay/pension_report.html",
+        "pay/pension_report_new.html",
         {
             "payroll": payroll_data,
             "total": pension_total["payroll_id__pays__employee_pay__pension__sum"],

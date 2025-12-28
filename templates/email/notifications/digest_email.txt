@@ -1,0 +1,28 @@
+PayrollCo - {{ frequency|title }} Notification Digest
+================================================================================
+
+📬 Your {{ frequency|title }} Digest
+
+You have {{ total_count }} new notifications:
+
+{% for type, notifications in grouped.items %}
+{{ type|title }} ({{ notifications|length }})
+{% for notification in notifications %}
+  • {{ notification.title }}
+    {{ notification.message }}
+    {% if notification.priority %}[{{ notification.get_priority_display }}]{% endif %}
+{% endfor %}
+
+{% endfor %}
+
+--------------------------------------------------------------------------------
+View all your notifications:
+{{ view_all_url }}
+
+Manage your notification preferences:
+{{ preferences_url }}
+
+To unsubscribe from {{ frequency|lower }} digests:
+{{ unsubscribe_url }}
+
+© {% now "Y" %} PayrollCo. All rights reserved.

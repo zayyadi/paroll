@@ -1,0 +1,449 @@
+{% extends "base_new.html" %}
+
+{% load static %}
+{% load custom_tags %}
+
+{% block title %}Notifications{% endblock %}
+
+{% block page_header %}Notifications{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto">
+    <!-- Stats Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow border border-gray-200 dark:border-gray-700 p-4">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Total</p>
+                    <p class="text-2xl font-bold text-gray-900 dark:text-white">{{ total_count }}</p>
+                </div>
+                <div class="w-10 h-10 rounded-lg bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center">
+                    <i data-lucide="bell" class="h-5 w-5 text-blue-600 dark:text-blue-400"></i>
+                </div>
+            </div>
+        </div>
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow border border-gray-200 dark:border-gray-700 p-4">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Unread</p>
+                    <p class="text-2xl font-bold text-blue-600 dark:text-blue-400">{{ unread_count }}</p>
+                </div>
+                <div class="w-10 h-10 rounded-lg bg-green-100 dark:bg-green-900/50 flex items-center justify-center">
+                    <i data-lucide="mail" class="h-5 w-5 text-green-600 dark:text-green-400"></i>
+                </div>
+            </div>
+        </div>
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow border border-gray-200 dark:border-gray-700 p-4">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Aggregated</p>
+                    <p class="text-2xl font-bold text-purple-600 dark:text-purple-400">{{ aggregated_count }}</p>
+                </div>
+                <div class="w-10 h-10 rounded-lg bg-purple-100 dark:bg-purple-900/50 flex items-center justify-center">
+                    <i data-lucide="layers" class="h-5 w-5 text-purple-600 dark:text-purple-400"></i>
+                </div>
+            </div>
+        </div>
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow border border-gray-200 dark:border-gray-700 p-4">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Critical</p>
+                    <p class="text-2xl font-bold text-red-600 dark:text-red-400">{{ critical_count }}</p>
+                </div>
+                <div class="w-10 h-10 rounded-lg bg-red-100 dark:bg-red-900/50 flex items-center justify-center">
+                    <i data-lucide="alert-octagon" class="h-5 w-5 text-red-600 dark:text-red-400"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters and Bulk Actions -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow border border-gray-200 dark:border-gray-700 p-4 mb-6">
+        <div class="flex flex-wrap items-center gap-4">
+            <!-- Priority Filter -->
+            <div class="flex items-center space-x-2">
+                <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Priority:</label>
+                <select id="priorityFilter" onchange="applyFilters()" class="text-sm border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white">
+                    <option value="all" {% if filter_priority == 'all' %}selected{% endif %}>All</option>
+                    <option value="CRITICAL" {% if filter_priority == 'CRITICAL' %}selected{% endif %}>Critical</option>
+                    <option value="HIGH" {% if filter_priority == 'HIGH' %}selected{% endif %}>High</option>
+                    <option value="MEDIUM" {% if filter_priority == 'MEDIUM' %}selected{% endif %}>Medium</option>
+                    <option value="LOW" {% if filter_priority == 'LOW' %}selected{% endif %}>Low</option>
+                </select>
+            </div>
+
+            <!-- Type Filter -->
+            <div class="flex items-center space-x-2">
+                <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Type:</label>
+                <select id="typeFilter" onchange="applyFilters()" class="text-sm border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white">
+                    <option value="all" {% if filter_type == 'all' %}selected{% endif %}>All</option>
+                    <option value="LEAVE_APPROVED" {% if filter_type == 'LEAVE_APPROVED' %}selected{% endif %}>Leave Approved</option>
+                    <option value="LEAVE_REJECTED" {% if filter_type == 'LEAVE_REJECTED' %}selected{% endif %}>Leave Rejected</option>
+                    <option value="LEAVE_PENDING" {% if filter_type == 'LEAVE_PENDING' %}selected{% endif %}>Leave Pending</option>
+                    <option value="IOU_APPROVED" {% if filter_type == 'IOU_APPROVED' %}selected{% endif %}>IOU Approved</option>
+                    <option value="IOU_REJECTED" {% if filter_type == 'IOU_REJECTED' %}selected{% endif %}>IOU Rejected</option>
+                    <option value="IOU_PENDING" {% if filter_type == 'IOU_PENDING' %}selected{% endif %}>IOU Pending</option>
+                    <option value="PAYSLIP_AVAILABLE" {% if filter_type == 'PAYSLIP_AVAILABLE' %}selected{% endif %}>Payslip Available</option>
+                    <option value="PAYROLL_PROCESSED" {% if filter_type == 'PAYROLL_PROCESSED' %}selected{% endif %}>Payroll Processed</option>
+                    <option value="APPRAISAL_ASSIGNED" {% if filter_type == 'APPRAISAL_ASSIGNED' %}selected{% endif %}>Appraisal Assigned</option>
+                    <option value="APPRAISAL_COMPLETED" {% if filter_type == 'APPRAISAL_COMPLETED' %}selected{% endif %}>Appraisal Completed</option>
+                </select>
+            </div>
+
+            <!-- Status Filter -->
+            <div class="flex items-center space-x-2">
+                <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Status:</label>
+                <select id="statusFilter" onchange="applyFilters()" class="text-sm border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white">
+                    <option value="all" {% if filter_status == 'all' %}selected{% endif %}>All</option>
+                    <option value="unread" {% if filter_status == 'unread' %}selected{% endif %}>Unread</option>
+                    <option value="read" {% if filter_status == 'read' %}selected{% endif %}>Read</option>
+                </select>
+            </div>
+
+            <!-- Search -->
+            <div class="flex-1 min-w-64">
+                <input type="text" id="searchInput" placeholder="Search notifications..." 
+                       value="{{ search_query }}"
+                       onkeyup="if(event.key === 'Enter') applyFilters()"
+                       class="w-full text-sm border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white">
+            </div>
+
+            <!-- Bulk Actions -->
+            <div class="flex items-center space-x-2 ml-auto">
+                <button onclick="markAllAsRead()" class="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                    <i data-lucide="check-double" class="h-4 w-4 mr-1.5"></i>
+                    Mark All Read
+                </button>
+                <button onclick="deleteAllRead()" class="inline-flex items-center px-3 py-2 border border-red-300 dark:border-red-600 text-sm font-medium rounded-md text-red-700 dark:text-red-300 bg-white dark:bg-gray-700 hover:bg-red-50 dark:hover:bg-red-900/20">
+                    <i data-lucide="trash-2" class="h-4 w-4 mr-1.5"></i>
+                    Delete All Read
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notifications List -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow border border-gray-200 dark:border-gray-700 divide-y divide-gray-200 dark:divide-gray-700">
+        {% if notifications %}
+            {% for notification in notifications %}
+                <div class="p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors {% if not notification.is_read %}bg-blue-50 dark:bg-blue-900/10{% endif %}">
+                    <div class="flex items-start space-x-4">
+                        <!-- Icon and Priority -->
+                        <div class="flex-shrink-0 relative">
+                            <div class="w-10 h-10 rounded-full flex items-center justify-center
+                                {% if notification.color_class == 'green' %}bg-green-100 dark:bg-green-900/50 text-green-600 dark:text-green-400
+                                {% elif notification.color_class == 'red' %}bg-red-100 dark:bg-red-900/50 text-red-600 dark:text-red-400
+                                {% elif notification.color_class == 'yellow' %}bg-yellow-100 dark:bg-yellow-900/50 text-yellow-600 dark:text-yellow-400
+                                {% elif notification.color_class == 'blue' %}bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400
+                                {% elif notification.color_class == 'purple' %}bg-purple-100 dark:bg-purple-900/50 text-purple-600 dark:text-purple-400
+                                {% elif notification.color_class == 'gold' %}bg-amber-100 dark:bg-amber-900/50 text-amber-600 dark:text-amber-400
+                                {% else %}bg-gray-100 dark:bg-gray-900/50 text-gray-600 dark:text-gray-400{% endif %}">
+                                <i data-lucide="{{ notification.icon_class }}" class="h-5 w-5"></i>
+                            </div>
+                            <!-- Priority Badge -->
+                            {% if notification.priority == 'CRITICAL' %}
+                                <span class="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full flex items-center justify-center">
+                                    <i data-lucide="alert-octagon" class="h-3 w-3 text-white"></i>
+                                </span>
+                            {% endif %}
+                        </div>
+
+                        <!-- Content -->
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-start justify-between">
+                                <div class="flex-1">
+                                    <div class="flex items-center space-x-2">
+                                        <h3 class="text-sm font-semibold text-gray-900 dark:text-white">
+                                            {{ notification.title }}
+                                        </h3>
+                                        <!-- Priority Badge -->
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium
+                                            {% if notification.priority == 'CRITICAL' %}bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-200
+                                            {% elif notification.priority == 'HIGH' %}bg-orange-100 text-orange-800 dark:bg-orange-900/50 dark:text-orange-200
+                                            {% elif notification.priority == 'MEDIUM' %}bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-200
+                                            {% else %}bg-gray-100 text-gray-800 dark:bg-gray-900/50 dark:text-gray-200{% endif %}">
+                                            {{ notification.get_priority_display }}
+                                        </span>
+                                        <!-- Aggregation Badge -->
+                                        {% if notification.is_aggregated %}
+                                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900/50 dark:text-purple-200">
+                                                <i data-lucide="layers" class="h-3 w-3 mr-1"></i>
+                                                Aggregated
+                                            </span>
+                                        {% endif %}
+                                    </div>
+                                    <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">
+                                        {{ notification.message }}
+                                    </p>
+                                    <div class="mt-1 flex items-center space-x-3 text-xs text-gray-500 dark:text-gray-500">
+                                        <span>
+                                            <i data-lucide="clock" class="h-3 w-3 inline mr-1"></i>
+                                            {{ notification.created_at|timesince }} ago
+                                        </span>
+                                        <!-- Delivery Status -->
+                                        {% if notification.delivery_status.in_app %}
+                                            <span class="flex items-center
+                                                {% if notification.delivery_status.in_app.status == 'DELIVERED' %}text-green-600 dark:text-green-400
+                                                {% elif notification.delivery_status.in_app.status == 'FAILED' %}text-red-600 dark:text-red-400
+                                                {% elif notification.delivery_status.in_app.status == 'RETRYING' %}text-orange-600 dark:text-orange-400
+                                                {% else %}text-gray-600 dark:text-gray-400{% endif %}">
+                                                <i data-lucide="check-circle" class="h-3 w-3 inline mr-1"></i>
+                                                {{ notification.delivery_status.in_app.status }}
+                                            </span>
+                                        {% endif %}
+                                        {% if notification.delivery_status.email %}
+                                            <span class="flex items-center
+                                                {% if notification.delivery_status.email.status == 'DELIVERED' %}text-green-600 dark:text-green-400
+                                                {% elif notification.delivery_status.email.status == 'FAILED' %}text-red-600 dark:text-red-400
+                                                {% elif notification.delivery_status.email.status == 'SENT' %}text-blue-600 dark:text-blue-400
+                                                {% else %}text-gray-600 dark:text-gray-400{% endif %}">
+                                                <i data-lucide="mail" class="h-3 w-3 inline mr-1"></i>
+                                                {{ notification.delivery_status.email.status }}
+                                            </span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                
+                                <!-- Actions -->
+                                <div class="flex items-center space-x-2 ml-4">
+                                    {% if not notification.is_read %}
+                                        <button onclick="markAsRead({{ notification.id }})" class="p-1 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400" title="Mark as read">
+                                            <i data-lucide="check" class="h-4 w-4"></i>
+                                        </button>
+                                    {% else %}
+                                        <button onclick="markAsUnread({{ notification.id }})" class="p-1 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400" title="Mark as unread">
+                                            <i data-lucide="mail" class="h-4 w-4"></i>
+                                        </button>
+                                    {% endif %}
+                                    <a href="{% url 'payroll:notification_detail' notification.id %}" class="p-1 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400" title="View details">
+                                        <i data-lucide="external-link" class="h-4 w-4"></i>
+                                    </a>
+                                    <button onclick="deleteNotification({{ notification.id }})" class="p-1 text-gray-400 hover:text-red-600 dark:hover:text-red-400" title="Delete">
+                                        <i data-lucide="trash-2" class="h-4 w-4"></i>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Action Link -->
+                            {% if notification.action_url %}
+                                <div class="mt-2">
+                                    <a href="{{ notification.action_url }}" class="inline-flex items-center text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300">
+                                        View Details
+                                        <i data-lucide="arrow-right" class="h-3 w-3 ml-1"></i>
+                                    </a>
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Unread Indicator -->
+                        {% if not notification.is_read %}
+                            <div class="flex-shrink-0">
+                                <span class="inline-flex items-center justify-center w-2 h-2 bg-blue-500 rounded-full"></span>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            {% endfor %}
+        {% else %}
+            <div class="p-12 text-center">
+                <i data-lucide="bell-off" class="h-16 w-16 text-gray-400 mx-auto mb-4"></i>
+                <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-2">No notifications</h3>
+                <p class="text-sm text-gray-500 dark:text-gray-400">
+                    {% if filter_priority != 'all' or filter_type != 'all' or filter_status != 'all' or search_query %}
+                        Try adjusting your filters or search terms.
+                    {% else %}
+                        You're all caught up! Check back later for new notifications.
+                    {% endif %}
+                </p>
+            </div>
+        {% endif %}
+    </div>
+
+    <!-- Pagination -->
+    {% if is_paginated %}
+        <div class="mt-6 flex items-center justify-between">
+            <div class="text-sm text-gray-500 dark:text-gray-400">
+                Showing {{ page_obj.start_index }} to {{ page_obj.end_index }} of {{ page_obj.paginator.count }} notifications
+            </div>
+            <div class="flex space-x-2">
+                {% if page_obj.has_previous %}
+                    <a href="?page={{ page_obj.previous_page_number }}&priority={{ filter_priority }}&type={{ filter_type }}&status={{ filter_status }}&q={{ search_query }}" 
+                       class="px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700">
+                        Previous
+                    </a>
+                {% endif %}
+                {% if page_obj.has_next %}
+                    <a href="?page={{ page_obj.next_page_number }}&priority={{ filter_priority }}&type={{ filter_type }}&status={{ filter_status }}&q={{ search_query }}" 
+                       class="px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700">
+                        Next
+                    </a>
+                {% endif %}
+            </div>
+        </div>
+    {% endif %}
+
+    <!-- Quick Links -->
+    <div class="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+        <a href="{% url 'payroll:notification_preferences' %}" 
+           class="flex items-center p-4 bg-white dark:bg-gray-800 rounded-lg shadow border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+            <div class="w-10 h-10 rounded-lg bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center mr-3">
+                <i data-lucide="settings" class="h-5 w-5 text-blue-600 dark:text-blue-400"></i>
+            </div>
+            <div>
+                <h3 class="text-sm font-medium text-gray-900 dark:text-white">Global Preferences</h3>
+                <p class="text-xs text-gray-500 dark:text-gray-400">Manage notification settings</p>
+            </div>
+        </a>
+        <a href="{% url 'payroll:notification_type_preferences' %}" 
+           class="flex items-center p-4 bg-white dark:bg-gray-800 rounded-lg shadow border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+            <div class="w-10 h-10 rounded-lg bg-green-100 dark:bg-green-900/50 flex items-center justify-center mr-3">
+                <i data-lucide="sliders" class="h-5 w-5 text-green-600 dark:text-green-400"></i>
+            </div>
+            <div>
+                <h3 class="text-sm font-medium text-gray-900 dark:text-white">Type Preferences</h3>
+                <p class="text-xs text-gray-500 dark:text-gray-400">Configure per-type settings</p>
+            </div>
+        </a>
+        <a href="{% url 'payroll:notification_digests' %}" 
+           class="flex items-center p-4 bg-white dark:bg-gray-800 rounded-lg shadow border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+            <div class="w-10 h-10 rounded-lg bg-purple-100 dark:bg-purple-900/50 flex items-center justify-center mr-3">
+                <i data-lucide="inbox" class="h-5 w-5 text-purple-600 dark:text-purple-400"></i>
+            </div>
+            <div>
+                <h3 class="text-sm font-medium text-gray-900 dark:text-white">Digests</h3>
+                <p class="text-xs text-gray-500 dark:text-gray-400">Manage digest settings</p>
+            </div>
+        </a>
+    </div>
+</div>
+
+<script>
+function applyFilters() {
+    const priority = document.getElementById('priorityFilter').value;
+    const type = document.getElementById('typeFilter').value;
+    const status = document.getElementById('statusFilter').value;
+    const search = document.getElementById('searchInput').value;
+    
+    const params = new URLSearchParams();
+    if (priority !== 'all') params.set('priority', priority);
+    if (type !== 'all') params.set('type', type);
+    if (status !== 'all') params.set('status', status);
+    if (search) params.set('q', search);
+    
+    window.location.href = `{% url 'payroll:notifications_enhanced' %}?${params.toString()}`;
+}
+
+function markAsRead(notificationId) {
+    fetch(`/payroll/notifications/${notificationId}/mark-read/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+            'Content-Type': 'application/json',
+        },
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        }
+    })
+    .catch(error => console.error('Error marking notification as read:', error));
+}
+
+function markAsUnread(notificationId) {
+    fetch(`/payroll/notifications/${notificationId}/mark-unread/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+            'Content-Type': 'application/json',
+        },
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        }
+    })
+    .catch(error => console.error('Error marking notification as unread:', error));
+}
+
+function markAllAsRead() {
+    if (!confirm('Mark all notifications as read?')) return;
+    
+    fetch('/payroll/notifications/mark-all-read/', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+            'Content-Type': 'application/json',
+        },
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        }
+    })
+    .catch(error => console.error('Error marking all notifications as read:', error));
+}
+
+function deleteAllRead() {
+    if (!confirm('Delete all read notifications? This action cannot be undone.')) return;
+    
+    fetch('/payroll/notifications/delete-all-read/', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+            'Content-Type': 'application/json',
+        },
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        }
+    })
+    .catch(error => console.error('Error deleting all read notifications:', error));
+}
+
+function deleteNotification(notificationId) {
+    if (!confirm('Delete this notification?')) return;
+    
+    fetch(`/payroll/notifications/${notificationId}/delete/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+            'Content-Type': 'application/json',
+        },
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        }
+    })
+    .catch(error => console.error('Error deleting notification:', error));
+}
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+// Initialize Lucide icons
+document.addEventListener('DOMContentLoaded', function() {
+    if (typeof lucide !== 'undefined') {
+        lucide.createIcons();
+    }
+});
+</script>
+{% endblock %}

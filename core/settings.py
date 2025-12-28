@@ -1,5 +1,7 @@
 import os
 
+from celery.schedules import crontab
+
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -8,9 +10,7 @@ SECRET_KEY = os.environ.get("SECRET_KEY")
 
 
 DEBUG = bool(os.environ.get("DEBUG"))
-# print(
-#     f"DEBUG: {DEBUG} and the type of debug is :  {type(DEBUG)}"
-# )  # Debugging line to check DEBUG value
+
 ALLOWED_HOSTS = [
     "localhost",
     "127.0.0.1",
@@ -27,26 +27,28 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "django.contrib.sites",
-    # "compressor",
-    "tailwind",  # Moved up
-    "crispy_forms",  # Moved up
-    "crispy_tailwind",  # Moved up
+    "tailwind",
+    "crispy_forms",
+    "crispy_tailwind",
     "api",
     "rest_framework",
     "users",
     "users.email_backend",
     "payroll",
     "theme",
-    # "django_browser_reload",
-    "widget_tweaks",  # Added widget_tweaks
+    "django_browser_reload",
+    "widget_tweaks",
     "mathfilters",
     "django.contrib.humanize",
-    # "adminlte3",
-    # "storages",
     "monthyear",
     "import_export",
     "social_django",
     "accounting",
+    # Channels for real-time notifications
+    "channels",
+    "channels_redis",
+    # Celery Beat for scheduled tasks
+    "django_celery_beat",
 ]
 
 SITE_ID = 1
@@ -59,16 +61,16 @@ INTERNAL_IPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
-    # 'whitenoise.middleware.WhiteNoiseMiddleware',
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "accounting.middleware.AuditTrailMiddleware",
+    "accounting.middleware.SystemUserMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "django.middleware.locale.LocaleMiddleware",
-    # "core.rbac_middleware.RoleBasedAccessMiddleware"
-    # "social_django.middleware.SocialAuthExceptionMiddleware",
+    "social_django.middleware.SocialAuthExceptionMiddleware",
 ]
 
 ROOT_URLCONF = "core.urls"
@@ -93,23 +95,18 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "core.wsgi.application"
 
+# ASGI application for WebSocket support
+ASGI_APPLICATION = "core.asgi.application"
+
 
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql_psycopg2",
-        "NAME": os.environ.get(
-            "DB_NAME", "payroll_db"
-        ),  # Default to 'payroll_db' if not set
-        "USER": os.environ.get("DB_USER", "payroll_user"),  # Default to 'payroll_user'
-        "PASSWORD": os.environ.get(
-            "DB_PASSWORD", "payroll_password"
-        ),  # Default to 'payroll_password'
-        "HOST": os.environ.get(
-            "DB_HOST", "localhost"
-        ),  # Default to 'localhost' for local PostgreSQL
-        "PORT": os.environ.get(
-            "DB_PORT", "5432"
-        ),  # Use DB_PORT for PostgreSQL, default to 5432
+        "NAME": os.environ.get("DB_NAME", "payroll_db"),
+        "USER": os.environ.get("DB_USER", "payroll_user"),
+        "PASSWORD": os.environ.get("DB_PASSWORD", "payroll_password"),
+        "HOST": os.environ.get("DB_HOST", "localhost"),
+        "PORT": os.environ.get("DB_PORT", "5432"),
     }
 }
 
@@ -121,11 +118,11 @@ CACHES = {
         "OPTIONS": {
             "CLIENT_CLASS": "django_redis.client.DefaultClient",
         },
+        "KEY_PREFIX": "payroll",
+        "TIMEOUT": 300,  # 5 minutes default
     }
 }
 
-# Password validation
-# https://docs.djangoproject.com/en/4.1/ref/settings/#auth-password-validators
 
 AUTHENTICATION_BACKENDS = (
     "django.contrib.auth.backends.ModelBackend",
@@ -137,7 +134,7 @@ AUTHENTICATION_BACKENDS = (
 
 AUTH_PASSWORD_VALIDATORS = [
     {
-        "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",  # noqa: E501
+        "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",
     },
     {
         "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
@@ -210,9 +207,6 @@ CRISPY_ALLOWED_TEMPLATE_PACKS = ["tailwind"]
 CRISPY_TEMPLATE_PACK = "tailwind"
 
 
-# Static files (CSS, JavaScript, Images)
-# https://docs.djangoproject.com/en/4.1/howto/static-files/
-
 STATIC_URL = "static/"
 MEDIA_URL = "/media/"
 
@@ -220,9 +214,6 @@ MEDIA_ROOT = os.path.join(BASE_DIR, "media/")
 STATICFILES_DIRS = [os.path.join(BASE_DIR, "static")]
 STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
 
-
-# Default primary key field type
-# https://docs.djangoproject.com/en/4.1/ref/settings/#default-auto-field
 
 SOCIAL_AUTH_JSONFIELD_ENABLED = True
 
@@ -246,7 +237,6 @@ SOCIAL_AUTH_PIPELINE = (
     "social_core.pipeline.social_auth.associate_by_email",
     "social_core.pipeline.user.create_user",
     "social_core.pipeline.social_auth.associate_user",
-    # "social_core.pipeline.social_auth.load_extra_data",
     "social_core.pipeline.user.user_details",
 )
 
@@ -265,6 +255,226 @@ DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL")
 EMAIL_FILE_PATH = os.getenv("EMAIL_FILE_PATH", os.path.join(BASE_DIR, "test-emails"))
 if not os.path.exists(EMAIL_FILE_PATH):
     os.makedirs(EMAIL_FILE_PATH)
+
+# ============================================================================
+# NOTIFICATION SYSTEM SETTINGS
+# ============================================================================
+# Architecture Reference: plans/NOTIFICATION_SYSTEM_ARCHITECTURE.md
+
+# Notification retention and archiving
+NOTIFICATION_RETENTION_DAYS = int(os.getenv("NOTIFICATION_RETENTION_DAYS", "90"))
+NOTIFICATION_MAX_AGGREGATION_COUNT = int(
+    os.getenv("NOTIFICATION_MAX_AGGREGATION_COUNT", "20")
+)
+NOTIFICATION_AGGREGATION_TIME_WINDOW = int(
+    os.getenv("NOTIFICATION_AGGREGATION_TIME_WINDOW", "3600")
+)
+
+# Notification email settings
+EMAIL_NOTIFICATION_FROM_EMAIL = os.getenv(
+    "EMAIL_NOTIFICATION_FROM_EMAIL", DEFAULT_FROM_EMAIL
+)
+EMAIL_NOTIFICATION_REPLY_TO = os.getenv(
+    "EMAIL_NOTIFICATION_REPLY_TO", DEFAULT_FROM_EMAIL
+)
+
+# ============================================================================
+# CELERY CONFIGURATION
+# ============================================================================
+
+# Celery broker and backend (Redis)
+CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL", "redis://127.0.0.1:6379/2")
+CELERY_RESULT_BACKEND = os.environ.get(
+    "CELERY_RESULT_BACKEND", "redis://127.0.0.1:6379/2"
+)
+
+# Celery timezone
+CELERY_TIMEZONE = TIME_ZONE
+CELERY_ENABLE_UTC = True
+
+# Celery task settings
+CELERY_TASK_SERIALIZER = "json"
+CELERY_RESULT_SERIALIZER = "json"
+CELERY_ACCEPT_CONTENT = ["json"]
+CELERY_RESULT_EXPIRES = 3600  # 1 hour
+
+# Celery task execution
+CELERY_TASK_ACKS_LATE = True
+CELERY_TASK_REJECT_ON_WORKER_LOST = True
+CELERY_WORKER_PREFETCH_MULTIPLIER = 1
+CELERY_WORKER_MAX_TASKS_PER_CHILD = 1000
+
+# Celery retry settings
+CELERY_TASK_DEFAULT_RETRY_DELAY = 60
+CELERY_TASK_MAX_RETRIES = 3
+CELERY_TASK_RETRY_BACKOFF = True
+CELERY_TASK_RETRY_BACKOFF_MAX = 600
+CELERY_TASK_RETRY_JITTER = True
+
+# Celery task tracking
+CELERY_TASK_TRACK_STARTED = True
+CELERY_TASK_SEND_SENT_EVENT = True
+
+# Celery worker settings
+CELERY_WORKER_CONCURRENCY = 4
+
+# Celery task queues (priority-based)
+CELERY_TASK_QUEUES = {
+    "notifications_critical": {
+        "exchange": "notifications",
+        "routing_key": "notifications.critical",
+        "delivery_mode": "persistent",
+    },
+    "notifications_high": {
+        "exchange": "notifications",
+        "routing_key": "notifications.high",
+        "delivery_mode": "persistent",
+    },
+    "notifications_normal": {
+        "exchange": "notifications",
+        "routing_key": "notifications.normal",
+        "delivery_mode": "persistent",
+    },
+    "notifications_low": {
+        "exchange": "notifications",
+        "routing_key": "notifications.low",
+        "delivery_mode": "persistent",
+    },
+}
+
+# Celery task routing
+CELERY_TASK_ROUTES = {
+    "payroll.deliver_notification": {
+        "queue": "notifications_normal",
+        "routing_key": "notifications.normal",
+    },
+    "payroll.send_in_app_notification": {
+        "queue": "notifications_normal",
+        "routing_key": "notifications.normal",
+    },
+    "payroll.send_email_notification": {
+        "queue": "notifications_normal",
+        "routing_key": "notifications.normal",
+    },
+    "payroll.send_push_notification": {
+        "queue": "notifications_normal",
+        "routing_key": "notifications.normal",
+    },
+    "payroll.send_sms_notification": {
+        "queue": "notifications_normal",
+        "routing_key": "notifications.normal",
+    },
+    "payroll.archive_old_notifications": {
+        "queue": "notifications_low",
+        "routing_key": "notifications.low",
+    },
+    "payroll.send_daily_digest": {
+        "queue": "notifications_low",
+        "routing_key": "notifications.low",
+    },
+    "payroll.send_weekly_digest": {
+        "queue": "notifications_low",
+        "routing_key": "notifications.low",
+    },
+}
+
+# Celery task rate limiting
+CELERY_TASK_ANNOTATIONS = {
+    "payroll.deliver_notification": {
+        "rate_limit": "100/m",
+    },
+    "payroll.send_email_notification": {
+        "rate_limit": "50/m",
+    },
+    "payroll.send_sms_notification": {
+        "rate_limit": "20/m",
+    },
+    "payroll.send_push_notification": {
+        "rate_limit": "200/m",
+    },
+}
+
+# Celery Beat schedule (scheduled tasks)
+
+
+CELERY_BEAT_SCHEDULE = {
+    "archive-old-notifications": {
+        "task": "payroll.archive_old_notifications",
+        "schedule": crontab(hour=2, minute=0),
+    },
+    "send-daily-digests": {
+        "task": "payroll.send_daily_digest",
+        "schedule": crontab(hour=8, minute=0),
+    },
+    "send-weekly-digests": {
+        "task": "payroll.send_weekly_digest",
+        "schedule": crontab(hour=8, minute=0, day_of_week=1),
+    },
+}
+
+# Celery Beat scheduler
+CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
+
+# ============================================================================
+# DJANGO CHANNELS CONFIGURATION
+# ============================================================================
+
+# Channel layers for WebSocket communication
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        "CONFIG": {
+            "hosts": [
+                (
+                    os.environ.get("REDIS_HOST", "127.0.0.1"),
+                    int(os.environ.get("REDIS_PORT", "6379")),
+                )
+            ],
+            "db": int(os.environ.get("REDIS_DB", "3")),
+        },
+    },
+}
+
+# ============================================================================
+# PUSH NOTIFICATION CONFIGURATION (FCM)
+# ============================================================================
+
+FCM_DJANGO_SETTINGS = {
+    "FCM_SERVER_KEY": os.environ.get("FCM_SERVER_KEY"),
+    "ONE_DEVICE_PER_USER": False,
+}
+
+# ============================================================================
+# SMS CONFIGURATION (Twilio)
+# ============================================================================
+
+TWILIO_ACCOUNT_SID = os.environ.get("TWILIO_ACCOUNT_SID")
+TWILIO_AUTH_TOKEN = os.environ.get("TWILIO_AUTH_TOKEN")
+TWILIO_PHONE_NUMBER = os.environ.get("TWILIO_PHONE_NUMBER")
+TWILIO_DEFAULT_FROM = TWILIO_PHONE_NUMBER
+
+# ============================================================================
+# NOTIFICATION LOGGING
+# ============================================================================
+
+# Update logging configuration to include notifications
+LOGGING["loggers"]["notifications"] = {
+    "handlers": ["console"],
+    "level": "INFO",
+    "propagate": False,
+}
+
+LOGGING["loggers"]["celery"] = {
+    "handlers": ["console"],
+    "level": "INFO",
+    "propagate": False,
+}
+
+LOGGING["loggers"]["channels"] = {
+    "handlers": ["console"],
+    "level": "INFO",
+    "propagate": False,
+}
 
 
 AUTH_USER_MODEL = "users.CustomUser"
@@ -316,6 +526,11 @@ JAZZMIN_SETTINGS = {
         "payroll",
         "payroll.EmployeeProfile",
         "payroll.Payroll",
+        "accounting",
+        "accounting.Account",
+        "accounting.Journal",
+        "accounting.FiscalYear",
+        "accounting.AccountingPeriod",
     ],
     "icons": {
         "auth": "fas fa-users-cog",
@@ -323,6 +538,13 @@ JAZZMIN_SETTINGS = {
         "auth.Group": "fas fa-users",
         "payroll.EmployeeProfile": "fas fa-user-tie",
         "payroll.Payroll": "fas fa-money-check-alt",
+        "accounting": "fas fa-calculator",
+        "accounting.Account": "fas fa-wallet",
+        "accounting.Journal": "fas fa-book",
+        "accounting.FiscalYear": "fas fa-calendar-alt",
+        "accounting.AccountingPeriod": "fas fa-calendar-week",
+        "accounting.JournalEntry": "fas fa-receipt",
+        "accounting.AccountingAuditTrail": "fas fa-history",
     },
     "default_icon_parents": "fas fa-chevron-circle-right",
     "default_icon_children": "fas fa-circle",

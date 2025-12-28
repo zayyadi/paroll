@@ -1,0 +1,179 @@
+{% extends "base_new.html" %}
+
+{% block page_header %}Request IOU{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Header Section -->
+    <div class="bg-gradient-to-r from-primary-500 to-primary-600 rounded-2xl p-6 text-white shadow-medium">
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between">
+            <div>
+                <h1 class="text-2xl font-bold mb-2">IOU Requests</h1>
+                <p class="text-primary-100">Request and track your salary advances</p>
+            </div>
+            <div class="mt-4 md:mt-0">
+                <a href="{% url 'payroll:request_iou' %}" class="bg-white bg-opacity-20 hover:bg-opacity-30 text-white font-medium py-2 px-4 rounded-lg transition-all inline-flex items-center">
+                    <i data-lucide="plus-circle" class="h-4 w-4 mr-2"></i>
+                    New IOU Request
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- IOU Summary Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div class="bg-white rounded-xl shadow-soft p-6">
+            <div class="flex items-center">
+                <div class="flex-shrink-0 bg-warning-100 rounded-lg p-3">
+                    <i data-lucide="clock" class="h-6 w-6 text-warning-600"></i>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-secondary-600">Pending Requests</p>
+                    <p class="text-2xl font-semibold text-secondary-900">{{ pending_count|default:0 }}</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="bg-white rounded-xl shadow-soft p-6">
+            <div class="flex items-center">
+                <div class="flex-shrink-0 bg-success-100 rounded-lg p-3">
+                    <i data-lucide="check-circle" class="h-6 w-6 text-success-600"></i>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-secondary-600">Approved Amount</p>
+                    <p class="text-2xl font-semibold text-secondary-900">₦{{ approved_amount|default:0|intcomma }}</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="bg-white rounded-xl shadow-soft p-6">
+            <div class="flex items-center">
+                <div class="flex-shrink-0 bg-danger-100 rounded-lg p-3">
+                    <i data-lucide="alert-circle" class="h-6 w-6 text-danger-600"></i>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-secondary-600">Outstanding Balance</p>
+                    <p class="text-2xl font-semibold text-secondary-900">₦{{ outstanding_balance|default:0|intcomma }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- IOU Requests List -->
+    <div class="bg-white rounded-xl shadow-soft overflow-hidden">
+        <div class="px-6 py-4 border-b border-secondary-200">
+            <h2 class="text-lg font-semibold text-secondary-900 flex items-center">
+                <i data-lucide="list" class="h-5 w-5 mr-2 text-primary-600"></i>
+                Your IOU Requests
+            </h2>
+        </div>
+        
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-secondary-200">
+                <thead class="bg-secondary-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">Request Date</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">Amount</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">Reason</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">Status</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">Due Date</th>
+                        <th class="px-6 py-3 text-right text-xs font-medium text-secondary-500 uppercase tracking-wider">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-secondary-200">
+                    {% for iou in ious %}
+                    <tr class="hover:bg-secondary-50">
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <p class="text-sm text-secondary-900">{{ iou.created_at|date:"d M Y" }}</p>
+                            <p class="text-xs text-secondary-500">{{ iou.created_at|time:"H:i" }}</p>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <p class="text-sm font-medium text-secondary-900">₦{{ iou.amount|intcomma }}</p>
+                        </td>
+                        <td class="px-6 py-4">
+                            <p class="text-sm text-secondary-900 truncate max-w-xs">{{ iou.reason|default:"N/A" }}</p>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full
+                                {% if iou.status == 'APPROVED' %}bg-success-100 text-success-800{% endif %}
+                                {% if iou.status == 'PENDING' %}bg-warning-100 text-warning-800{% endif %}
+                                {% if iou.status == 'REJECTED' %}bg-danger-100 text-danger-800{% endif %}
+                                {% if iou.status == 'PAID' %}bg-primary-100 text-primary-800{% endif %}">
+                                {{ iou.status }}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <p class="text-sm text-secondary-900">{{ iou.due_date|date:"d M Y"|default:"N/A" }}</p>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <a href="{% url 'payroll:iou_detail' iou.id %}" class="text-primary-600 hover:text-primary-900 mr-3" title="View Details">
+                                <i data-lucide="eye" class="h-4 w-4"></i>
+                            </a>
+                            {% if iou.status == 'PENDING' %}
+                            <a href="{% url 'payroll:iou_update' iou.id %}" class="text-secondary-600 hover:text-secondary-900 mr-3" title="Edit">
+                                <i data-lucide="edit" class="h-4 w-4"></i>
+                            </a>
+                            <a href="{% url 'payroll:iou_delete' iou.id %}" class="text-danger-600 hover:text-danger-900" title="Delete">
+                                <i data-lucide="trash-2" class="h-4 w-4"></i>
+                            </a>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="px-6 py-12 text-center">
+                            <i data-lucide="credit-card" class="h-12 w-12 mx-auto text-secondary-400 mb-3"></i>
+                            <p class="text-lg text-secondary-600 mb-2">No IOU requests found</p>
+                            <p class="text-sm text-secondary-500 mb-6">You haven't submitted any IOU requests yet.</p>
+                            <a href="{% url 'payroll:request_iou' %}" class="btn-primary py-2 px-4 text-white font-medium rounded-lg inline-flex items-center">
+                                <i data-lucide="plus-circle" class="h-4 w-4 mr-2"></i>
+                                Request IOU
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- IOU Policy Information -->
+    <div class="bg-white rounded-xl shadow-soft p-6">
+        <h2 class="text-lg font-semibold text-secondary-900 mb-4 flex items-center">
+            <i data-lucide="info" class="h-5 w-5 mr-2 text-primary-600"></i>
+            IOU Policy Information
+        </h2>
+        <div class="space-y-4">
+            <div class="p-4 bg-blue-50 rounded-lg">
+                <p class="text-sm text-blue-800">
+                    <strong>Important:</strong> IOU requests are salary advances that will be deducted from your future paychecks. Please review the terms carefully before submitting a request.
+                </p>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <h3 class="text-sm font-medium text-secondary-900 mb-2">Maximum Amount</h3>
+                    <p class="text-sm text-secondary-600">The maximum IOU amount is 50% of your monthly net salary, subject to approval.</p>
+                </div>
+                <div>
+                    <h3 class="text-sm font-medium text-secondary-900 mb-2">Repayment Terms</h3>
+                    <p class="text-sm text-secondary-600">IOU amounts are typically repaid over 1-3 months through payroll deductions.</p>
+                </div>
+                <div>
+                    <h3 class="text-sm font-medium text-secondary-900 mb-2">Approval Process</h3>
+                    <p class="text-sm text-secondary-600">All IOU requests require manager approval and are subject to company policy.</p>
+                </div>
+                <div>
+                    <h3 class="text-sm font-medium text-secondary-900 mb-2">Interest Charges</h3>
+                    <p class="text-sm text-secondary-600">IOU requests may be subject to interest charges as per company policy.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        lucide.createIcons();
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,117 @@
+{% extends "accounting/base.html" %}
+{% load static %}
+
+{% block page_title %}Fiscal Years{% endblock %}
+
+{% block breadcrumbs %}
+{% with breadcrumbs=breadcrumbs|default:"[{'title': 'Fiscal Years'}]" %}
+{{ block.super }}
+{% endwith %}
+{% endblock %}
+
+{% block accounting_content %}
+<div class="bg-white rounded-lg shadow-soft">
+    <!-- Header -->
+    <div class="px-6 py-4 border-b border-gray-200">
+        <div class="flex items-center justify-between">
+            <h3 class="text-lg font-semibold text-secondary-900">Fiscal Years</h3>
+            {% if is_accountant %}
+            <a href="{% url 'accounting:fiscal_year_create' %}" class="btn-primary inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white">
+                <i data-lucide="plus" class="mr-2 h-4 w-4"></i>
+                New Fiscal Year
+            </a>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Fiscal Years List -->
+    <div class="overflow-hidden">
+        {% if fiscal_years %}
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">
+                            Year
+                        </th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">
+                            Name
+                        </th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">
+                            Period
+                        </th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">
+                            Status
+                        </th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">
+                            Periods
+                        </th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">
+                            Journals
+                        </th>
+                        <th scope="col" class="relative px-6 py-3">
+                            <span class="sr-only">Actions</span>
+                        </th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for fiscal_year in fiscal_years %}
+                    <tr class="table-row-hover">
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-secondary-900">
+                            {{ fiscal_year.year }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm font-medium text-secondary-900">{{ fiscal_year.name }}</div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm text-secondary-900">{{ fiscal_year.start_date|date:"M d, Y" }}</div>
+                            <div class="text-sm text-secondary-500">to {{ fiscal_year.end_date|date:"M d, Y" }}</div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            {% if fiscal_year.is_closed %}
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-danger-100 text-danger-800">Closed</span>
+                            {% elif fiscal_year.is_active %}
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-success-100 text-success-800">Active</span>
+                            {% else %}
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-secondary-100 text-secondary-800">Inactive</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-secondary-900">
+                            {{ fiscal_year.periods.count }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-secondary-900">
+                            {{ fiscal_year.periods.all|aggregate:Sum('journals__count')|default:0 }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <div class="flex items-center justify-end space-x-2">
+                                <a href="{% url 'accounting:fiscal_year_detail' fiscal_year.pk %}" class="text-primary-600 hover:text-primary-900">
+                                    View
+                                </a>
+                                <a href="{% url 'accounting:period_list' %}?fiscal_year={{ fiscal_year.pk }}" class="text-primary-600 hover:text-primary-900">
+                                    Periods
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center py-12">
+            <i data-lucide="calendar" class="mx-auto h-12 w-12 text-secondary-400"></i>
+            <h3 class="mt-2 text-sm font-medium text-secondary-900">No fiscal years found</h3>
+            <p class="mt-1 text-sm text-secondary-500">Get started by creating your first fiscal year.</p>
+            <div class="mt-6">
+                {% if is_accountant %}
+                <a href="{% url 'accounting:fiscal_year_create' %}" class="btn-primary inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white">
+                    <i data-lucide="plus" class="mr-2 h-4 w-4"></i>
+                    New Fiscal Year
+                </a>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

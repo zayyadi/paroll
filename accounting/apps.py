@@ -7,3 +7,4 @@ class AccountingConfig(AppConfig):
 
     def ready(self):
         import accounting.signals  # noqa
+        import accounting.signal_handlers  # noqa

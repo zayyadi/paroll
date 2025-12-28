@@ -16,41 +16,14 @@ class CustomUserChangeForm(UserChangeForm):
 
 
 class SignUpForm(UserCreationForm):
-    first_name = forms.CharField(
-        widget=forms.TextInput(
-            attrs={
-                "class": "bg-gray-50 border border-gray-300 text-gray-900 sm:text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
-            }
-        )
-    )
-    last_name = forms.CharField(
-        widget=forms.TextInput(
-            attrs={
-                "class": "bg-gray-50 border border-gray-300 text-gray-900 sm:text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
-            }
-        )
-    )
-    email = forms.CharField(
-        widget=forms.TextInput(
-            attrs={
-                "class": "bg-gray-50 border border-gray-300 text-gray-900 sm:text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
-            }
-        )
-    )
-    password1 = forms.CharField(
-        widget=forms.PasswordInput(
-            attrs={
-                "class": "bg-gray-50 border border-gray-300 text-gray-900 sm:text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
-            }
-        )
-    )
-    password2 = forms.CharField(
-        widget=forms.PasswordInput(
-            attrs={
-                "class": "bg-gray-50 border border-gray-300 text-gray-900 sm:text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
-            }
-        )
-    )
+    common_attrs = {
+        "class": "w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary text-sm"
+    }
+    first_name = forms.CharField(widget=forms.TextInput(attrs=common_attrs))
+    last_name = forms.CharField(widget=forms.TextInput(attrs=common_attrs))
+    email = forms.CharField(widget=forms.TextInput(attrs=common_attrs))
+    password1 = forms.CharField(widget=forms.PasswordInput(attrs=common_attrs))
+    password2 = forms.CharField(widget=forms.PasswordInput(attrs=common_attrs))
 
     class Meta:
         model = CustomUser

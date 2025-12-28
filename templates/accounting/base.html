@@ -1,0 +1,150 @@
+{% extends "base_new.html" %}
+{% load static %}
+
+{% block page_title_in_head %}
+<title>PayrollCo - Accounting {% if page_title %}| {{ page_title }}{% endif %}</title>
+{% endblock %}
+
+{% block page_header %}{{ page_title|default:"Accounting" }}{% endblock %}
+
+{% block breadcrumbs %}
+<nav class="flex" aria-label="Breadcrumb">
+    <ol class="inline-flex items-center space-x-1 md:space-x-3">
+        <li class="inline-flex items-center">
+            <a href="{% url 'accounting:dashboard' %}" class="inline-flex items-center text-sm font-medium text-secondary-700 hover:text-primary-600">
+                <i data-lucide="home" class="mr-2 w-4 h-4"></i>
+                Accounting
+            </a>
+        </li>
+        {% if breadcrumbs %}
+        {% for breadcrumb in breadcrumbs %}
+        <li>
+            <div class="flex items-center">
+                <i data-lucide="chevron-right" class="w-4 h-4 text-secondary-400"></i>
+                {% if forloop.last %}
+                <span class="ml-1 text-sm font-medium text-secondary-500">{{ breadcrumb.title }}</span>
+                {% else %}
+                <a href="{{ breadcrumb.url }}" class="ml-1 text-sm font-medium text-secondary-700 hover:text-primary-600">{{ breadcrumb.title }}</a>
+                {% endif %}
+            </div>
+        </li>
+        {% endfor %}
+        {% endif %}
+    </ol>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+    <!-- Accounting Sidebar Navigation -->
+    <div class="lg:col-span-1">
+        <div class="bg-white rounded-lg shadow-soft p-4">
+            <h3 class="text-lg font-semibold text-secondary-900 mb-4">Accounting Menu</h3>
+            <nav class="space-y-1">
+                <a href="{% url 'accounting:dashboard' %}" class="sidebar-link group flex items-center px-3 py-2 text-sm font-medium rounded-md {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
+                    <i data-lucide="bar-chart-3" class="mr-3 h-5 w-5 text-secondary-400 group-hover:text-secondary-500"></i>
+                    Dashboard
+                </a>
+                
+                <div class="pt-2 pb-1">
+                    <p class="px-3 text-xs font-semibold text-secondary-500 uppercase tracking-wider">Accounts</p>
+                </div>
+                <a href="{% url 'accounting:account_list' %}" class="sidebar-link group flex items-center px-3 py-2 text-sm font-medium rounded-md {% if request.resolver_match.url_name == 'account_list' or request.resolver_match.url_name == 'account_detail' %}active{% endif %}">
+                    <i data-lucide="folder" class="mr-3 h-5 w-5 text-secondary-400 group-hover:text-secondary-500"></i>
+                    Chart of Accounts
+                </a>
+                
+                <div class="pt-2 pb-1">
+                    <p class="px-3 text-xs font-semibold text-secondary-500 uppercase tracking-wider">Journals</p>
+                </div>
+                <a href="{% url 'accounting:journal_list' %}" class="sidebar-link group flex items-center px-3 py-2 text-sm font-medium rounded-md {% if request.resolver_match.url_name == 'journal_list' or request.resolver_match.url_name == 'journal_detail' or request.resolver_match.url_name == 'journal_create' %}active{% endif %}">
+                    <i data-lucide="book-open" class="mr-3 h-5 w-5 text-secondary-400 group-hover:text-secondary-500"></i>
+                    General Journal
+                </a>
+                {% if is_accountant %}
+                <a href="{% url 'accounting:journal_create' %}" class="sidebar-link group flex items-center px-3 py-2 text-sm font-medium rounded-md">
+                    <i data-lucide="plus-circle" class="mr-3 h-5 w-5 text-secondary-400 group-hover:text-secondary-500"></i>
+                    New Journal Entry
+                </a>
+                {% endif %}
+                
+                <div class="pt-2 pb-1">
+                    <p class="px-3 text-xs font-semibold text-secondary-500 uppercase tracking-wider">Periods</p>
+                </div>
+                <a href="{% url 'accounting:fiscal_year_list' %}" class="sidebar-link group flex items-center px-3 py-2 text-sm font-medium rounded-md {% if request.resolver_match.url_name == 'fiscal_year_list' or request.resolver_match.url_name == 'fiscal_year_detail' %}active{% endif %}">
+                    <i data-lucide="calendar" class="mr-3 h-5 w-5 text-secondary-400 group-hover:text-secondary-500"></i>
+                    Fiscal Years
+                </a>
+                <a href="{% url 'accounting:period_list' %}" class="sidebar-link group flex items-center px-3 py-2 text-sm font-medium rounded-md {% if request.resolver_match.url_name == 'period_list' or request.resolver_match.url_name == 'period_detail' %}active{% endif %}">
+                    <i data-lucide="calendar-days" class="mr-3 h-5 w-5 text-secondary-400 group-hover:text-secondary-500"></i>
+                    Accounting Periods
+                </a>
+                
+                <div class="pt-2 pb-1">
+                    <p class="px-3 text-xs font-semibold text-secondary-500 uppercase tracking-wider">Reports</p>
+                </div>
+                <a href="{% url 'accounting:reports' %}" class="sidebar-link group flex items-center px-3 py-2 text-sm font-medium rounded-md {% if request.resolver_match.url_name == 'reports' or request.resolver_match.url_name == 'trial_balance' or request.resolver_match.url_name == 'account_activity' %}active{% endif %}">
+                    <i data-lucide="file-text" class="mr-3 h-5 w-5 text-secondary-400 group-hover:text-secondary-500"></i>
+                    Financial Reports
+                </a>
+                
+                {% if is_auditor %}
+                <div class="pt-2 pb-1">
+                    <p class="px-3 text-xs font-semibold text-secondary-500 uppercase tracking-wider">Audit</p>
+                </div>
+                <a href="{% url 'accounting:audit_list' %}" class="sidebar-link group flex items-center px-3 py-2 text-sm font-medium rounded-md {% if request.resolver_match.url_name == 'audit_list' or request.resolver_match.url_name == 'audit_detail' %}active{% endif %}">
+                    <i data-lucide="shield-check" class="mr-3 h-5 w-5 text-secondary-400 group-hover:text-secondary-500"></i>
+                    Audit Trail
+                </a>
+                {% endif %}
+            </nav>
+            
+            <!-- User Info Card -->
+            <div class="mt-6 p-4 bg-primary-50 rounded-lg">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        {% if user.employee_user.photo %}
+                        <img class="h-10 w-10 rounded-full object-cover" src="{{ user.employee_user.photo.url }}" alt="User Avatar">
+                        {% else %}
+                        <div class="h-10 w-10 rounded-full bg-primary-200 flex items-center justify-center text-primary-800 font-semibold">
+                            {{ user.first_name|first|default:user.email|first|upper }}
+                        </div>
+                        {% endif %}
+                    </div>
+                    <div class="ml-3">
+                        <p class="text-sm font-medium text-primary-900">{{ user.first_name|default:user.email }}</p>
+                        <p class="text-xs text-primary-700">
+                            {% if is_auditor %}Auditor{% elif is_accountant %}Accountant{% elif is_payroll_processor %}Payroll Processor{% else %}User{% endif %}
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Main Content -->
+    <div class="lg:col-span-3">
+        {% block accounting_content %}
+        {% endblock %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Initialize Lucide icons for dynamically loaded content
+    document.addEventListener('DOMContentLoaded', function() {
+        lucide.createIcons();
+        
+        // Re-initialize icons after any AJAX content loads
+        const observer = new MutationObserver(function(mutations) {
+            lucide.createIcons();
+        });
+        
+        observer.observe(document.body, {
+            childList: true,
+            subtree: true
+        });
+    });
+</script>
+{% endblock %}

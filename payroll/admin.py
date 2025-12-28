@@ -1,4 +1,5 @@
 from django.contrib import admin
+
 from import_export import resources
 from import_export.admin import ImportExportModelAdmin
 from django.contrib.auth.models import Group, Permission
@@ -14,14 +15,30 @@ from payroll.models import (
     Payroll,
     PayT,
     Deduction,
-    PerformanceReview,
     Payday,
+    Appraisal,
+    Metric,
+    Review,
+    Rating,
+    AppraisalAssignment,
+)
+
+# Import notification admin configurations
+from payroll.admin.notification_admin import (
+    NotificationAdmin,
+    ArchivedNotificationAdmin,
+    NotificationPreferenceAdmin,
+    NotificationDeliveryLogAdmin,
+    NotificationTemplateAdmin,
 )
 
 
 class EmployeeProfileResources(resources.ModelResource):
     class Meta:
         model = EmployeeProfile
+
+
+# Notification resources removed - now in notification_admin.py
 
 
 class PayrollResource(resources.ModelResource):
@@ -37,6 +54,51 @@ class PayTResource(resources.ModelResource):
 class PayVarResource(resources.ModelResource):
     class Meta:
         model = PayVar
+
+
+class IOUResource(resources.ModelResource):
+    class Meta:
+        model = IOU
+
+
+class DepartmentResource(resources.ModelResource):
+    class Meta:
+        model = Department
+
+
+class LeaveRequestResource(resources.ModelResource):
+    class Meta:
+        model = LeaveRequest
+
+
+class PaydayResource(resources.ModelResource):
+    class Meta:
+        model = Payday
+
+
+class AppraisalResource(resources.ModelResource):
+    class Meta:
+        model = Appraisal
+
+
+class MetricResource(resources.ModelResource):
+    class Meta:
+        model = Metric
+
+
+class ReviewResource(resources.ModelResource):
+    class Meta:
+        model = Review
+
+
+class RatingResource(resources.ModelResource):
+    class Meta:
+        model = Rating
+
+
+class AppraisalAssignmentResource(resources.ModelResource):
+    class Meta:
+        model = AppraisalAssignment
 
 
 class AllowanceResources(resources.ModelResource):
@@ -79,7 +141,8 @@ class GroupAdmin(admin.ModelAdmin):
 
 
 @admin.register(LeaveRequest)
-class LeaveRequestAdmin(admin.ModelAdmin):
+class LeaveRequestAdmin(ImportExportModelAdmin):
+    resource_class = LeaveRequestResource
     list_display = ("employee", "leave_type", "start_date", "end_date", "status")
     list_filter = ("leave_type", "status")
     search_fields = ("employee__first_name", "employee__last_name")
@@ -93,14 +156,6 @@ class PermissionAdmin(admin.ModelAdmin):
     list_display = ("name", "codename", "content_type")
     list_filter = ("content_type",)
     search_fields = ("name", "codename")
-
-
-@admin.register(PerformanceReview)
-class PerformanceReviewAdmin(admin.ModelAdmin):
-    list_display = ("employee", "review_date", "rating")
-    list_filter = ("rating", "review_date")
-    search_fields = ("employee__first_name", "employee__last_name", "comments")
-    date_hierarchy = "review_date"
 
 
 admin.site.register(Permission, PermissionAdmin)
@@ -182,12 +237,6 @@ class EmployeeProfileAdmin(ImportExportModelAdmin):
     )
     readonly_fields = ("emp_id",)
 
-    # def get_is_active(self, obj):
-    #     return obj.is_active
-
-    # get_is_active.boolean = True
-    # get_is_active.short_description = "Active"
-
 
 @admin.register(Payroll)
 class PayrollAdmin(ImportExportModelAdmin):
@@ -201,6 +250,7 @@ class PayrollAdmin(ImportExportModelAdmin):
 
 @admin.register(IOU)
 class IOUAdmin(ImportExportModelAdmin):
+    resource_class = IOUResource
     list_display = (
         "employee_id",
         "amount",
@@ -229,18 +279,25 @@ class DeductionAdmin(ImportExportModelAdmin):
     resource_class = DeductionResources
     list_display = ("employee", "deduction_type", "amount", "reason", "created_at")
     list_filter = ("deduction_type", "created_at")
-    search_fields = ("employee__first_name", "employee__last_name", "deduction_type", "reason")
+    search_fields = (
+        "employee__first_name",
+        "employee__last_name",
+        "deduction_type",
+        "reason",
+    )
     date_hierarchy = "created_at"
 
 
 @admin.register(Department)
-class DepartmentAdmin(admin.ModelAdmin):
+class DepartmentAdmin(ImportExportModelAdmin):
+    resource_class = DepartmentResource
     list_display = ("name",)
     search_fields = ("name",)
 
 
 @admin.register(Payday)
-class PaydayAdmin(admin.ModelAdmin):
+class PaydayAdmin(ImportExportModelAdmin):
+    resource_class = PaydayResource
     list_display = ("paydays_id", "get_employee_name", "get_netpay")
     list_filter = ("paydays_id", "payroll_id__pays__department")
     search_fields = (
@@ -262,4 +319,67 @@ class PaydayAdmin(admin.ModelAdmin):
     get_netpay.short_description = "Net Pay"
 
 
-admin.site.register(PayVar, ImportExportModelAdmin)
+@admin.register(PayVar)
+class PayVarAdmin(ImportExportModelAdmin):
+    resource_class = PayVarResource
+
+
+class RatingInline(admin.TabularInline):
+    model = Rating
+    extra = 1
+
+
+@admin.register(Appraisal)
+class AppraisalAdmin(ImportExportModelAdmin):
+    resource_class = AppraisalResource
+    list_display = ("name", "start_date", "end_date")
+    search_fields = ("name",)
+
+
+@admin.register(Metric)
+class MetricAdmin(ImportExportModelAdmin):
+    resource_class = MetricResource
+    list_display = ("name", "description")
+    search_fields = ("name",)
+
+
+@admin.register(Review)
+class ReviewAdmin(ImportExportModelAdmin):
+    resource_class = ReviewResource
+    list_display = ("appraisal", "employee", "reviewer")
+    search_fields = ("appraisal__name", "employee__first_name", "reviewer__first_name")
+    inlines = [RatingInline]
+
+
+@admin.register(Rating)
+class RatingAdmin(ImportExportModelAdmin):
+    resource_class = RatingResource
+    list_display = ("review", "metric", "rating")
+    search_fields = ("review__appraisal__name", "metric__name")
+
+
+@admin.register(AppraisalAssignment)
+class AppraisalAssignmentAdmin(ImportExportModelAdmin):
+    resource_class = AppraisalAssignmentResource
+    list_display = ("appraisal", "appraisee", "appraiser")
+    search_fields = (
+        "appraisal__name",
+        "appraisee__first_name",
+        "appraiser__first_name",
+    )
+
+
+# Register notification admin classes
+from payroll.models.notification import (
+    Notification,
+    ArchivedNotification,
+    NotificationPreference,
+    NotificationDeliveryLog,
+    NotificationTemplate,
+)
+
+admin.site.register(Notification, NotificationAdmin)
+admin.site.register(ArchivedNotification, ArchivedNotificationAdmin)
+admin.site.register(NotificationPreference, NotificationPreferenceAdmin)
+admin.site.register(NotificationDeliveryLog, NotificationDeliveryLogAdmin)
+admin.site.register(NotificationTemplate, NotificationTemplateAdmin)

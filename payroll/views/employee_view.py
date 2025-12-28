@@ -1,20 +1,31 @@
+from decimal import Decimal
 from payroll.forms import (
+    AppraisalAssignmentForm,
     EmployeeProfileForm,
     EmployeeProfileUpdateForm,
-    PerformanceReviewForm,
+    AppraisalForm,
+    ReviewForm,
+    BaseRatingFormSet,
 )
 from payroll import models
 from django.contrib.auth.decorators import login_required
 
 
-from django.db.models import Q, Count
+from django.db.models import Q, Count, Sum
+from django.views.generic.edit import FormView
+
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import (
-    login_required,
     permission_required,
 )  # Added permission_required
 from django.urls import reverse_lazy
-from django.views.generic import CreateView, UpdateView, DeleteView
+from django.views.generic import (
+    CreateView,
+    UpdateView,
+    DeleteView,
+    ListView,
+    DetailView,
+)
 from django.contrib.auth.mixins import (
     LoginRequiredMixin,
     PermissionRequiredMixin,
@@ -28,7 +39,6 @@ from django.http import (
     Http404,
     HttpResponseForbidden,
 )
-
 import json
 
 from django.core.cache.backends.base import DEFAULT_TIMEOUT
@@ -40,31 +50,181 @@ CACHE_TTL = getattr(settings, "CACHE_TTL", DEFAULT_TIMEOUT)
 # Removed is_hr_user and check_super helper functions as their use is replaced
 
 
+def get_employee_notifications(employee_profile):
+    """
+    Get notifications for an employee from the Notification model
+    """
+    # Get notifications from the database model
+    notifications = models.Notification.objects.filter(
+        recipient=employee_profile
+    ).select_related("leave_request", "iou", "payroll", "appraisal")[
+        :10
+    ]  # Get 10 most recent notifications
+
+    return notifications
+
+
 @login_required  # index and dashboard remain login_required for now, internal logic dictates content
 def index(request):
-    pay = models.PayT.objects.all()
-    pay_count = models.PayT.objects.all().count()
-    emp = (
-        models.EmployeeProfile.emp_objects.all()
-    )  # Consider if this should be permission limited
-    count = emp.count()
+    # Check if user is HR/Admin (superuser or has payroll permissions)
+    if request.user.is_superuser or request.user.has_perm(
+        "payroll.view_employeeprofile"
+    ):
+        # HR/Admin gets the current dashboard
+        pay = models.PayT.objects.all()
+        pay_count = models.PayVar.objects.aggregate(total=Sum("netpay"))[
+            "total"
+        ] or Decimal("0.00")
 
-    context = {
-        "pay": pay,
-        "emp": emp,
-        "count": count,
-        "pay_count": pay_count,
-    }
+        # Get the most recent pay period
+        recent_pay_period = models.PayT.objects.order_by("-paydays").first()
+        pending_leaves = models.LeaveRequest.objects.all().filter(
+            status="APPROVED",
+        )
+        # Calculate total for the most recent month
+        if recent_pay_period:
+            recent_month_total = models.Payday.objects.filter(
+                paydays_id=recent_pay_period
+            ).aggregate(total=Sum("payroll_id__netpay"))["total"] or Decimal("0.00")
+        else:
+            recent_month_total = Decimal("0.00")
 
-    if request.user.is_superuser:  # Superuser still gets a specific template
+        previous_pay_period = models.PayT.objects.order_by("-paydays")[1:2].first()
+        if previous_pay_period:
+            previous_month_total = models.Payday.objects.filter(
+                paydays_id=previous_pay_period
+            ).aggregate(total=Sum("payroll_id__netpay"))["total"] or Decimal("0.00")
+
+            if previous_month_total > 0:
+                percentage_increase = (
+                    (recent_month_total - previous_month_total) / previous_month_total
+                ) * 100
+            else:
+                percentage_increase = Decimal("0.00")
+        else:
+            previous_month_total = Decimal("0.00")
+            percentage_increase = Decimal("0.00")
+
+        pay_periods = models.PayT.objects.order_by("paydays")
+        pay_period_data = []
+        pay_period_labels = []
+
+        for period in pay_periods:
+            total = models.Payday.objects.filter(paydays_id=period).aggregate(
+                total=Sum("payroll_id__netpay")
+            )["total"] or Decimal("0.00")
+
+            if period.paydays:
+                month_label = period.paydays.strftime("%b %Y")  # e.g., 'Jan 2025'
+
+            pay_period_labels.append(month_label)
+            pay_period_data.append(float(total))
+
+        pay_period_trend_data = {
+            "labels": json.dumps(pay_period_labels),
+            "data": json.dumps(pay_period_data),
+        }
+
+        # Calculate total payee (tax) paid in most recent pay period
+        if recent_pay_period:
+            total_payee_paid = models.Payday.objects.filter(
+                paydays_id=recent_pay_period
+            ).aggregate(total=Sum("payroll_id__pays__employee_pay__payee"))[
+                "total"
+            ] or Decimal(
+                "0.00"
+            )
+        else:
+            total_payee_paid = Decimal("0.00")
+
+        # Calculate total payee paid (net pay) in most recent pay period
+        if recent_pay_period:
+            total_payee_net_paid = models.Payday.objects.filter(
+                paydays_id=recent_pay_period
+            ).aggregate(total=Sum("payroll_id__netpay"))["total"] or Decimal("0.00")
+        else:
+            total_payee_net_paid = Decimal("0.00")
+
+        # Calculate department distribution for the department chart
+        department_distribution = models.EmployeeProfile.emp_objects.values(
+            "department__name"
+        ).annotate(count=Count("id"))
+        department_labels = json.dumps(
+            [
+                item["department__name"] if item["department__name"] else "Unassigned"
+                for item in department_distribution
+            ]
+        )
+        department_counts = json.dumps(
+            [item["count"] for item in department_distribution]
+        )
+
+        emp = models.EmployeeProfile.emp_objects.all()
+        leave = models.LeaveRequest.objects.all()
+        # iou = models.IOU.objects.all()
+        count = emp.count()
+
+        print(f" leave: {leave.count()}")
+        print(f" graph data: {pay_period_data}")
+
+        context = {
+            "pay": pay,
+            "emp": emp,
+            "count": count,
+            "pay_count": pay_count,
+            "leave": leave.count(),
+            "recent_month_total": recent_month_total,
+            "recent_pay_period": recent_pay_period,
+            "previous_month_total": previous_month_total,
+            "percentage_increase": percentage_increase,
+            "total_payee_paid": total_payee_paid,
+            "total_payee_net_paid": total_payee_net_paid,
+            "pending": pending_leaves.count(),
+            "pay_period_data": pay_period_trend_data["data"],
+            "pay_period_labels": pay_period_trend_data["labels"],
+            "department_labels": department_labels,
+            "department_counts": department_counts,
+        }
         return render(request, "index.html", context)
     else:
+        # Regular employee gets their personal dashboard
         try:
             employee_profile = models.EmployeeProfile.emp_objects.get(user=request.user)
-            context["employee_slug"] = employee_profile.slug
+
+            # Get recent payslips for this employee
+            recent_payslips = models.Payday.objects.filter(
+                payroll_id__pays__user=request.user
+            ).order_by("-paydays_id__paydays")[:5]
+
+            # Get notifications for this employee
+            notifications = get_employee_notifications(employee_profile)
+
+            # Get unread count
+            unread_count = models.Notification.objects.filter(
+                recipient=employee_profile, is_read=False
+            ).count()
+
+            # Count pending requests
+            pending_requests_count = (
+                models.LeaveRequest.objects.filter(
+                    employee=employee_profile, status="PENDING"
+                ).count()
+                + models.IOU.objects.filter(
+                    employee_id=employee_profile, status="PENDING"
+                ).count()
+            )
+
+            context = {
+                "emp": employee_profile,
+                "recent_payslips": recent_payslips,
+                "notifications": notifications,
+                "pending_requests_count": pending_requests_count,
+                "unread_count": unread_count,
+            }
+            return render(request, "employee_home.html", context)
         except models.EmployeeProfile.DoesNotExist:
-            context["employee_slug"] = None
-        return render(request, "home_normal.html", context)
+            # If user has no employee profile, show a simple home page
+            return render(request, "home_normal.html", {"employee_slug": None})
 
 
 @login_required
@@ -93,7 +253,7 @@ def dashboard(request):
     user = request.user
 
     if user.is_superuser:  # Superuser gets admin dashboard
-        return render(request, "dashboard_admin.html")
+        return render(request, "dashboard_admin_new.html")
     # Changed from group check to permission check for HR dashboard
     elif request.user.has_perm(
         "payroll.view_employeeprofile"
@@ -107,10 +267,18 @@ def dashboard(request):
             "leave_count": leave_count,
             "iou_count": iou_count,
             "allowance_count": allowance_count,
+            "empty_list": [],  # For empty for loop handling in templates
         }
-        return render(request, "dashboard_hr.html", context)
+        return render(request, "employee/dashboard_new.html", context)
     else:  # Regular user dashboard
-        return render(request, "dashboard_user.html")
+        assignments = models.AppraisalAssignment.objects.filter(
+            appraiser=request.user.employee_user
+        )
+        context = {
+            "assignments": assignments,
+            "empty_list": [],  # For empty for loop handling in templates
+        }
+        return render(request, "dashboard_user_new.html", context)
 
 
 @permission_required(
@@ -125,9 +293,9 @@ def hr_dashboard(request):
     pending_iou_requests_count = models.IOU.objects.filter(status="PENDING").count()
 
     total_employees = models.EmployeeProfile.objects.count()
-    recent_performance_reviews = models.PerformanceReview.objects.all().order_by(
-        "-review_date"
-    )[:5]
+    recent_performance_reviews = models.Appraisal.objects.all().order_by("-end_date")[
+        :5
+    ]
     department_distribution = models.EmployeeProfile.objects.values(
         "department__name"
     ).annotate(count=Count("id"))
@@ -143,6 +311,14 @@ def hr_dashboard(request):
             models.LeaveRequest.objects.filter(status="REJECTED").count(),
         ]
     )
+
+    # Calculate total salary amount paid
+    from payroll.models import Payday
+
+    total_salary_paid = (
+        Payday.objects.aggregate(total=Sum("payroll_id__netpay"))["total"] or 0
+    )
+
     # iou_status_counts = json.dumps(
     #     [
     #         models.IOU.objects.filter(status="PENDING").count(),
@@ -161,12 +337,13 @@ def hr_dashboard(request):
         "department_counts": department_counts,
         "leave_status_counts": leave_status_chart_data,  # For chart
         "iou_status_counts": pending_iou_requests_count,  # Original name, kept for compatibility
+        "total_salary_paid": total_salary_paid,  # New field for total salary paid
+        "empty_list": [],  # For empty for loop handling in templates
     }
-    return render(request, "dashboard_hr.html", context)
+    return render(request, "employee/dashboard_new.html", context)
 
 
 @permission_required("payroll.view_employeeprofile", raise_exception=True)
-@cache_page(CACHE_TTL)
 def employee_list(request):
     query = request.GET.get("q")
     department_filter = request.GET.get("department")
@@ -184,7 +361,7 @@ def employee_list(request):
     departments = models.Department.objects.all()
     return render(
         request,
-        "employee/employee_list.html",
+        "employee/employee_list_new.html",
         {"employees": employees, "departments": departments},
     )
 
@@ -227,7 +404,7 @@ def update_employee(request, id):
         form.save()
         messages.success(request, "Employee updated successfully!!")
         return redirect(
-            "payroll:index"
+            "payroll:employee_list"
         )  # Consider redirecting to employee list or profile
     return render(request, "employee/update_employee.html", {"form": form})
 
@@ -286,6 +463,7 @@ def delete_employee(request, id):  # FBV for delete
 @cache_page(CACHE_TTL)
 def employee(request, user_id: int):  # user_id here is CustomUser.id
     target_user_profile = get_object_or_404(models.EmployeeProfile, user_id=user_id)
+    print(target_user_profile.user_id, request.user.id)
 
     # Check if the request.user is viewing their own profile or has general view permission
     if request.user.id == user_id or request.user.has_perm(
@@ -299,97 +477,167 @@ def employee(request, user_id: int):  # user_id here is CustomUser.id
         payroll_id__pays__user_id=employee_profile_to_display.user.id
     )
     context = {"emp": employee_profile_to_display, "pay": pay}
-    return render(request, "employee/profile.html", context)
+    return render(request, "employee/profile_new.html", context)
 
 
-@permission_required("payroll.view_performancereview", raise_exception=True)
-@cache_page(CACHE_TTL)
-def performance_reviews(request):  # List all reviews
-    query = request.GET.get("q")
-    reviews = models.PerformanceReview.objects.all()
-    if query:
-        reviews = reviews.filter(
-            Q(employee__user__first_name__icontains=query)
-            | Q(employee__user__last_name__icontains=query)
-            | Q(comments__icontains=query)
-        )
-    return render(request, "employee/performance_reviews.html", {"reviews": reviews})
+class AppraisalListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
+    model = models.Appraisal
+    template_name = "reviews/appraisal_list_new.html"
+    permission_required = "payroll.view_appraisal"
 
 
-@permission_required("payroll.view_performancereview", raise_exception=True)
-@cache_page(CACHE_TTL)
-def performance_review_list(
-    request,
-):  # This view lists all reviews, so general perm is fine
-    reviews = models.PerformanceReview.objects.all().order_by("-review_date")
-    form = PerformanceReviewForm()  # For adding new review from the list page perhaps
-    return render(
-        request,
-        "reviews/performance_review_list.html",
-        {"reviews": reviews, "form": form},
-    )
+class AppraisalDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
+    model = models.Appraisal
+    template_name = "reviews/appraisal_detail.html"
+    permission_required = "payroll.view_appraisal"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        appraisal = self.get_object()
+        reviews = models.Review.objects.filter(appraisal=appraisal)
+        assignments = models.AppraisalAssignment.objects.filter(appraisal=appraisal)
+
+        completed_reviews = reviews.count()
+        pending_reviews = assignments.count() - completed_reviews
+
+        ratings = models.Rating.objects.filter(review__in=reviews)
+        metrics = models.Metric.objects.all()
+
+        metric_ratings = {}
+        for metric in metrics:
+            metric_ratings[metric.name] = {"ratings": [], "avg": 0}
+
+        for rating in ratings:
+            metric_ratings[rating.metric.name]["ratings"].append(rating.rating)
+
+        for metric_name, data in metric_ratings.items():
+            if data["ratings"]:
+                data["avg"] = sum(data["ratings"]) / len(data["ratings"])
+
+        overall_avg = 0
+        if ratings:
+            overall_avg = sum([rating.rating for rating in ratings]) / ratings.count()
+
+        context["completed_reviews"] = completed_reviews
+        context["pending_reviews"] = pending_reviews
+        context["metric_ratings"] = metric_ratings
+        context["overall_avg"] = overall_avg
+
+        return context
 
 
-@login_required  # Object-level permission logic inside
-@cache_page(CACHE_TTL)
-def performance_review_detail(request, review_id):
-    review = get_object_or_404(models.PerformanceReview, id=review_id)
-    # User can view if it's their review, or if they have general view perm for all reviews (e.g., HR)
-    if not (
-        request.user == review.employee.user
-        or request.user.has_perm("payroll.view_performancereview")
-    ):
-        raise HttpResponseForbidden(
-            "You are not authorized to view this performance review."
-        )
-    return render(request, "reviews/performance_review_detail.html", {"review": review})
+class AppraisalCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
+    model = models.Appraisal
+    form_class = AppraisalForm
+    template_name = "reviews/appraisal_form.html"
+    success_url = reverse_lazy("payroll:appraisal_list")
+    permission_required = "payroll.add_appraisal"
 
 
-@permission_required("payroll.add_performancereview", raise_exception=True)
-def add_performance_review(request):
-    if request.method == "POST":
-        form = PerformanceReviewForm(request.POST)
-        if form.is_valid():
-            # review = form.save(commit=False) # If employee needs to be set based on logged in user or other logic
-            # employee_id = request.POST.get("employee") # This is fine if form includes employee selector
-            # if employee_id:
-            #     employee_instance = get_object_or_404(models.EmployeeProfile, id=employee_id)
-            #     review.employee = employee_instance
-            # else: # Should not happen if field is required
-            #     messages.error(request, "Employee not specified.")
-            #     return redirect("payroll:performance_review_list")
-            form.save()  # Assuming form correctly handles employee assignment
-            messages.success(request, "Performance review added successfully.")
-            return redirect("payroll:performance_review_list")
+class AppraisalUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
+    model = models.Appraisal
+    form_class = AppraisalForm
+    template_name = "reviews/appraisal_form.html"
+    success_url = reverse_lazy("payroll:appraisal_list")
+    permission_required = "payroll.change_appraisal"
+
+
+class AppraisalDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteView):
+    model = models.Appraisal
+    template_name = "reviews/appraisal_confirm_delete.html"
+    success_url = reverse_lazy("payroll:appraisal_list")
+    permission_required = "payroll.delete_appraisal"
+
+
+class ReviewCreateView(LoginRequiredMixin, CreateView):
+    model = models.Review
+    form_class = ReviewForm
+    template_name = "reviews/review_form.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        if self.request.POST:
+            context["rating_formset"] = BaseRatingFormSet(self.request.POST)
         else:
-            messages.error(
-                request, "Error adding performance review. Please check the form."
+            context["rating_formset"] = BaseRatingFormSet()
+        return context
+
+    def form_valid(self, form):
+        context = self.get_context_data()
+        rating_formset = context["rating_formset"]
+        if rating_formset.is_valid():
+            review = form.save(commit=False)
+            review.appraisal = get_object_or_404(
+                models.Appraisal, pk=self.kwargs["appraisal_pk"]
             )
-    # If GET or form invalid, redirecting to list. Consider rendering form on this page.
-    # For now, sticking to original logic of redirecting.
-    return redirect("payroll:performance_review_list")
+            review.employee = get_object_or_404(
+                models.EmployeeProfile, pk=self.kwargs["employee_pk"]
+            )
+            review.reviewer = self.request.user.employee_user
+            review.save()
+            rating_formset.instance = review
+            rating_formset.save()
+            return super().form_valid(form)
+        else:
+            return self.render_to_response(self.get_context_data(form=form))
+
+    def get_success_url(self):
+        return reverse_lazy(
+            "payroll:appraisal_detail", kwargs={"pk": self.kwargs["appraisal_pk"]}
+        )
 
 
-@permission_required("payroll.change_performancereview", raise_exception=True)
-def edit_performance_review(request, review_id):
-    review = get_object_or_404(models.PerformanceReview, id=review_id)
-    # Add object-level permission here if only owner/manager can edit, e.g.
-    # if not (request.user == review.employee.user or request.user.has_perm('payroll.manage_all_reviews')):
-    #     raise HttpResponseForbidden("You cannot edit this review.")
-    if request.method == "POST":
-        form = PerformanceReviewForm(request.POST, instance=review)
-        if form.is_valid():
-            form.save()
-            messages.success(request, "Review updated successfully.")
-            return redirect("payroll:performance_review_list")  # Or detail view
-    # If GET or form invalid, redirecting. Consider rendering form on this page.
-    return redirect("payroll:performance_review_list")
+class ReviewUpdateView(LoginRequiredMixin, UpdateView):
+    model = models.Review
+    form_class = ReviewForm
+    template_name = "reviews/review_form.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        if self.request.POST:
+            context["rating_formset"] = BaseRatingFormSet(
+                self.request.POST, instance=self.object
+            )
+        else:
+            context["rating_formset"] = BaseRatingFormSet(instance=self.object)
+        return context
+
+    def form_valid(self, form):
+        context = self.get_context_data()
+        rating_formset = context["rating_formset"]
+        if rating_formset.is_valid():
+            rating_formset.instance = self.object
+            rating_formset.save()
+        return super().form_valid(form)
+
+    def get_success_url(self):
+        return reverse_lazy(
+            "payroll:appraisal_detail", kwargs={"pk": self.object.appraisal.pk}
+        )
 
 
-@permission_required("payroll.delete_performancereview", raise_exception=True)
-def delete_performance_review(request, review_id):
-    review = get_object_or_404(models.PerformanceReview, id=review_id)
-    # Add object-level permission here similar to edit
-    review.delete()
-    messages.success(request, "Review deleted successfully.")
-    return redirect("payroll:performance_review_list")
+class ReviewDetailView(LoginRequiredMixin, DetailView):
+    model = models.Review
+    template_name = "reviews/review_detail.html"
+
+
+class ReviewDeleteView(LoginRequiredMixin, DeleteView):
+    model = models.Review
+    template_name = "reviews/review_confirm_delete.html"
+
+    def get_success_url(self):
+        return reverse_lazy(
+            "payroll:appraisal_detail", kwargs={"pk": self.object.appraisal.pk}
+        )
+
+
+class AssignAppraisalView(LoginRequiredMixin, PermissionRequiredMixin, FormView):
+    form_class = AppraisalAssignmentForm
+    template_name = "reviews/appraisal_assign.html"
+    success_url = reverse_lazy("payroll:appraisal_list")
+    permission_required = "payroll.add_appraisalassignment"
+
+    def form_valid(self, form):
+        form.save()
+        messages.success(self.request, "Appraisal assignment successful.")
+        return super().form_valid(form)

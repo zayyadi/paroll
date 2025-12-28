@@ -1,4 +1,8 @@
-{% extends "base.html" %}
+{% extends "base_tailwind.html" %}
+{% load static %}
+
+{% block page_header %}Admin Dashboard{% endblock %}
+
 {% block content %}
 <div class="max-w-7xl mx-auto px-4 py-6">
     <!-- Messages -->
@@ -30,17 +34,17 @@
         <div class="dashboard-card bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg hover:shadow-xl transition-shadow">
             <h3 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">System Health</h3>
             <p class="text-gray-600 dark:text-gray-300">Monitor database and server status.</p>
-            <a href="#" class="text-blue-500 hover:underline mt-2 block">View Logs</a>
+            <a href="#" class="text-primary hover:underline mt-2 block">View Logs</a>
         </div>
         <div class="dashboard-card bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg hover:shadow-xl transition-shadow">
             <h3 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">User Management</h3>
             <p class="text-gray-600 dark:text-gray-300">Manage user accounts and permissions.</p>
-            <a href="#" class="text-blue-500 hover:underline mt-2 block">Manage Users</a>
+            <a href="#" class="text-primary hover:underline mt-2 block">Manage Users</a>
         </div>
         <div class="dashboard-card bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg hover:shadow-xl transition-shadow">
             <h3 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">Configuration</h3>
             <p class="text-gray-600 dark:text-gray-300">Adjust system settings and parameters.</p>
-            <a href="#" class="text-blue-500 hover:underline mt-2 block">Settings</a>
+            <a href="#" class="text-primary hover:underline mt-2 block">Settings</a>
         </div>
     </div>
 
@@ -48,8 +52,8 @@
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         <a href="{% url 'payroll:employee_list' %}" class="group bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg hover:shadow-xl transition-all transform hover:scale-105">
             <div class="flex items-center space-x-4">
-                <div class="p-3 bg-blue-100 dark:bg-blue-900 rounded-lg group-hover:bg-blue-600 transition-colors">
-                    <i class="fas fa-users text-blue-600 dark:text-blue-300 group-hover:text-white text-xl"></i>
+                <div class="p-3 bg-indigo-50 dark:bg-indigo-900 rounded-lg group-hover:bg-primary transition-colors">
+                    <span class="material-icons-outlined text-primary dark:text-indigo-300 group-hover:text-white text-xl">groups</span>
                 </div>
                 <div>
                     <h3 class="text-xl font-semibold text-gray-900 dark:text-white">Employee List</h3>
@@ -60,7 +64,7 @@
         <a href="{% url 'payroll:audit_trail_list' %}" class="group bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg hover:shadow-xl transition-all transform hover:scale-105">
             <div class="flex items-center space-x-4">
                 <div class="p-3 bg-purple-100 dark:bg-purple-900 rounded-lg group-hover:bg-purple-600 transition-colors">
-                    <i class="fas fa-history text-purple-600 dark:text-purple-300 group-hover:text-white text-xl"></i>
+                    <span class="material-icons-outlined text-purple-600 dark:text-purple-300 group-hover:text-white text-xl">history</span>
                 </div>
                 <div>
                     <h3 class="text-xl font-semibold text-gray-900 dark:text-white">Audit Trail</h3>
@@ -71,7 +75,7 @@
         <a href="{% url 'payroll:add_pay' %}" class="group bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg hover:shadow-xl transition-all transform hover:scale-105">
             <div class="flex items-center space-x-4">
                 <div class="p-3 bg-green-100 dark:bg-green-900 rounded-lg group-hover:bg-green-600 transition-colors">
-                    <i class="fas fa-money-bill-wave text-green-600 dark:text-green-300 group-hover:text-white text-xl"></i>
+                    <span class="material-icons-outlined text-green-600 dark:text-green-300 group-hover:text-white text-xl">payments</span>
                 </div>
                 <div>
                     <h3 class="text-xl font-semibold text-gray-900 dark:text-white">Process Payroll</h3>

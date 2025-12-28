@@ -1,26 +1,26 @@
-{% extends 'base.html' %}
+{% extends 'base_tailwind.html' %}
 {% load crispy_forms_tags %}
 {% load tailwind_filters %}
 {% load tailwind_tags %}
 {% block title %}Update Employee{% endblock title %}
 
 {% block content %}
-<div class="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 dark:from-gray-900 dark:to-gray-800">
+<div class="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50">
   <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
     <div class="space-y-8">
       <!-- Progress Indicator (can be removed or adapted for update flow) -->
-      <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5 mb-8">
+      <div class="w-full bg-gray-200 rounded-full h-2.5 mb-8">
         <div class="bg-blue-600 h-2.5 rounded-full" style="width: 100%;"></div> {# Assuming 100% for update #}
       </div>
 
       <!-- Heading Section -->
       <div class="text-center space-y-2">
-        <h1 class="text-5xl font-bold text-gray-900 dark:text-white">Update Employee Profile</h1>
-        <p class="text-lg text-gray-600 dark:text-gray-300">Modify existing employee profiles with ease</p>
+        <h1 class="text-5xl font-bold text-gray-900">Update Employee Profile</h1>
+        <p class="text-lg text-gray-600">Modify existing employee profiles with ease</p>
       </div>
 
       <!-- Form Section -->
-      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8 sm:p-12 transition-all duration-300 hover:shadow-2xl">
+      <div class="bg-white rounded-2xl shadow-xl p-8 sm:p-12 transition-all duration-300 hover:shadow-2xl">
         <form method="post" enctype="multipart/form-data" class="space-y-8">
           {% csrf_token %}
 
@@ -43,7 +43,7 @@
           <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
             <!-- Personal Details -->
             <div class="space-y-6">
-              <h3 class="text-xl font-semibold text-gray-900 dark:text-white">Personal Details</h3>
+              <h3 class="text-xl font-semibold text-gray-900">Personal Details</h3>
               <div class="form-group">
                 {{ form.first_name|as_crispy_field }}
               </div>
@@ -61,7 +61,7 @@
               </div>
               <div class="form-group">
                 {{ form.phone|as_crispy_field }}
-                <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Example: +1234567890</p>
+                <p class="text-sm text-gray-500 mt-1">Example: +1234567890</p>
               </div>
               <div class="form-group">
                 {{ form.address|as_crispy_field }}
@@ -70,7 +70,7 @@
 
             <!-- Employment Details -->
             <div class="space-y-6">
-              <h3 class="text-xl font-semibold text-gray-900 dark:text-white">Employment Details</h3>
+              <h3 class="text-xl font-semibold text-gray-900">Employment Details</h3>
               <div class="form-group">
                 {{ form.department|as_crispy_field }}
               </div>
@@ -89,18 +89,12 @@
               <div class="form-group">
                 {{ form.pension_rsa|as_crispy_field }}
               </div>
-              <div class="form-group">
-                {{ form.nin|as_crispy_field }}
-              </div>
-              <div class="form-group">
-                {{ form.tin_no|as_crispy_field }}
-              </div>
             </div>
           </div>
 
           <!-- Emergency Contact Information -->
-          <div class="bg-blue-50 dark:bg-gray-700 rounded-xl p-6 space-y-6">
-            <h3 class="text-xl font-semibold text-blue-800 dark:text-blue-200">Emergency Contact Information</h3>
+          <div class="bg-blue-50 rounded-xl p-6 space-y-6">
+            <h3 class="text-xl font-semibold text-blue-800">Emergency Contact Information</h3>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div class="form-group">
                 {{ form.emergency_contact_name|as_crispy_field }}
@@ -110,14 +104,14 @@
               </div>
               <div class="form-group">
                 {{ form.emergency_contact_phone|as_crispy_field }}
-                <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Example: +1234567890</p>
+                <p class="text-sm text-gray-500 mt-1">Example: +1234567890</p>
               </div>
             </div>
           </div>
 
           <!-- Next of Kin Information -->
-          <div class="bg-blue-50 dark:bg-gray-700 rounded-xl p-6 space-y-6">
-            <h3 class="text-xl font-semibold text-blue-800 dark:text-blue-200">Next of Kin Information</h3>
+          <div class="bg-blue-50 rounded-xl p-6 space-y-6">
+            <h3 class="text-xl font-semibold text-blue-800">Next of Kin Information</h3>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div class="form-group">
                 {{ form.next_of_kin_name|as_crispy_field }}
@@ -127,14 +121,14 @@
               </div>
               <div class="form-group">
                 {{ form.next_of_kin_phone|as_crispy_field }}
-                <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Example: +1234567890</p>
+                <p class="text-sm text-gray-500 mt-1">Example: +1234567890</p>
               </div>
             </div>
           </div>
 
           <!-- Banking Section -->
-          <div class="bg-blue-50 dark:bg-gray-700 rounded-xl p-6 space-y-6">
-            <h3 class="text-xl font-semibold text-blue-800 dark:text-blue-200">Banking Information</h3>
+          <div class="bg-blue-50 rounded-xl p-6 space-y-6">
+            <h3 class="text-xl font-semibold text-blue-800">Banking Information</h3>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div class="form-group">
                 {{ form.bank|as_crispy_field }}
@@ -144,19 +138,19 @@
               </div>
               <div class="form-group">
                 {{ form.bank_account_number|as_crispy_field }}
-                <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Enter your account number</p>
+                <p class="text-sm text-gray-500 mt-1">Enter your account number</p>
               </div>
             </div>
           </div>
 
           <!-- Profile Photo Upload -->
-          <div class="border-2 border-dashed border-gray-200 dark:border-gray-600 rounded-xl p-8 text-center">
+          <div class="border-2 border-dashed border-gray-200 rounded-xl p-8 text-center">
             <div class="max-w-xs mx-auto">
-              <svg class="w-12 h-12 mx-auto text-gray-400 dark:text-gray-500 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg class="w-12 h-12 mx-auto text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path>
               </svg>
               {{ form.photo|as_crispy_field }}
-              <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">PNG, JPG up to 2MB</p>
+              <p class="mt-2 text-sm text-gray-500">PNG, JPG up to 2MB</p>
             </div>
           </div>
 
@@ -178,19 +172,17 @@
 <!-- Custom Styles -->
 <style>
   .form-group label {
-    @apply text-sm font-medium text-gray-700 dark:text-gray-300 mb-1;
+    @apply text-sm font-semibold text-gray-600 mb-1;
   }
 
-  .form-group input, .form-group select {
-    @apply w-full rounded-lg border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 ease-in-out hover:shadow-md hover:border-blue-400;
+  .form-group input,
+  .form-group select,
+  .form-group textarea {
+    @apply w-full border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary text-sm p-3 bg-gray-50;
   }
 
-  .form-group input:focus, .form-group select:focus {
-    @apply ring-2 ring-blue-500 border-blue-500 shadow-lg;
-  }
-
-  .form-group .custom-file-input {
-    @apply block w-full text-sm text-gray-500 dark:text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 dark:file:bg-gray-600 dark:file:text-gray-100;
+  .form-group input[type="file"] {
+    @apply block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-primary hover:file:bg-indigo-100;
   }
 </style>
 {% endblock %}

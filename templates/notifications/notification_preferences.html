@@ -1,0 +1,298 @@
+{% extends "base_new.html" %}
+
+{% load static %}
+{% load custom_tags %}
+
+{% block title %}Notification Preferences{% endblock %}
+
+{% block page_header %}Notification Preferences{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto">
+    {% if messages %}
+        {% for message in messages %}
+            <div class="mb-4 p-4 rounded-md flex items-start
+                {% if message.tags == 'success' %}bg-success-50 text-success-800 border border-success-200
+                {% elif message.tags == 'error' %}bg-danger-50 text-danger-800 border border-danger-200
+                {% elif message.tags == 'warning' %}bg-warning-50 text-warning-800 border border-warning-200
+                {% else %}bg-primary-50 text-primary-800 border border-primary-200{% endif %}">
+                <i data-lucide="{% if message.tags == 'success' %}check-circle{% elif message.tags == 'error' %}alert-circle{% elif message.tags == 'warning' %}alert-triangle{% else %}info{% endif %}" 
+                   class="h-5 w-5 mr-3 flex-shrink-0"></i>
+                <span class="text-sm">{{ message }}</span>
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <form method="post" action="{% url 'payroll:notification_preferences' %}">
+        {% csrf_token %}
+        
+        <!-- Global Settings -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow border border-gray-200 dark:border-gray-700 mb-6">
+            <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Global Settings</h2>
+                <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Control overall notification behavior</p>
+            </div>
+            <div class="px-6 py-4">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <label class="text-sm font-medium text-gray-900 dark:text-white">Enable Notifications</label>
+                        <p class="text-sm text-gray-500 dark:text-gray-400">Turn off to disable all notifications</p>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" name="notifications_enabled" class="sr-only peer" 
+                               {% if preferences.notifications_enabled %}checked{% endif %}>
+                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <!-- Channel Settings -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow border border-gray-200 dark:border-gray-700 mb-6">
+            <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Channel Settings</h2>
+                <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Choose which channels to receive notifications on</p>
+            </div>
+            <div class="px-6 py-4 space-y-6">
+                <!-- In-App Notifications -->
+                <div class="flex items-start justify-between">
+                    <div class="flex items-start space-x-3">
+                        <div class="flex-shrink-0">
+                            <div class="w-10 h-10 rounded-lg bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center">
+                                <i data-lucide="bell" class="h-5 w-5 text-blue-600 dark:text-blue-400"></i>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="text-sm font-medium text-gray-900 dark:text-white">In-App Notifications</label>
+                            <p class="text-sm text-gray-500 dark:text-gray-400">Receive notifications within the application</p>
+                        </div>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer mt-1">
+                        <input type="checkbox" name="in_app_enabled" class="sr-only peer"
+                               {% if preferences.in_app_enabled %}checked{% endif %}>
+                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
+                    </label>
+                </div>
+
+                <!-- Email Notifications -->
+                <div class="flex items-start justify-between">
+                    <div class="flex items-start space-x-3">
+                        <div class="flex-shrink-0">
+                            <div class="w-10 h-10 rounded-lg bg-green-100 dark:bg-green-900/50 flex items-center justify-center">
+                                <i data-lucide="mail" class="h-5 w-5 text-green-600 dark:text-green-400"></i>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="text-sm font-medium text-gray-900 dark:text-white">Email Notifications</label>
+                            <p class="text-sm text-gray-500 dark:text-gray-400">Receive notifications via email</p>
+                        </div>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer mt-1">
+                        <input type="checkbox" name="email_enabled" class="sr-only peer"
+                               {% if preferences.email_enabled %}checked{% endif %}>
+                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
+                    </label>
+                </div>
+
+                <!-- Push Notifications -->
+                <div class="flex items-start justify-between">
+                    <div class="flex items-start space-x-3">
+                        <div class="flex-shrink-0">
+                            <div class="w-10 h-10 rounded-lg bg-purple-100 dark:bg-purple-900/50 flex items-center justify-center">
+                                <i data-lucide="smartphone" class="h-5 w-5 text-purple-600 dark:text-purple-400"></i>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="text-sm font-medium text-gray-900 dark:text-white">Push Notifications</label>
+                            <p class="text-sm text-gray-500 dark:text-gray-400">Receive push notifications on mobile devices</p>
+                        </div>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer mt-1">
+                        <input type="checkbox" name="push_enabled" class="sr-only peer"
+                               {% if preferences.push_enabled %}checked{% endif %}>
+                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
+                    </label>
+                </div>
+
+                <!-- SMS Notifications -->
+                <div class="flex items-start justify-between">
+                    <div class="flex items-start space-x-3">
+                        <div class="flex-shrink-0">
+                            <div class="w-10 h-10 rounded-lg bg-orange-100 dark:bg-orange-900/50 flex items-center justify-center">
+                                <i data-lucide="message-square" class="h-5 w-5 text-orange-600 dark:text-orange-400"></i>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="text-sm font-medium text-gray-900 dark:text-white">SMS Notifications</label>
+                            <p class="text-sm text-gray-500 dark:text-gray-400">Receive critical notifications via SMS</p>
+                        </div>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer mt-1">
+                        <input type="checkbox" name="sms_enabled" class="sr-only peer"
+                               {% if preferences.sms_enabled %}checked{% endif %}>
+                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <!-- Priority Thresholds -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow border border-gray-200 dark:border-gray-700 mb-6">
+            <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Priority Thresholds</h2>
+                <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Set minimum priority level for each channel</p>
+            </div>
+            <div class="px-6 py-4 space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">In-App Priority</label>
+                        <select name="in_app_priority_threshold" class="w-full text-sm border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white">
+                            <option value="LOW" {% if preferences.in_app_priority_threshold == 'LOW' %}selected{% endif %}>All Notifications</option>
+                            <option value="MEDIUM" {% if preferences.in_app_priority_threshold == 'MEDIUM' %}selected{% endif %}>Medium and Above</option>
+                            <option value="HIGH" {% if preferences.in_app_priority_threshold == 'HIGH' %}selected{% endif %}>High and Above</option>
+                            <option value="CRITICAL" {% if preferences.in_app_priority_threshold == 'CRITICAL' %}selected{% endif %}>Critical Only</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Email Priority</label>
+                        <select name="email_priority_threshold" class="w-full text-sm border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white">
+                            <option value="LOW" {% if preferences.email_priority_threshold == 'LOW' %}selected{% endif %}>All Notifications</option>
+                            <option value="MEDIUM" {% if preferences.email_priority_threshold == 'MEDIUM' %}selected{% endif %}>Medium and Above</option>
+                            <option value="HIGH" {% if preferences.email_priority_threshold == 'HIGH' %}selected{% endif %}>High and Above</option>
+                            <option value="CRITICAL" {% if preferences.email_priority_threshold == 'CRITICAL' %}selected{% endif %}>Critical Only</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Push Priority</label>
+                        <select name="push_priority_threshold" class="w-full text-sm border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white">
+                            <option value="LOW" {% if preferences.push_priority_threshold == 'LOW' %}selected{% endif %}>All Notifications</option>
+                            <option value="MEDIUM" {% if preferences.push_priority_threshold == 'MEDIUM' %}selected{% endif %}>Medium and Above</option>
+                            <option value="HIGH" {% if preferences.push_priority_threshold == 'HIGH' %}selected{% endif %}>High and Above</option>
+                            <option value="CRITICAL" {% if preferences.push_priority_threshold == 'CRITICAL' %}selected{% endif %}>Critical Only</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">SMS Priority</label>
+                        <select name="sms_priority_threshold" class="w-full text-sm border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white">
+                            <option value="LOW" {% if preferences.sms_priority_threshold == 'LOW' %}selected{% endif %}>All Notifications</option>
+                            <option value="MEDIUM" {% if preferences.sms_priority_threshold == 'MEDIUM' %}selected{% endif %}>Medium and Above</option>
+                            <option value="HIGH" {% if preferences.sms_priority_threshold == 'HIGH' %}selected{% endif %}>High and Above</option>
+                            <option value="CRITICAL" {% if preferences.sms_priority_threshold == 'CRITICAL' %}selected{% endif %}>Critical Only</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Digest Settings -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow border border-gray-200 dark:border-gray-700 mb-6">
+            <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Digest Settings</h2>
+                <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Control how notifications are batched</p>
+            </div>
+            <div class="px-6 py-4 space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Email Digest Frequency</label>
+                        <select name="email_digest_frequency" class="w-full text-sm border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white">
+                            <option value="immediate" {% if preferences.email_digest_frequency == 'immediate' %}selected{% endif %}>Immediate</option>
+                            <option value="hourly" {% if preferences.email_digest_frequency == 'hourly' %}selected{% endif %}>Hourly Digest</option>
+                            <option value="daily" {% if preferences.email_digest_frequency == 'daily' %}selected{% endif %}>Daily Digest</option>
+                            <option value="weekly" {% if preferences.email_digest_frequency == 'weekly' %}selected{% endif %}>Weekly Digest</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Push Digest Frequency</label>
+                        <select name="push_digest_frequency" class="w-full text-sm border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white">
+                            <option value="immediate" {% if preferences.push_digest_frequency == 'immediate' %}selected{% endif %}>Immediate</option>
+                            <option value="hourly" {% if preferences.push_digest_frequency == 'hourly' %}selected{% endif %}>Hourly Digest</option>
+                            <option value="daily" {% if preferences.push_digest_frequency == 'daily' %}selected{% endif %}>Daily Digest</option>
+                            <option value="weekly" {% if preferences.push_digest_frequency == 'weekly' %}selected{% endif %}>Weekly Digest</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quiet Hours -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow border border-gray-200 dark:border-gray-700 mb-6">
+            <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Quiet Hours</h2>
+                <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Pause notifications during specific hours</p>
+            </div>
+            <div class="px-6 py-4">
+                <div class="flex items-center justify-between mb-4">
+                    <div>
+                        <label class="text-sm font-medium text-gray-900 dark:text-white">Enable Quiet Hours</label>
+                        <p class="text-sm text-gray-500 dark:text-gray-400">Only critical notifications will be sent during quiet hours</p>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" name="quiet_hours_enabled" id="quietHoursToggle" class="sr-only peer"
+                               {% if preferences.quiet_hours_enabled %}checked{% endif %}>
+                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
+                    </label>
+                </div>
+
+                <div id="quietHoursSettings" class="{% if not preferences.quiet_hours_enabled %}hidden{% endif %} space-y-4">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Start Time</label>
+                            <input type="time" name="quiet_hours_start" value="{{ preferences.quiet_hours_start|default:'' }}"
+                                   class="w-full text-sm border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">End Time</label>
+                            <input type="time" name="quiet_hours_end" value="{{ preferences.quiet_hours_end|default:'' }}"
+                                   class="w-full text-sm border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Timezone</label>
+                            <select name="quiet_hours_timezone" class="w-full text-sm border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white">
+                                <option value="UTC" {% if preferences.quiet_hours_timezone == 'UTC' %}selected{% endif %}>UTC</option>
+                                <option value="Africa/Lagos" {% if preferences.quiet_hours_timezone == 'Africa/Lagos' %}selected{% endif %}>West Africa Time</option>
+                                <option value="America/New_York" {% if preferences.quiet_hours_timezone == 'America/New_York' %}selected{% endif %}>Eastern Time</option>
+                                <option value="America/Los_Angeles" {% if preferences.quiet_hours_timezone == 'America/Los_Angeles' %}selected{% endif %}>Pacific Time</option>
+                                <option value="Europe/London" {% if preferences.quiet_hours_timezone == 'Europe/London' %}selected{% endif %}>London Time</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Save Button -->
+        <div class="flex justify-end space-x-3">
+            <a href="{% url 'payroll:notifications' %}" class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
+                Cancel
+            </a>
+            <button type="submit" class="px-4 py-2 border border-transparent rounded-md text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                <i data-lucide="save" class="h-4 w-4 inline mr-1.5"></i>
+                Save Preferences
+            </button>
+        </div>
+    </form>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Toggle quiet hours settings
+    const quietHoursToggle = document.getElementById('quietHoursToggle');
+    const quietHoursSettings = document.getElementById('quietHoursSettings');
+    
+    if (quietHoursToggle && quietHoursSettings) {
+        quietHoursToggle.addEventListener('change', function() {
+            if (this.checked) {
+                quietHoursSettings.classList.remove('hidden');
+            } else {
+                quietHoursSettings.classList.add('hidden');
+            }
+        });
+    }
+    
+    // Initialize Lucide icons
+    if (typeof lucide !== 'undefined') {
+        lucide.createIcons();
+    }
+});
+</script>
+{% endblock %}
