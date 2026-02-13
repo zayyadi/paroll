@@ -2,5 +2,5 @@ from django.apps import AppConfig
 
 
 class MonthyearConfig(AppConfig):
-    default_auto_field = 'django.db.models.BigAutoField'
-    name = 'monthyear'
+    default_auto_field = "django.db.models.BigAutoField"
+    name = "monthyear"

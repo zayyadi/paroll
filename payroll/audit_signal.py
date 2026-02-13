@@ -8,8 +8,8 @@ from accounting.utils import log_accounting_activity
 from .models import (
     EmployeeProfile,
     Payroll,
-    PayVar,
-    PayT,
+    PayrollEntry,
+    PayrollRun,
     IOU,
     LeaveRequest,
     Allowance,
@@ -109,8 +109,14 @@ def log_payroll_save(sender, instance, created, **kwargs):
                 "pension_employee",
                 "pension_employer",
                 "pension",
+                "is_housing",
+                "is_nhif",
+                "nhf",
+                "employee_health",
+                "nhif",
+                "emplyr_health",
                 "gross_income",
-                "consolidated_relief",
+                "rent_relief",
                 "taxable_income",
                 "payee",
                 "water_rate",
@@ -132,23 +138,17 @@ def log_payroll_delete(sender, instance, **kwargs):
     log_audit(None, "Deleted Payroll", instance)
 
 
-@receiver(post_save, sender=PayVar)
+@receiver(post_save, sender=PayrollEntry)
 def log_payvar_save(sender, instance, created, **kwargs):
-    action = "Created PayVar" if created else "Updated PayVar"
+    action = "Created PayrollEntry" if created else "Updated PayrollEntry"
     changes = {}
 
     if not created:
         # Track changes for updates
         try:
-            old_instance = PayVar.objects.get(pk=instance.pk)
+            old_instance = PayrollEntry.objects.get(pk=instance.pk)
             # Compare financial fields
             financial_fields = [
-                "is_housing",
-                "is_nhif",
-                "nhf",
-                "employee_health",
-                "nhif",
-                "emplyr_health",
                 "netpay",
             ]
             for field_name in financial_fields:
@@ -156,18 +156,18 @@ def log_payvar_save(sender, instance, created, **kwargs):
                 new_value = getattr(instance, field_name)
                 if old_value != new_value:
                     changes[field_name] = {"old": str(old_value), "new": str(new_value)}
-        except PayVar.DoesNotExist:
+        except PayrollEntry.DoesNotExist:
             pass
 
     log_audit(None, action, instance, changes=changes)
 
 
-@receiver(post_delete, sender=PayVar)
+@receiver(post_delete, sender=PayrollEntry)
 def log_payvar_delete(sender, instance, **kwargs):
-    log_audit(None, "Deleted PayVar", instance)
+    log_audit(None, "Deleted PayrollEntry", instance)
 
 
-@receiver(pre_save, sender=PayT)
+@receiver(pre_save, sender=PayrollRun)
 def log_payt_closure(sender, instance, **kwargs):
     """
     Log payroll period closure with enhanced audit details.
@@ -176,7 +176,7 @@ def log_payt_closure(sender, instance, **kwargs):
         return
 
     try:
-        old_instance = PayT.objects.get(pk=instance.pk)
+        old_instance = PayrollRun.objects.get(pk=instance.pk)
         # Check if payroll is being closed
         if not old_instance.closed and instance.closed:
             # Log the closure with detailed information
@@ -194,19 +194,19 @@ def log_payt_closure(sender, instance, **kwargs):
                 changes=changes,
                 reason=f"Payroll period {instance.save_month_str} closed",
             )
-    except PayT.DoesNotExist:
+    except PayrollRun.DoesNotExist:
         pass
 
 
-@receiver(post_save, sender=PayT)
+@receiver(post_save, sender=PayrollRun)
 def log_payt_save(sender, instance, created, **kwargs):
     if created:
-        log_audit(None, "Created PayT", instance)
+        log_audit(None, "Created PayrollRun", instance)
 
 
-@receiver(post_delete, sender=PayT)
+@receiver(post_delete, sender=PayrollRun)
 def log_payt_delete(sender, instance, **kwargs):
-    log_audit(None, "Deleted PayT", instance)
+    log_audit(None, "Deleted PayrollRun", instance)
 
 
 @receiver(pre_save, sender=IOU)

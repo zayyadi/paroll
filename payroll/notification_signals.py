@@ -14,10 +14,10 @@ from django.urls import reverse
 from payroll.models import (
     LeaveRequest,
     IOU,
-    PayT,
+    PayrollRun,
     AppraisalAssignment,
     Appraisal,
-    Payday,
+    PayrollRunEntry,
 )
 from payroll.models.employee_profile import EmployeeProfile
 from payroll.events.notification_events import (
@@ -325,7 +325,7 @@ def _dispatch_iou_paid_event(iou):
     )
 
 
-@receiver(post_save, sender=PayT)
+@receiver(post_save, sender=PayrollRun)
 def handle_payroll_signal(sender, instance, created, **kwargs):
     """
     Handle payroll signals and dispatch appropriate events.
@@ -349,7 +349,7 @@ def _dispatch_payroll_processed_event(payroll):
     in this payroll, and notifies HR that payroll is processed.
     """
     # Get all employees who have payslips in this payroll
-    payday_records = Payday.objects.filter(paydays_id=payroll)
+    payday_records = PayrollRunEntry.objects.filter(payroll_run=payroll)
 
     # Create event
     event = PayrollEvent(
@@ -368,14 +368,14 @@ def _dispatch_payroll_processed_event(payroll):
 
     # Notify employees
     for payday in payday_records:
-        employee = payday.payroll_id.pays
+        employee = payday.payroll_entry.pays
         service.send_notification(
             recipient=employee,
             notification_type="PAYSLIP_AVAILABLE",
             title="Payslip Available",
             message=(
                 f"Your payslip for {payroll.paydays} is now available. "
-                f"Net pay: ₦{payday.payroll_id.netpay:,.2f}"
+                f"Net pay: ₦{payday.payroll_entry.netpay:,.2f}"
             ),
             payroll=payroll,
             action_url=reverse("payroll:pay_period_detail", args=[payroll.slug]),

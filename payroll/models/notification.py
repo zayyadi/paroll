@@ -179,7 +179,7 @@ class Notification(models.Model):
     )
 
     payroll = models.ForeignKey(
-        "PayT",
+        "PayrollRun",
         on_delete=models.SET_NULL,
         null=True,
         blank=True,

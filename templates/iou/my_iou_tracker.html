@@ -1,0 +1,107 @@
+{% extends "base_new.html" %}
+{% load humanize %}
+
+{% block page_header %}My IOU Tracker{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <div class="bg-gradient-to-r from-primary-500 to-primary-600 rounded-2xl p-6 text-white shadow-medium">
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between">
+            <div>
+                <h1 class="text-2xl font-bold mb-2">My IOU Tracker</h1>
+                <p class="text-primary-100">Track the progress of all your IOU requests.</p>
+            </div>
+            <div class="mt-4 md:mt-0">
+                <a href="{% url 'payroll:request_iou' %}" class="bg-white bg-opacity-20 hover:bg-opacity-30 text-white font-medium py-2 px-4 rounded-lg transition-all inline-flex items-center">
+                    <i data-lucide="plus-circle" class="h-4 w-4 mr-2"></i>
+                    New Request
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-2 lg:grid-cols-5 gap-4">
+        <div class="bg-white rounded-xl shadow-soft p-4">
+            <p class="text-xs uppercase tracking-wide text-secondary-500">Pending</p>
+            <p class="text-2xl font-semibold text-warning-600">{{ pending_count }}</p>
+        </div>
+        <div class="bg-white rounded-xl shadow-soft p-4">
+            <p class="text-xs uppercase tracking-wide text-secondary-500">Approved</p>
+            <p class="text-2xl font-semibold text-success-600">{{ approved_count }}</p>
+        </div>
+        <div class="bg-white rounded-xl shadow-soft p-4">
+            <p class="text-xs uppercase tracking-wide text-secondary-500">Paid</p>
+            <p class="text-2xl font-semibold text-primary-600">{{ paid_count }}</p>
+        </div>
+        <div class="bg-white rounded-xl shadow-soft p-4">
+            <p class="text-xs uppercase tracking-wide text-secondary-500">Rejected</p>
+            <p class="text-2xl font-semibold text-danger-600">{{ rejected_count }}</p>
+        </div>
+        <div class="bg-white rounded-xl shadow-soft p-4">
+            <p class="text-xs uppercase tracking-wide text-secondary-500">Outstanding</p>
+            <p class="text-2xl font-semibold text-secondary-900">₦{{ outstanding_balance|intcomma }}</p>
+        </div>
+    </div>
+
+    <div class="bg-white rounded-xl shadow-soft overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-secondary-200">
+                <thead class="bg-secondary-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">Date</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">Amount</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">Status</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">Process</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">Due</th>
+                        <th class="px-6 py-3 text-right text-xs font-medium text-secondary-500 uppercase tracking-wider">Action</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-secondary-200">
+                    {% for iou in ious %}
+                    <tr class="hover:bg-secondary-50">
+                        <td class="px-6 py-4 text-sm text-secondary-900">{{ iou.created_at|date:"d M Y" }}</td>
+                        <td class="px-6 py-4 text-sm font-medium text-secondary-900">₦{{ iou.amount|intcomma }}</td>
+                        <td class="px-6 py-4">
+                            <span class="px-2 py-1 inline-flex text-xs font-semibold rounded-full
+                                {% if iou.status == 'APPROVED' %}bg-success-100 text-success-800{% endif %}
+                                {% if iou.status == 'PENDING' %}bg-warning-100 text-warning-800{% endif %}
+                                {% if iou.status == 'REJECTED' %}bg-danger-100 text-danger-800{% endif %}
+                                {% if iou.status == 'PAID' %}bg-primary-100 text-primary-800{% endif %}">
+                                {{ iou.status }}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 text-xs text-secondary-700">
+                            {% if iou.status == 'PENDING' %}
+                                Requested -> Awaiting Approval
+                            {% elif iou.status == 'APPROVED' %}
+                                Requested -> Approved -> In Repayment
+                            {% elif iou.status == 'PAID' %}
+                                Requested -> Approved -> Fully Repaid
+                            {% else %}
+                                Requested -> Rejected
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4 text-sm text-secondary-900">{{ iou.due_date|date:"d M Y"|default:"N/A" }}</td>
+                        <td class="px-6 py-4 text-right">
+                            <a href="{% url 'payroll:iou_detail' iou.id %}" class="text-primary-600 hover:text-primary-900 text-sm font-medium">View</a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="px-6 py-12 text-center text-secondary-500">
+                            No IOU requests found.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        lucide.createIcons();
+    });
+</script>
+{% endblock %}

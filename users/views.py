@@ -19,6 +19,7 @@ from django.urls import reverse_lazy
 from django.template.loader import render_to_string
 from django.utils.http import urlsafe_base64_encode
 from django.contrib.sites.shortcuts import get_current_site  # For dynamic domain
+from django.contrib.auth.tokens import default_token_generator
 
 # from django.http import HttpResponseRedirect  # For returning from form_valid
 from django.utils.encoding import force_bytes
@@ -281,6 +282,8 @@ def verify_otp_view(request):
 
 
 class CustomRegisterView(RegisterView):
+    token_generator = default_token_generator
+
     def post(self, request):
         form = SignUpForm(request.POST)
         if form.is_valid():

@@ -66,12 +66,12 @@
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-secondary-900">
                             <div class="flex items-center">
                                 <i data-lucide="calendar" class="h-4 w-4 text-secondary-400 mr-2"></i>
-                                {{ payday.paydays_id.paydays|date:"F Y"|default:"N/A" }}
+                                {{ payday.payroll_run.paydays|date:"F Y"|default:"N/A" }}
                             </div>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-secondary-900">
                             <div class="flex items-center">
-                                <span class="text-success-600 font-medium">₦{{ payday.payroll_id.netpay|intcomma }}</span>
+                                <span class="text-success-600 font-medium">₦{{ payday.payroll_entry.netpay|intcomma }}</span>
                             </div>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">

@@ -14,7 +14,7 @@ django.setup()
 from decimal import Decimal
 from django.utils import timezone
 from datetime import date
-from payroll.models import EmployeeProfile, Payroll, PayT, IOU, Allowance, Deduction
+from payroll.models import EmployeeProfile, Payroll, PayrollRun, IOU, Allowance, Deduction
 from accounting.models import (
     Account,
     Journal,
@@ -79,7 +79,7 @@ def test_payroll_signals():
             return False
 
         # Test 3: Check if there are any payroll periods
-        pay_periods = PayT.objects.all()[:3]  # Get last 3 periods
+        pay_periods = PayrollRun.objects.all()[:3]  # Get last 3 periods
         if pay_periods:
             print(f"✓ Found {pay_periods.count()} payroll periods")
             for period in pay_periods:

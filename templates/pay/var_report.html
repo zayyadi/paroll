@@ -1,9 +1,6 @@
 {% extends 'base.html' %}
 {% load static %}
 {% load tailwind_filters %}
-{% load tailwind_tags %}
-{% tailwind_preload_css %}
-{% tailwind_css %}
 {% block title %} Payroll Report {% endblock %}
 
 {% block content %}
@@ -44,10 +41,10 @@
                 {% for pays in pay_var %}
                 <tr class="hover:bg-gray-50">
                     <td class="py-3 px-4 text-sm text-gray-800">{{ pays.id }}</td>
-                    <td class="py-3 px-4 text-sm text-gray-800">{{ pays.payroll_id.pays.first_name }} {{ pays.payroll_id.pays.last_name }}</td>
-                    <td class="py-3 px-4 text-sm text-gray-800">{{ pays.payroll_id.pays.employee_pay.basic_salary }}</td>
-                    <td class="py-3 px-4 text-sm text-gray-800">{{ pays.payroll_id.pays.employee_pay.payee }}</td>
-                    <td class="py-3 px-4 text-sm text-gray-800">{{ pays.payroll_id.netpay }}</td>
+                    <td class="py-3 px-4 text-sm text-gray-800">{{ pays.payroll_entry.pays.first_name }} {{ pays.payroll_entry.pays.last_name }}</td>
+                    <td class="py-3 px-4 text-sm text-gray-800">{{ pays.payroll_entry.pays.employee_pay.basic_salary }}</td>
+                    <td class="py-3 px-4 text-sm text-gray-800">{{ pays.payroll_entry.pays.employee_pay.payee }}</td>
+                    <td class="py-3 px-4 text-sm text-gray-800">{{ pays.payroll_entry.netpay }}</td>
                 </tr>
                 {% endfor %}
                 <tr class="bg-gray-100 font-bold">

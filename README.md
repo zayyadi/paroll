@@ -18,7 +18,7 @@
 +*   **Payroll Processing:**
 +    *   Define and manage payroll components (basic salary, allowances, deductions).
 +    *   Calculate gross income, taxable income, and net pay.
-+    *   Manage pay periods (PayT).
++    *   Manage pay periods (PayrollRun).
 +    *   Generate payslips for employees.
 +    *   Generate various payroll reports (Bank reports, NHIS, NHF, PAYE, Pension).
 +*   **Leave Management:**
@@ -169,8 +169,8 @@
 +*   `Department`: Represents organizational departments.
 +*   `Payroll`: Defines the salary structure and calculated payroll components for an employee.
 +*   `Allowance`, `Deduction`: Define types of allowances and deductions.
-+*   `PayT` (Pay Period): Represents a specific payroll period (e.g., a month).
-+*   `Payday`: Links employees' pay variables to a specific pay period.
++*   `PayrollRun` (Pay Period): Represents a specific payroll period (e.g., a month).
++*   `PayrollRunEntry`: Links employees' payroll entries to a specific payroll run.
 +*   `LeavePolicy`: Defines types of leave and their maximum allowed days.
 +*   `LeaveRequest`: Tracks leave applications from employees.
 +*   `IOU`: Manages IOU requests, approvals, and details.

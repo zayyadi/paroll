@@ -136,9 +136,7 @@ def main():
 
     print("\n" + "=" * 50)
     if all_tests_passed:
-        print(
-            "🎉 All tests passed! The fake data generation commands are ready to use."
-        )
+        print("🎉 All tests passed! The fake data generation commands are ready to use.")
         print("\nTo use the commands, run:")
         print("  python manage.py generate_all_fake_data --include-all")
         print("  python manage.py create_fake_users --count 50 --include-admin")

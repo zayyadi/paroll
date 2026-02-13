@@ -1,9 +1,6 @@
 {% extends 'base_tailwind.html' %}
 {% load static %}
 {% load tailwind_filters %}
-{% load tailwind_tags %}
-{% tailwind_preload_css %}
-{% tailwind_css %}
 
 {% block title %}
 Bank REPORT
@@ -54,12 +51,12 @@ Bank REPORT
             <tbody class="divide-y divide-gray-200">
               {% for payrol in payroll %}
               <tr class="hover:bg-gray-50">
-                <td class="py-3 px-4 text-sm text-gray-800">{{ payrol.payroll_id.pays.emp_id }}</td>
-                <td class="py-3 px-4 text-sm text-gray-800">{{ payrol.payroll_id.pays.first_name }} {{ payrol.payroll_id.pays.last_name }}</td>
-                <td class="py-3 px-4 text-sm text-gray-800">{{ payrol.payroll_id.pays.get_bank_display }}</td>
-                <td class="py-3 px-4 text-sm text-gray-800">{{ payrol.payroll_id.pays.bank_account_name }}</td>
-                <td class="py-3 px-4 text-sm text-gray-800">{{ payrol.payroll_id.pays.bank_account_number }}</td>
-                <td class="py-3 px-4 text-sm text-gray-800">{{ payrol.payroll_id.netpay }}</td>
+                <td class="py-3 px-4 text-sm text-gray-800">{{ payrol.payroll_entry.pays.emp_id }}</td>
+                <td class="py-3 px-4 text-sm text-gray-800">{{ payrol.payroll_entry.pays.first_name }} {{ payrol.payroll_entry.pays.last_name }}</td>
+                <td class="py-3 px-4 text-sm text-gray-800">{{ payrol.payroll_entry.pays.get_bank_display }}</td>
+                <td class="py-3 px-4 text-sm text-gray-800">{{ payrol.payroll_entry.pays.bank_account_name }}</td>
+                <td class="py-3 px-4 text-sm text-gray-800">{{ payrol.payroll_entry.pays.bank_account_number }}</td>
+                <td class="py-3 px-4 text-sm text-gray-800">{{ payrol.payroll_entry.netpay }}</td>
               </tr>
               {% endfor %}
               <tr class="bg-gray-100 font-bold">

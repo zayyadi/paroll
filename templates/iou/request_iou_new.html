@@ -1,4 +1,7 @@
 {% extends "base_new.html" %}
+{% load mathfilters %}
+{% load humanize %}
+{% load custom_tags %}
 
 {% block page_header %}Request IOU{% endblock %}
 
@@ -87,7 +90,7 @@
                             <span class="text-secondary-500 text-sm">₦</span>
                         </div>
                         <input type="number" name="{{ form.amount.html_name }}" id="{{ form.amount.id_for_label }}" 
-                            value="{{ form.amount.value|default:'' }}" min="1000" step="100" max="{{ max_iou_amount|default:0 }}" required
+                            value="{{ form.amount.value|default:'' }}" min="1000" step="100" {% if max_iou_amount and max_iou_amount > 0 %}max="{{ max_iou_amount }}"{% endif %} required
                             class="form-input w-full pl-8 pr-3 py-2.5 border border-secondary-300 rounded-xl focus:ring-primary-500 focus:border-primary-500 text-sm {% if form.amount.errors %}border-danger-500{% endif %}">
                         {% if form.amount.errors %}
                         {% for error in form.amount.errors %}
