@@ -14,7 +14,7 @@ from accounting.utils import (
     log_accounting_activity,
 )
 from .models import (
-    PayT,
+    PayrollRun,
     IOU,
     Allowance,
     Deduction,
@@ -66,7 +66,7 @@ def get_account(account_key):
     return None
 
 
-@receiver(pre_save, sender=PayT)
+@receiver(pre_save, sender=PayrollRun)
 def handle_payroll_period_closure(sender, instance, **kwargs):
     """
     Create comprehensive journal entries when a payroll period is closed.
@@ -76,8 +76,8 @@ def handle_payroll_period_closure(sender, instance, **kwargs):
         return
 
     try:
-        old_instance = PayT.objects.get(pk=instance.pk)
-    except PayT.DoesNotExist:
+        old_instance = PayrollRun.objects.get(pk=instance.pk)
+    except PayrollRun.DoesNotExist:
         return
 
     # Trigger only when 'closed' changes from False to True

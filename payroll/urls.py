@@ -139,6 +139,7 @@ urlpatterns = [
     path("iou/<int:pk>/update/", views.IOUUpdateView.as_view(), name="iou_update"),
     path("iou/<int:pk>/delete/", views.IOUDeleteView.as_view(), name="iou_delete"),
     path("iou-history/", views.iou_history, name="iou_history"),
+    path("my-iou-tracker/", views.my_iou_tracker, name="my_iou_tracker"),
     path(
         "iou/",
         views.iou_list,

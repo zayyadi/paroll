@@ -136,9 +136,9 @@ class Command(BaseCommand):
                     break
             else:
                 # Fallback if we can't find a unique number
-                employee_data["bank_account_number"] = (
-                    f"1000000000{len(used_bank_accounts)}"[-10:]
-                )
+                employee_data[
+                    "bank_account_number"
+                ] = f"1000000000{len(used_bank_accounts)}"[-10:]
 
             employee, created = EmployeeProfile.objects.get_or_create(
                 user=user,

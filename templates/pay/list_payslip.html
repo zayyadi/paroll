@@ -1,9 +1,6 @@
 {% extends "base.html" %}
 {% load static %}
 {% load tailwind_filters %}
-{% load tailwind_tags %}
-{% tailwind_preload_css %}
-{% tailwind_css %}
 {% load custom_tags %}
 
 {% block title %}Payslip List{% endblock title %}
@@ -42,7 +39,7 @@
                 <tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
                     <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">{{ forloop.counter }}</td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">Payslip for {{ dates|index:forloop.counter0 }}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">₦{{ payday.payroll_id.netpay }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">₦{{ payday.payroll_entry.netpay }}</td>
                     <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                         <a href="{% url 'payroll:payslip' payday.id %}" class="text-blue-600 hover:text-blue-900 mr-4">View</a>
                         <a href="{% url 'payroll:payslip_pdf' payday.id %}" class="text-green-600 hover:text-green-900">Download PDF</a>

@@ -6,11 +6,11 @@ from datetime import datetime
 with open("employee_profiles.json", "r") as f:
     employee_profiles = json.load(f)
 
-# Generate PayVar data for each employee
+# Generate PayrollEntry data for each employee
 payvar_data = []
 
 for employee in employee_profiles:
-    # Generate PayVar information
+    # Generate PayrollEntry information
     payvar = {
         "employee": employee["id"],  # Link to employee profile ID
         "basic_salary": random.randint(50000, 200000),  # Monthly basic salary in Naira
@@ -69,5 +69,5 @@ with open("payvar_data.json", "w") as f:
     json.dump(payvar_data, f, indent=2)
 
 print(
-    f"Generated PayVar data for {len(payvar_data)} employees and saved to payvar_data.json"
+    f"Generated PayrollEntry data for {len(payvar_data)} employees and saved to payvar_data.json"
 )

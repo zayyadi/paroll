@@ -157,7 +157,7 @@ class Command(BaseCommand):
         if include_all:
             from payroll.models import (
                 Payroll,
-                PayT,
+                PayrollRun,
                 Allowance,
                 Deduction,
                 IOU,
@@ -165,7 +165,7 @@ class Command(BaseCommand):
             )
 
             payroll_count = Payroll.objects.count()
-            pay_period_count = PayT.objects.count()
+            pay_period_count = PayrollRun.objects.count()
             allowance_count = Allowance.objects.count()
             deduction_count = Deduction.objects.count()
             iou_count = IOU.objects.count()
@@ -204,9 +204,9 @@ class Command(BaseCommand):
         with transaction.atomic():
             # Clear in order of dependencies
             from payroll.models import (
-                PayVar,
-                Payday,
-                PayT,
+                PayrollEntry,
+                PayrollRunEntry,
+                PayrollRun,
                 Allowance,
                 Deduction,
                 IOU,
@@ -227,9 +227,9 @@ class Command(BaseCommand):
             )
 
             # Payroll data
-            Payday.objects.all().delete()
-            PayVar.objects.all().delete()
-            PayT.objects.all().delete()
+            PayrollRunEntry.objects.all().delete()
+            PayrollEntry.objects.all().delete()
+            PayrollRun.objects.all().delete()
             Allowance.objects.all().delete()
             Deduction.objects.all().delete()
             IOUDeduction.objects.all().delete()

@@ -5,3 +5,5 @@ from .notification_admin import (
     NotificationDeliveryLogAdmin,
     NotificationTemplateAdmin,
 )
+
+from .general_admin import *

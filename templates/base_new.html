@@ -6,8 +6,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest" defer></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" as="style">
     <script>
         tailwind.config = {
             theme: {
@@ -375,6 +375,14 @@
                             class="mr-4 h-6 w-6 text-secondary-400 group-hover:text-secondary-500"></i>
                         Leave Requests
                     </a>
+                    {% if not request.user.is_superuser and not request.user.is_staff %}
+                    <a href="{% url 'payroll:my_iou_tracker' %}"
+                        class="sidebar-link group flex items-center px-2 py-2 text-base font-medium rounded-md">
+                        <i data-lucide="wallet"
+                            class="mr-4 h-6 w-6 text-secondary-400 group-hover:text-secondary-500"></i>
+                        My IOU Tracker
+                    </a>
+                    {% endif %}
                 </nav>
             </div>
         </div>
@@ -449,6 +457,14 @@
                             class="mr-3 h-5 w-5 text-secondary-400 group-hover:text-secondary-500"></i>
                         Leave Requests
                     </a>
+                    {% if not request.user.is_superuser and not request.user.is_staff %}
+                    <a href="{% url 'payroll:my_iou_tracker' %}"
+                        class="sidebar-link group flex items-center px-2 py-2 text-sm font-medium rounded-md">
+                        <i data-lucide="wallet"
+                            class="mr-3 h-5 w-5 text-secondary-400 group-hover:text-secondary-500"></i>
+                        My IOU Tracker
+                    </a>
+                    {% endif %}
                 </nav>
             </div>
         </div>
@@ -522,13 +538,66 @@
 
     <!-- Initialize Lucide icons -->
     <script>
+    (function() {
+        'use strict';
+        
+        // Debounce function to limit how often a function can be called
+        function debounce(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
+        }
+        
+        // Initialize Lucide icons once
+        function initializeIcons() {
+            if (typeof lucide !== 'undefined') {
+                try {
+                    lucide.createIcons();
+                } catch (error) {
+                    console.error('Error initializing Lucide icons:', error);
+                }
+            }
+        }
+        
+        // Debounced icon initialization for dynamic content
+        const debouncedIconInit = debounce(initializeIcons, 100);
+        
         document.addEventListener('DOMContentLoaded', function () {
-            lucide.createIcons();
+            // Initialize icons once when DOM is ready
+            initializeIcons();
+            
+            // Load notification count
             loadNotificationCount();
             
             // Auto-refresh notification count every 30 seconds
             setInterval(loadNotificationCount, 30000);
         });
+        
+        // Optimized MutationObserver - only watch specific containers that might have dynamic content
+        // Instead of watching the entire body, we'll only watch the notification dropdown
+        function setupIconObserver() {
+            const notificationDropdown = document.getElementById('notificationDropdownContent');
+            if (notificationDropdown) {
+                const observer = new MutationObserver(debouncedIconInit);
+                observer.observe(notificationDropdown, {
+                    childList: true,
+                    subtree: true
+                });
+            }
+        }
+        
+        // Setup observer after DOM is ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', setupIconObserver);
+        } else {
+            setupIconObserver();
+        }
     
         function loadNotificationCount() {
             fetch('{% url "payroll:notification_count" %}')
@@ -555,8 +624,12 @@
             fetch('{% url "payroll:notification_dropdown" %}')
                 .then(response => response.text())
                 .then(html => {
-                    document.getElementById('notificationDropdownContent').innerHTML = html;
-                    lucide.createIcons();
+                    const dropdownContent = document.getElementById('notificationDropdownContent');
+                    if (dropdownContent) {
+                        dropdownContent.innerHTML = html;
+                        // Initialize icons only for the newly loaded content
+                        initializeIcons();
+                    }
                 })
                 .catch(error => console.error('Error loading notifications:', error));
         }
@@ -575,6 +648,7 @@
             }
             return cookieValue;
         }
+    })();
     </script>
 
     {% block extra_js %}{% endblock %}

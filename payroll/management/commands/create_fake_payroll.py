@@ -1,9 +1,9 @@
 from django.core.management.base import BaseCommand
 from payroll.models import (
     Payroll,
-    PayVar,
-    PayT,
-    Payday,
+    PayrollEntry,
+    PayrollRun,
+    PayrollRunEntry,
     Allowance,
     Deduction,
     IOU,
@@ -79,7 +79,7 @@ class Command(BaseCommand):
         # Create pay periods
         pay_periods = self._create_pay_periods(months_count)
 
-        # Create PayVar records and link to pay periods
+        # Create PayrollEntry records and link to pay periods
         self._create_pay_var_records(employees, payroll_records, pay_periods)
 
         # Create allowances if requested
@@ -158,8 +158,8 @@ class Command(BaseCommand):
             month = period_date.month
             year = period_date.year
 
-            # Create PayT record
-            pay_period, created = PayT.objects.get_or_create(
+            # Create PayrollRun record
+            pay_period, created = PayrollRun.objects.get_or_create(
                 paydays=date(year, month, 1),
                 defaults={
                     "name": f"Payroll {month:02d}/{year}",
@@ -178,14 +178,14 @@ class Command(BaseCommand):
         return pay_periods
 
     def _create_pay_var_records(self, employees, payroll_records, pay_periods):
-        """Create PayVar records and link to pay periods"""
-        self.stdout.write("Creating PayVar records...")
+        """Create PayrollEntry records and link to pay periods"""
+        self.stdout.write("Creating PayrollEntry records...")
 
         for employee in employees:
             payroll = payroll_records[employee]
 
-            # Create one PayVar per employee, then link to all pay periods
-            pay_var, created = PayVar.objects.get_or_create(
+            # Create one PayrollEntry per employee, then link to all pay periods
+            pay_var, created = PayrollEntry.objects.get_or_create(
                 pays=employee,
                 defaults={
                     "is_housing": random.choice([True, False]),
@@ -194,18 +194,18 @@ class Command(BaseCommand):
                 },
             )
 
-            # Link this PayVar to all pay periods
+            # Link this PayrollEntry to all pay periods
             for pay_period in pay_periods:
-                # Create Payday linkage with unique constraint
-                payday, created = Payday.objects.get_or_create(
-                    paydays_id=pay_period,
-                    payroll_id=pay_var,
+                # Create PayrollRunEntry linkage with unique constraint
+                payday, created = PayrollRunEntry.objects.get_or_create(
+                    payroll_run=pay_period,
+                    payroll_entry=pay_var,
                 )
 
             if created:
                 self.stdout.write(
                     self.style.SUCCESS(
-                        f"Created PayVar for {employee.first_name} {employee.last_name}"
+                        f"Created PayrollEntry for {employee.first_name} {employee.last_name}"
                     )
                 )
 

@@ -89,6 +89,17 @@ class EmployeeProfile(SoftDeleteModel):
         null=True,
         blank=True,
     )
+    rent_paid = models.DecimalField(
+        max_digits=12,
+        default=Decimal(0.0),
+        decimal_places=2,
+        blank=True,
+        help_text=(
+            " Annual rent paid by employee. "
+            "This is used to calculate the employee's "
+            "rent relief. "
+        ),
+    )
     created = models.DateTimeField(
         default=timezone.now,
         blank=False,

@@ -10,7 +10,7 @@ from dateutil.relativedelta import relativedelta
 from django.utils import timezone
 
 # Import models from both your payroll and accounting apps
-from payroll.models import PayT, IOU
+from payroll.models import PayrollRun, IOU
 from accounting.models import Account, Journal, JournalEntry, AccountingAuditTrail
 from accounting.utils import (
     create_journal_with_entries,
@@ -114,10 +114,10 @@ def create_journal_for_approved_iou(sender, instance, **kwargs):
             )
 
 
-# @receiver(pre_save, sender=PayT)
+# @receiver(pre_save, sender=PayrollRun)
 # def create_journal_for_closed_payroll(sender, instance, **kwargs):
 #     print(
-#         f"DEBUG: create_journal_for_closed_payroll signal triggered for PayT ID: {instance.id}"
+#         f"DEBUG: create_journal_for_closed_payroll signal triggered for PayrollRun ID: {instance.id}"
 #     )
 #     """
 #     Creates a comprehensive journal entry for the entire payroll period
@@ -130,8 +130,8 @@ def create_journal_for_approved_iou(sender, instance, **kwargs):
 #         return
 
 #     try:
-#         old_instance = PayT.objects.get(pk=instance.pk)
-#     except PayT.DoesNotExist:
+#         old_instance = PayrollRun.objects.get(pk=instance.pk)
+#     except PayrollRun.DoesNotExist:
 #         return
 
 #     # Trigger only when 'closed' changes from False to True
@@ -249,7 +249,7 @@ def create_journal_for_approved_iou(sender, instance, **kwargs):
 #             print(
 #                 f"  total_gross_earnings_for_expense: {total_gross_earnings_for_expense}"
 #             )
-#             print(f"  total_net_pay (from PayVar): {total_net_pay}")
+#             print(f"  total_net_pay (from PayrollEntry): {total_net_pay}")
 #             print(f"  total_paye: {total_paye}")
 #             print(f"  total_pension_employee: {total_pension_employee}")
 #             print(f"  total_pension_employer: {total_pension_employer}")
@@ -343,7 +343,7 @@ def create_journal_for_approved_iou(sender, instance, **kwargs):
 # In payroll/signals.py
 
 
-@receiver(pre_save, sender=PayT)
+@receiver(pre_save, sender=PayrollRun)
 def create_journal_for_closed_payroll(sender, instance, **kwargs):
     """
     Creates a comprehensive, balanced journal entry for the entire payroll period
@@ -357,8 +357,8 @@ def create_journal_for_closed_payroll(sender, instance, **kwargs):
         return
 
     try:
-        old_instance = PayT.objects.get(pk=instance.pk)
-    except PayT.DoesNotExist:
+        old_instance = PayrollRun.objects.get(pk=instance.pk)
+    except PayrollRun.DoesNotExist:
         return
 
     # Trigger only when 'closed' changes from False to True

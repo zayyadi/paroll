@@ -751,9 +751,9 @@ def trial_balance_pdf(request):
 
     pdf = html.write_pdf()
     response = HttpResponse(pdf, content_type="application/pdf")
-    response["Content-Disposition"] = (
-        f'attachment; filename="trial_balance_{timezone.now().date()}.pdf"'
-    )
+    response[
+        "Content-Disposition"
+    ] = f'attachment; filename="trial_balance_{timezone.now().date()}.pdf"'
     return response
 
 
@@ -816,9 +816,9 @@ def account_activity_pdf(request):
 
     pdf = html.write_pdf()
     response = HttpResponse(pdf, content_type="application/pdf")
-    response["Content-Disposition"] = (
-        f'attachment; filename="account_activity_{account.name}_{timezone.now().date()}.pdf"'
-    )
+    response[
+        "Content-Disposition"
+    ] = f'attachment; filename="account_activity_{account.name}_{timezone.now().date()}.pdf"'
     return response
 
 

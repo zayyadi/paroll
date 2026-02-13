@@ -155,9 +155,9 @@ class PayrollEvent(BaseEvent):
     Event for payroll operations.
 
     Attributes:
-        payroll: The PayT instance
+        payroll: The PayrollRun instance
         event_type: Specific payroll event type
-        payday_records: Related Payday records (optional)
+        payday_records: Related PayrollRunEntry records (optional)
     """
 
     payroll: Optional[Any] = None
@@ -174,7 +174,7 @@ class PayrollEvent(BaseEvent):
         # Add payroll details to metadata
         self.metadata.update(
             {
-                "payroll_id": (
+                "payroll_entry": (
                     str(self.payroll.id) if hasattr(self.payroll, "id") else None
                 ),
                 "pay_period": getattr(self.payroll, "paydays", None),

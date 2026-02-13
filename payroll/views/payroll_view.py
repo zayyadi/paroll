@@ -1,4 +1,5 @@
 from datetime import date
+from decimal import Decimal
 import logging
 
 from django.shortcuts import render, redirect, get_object_or_404
@@ -8,7 +9,7 @@ from django.contrib.auth.decorators import (
 )
 from django.urls import reverse_lazy
 from django.core.paginator import Paginator
-from django.db.models import Q
+from django.db.models import Q, Sum
 from django.views.generic import CreateView, UpdateView, DeleteView
 from django.contrib import messages
 from django.contrib.messages.views import SuccessMessageMixin
@@ -33,24 +34,24 @@ from payroll.forms import (
     IOURequestForm,
     IOUUpdateForm,
     LeaveRequestForm,
-    PaydayForm,
+    PayrollRunForm,
     PayrollForm,
     DeductionForm,
-    PaydayCreateForm,
-    PayVarCreateForm,
+    PayrollRunCreateForm,
+    PayrollEntryCreateForm,
 )
 from payroll.models import (
     EmployeeProfile,
     LeavePolicy,
     LeaveRequest,
-    PayT,
-    Payday,
+    PayrollRun,
+    PayrollRunEntry,
     Payroll,
     Allowance,
     IOU,
     AuditTrail,
     Deduction,
-    PayVar,
+    PayrollEntry,
 )
 from django.utils import timezone
 from accounting.models import Account
@@ -230,10 +231,10 @@ def list_payslip(request, emp_slug):
     ):
         raise HttpResponseForbidden("You are not authorized to view this payslip.")
 
-    pay = Payday.objects.filter(payroll_id__pays__slug=emp_slug).all()
-    paydays = Payday.objects.filter(payroll_id__pays__slug=emp_slug).values_list(
-        "paydays_id__paydays", flat=True
-    )
+    pay = PayrollRunEntry.objects.filter(payroll_entry__pays__slug=emp_slug).all()
+    paydays = PayrollRunEntry.objects.filter(
+        payroll_entry__pays__slug=emp_slug
+    ).values_list("payroll_run__paydays", flat=True)
     conv_date = [utils.convert_month_to_word(str(payday)) for payday in paydays]
     context = {
         "emp": emp,
@@ -247,16 +248,18 @@ def list_payslip(request, emp_slug):
 @login_required
 def payslips(request):
     """View to show payslips for the current logged-in user"""
-    # Check if user can view payroll data (auditors have view-only access)
-    if not can_view_payroll_data(request.user):
-        return HttpResponseForbidden("You don't have permission to view payroll data.")
+    # # Check if user can view payroll data (auditors have view-only access)
+    # if not can_view_payroll_data(request.user):
+    #     return HttpResponseForbidden("You don't have permission to view payroll data.")
 
     try:
         employee_profile = request.user.employee_user
-        pay = Payday.objects.filter(payroll_id__pays__user=request.user).all()
-        paydays = Payday.objects.filter(
-            payroll_id__pays__user=request.user
-        ).values_list("paydays_id__paydays", flat=True)
+        pay = PayrollRunEntry.objects.filter(
+            payroll_entry__pays__user=request.user
+        ).all()
+        paydays = PayrollRunEntry.objects.filter(
+            payroll_entry__pays__user=request.user
+        ).values_list("payroll_run__paydays", flat=True)
         conv_date = [utils.convert_month_to_word(str(payday)) for payday in paydays]
         context = {
             "emp": employee_profile,
@@ -275,33 +278,57 @@ def payslips(request):
 
 @login_required
 def payslip_detail(request, id):
-    pay_id = get_object_or_404(Payday, id=id)
-    target_employee_user = pay_id.payroll_id.pays.user
+    pay_id = get_object_or_404(PayrollRunEntry, id=id)
+    # target_employee_user = pay_id.payroll_entry.pays.user
 
     # Check if user can view payroll data (auditors have view-only access)
-    if not (
-        request.user == target_employee_user
-        or request.user.has_perm("payroll.view_payroll")
-        or is_auditor(request.user)
-    ):
-        raise HttpResponseForbidden("You are not authorized to view this payslip.")
+    # if not (
+    #     request.user == target_employee_user
+    #     or request.user.has_perm("payroll.view_payroll")
+    #     or is_auditor(request.user)
+    # ):
+    #     raise HttpResponseForbidden("You are not authorized to view this payslip.")
 
-    num2word = num2words(pay_id.payroll_id.netpay)
-    dates = utils.convert_month_to_word(str(pay_id.paydays_id.paydays))
-    pay_ids = pay_id.payroll_id.pays.pk
-    # pay_id = pay_id.payroll_id.pays.pk
-    print(pay_id)
-    pay_id_nhif = pay_id.payroll_id.nhif
-    pay_id_nhf = pay_id.payroll_id.nhf
-    pay_id_nsitf = pay_id.payroll_id.pays.employee_pay.nsitf / 12
-    pay_id_payee = pay_id.payroll_id.pays.employee_pay.payee
-    pay_id_pension = pay_id.payroll_id.pays.employee_pay.pension / 12
-    pay_id_gross = pay_id.payroll_id.pays.employee_pay.gross_income / 12
-    pay_id_net = pay_id.payroll_id.netpay / 12
-    pay_id_housing = pay_id.payroll_id.pays.employee_pay.housing / 12
-    pay_id_transport = pay_id.payroll_id.pays.employee_pay.transport / 12
-    pay_id_taxable = pay_id.payroll_id.pays.employee_pay.taxable_income / 12
-    pay_id_water = pay_id.payroll_id.pays.employee_pay.water_rate
+    num2word = num2words(pay_id.payroll_entry.netpay)
+    dates = utils.convert_month_to_word(str(pay_id.payroll_run.paydays))
+    pay_ids = pay_id.payroll_entry.pays.pk
+    payroll_record = pay_id.payroll_entry.pays.employee_pay
+
+    pay_id_nhif = payroll_record.nhif if payroll_record else Decimal("0.00")
+    pay_id_nhf = payroll_record.nhf if payroll_record else Decimal("0.00")
+    pay_id_nsitf = (
+        (payroll_record.nsitf or Decimal("0.00")) / 12
+        if payroll_record
+        else Decimal("0.00")
+    )
+    pay_id_payee = payroll_record.payee if payroll_record else Decimal("0.00")
+    pay_id_pension = (
+        (payroll_record.pension or Decimal("0.00")) / 12
+        if payroll_record
+        else Decimal("0.00")
+    )
+    pay_id_gross = (
+        (payroll_record.gross_income or Decimal("0.00")) / 12
+        if payroll_record
+        else Decimal("0.00")
+    )
+    pay_id_net = pay_id.payroll_entry.netpay / 12
+    pay_id_housing = (
+        (payroll_record.housing or Decimal("0.00")) / 12
+        if payroll_record
+        else Decimal("0.00")
+    )
+    pay_id_transport = (
+        (payroll_record.transport or Decimal("0.00")) / 12
+        if payroll_record
+        else Decimal("0.00")
+    )
+    pay_id_taxable = (
+        (payroll_record.taxable_income or Decimal("0.00")) / 12
+        if payroll_record
+        else Decimal("0.00")
+    )
+    pay_id_water = payroll_record.water_rate if payroll_record else Decimal("0.00")
     # pay_id_
     context = {
         "pay": pay_id,
@@ -401,32 +428,36 @@ class AddDeduction(PermissionRequiredMixin, CreateView):
 class AddPay(
     PermissionRequiredMixin, CreateView
 ):  # Removed LoginRequiredMixin, UserPassesTestMixin
-    model = PayT
-    form_class = PaydayForm
+    model = PayrollRun
+    form_class = PayrollRunForm
     template_name = "pay/add_payday.html"
     success_url = reverse_lazy("payroll:pay_period_list")
-    permission_required = "payroll.add_payt"
+    permission_required = "payroll.add_payrollrun"
 
     # Removed get and post methods if standard CreateView behavior is sufficient with form_class
     # If custom logic within get/post is needed beyond form_valid, it can be kept.
     # For now, assuming standard CreateView. If issues arise, these can be re-evaluated.
     def form_valid(self, form):
-        # Save the PayT instance first
+        # Save the PayrollRun instance first
         self.object = form.save(commit=False)
-        self.object.save()  # Now save the PayT instance to the database
+        self.object.save()  # Now save the PayrollRun instance to the database
 
         # Handle the ManyToMany field with the 'through' model
         selected_payvars = form.cleaned_data["payroll_payday"]
         for payvar_obj in selected_payvars:
-            Payday.objects.create(paydays_id=self.object, payroll_id=payvar_obj)
+            PayrollRunEntry.objects.create(
+                payroll_run=self.object, payroll_entry=payvar_obj
+            )
 
-        messages.success(self.request, "Payday (PayT) created successfully!!")
+        messages.success(
+            self.request, "PayrollRunEntry (PayrollRun) created successfully!!"
+        )
         return super().form_valid(form)  # This will now just handle the redirect
 
 
-@permission_required("payroll.view_payt", raise_exception=True)
-def varview(request):  # Lists PayT objects (Pay Periods)
-    var = PayT.objects.order_by("paydays").distinct("paydays")
+@permission_required("payroll.view_payrollrun", raise_exception=True)
+def varview(request):  # Lists PayrollRun objects (Pay Periods)
+    var = PayrollRun.objects.order_by("paydays").distinct("paydays")
     dates = [
         utils.convert_month_to_word(str(varss.paydays)) for varss in var
     ]  # Access .paydays attribute
@@ -434,23 +465,23 @@ def varview(request):  # Lists PayT objects (Pay Periods)
     return render(request, "pay/var_view.html", context)
 
 
-# New Views for PayT (Pay Periods)
+# New Views for PayrollRun (Pay Periods)
 
 
-@permission_required("payroll.view_payt", raise_exception=True)
+@permission_required("payroll.view_payrollrun", raise_exception=True)
 def pay_period_list(request):
-    pay_periods = PayT.objects.all().order_by("-paydays")  # Order by most recent
+    pay_periods = PayrollRun.objects.all().order_by("-paydays")  # Order by most recent
     paginator = Paginator(pay_periods, 15)  # Show 15 pay periods per page
     page_number = request.GET.get("page")
     page_obj = paginator.get_page(page_number)
     return render(request, "pay/pay_period_list.html", {"page_obj": page_obj})
 
 
-@permission_required("payroll.view_payt", raise_exception=True)
+@permission_required("payroll.view_payrollrun", raise_exception=True)
 def pay_period_detail(request, slug):
-    pay_period = get_object_or_404(PayT, slug=slug)
-    # Fetch related Payday entries if needed for detail view
-    payday_entries = Payday.objects.filter(paydays_id=pay_period)
+    pay_period = get_object_or_404(PayrollRun, slug=slug)
+    # Fetch related PayrollRunEntry entries if needed for detail view
+    payday_entries = PayrollRunEntry.objects.filter(payroll_run=pay_period)
     context = {
         "pay_period": pay_period,
         "payday_entries": payday_entries,
@@ -461,21 +492,21 @@ def pay_period_detail(request, slug):
 class PayPeriodUpdateView(
     LoginRequiredMixin, PermissionRequiredMixin, SuccessMessageMixin, UpdateView
 ):
-    model = PayT
-    form_class = PaydayForm
+    model = PayrollRun
+    form_class = PayrollRunForm
     template_name = "pay/pay_period_form.html"  # Generic form template
     success_url = reverse_lazy("payroll:pay_period_list")
-    permission_required = "payroll.change_payt"
+    permission_required = "payroll.change_payrollrun"
     success_message = "Pay Period updated successfully."
 
 
 class PayPeriodDeleteView(
     LoginRequiredMixin, PermissionRequiredMixin, SuccessMessageMixin, DeleteView
 ):
-    model = PayT
+    model = PayrollRun
     template_name = "pay/pay_period_confirm_delete.html"
     success_url = reverse_lazy("payroll:pay_period_list")
-    permission_required = "payroll.delete_payt"
+    permission_required = "payroll.delete_payrollrun"
     success_message = "Pay Period deleted successfully."
 
 
@@ -706,8 +737,21 @@ def request_iou(request):
         # Redirect to a relevant page, perhaps the main dashboard or a profile creation page
         return redirect("payroll:dashboard_hr")  # Or any other appropriate URL
 
+    monthly_salary = employee_profile.net_pay or Decimal("0.00")
+    if monthly_salary <= 0 and employee_profile.employee_pay:
+        monthly_salary = employee_profile.employee_pay.basic_salary or Decimal("0.00")
+    outstanding_balance = (
+        IOU.objects.filter(employee_id=employee_profile)
+        .exclude(status__in=["REJECTED", "PAID"])
+        .aggregate(total=Sum("amount"))
+        .get("total")
+        or 0
+    )
+    max_iou_amount = max(monthly_salary - outstanding_balance, Decimal("0.00"))
+    enforce_max_iou_amount = max_iou_amount if max_iou_amount > 0 else None
+
     if request.method == "POST":
-        form = IOURequestForm(request.POST)
+        form = IOURequestForm(request.POST, max_iou_amount=enforce_max_iou_amount)
         if form.is_valid():
             iou = form.save(commit=False)
             iou.employee_id = employee_profile  # Assign the EmployeeProfile instance
@@ -719,13 +763,16 @@ def request_iou(request):
         # This depends on how IOURequestForm is defined.
         # If 'employee_id' is a field in your form, you might want to make it read-only
         # or exclude it if it's always the current user.
-        form = IOURequestForm(initial={"employee_id": employee_profile})
+        form = IOURequestForm(max_iou_amount=enforce_max_iou_amount)
         # Or, if you exclude 'employee_id' from the form:
         # form = IOURequestForm()
-        context = {
-            "form": form,
-            "employee_profile": employee_profile,  # Pass the profile for context
-        }
+    context = {
+        "form": form,
+        "employee_profile": employee_profile,  # Pass the profile for context
+        "monthly_salary": monthly_salary,
+        "outstanding_balance": outstanding_balance,
+        "max_iou_amount": max_iou_amount,
+    }
 
     return render(request, "iou/request_iou_new.html", context)
 
@@ -808,6 +855,47 @@ def iou_history(request):
     return render(request, "iou/iou_history_new.html", context)
 
 
+@login_required
+def my_iou_tracker(request):
+    try:
+        employee_profile = request.user.employee_user
+    except EmployeeProfile.DoesNotExist:
+        messages.info(
+            request, "Your user account is not linked to an employee profile."
+        )
+        return render(
+            request,
+            "iou/my_iou_tracker.html",
+            {
+                "ious": IOU.objects.none(),
+                "pending_count": 0,
+                "approved_count": 0,
+                "rejected_count": 0,
+                "paid_count": 0,
+                "outstanding_balance": Decimal("0.00"),
+            },
+        )
+
+    ious = IOU.objects.filter(employee_id=employee_profile).order_by("-created_at")
+    pending_count = ious.filter(status="PENDING").count()
+    approved_count = ious.filter(status="APPROVED").count()
+    rejected_count = ious.filter(status="REJECTED").count()
+    paid_count = ious.filter(status="PAID").count()
+    outstanding_balance = ious.exclude(status__in=["REJECTED", "PAID"]).aggregate(
+        total=Sum("amount")
+    ).get("total") or Decimal("0.00")
+
+    context = {
+        "ious": ious,
+        "pending_count": pending_count,
+        "approved_count": approved_count,
+        "rejected_count": rejected_count,
+        "paid_count": paid_count,
+        "outstanding_balance": outstanding_balance,
+    }
+    return render(request, "iou/my_iou_tracker.html", context)
+
+
 # log_audit_trail is a utility, no permission needed directly on it
 def log_audit_trail(user, action, content_object, changes=None):
     if changes is None:
@@ -867,7 +955,7 @@ def restore_employee(request, id):
     return redirect("payroll:employee_list")
 
 
-@login_required  # Replaced user_passes_test with permission based logic inside or specific view perm
+@permission_required("payroll.change_iou", raise_exception=True)
 def iou_list(request):  # This is a general list, should be protected
     # If this is for admins/HR to see all IOUs:
     # if not request.user.has_perm('payroll.view_iou'):
@@ -875,6 +963,7 @@ def iou_list(request):  # This is a general list, should be protected
     #     # For now, let's assume this is an admin/HR view of ALL IOUs
     #     raise HttpResponseForbidden("You are not authorized to view this list.")
     ious = IOU.objects.all()
+    print(f"ious: {ious}")
     return render(request, "iou/iou_list.html", {"ious": ious})
 
 
@@ -889,13 +978,13 @@ def iou_detail(request, pk):
     return render(request, "iou/iou_detail.html", {"iou": iou})
 
 
-# New Views for Enhanced Payday and PayVar Creation
+# New Views for Enhanced PayrollRunEntry and PayrollEntry Creation
 
 
-@permission_required("payroll.add_payt", raise_exception=True)
+@permission_required("payroll.add_payrollrun", raise_exception=True)
 def payday_create_new(request):
     """
-    Enhanced view for creating PayT (Pay Period) with efficient employee selection.
+    Enhanced view for creating PayrollRun (Pay Period) with efficient employee selection.
     Supports search, filtering, and bulk selection of employees.
     """
     from django.http import JsonResponse
@@ -937,12 +1026,12 @@ def payday_create_new(request):
         logger.info(f"Pay period create POST request received")
         logger.debug(f"POST data: {request.POST}")
 
-        form = PaydayCreateForm(request.POST)
+        form = PayrollRunCreateForm(request.POST)
         if not form.is_valid():
             logger.error(f"Form validation errors: {form.errors}")
         else:
             logger.info("Form is valid, proceeding to save")
-            # Use the custom save method that creates PayT, PayVar, and Payday entries
+            # Use the custom save method that creates PayrollRun, PayrollEntry, and PayrollRunEntry entries
             payt = form.save()
 
             # Get the number of employees added
@@ -958,7 +1047,7 @@ def payday_create_new(request):
             )
             return redirect("payroll:pay_period_detail", slug=payt.slug)
     else:
-        form = PaydayCreateForm()
+        form = PayrollRunCreateForm()
 
     context = {
         "form": form,
@@ -970,11 +1059,11 @@ def payday_create_new(request):
     return render(request, "payroll/payday_create_new.html", context)
 
 
-@permission_required("payroll.add_payt", raise_exception=True)
+@permission_required("payroll.add_payrollrun", raise_exception=True)
 def payday_create(request):
     """
-    Enhanced view for creating PayT (Pay Period) with efficient employee selection.
-    Uses the original PaydayForm with proper ManyToMany handling.
+    Enhanced view for creating PayrollRun (Pay Period) with efficient employee selection.
+    Uses the original PayrollRunForm with proper ManyToMany handling.
     Supports search, filtering, and bulk selection of employees.
     """
     from django.http import JsonResponse
@@ -1013,9 +1102,9 @@ def payday_create(request):
     job_titles = EmployeeProfile._meta.get_field("job_title").choices
 
     if request.method == "POST":
-        form = PaydayForm(request.POST)
+        form = PayrollRunForm(request.POST)
         if form.is_valid():
-            # Save the PayT instance - the form handles ManyToMany automatically
+            # Save the PayrollRun instance - the form handles ManyToMany automatically
             payt = form.save()
 
             # Count how many employees were added
@@ -1027,7 +1116,7 @@ def payday_create(request):
             )
             return redirect("payroll:pay_period_detail", slug=payt.slug)
     else:
-        form = PaydayForm()
+        form = PayrollRunForm()
 
     context = {
         "form": form,
@@ -1042,7 +1131,7 @@ def payday_create(request):
 @permission_required("payroll.add_payvar", raise_exception=True)
 def payvar_create_new(request):
     """
-    Enhanced view for creating PayVar (Payroll Variables) for multiple employees.
+    Enhanced view for creating PayrollEntry (Payroll Variables) for multiple employees.
     Supports search, filtering, and bulk selection of employees.
     """
     from django.http import JsonResponse
@@ -1081,12 +1170,12 @@ def payvar_create_new(request):
     job_titles = EmployeeProfile._meta.get_field("job_title").choices
 
     if request.method == "POST":
-        form = PayVarCreateForm(request.POST)
+        form = PayrollEntryCreateForm(request.POST)
         if form.is_valid():
-            # Use the custom save method that creates PayVar entries
+            # Use the custom save method that creates PayrollEntry entries
             payvars = form.save()
 
-            # Count how many PayVar entries were created
+            # Count how many PayrollEntry entries were created
             payvar_count = len(payvars)
 
             messages.success(
@@ -1095,7 +1184,7 @@ def payvar_create_new(request):
             )
             return redirect("payroll:varview")
     else:
-        form = PayVarCreateForm()
+        form = PayrollEntryCreateForm()
 
     context = {
         "form": form,

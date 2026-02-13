@@ -103,14 +103,14 @@
                 <tbody class="bg-white divide-y divide-secondary-200">
                     {% for payrol in payroll %}
                     <tr class="hover:bg-secondary-50">
-                        <td class="px-6 py-4 text-sm text-secondary-900">{{ payrol.payroll_id.pays.emp_id }}</td>
-                        <td class="px-6 py-4 text-sm text-secondary-900">{{ payrol.payroll_id.pays.first_name }} {{ payrol.payroll_id.pays.last_name }}</td>
-                        <td class="px-6 py-4 text-sm text-secondary-900">{{ payrol.payroll_id.pays.get_bank_display }}
+                        <td class="px-6 py-4 text-sm text-secondary-900">{{ payrol.payroll_entry.pays.emp_id }}</td>
+                        <td class="px-6 py-4 text-sm text-secondary-900">{{ payrol.payroll_entry.pays.first_name }} {{ payrol.payroll_entry.pays.last_name }}</td>
+                        <td class="px-6 py-4 text-sm text-secondary-900">{{ payrol.payroll_entry.pays.get_bank_display }}
                         </td>
-                        <td class="px-6 py-4 text-sm text-secondary-900">{{ payrol.payroll_id.pays.bank_account_name }}
+                        <td class="px-6 py-4 text-sm text-secondary-900">{{ payrol.payroll_entry.pays.bank_account_name }}
                         </td>
-                        <td class="px-6 py-4 text-sm text-secondary-900">{{ payrol.payroll_id.pays.bank_account_number }}</td>
-                        <td class="px-6 py-4 text-sm text-secondary-900 text-right font-medium">₦{{ payrol.payroll_id.netpay|intcomma }}</td>
+                        <td class="px-6 py-4 text-sm text-secondary-900">{{ payrol.payroll_entry.pays.bank_account_number }}</td>
+                        <td class="px-6 py-4 text-sm text-secondary-900 text-right font-medium">₦{{ payrol.payroll_entry.netpay|intcomma }}</td>
                     </tr>
                     {% endfor %}
                     <tr class="bg-secondary-100 font-semibold">

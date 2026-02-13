@@ -249,10 +249,10 @@
             <div class="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
                 <div>
                     <p class="font-medium text-gray-900 dark:text-white">
-                        {{ payslip_item.paydays_id.paydays|date:"F Y" }}
+                        {{ payslip_item.payroll_run.paydays|date:"F Y" }}
                     </p>
                     <p class="text-xs text-gray-500 dark:text-gray-400">
-                        Net: ₦{{ payslip_item.payroll_id.netpay|intcomma }}
+                        Net: ₦{{ payslip_item.payroll_entry.netpay|intcomma }}
                     </p>
                 </div>
                 <div class="flex space-x-2">
@@ -260,7 +260,7 @@
                        class="p-2 text-gray-500 hover:text-blue-600 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600" title="View Payslip">
                         <i data-lucide="eye" class="h-4 w-4"></i>
                     </a>
-                    <a href="{% url 'payroll:payslip_pdf' payslip_item.payroll_id.pays.id %}"
+                    <a href="{% url 'payroll:payslip_pdf' payslip_item.payroll_entry.pays.id %}"
                        class="p-2 text-gray-500 hover:text-green-600 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600" title="Download PDF">
                         <i data-lucide="download" class="h-4 w-4"></i>
                     </a>
@@ -322,15 +322,15 @@
         </div>
     </a>
     
-    <a href="{% url 'payroll:iou_history' %}" class="action-card block">
+    <a href="{% url 'payroll:my_iou_tracker' %}" class="action-card block">
         <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm">
             <div class="flex items-center space-x-4">
                 <div class="bg-blue-100 dark:bg-blue-900/50 p-3 rounded-lg">
                     <i data-lucide="file-text" class="h-6 w-6 text-blue-500"></i>
                 </div>
                 <div class="flex-1">
-                    <h3 class="font-semibold text-lg text-gray-900 dark:text-white">IOU History</h3>
-                    <p class="text-sm text-gray-500 dark:text-gray-400">View your IOU requests</p>
+                    <h3 class="font-semibold text-lg text-gray-900 dark:text-white">View IOU Status</h3>
+                    <p class="text-sm text-gray-500 dark:text-gray-400">Track your IOU process</p>
                 </div>
                 <i data-lucide="arrow-right" class="h-5 w-5 text-gray-400"></i>
             </div>

@@ -3,7 +3,9 @@ from decimal import Decimal
 from num2words import num2words
 import calendar
 
-PENSION_THRESHOLD = Decimal(360000)
+
+RENT_THRESHOLD = Decimal("500000")
+TAX_FREE = Decimal("800000")
 
 
 def calculate_percentage(value: Decimal, percentage: Decimal) -> Decimal:
@@ -28,80 +30,111 @@ def get_bht(self):
 
 
 def get_pension_employee(self):
-    if self.get_annual_gross <= PENSION_THRESHOLD:
-        return Decimal(0)
     return calculate_percentage(self.get_annual_gross, 8)
 
 
 def get_pension_employer(self):
-    if self.get_annual_gross <= PENSION_THRESHOLD:
-        return Decimal(0)
     return calculate_percentage(self.get_annual_gross, 10)
 
 
 def get_pension(self):
-    if self.get_annual_gross <= PENSION_THRESHOLD:
-        return Decimal(0)
     return get_pension_employee(self) + get_pension_employer(self)
-
-
-def get_consolidated_calc(self):
-    if (self.get_annual_gross * 1 / 100) > 200000:
-        return self.get_gross_income * 1 / 100
-    return 200000
 
 
 def get_gross_income(self):
     return (self.basic_salary * 12) - (get_pension_employee(self) * 12)
 
 
-def get_consolidated_relief(self):
-    return get_consolidated_calc(self) + (self.get_gross_income * 20 / 100)
+def calc_housing(self) -> Decimal:
+    if self.is_housing:
+        return self.get_annual_gross * Decimal(2.5) / 100
+    else:
+        return Decimal(0.0)
+
+
+def calc_employer_health_contrib(self) -> Decimal:
+    if self.is_nhif:
+        return self.get_annual_gross * Decimal(3.25) / 100
+    else:
+        return Decimal(0.0)
+
+
+def calc_employee_health_contrib(self) -> Decimal:
+    if self.is_nhif:
+        return self.get_annual_gross * Decimal(1.75) / 100
+    else:
+        return Decimal(0.0)
+
+
+def calc_health_contrib(self) -> Decimal:
+    return calc_employee_health_contrib(self) + calc_employer_health_contrib(self)
+
+
+# def get_rent_relief(employee):
+#     # Access rent_paid through the employee_pay relationship (EmployeeProfile)
+#     # rent_paid_value = self.employee_pay.rent_paid if self.employee_pay else Decimal(0.0)
+#     # rent_relief = calculate_percentage(rent_paid_value, 20)
+#     # if rent_relief >= Decimal(RENT_THRESHOLD):
+#     #     return Decimal(RENT_THRESHOLD)
+#     # return rent_relief
+
+#     # def get_employee_rent_relief(employee):
+#     rent_paid = employee.rent_paid or Decimal("0.00")
+#     relief = calculate_percentage(rent_paid, Decimal("20"))
+#     return min(relief, RENT_THRESHOLD)
+
+
+def get_rent_relief(payroll):
+    profile = payroll.employee_pay.first()  # reverse FK to EmployeeProfile
+    rent_paid = profile.rent_paid if profile else Decimal("0.00")
+    relief = calculate_percentage(rent_paid, Decimal("20"))
+    return min(relief, RENT_THRESHOLD)
+
+
+def get_total_relief(self):
+    return get_rent_relief(self) + self.employee_health + self.nhf
 
 
 def calculate_taxable_income(self) -> Decimal:
-    return (self.get_gross_income) - (get_consolidated_relief(self))
+    calc = (self.get_gross_income) - (get_total_relief(self))
 
-
-def get_payee(self) -> Decimal:
-    taxable_income = self.calculate_taxable_income
-
-    if self.basic_salary <= 30000:
+    if calc <= 0:
         return Decimal(0.0)
-
-    tax_bands = [
-        (300000, Decimal("7")),
-        (300000, Decimal("11")),
-        (500000, Decimal("15")),
-        (500000, Decimal("19")),
-        (1600000, Decimal("21")),
-        (Decimal("Infinity"), Decimal("24")),
-    ]
-
-    remaining_income = taxable_income
-    total_tax = Decimal(0.0)
-    taxable_limit = Decimal(0.0)
-
-    for band_limit, rate in tax_bands:
-        if remaining_income <= 0:
-            break
-
-        if band_limit == Decimal("Infinity"):
-            taxable_amount = remaining_income
-        else:
-            taxable_amount = min(remaining_income, band_limit)
-
-        band_tax = taxable_amount * rate / Decimal(100)
-        total_tax += band_tax
-
-        remaining_income -= taxable_amount
-        taxable_limit += band_limit
-
-    return total_tax / Decimal(12)
+    return calc
 
 
-def get_new_payee(self):
-    taxable_income = self.calculate_taxable_income
+# def get_payee(self) -> Decimal:
+#     taxable_income = Decimal(self.calculate_taxable_income())
+
+
+#     if taxable_income <= TAX_FREE:
+#         return Decimal("0")
+
+#     remaining_income = taxable_income - TAX_FREE
+#     total_tax = Decimal("0")
+
+#     tax_bands = [
+#         (Decimal("2200000"), Decimal("15")),
+#         (Decimal("9000000"), Decimal("18")),
+#         (Decimal("13000000"), Decimal("21")),
+#         (Decimal("25000000"), Decimal("23")),
+#         (Decimal("Infinity"), Decimal("25")),
+#     ]
+
+#     for band_amount, rate in tax_bands:
+#         if remaining_income <= 0:
+#             break
+
+#         taxable_amount = min(remaining_income, band_amount)
+#         total_tax += taxable_amount * rate / Decimal("100")
+#         remaining_income -= taxable_amount
+
+#     # Monthly PAYE
+#     return total_tax / Decimal("12")
+
+
+def get_payee(self):
+    taxable_income = calculate_taxable_income(self)
 
     if self.basic_salary <= 77000:
         return Decimal(0.0)
@@ -150,6 +183,8 @@ def get_net_pay(self):
         return Decimal(0.0)
     return (
         (self.employee_pay.get_gross_income / 12)
+        - (self.employee_pay.employee_health)
+        - (self.employee_pay.nhf)
         - (self.employee_pay.payee)
         - (self.employee_pay.water_rate)
     )
@@ -204,3 +239,41 @@ def try_parse_date(date_str):
         return datetime.strptime(date_str, "%Y-%m").date()
     except ValueError:
         return None
+
+
+# def export_lirs_form_a8(remittances, year):
+#     wb = Workbook()
+#     ws = wb.active
+#     ws.title = "LIRS FORM A8"
+
+#     headers = [
+#         "Employer TIN",
+#         "Employer Name",
+#         "Employee Name",
+#         "Employee TIN",
+#         "Annual Gross",
+#         "Annual Taxable",
+#         "Annual PAYE",
+#         "Year",
+#     ]
+#     ws.append(headers)
+
+#     for r in remittances:
+#         ws.append([
+#             r.employer_tin,
+#             r.employer_name,
+#             r.employee.full_name,
+#             r.employee_tin,
+#             float(r.gross_income),
+#             float(r.taxable_income),
+#             float(r.paye),
+#             year,
+#         ])
+
+#     response = HttpResponse(
+#         content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+#     )
+#     response["Content-Disposition"] = f"attachment; filename=LIRS_Form_A8_{year}.xlsx"
+
+#     wb.save(response)
+#     return response

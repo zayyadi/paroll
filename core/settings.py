@@ -1,13 +1,9 @@
 import os
-
 from celery.schedules import crontab
-
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-
 SECRET_KEY = os.environ.get("SECRET_KEY")
-
 
 DEBUG = bool(os.environ.get("DEBUG"))
 
@@ -16,10 +12,10 @@ ALLOWED_HOSTS = [
     "127.0.0.1",
 ]
 
-
 INSTALLED_APPS = [
-    "jazzmin",
+    "tailwind",
     # "adminlte3_theme",
+    "jazzmin",
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -27,7 +23,6 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "django.contrib.sites",
-    "tailwind",
     "crispy_forms",
     "crispy_tailwind",
     "api",
@@ -53,11 +48,9 @@ INSTALLED_APPS = [
 
 SITE_ID = 1
 
-
 INTERNAL_IPS = [
     "127.0.0.1",
 ]
-
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
@@ -74,7 +67,6 @@ MIDDLEWARE = [
 ]
 
 ROOT_URLCONF = "core.urls"
-
 
 TEMPLATES = [
     {
@@ -110,7 +102,6 @@ DATABASES = {
     }
 }
 
-
 CACHES = {
     "default": {
         "BACKEND": "django_redis.cache.RedisCache",
@@ -123,14 +114,12 @@ CACHES = {
     }
 }
 
-
 AUTHENTICATION_BACKENDS = (
     "django.contrib.auth.backends.ModelBackend",
     "social_core.backends.github.GithubOAuth2",
     "social_core.backends.twitter.TwitterOAuth",
     "social_core.backends.facebook.FacebookOAuth2",
 )
-
 
 AUTH_PASSWORD_VALIDATORS = [
     {
@@ -142,11 +131,7 @@ AUTH_PASSWORD_VALIDATORS = [
     {
         "NAME": "django.contrib.auth.password_validation.CommonPasswordValidator",
     },
-    {
-        "NAME": "django.contrib.auth.password_validation.NumericPasswordValidator",
-    },
 ]
-
 
 SITE_TITLE = os.getenv("SITE_TITLE", "PAYROLL")
 
@@ -187,7 +172,6 @@ LOGGING = {
 
 DEBUG_PROPAGATE_EXCEPTIONS = True
 
-
 LANGUAGE_CODE = "en-ng"
 
 TIME_ZONE = "Africa/Lagos"
@@ -202,16 +186,17 @@ USE_TZ = True
 
 TAILWIND_APP_NAME = "theme"
 
-
 CRISPY_ALLOWED_TEMPLATE_PACKS = ["tailwind"]
-CRISPY_TEMPLATE_PACK = "tailwind"
 
+CRISPY_TEMPLATE_PACK = "tailwind"
 
 STATIC_URL = "static/"
 MEDIA_URL = "/media/"
 
-MEDIA_ROOT = os.path.join(BASE_DIR, "media/")
+MEDIA_ROOT = os.path.join(BASE_DIR, "media")
+
 STATICFILES_DIRS = [os.path.join(BASE_DIR, "static")]
+
 STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
 
 
@@ -220,14 +205,19 @@ SOCIAL_AUTH_JSONFIELD_ENABLED = True
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 LOGIN_REDIRECT_URL = "payroll:index"
+
 LOGIN_URL = "users:login"
+
 LOGOUT_URL = "users:logout"
 
 SOCIAL_AUTH_LOGIN_ERROR_URL = "accounts:settings"
+
 SOCIAL_AUTH_LOGIN_REDIRECT_URL = "payroll:index"
+
 SOCIAL_AUTH_RAISE_EXCEPTIONS = False
 
 SOCIAL_AUTH_GITHUB_KEY = os.environ.get("client_id")
+
 SOCIAL_AUTH_GITHUB_SECRET = os.environ.get("client_secret")
 
 SOCIAL_AUTH_PIPELINE = (
@@ -244,28 +234,36 @@ SOCIAL_AUTH_ADMIN_USER_SEARCH_FIELDS = ["username", "first_name", "email"]
 
 X_FRAME_OPTIONS = "SAMEORIGIN"
 
-
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+
 EMAIL_HOST = os.environ.get("EMAIL_HOST")
+
 EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER")
+
 EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD")
+
 EMAIL_PORT = int(os.environ.get("EMAIL_PORT", 587))
+
 EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "True").lower() == "true"
+
 DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL")
+
 EMAIL_FILE_PATH = os.getenv("EMAIL_FILE_PATH", os.path.join(BASE_DIR, "test-emails"))
+
 if not os.path.exists(EMAIL_FILE_PATH):
     os.makedirs(EMAIL_FILE_PATH)
 
 # ============================================================================
 # NOTIFICATION SYSTEM SETTINGS
 # ============================================================================
-# Architecture Reference: plans/NOTIFICATION_SYSTEM_ARCHITECTURE.md
 
 # Notification retention and archiving
 NOTIFICATION_RETENTION_DAYS = int(os.getenv("NOTIFICATION_RETENTION_DAYS", "90"))
+
 NOTIFICATION_MAX_AGGREGATION_COUNT = int(
     os.getenv("NOTIFICATION_MAX_AGGREGATION_COUNT", "20")
 )
+
 NOTIFICATION_AGGREGATION_TIME_WINDOW = int(
     os.getenv("NOTIFICATION_AGGREGATION_TIME_WINDOW", "3600")
 )
@@ -274,6 +272,7 @@ NOTIFICATION_AGGREGATION_TIME_WINDOW = int(
 EMAIL_NOTIFICATION_FROM_EMAIL = os.getenv(
     "EMAIL_NOTIFICATION_FROM_EMAIL", DEFAULT_FROM_EMAIL
 )
+
 EMAIL_NOTIFICATION_REPLY_TO = os.getenv(
     "EMAIL_NOTIFICATION_REPLY_TO", DEFAULT_FROM_EMAIL
 )
@@ -284,42 +283,53 @@ EMAIL_NOTIFICATION_REPLY_TO = os.getenv(
 
 # Celery broker and backend (Redis)
 CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL", "redis://127.0.0.1:6379/2")
+
 CELERY_RESULT_BACKEND = os.environ.get(
     "CELERY_RESULT_BACKEND", "redis://127.0.0.1:6379/2"
 )
 
 # Celery timezone
 CELERY_TIMEZONE = TIME_ZONE
+
 CELERY_ENABLE_UTC = True
 
 # Celery task settings
 CELERY_TASK_SERIALIZER = "json"
+
 CELERY_RESULT_SERIALIZER = "json"
+
 CELERY_ACCEPT_CONTENT = ["json"]
+
 CELERY_RESULT_EXPIRES = 3600  # 1 hour
 
 # Celery task execution
 CELERY_TASK_ACKS_LATE = True
+
 CELERY_TASK_REJECT_ON_WORKER_LOST = True
+
 CELERY_WORKER_PREFETCH_MULTIPLIER = 1
+
 CELERY_WORKER_MAX_TASKS_PER_CHILD = 1000
 
 # Celery retry settings
 CELERY_TASK_DEFAULT_RETRY_DELAY = 60
+
 CELERY_TASK_MAX_RETRIES = 3
+
 CELERY_TASK_RETRY_BACKOFF = True
-CELERY_TASK_RETRY_BACKOFF_MAX = 600
+
 CELERY_TASK_RETRY_JITTER = True
 
 # Celery task tracking
 CELERY_TASK_TRACK_STARTED = True
+
 CELERY_TASK_SEND_SENT_EVENT = True
 
 # Celery worker settings
 CELERY_WORKER_CONCURRENCY = 4
 
 # Celery task queues (priority-based)
-CELERY_TASK_QUEUES = {
+CELERY_TASK_ROUTES = {
     "notifications_critical": {
         "exchange": "notifications",
         "routing_key": "notifications.critical",
@@ -395,8 +405,6 @@ CELERY_TASK_ANNOTATIONS = {
 }
 
 # Celery Beat schedule (scheduled tasks)
-
-
 CELERY_BEAT_SCHEDULE = {
     "archive-old-notifications": {
         "task": "payroll.archive_old_notifications",
@@ -449,8 +457,11 @@ FCM_DJANGO_SETTINGS = {
 # ============================================================================
 
 TWILIO_ACCOUNT_SID = os.environ.get("TWILIO_ACCOUNT_SID")
+
 TWILIO_AUTH_TOKEN = os.environ.get("TWILIO_AUTH_TOKEN")
+
 TWILIO_PHONE_NUMBER = os.environ.get("TWILIO_PHONE_NUMBER")
+
 TWILIO_DEFAULT_FROM = TWILIO_PHONE_NUMBER
 
 # ============================================================================
@@ -476,15 +487,16 @@ LOGGING["loggers"]["channels"] = {
     "propagate": False,
 }
 
-
 AUTH_USER_MODEL = "users.CustomUser"
+
 AUTH_USER_DEFAULT_GROUP = "payroll-members"
+
 DEFAULT_EMAIL_DOMAIN = "example.com"
 
-
-SITE_TITLE = os.getenv("SITE_TITLE", "Demo Site")
 SITE_TAGLINE = os.getenv("SITE_TAGLINE", "Demo Site")
+
 SITE_DESCRIPTION = "SITE_DESCRIPTION"
+
 SITE_LOGO = os.getenv("SITE_LOGO", "http://localhost:8000/static/logo.png")
 
 JAZZMIN_SETTINGS = {
@@ -496,7 +508,7 @@ JAZZMIN_SETTINGS = {
     "login_logo_dark": "images/logo.png",
     "site_logo_classes": "img-circle",
     "site_icon": "images/logo.png",
-    "welcome_sign": "Welcome to the Payroll Admin",
+    "welcome_sign": "Welcome to Payroll Admin",
     "copyright": "Payroll Ltd",
     "search_model": "auth.User",
     "user_avatar": "employee_user.photo",
@@ -515,7 +527,7 @@ JAZZMIN_SETTINGS = {
             "url": "https://github.com/farridav/django-jazzmin/issues",
             "new_window": True,
         },
-        {"model": "auth.user"},
+        {"model": "auth.User"},
     ],
     "show_sidebar": True,
     "navigation_expanded": True,
@@ -531,6 +543,8 @@ JAZZMIN_SETTINGS = {
         "accounting.Journal",
         "accounting.FiscalYear",
         "accounting.AccountingPeriod",
+        "accounting.JournalEntry",
+        "accounting.AccountingAuditTrail",
     ],
     "icons": {
         "auth": "fas fa-users-cog",

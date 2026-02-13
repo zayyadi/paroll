@@ -10,7 +10,7 @@ from payroll.models import (
     PerformanceReview,
     Allowance,
     Deduction,
-    PayT,
+    PayrollRun,
     AuditTrail,
 )
 
@@ -66,7 +66,12 @@ def setup_groups_and_permissions():
             "view_employeeprofile",
         ],
         Payroll: ["add_payroll", "change_payroll", "delete_payroll", "view_payroll"],
-        PayT: ["add_payt", "change_payt", "delete_payt", "view_payt"],
+        PayrollRun: [
+            "add_payrollrun",
+            "change_payrollrun",
+            "delete_payrollrun",
+            "view_payrollrun",
+        ],
         IOU: ["add_iou", "change_iou", "delete_iou", "view_iou"],
         Allowance: [
             "add_allowance",
@@ -143,7 +148,7 @@ def setup_groups_and_permissions():
         ],
         IOU: ["add_iou", "change_iou", "delete_iou", "view_iou"],
         Payroll: ["view_payroll", "change_payroll"],
-        PayT: ["view_payt", "change_payt"],
+        PayrollRun: ["view_payrollrun", "change_payrollrun"],
         Allowance: [
             "add_allowance",
             "change_allowance",
@@ -222,3 +227,12 @@ def setup_groups_and_permissions():
 if __name__ == "__main__":
 
     pass
+
+
+
+"""
+root@178.62.66.78
+
+
+scp -r root@178.62.66.78:/var/www/promise_tracker ~/promise
+"""

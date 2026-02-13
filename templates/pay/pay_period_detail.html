@@ -14,12 +14,12 @@
                 <p class="text-lg text-gray-600">{{ pay_period.paydays|date:"F Y" }}</p>
             </div>
             <div class="mt-4 md:mt-0 space-x-3">
-                {% if perms.payroll.change_payt and not pay_period.closed %}
+                {% if perms.payroll.change_payrollrun and not pay_period.closed %}
                 <a href="{% url 'payroll:pay_period_update' pay_period.slug %}" class="bg-blue-500 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition duration-150 ease-in-out">
                     <i data-lucide="edit-3" class="inline-block mr-1 h-5 w-5"></i> Edit
                 </a>
                 {% endif %}
-                {% if perms.payroll.delete_payt and not pay_period.closed %}
+                {% if perms.payroll.delete_payrollrun and not pay_period.closed %}
                 <a href="{% url 'payroll:pay_period_delete' pay_period.slug %}" class="bg-red-500 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition duration-150 ease-in-out">
                     <i data-lucide="trash-2" class="inline-block mr-1 h-5 w-5"></i> Delete
                 </a>
@@ -65,20 +65,20 @@
                     <li class="py-3">
                         <div class="flex items-center space-x-4">
                             <div class="flex-shrink-0">
-                                {% if entry.payroll_id.pays.photo %}
-                                <img class="h-10 w-10 rounded-full" src="{{ entry.payroll_id.pays.photo.url }}" alt="{{ entry.payroll_id.pays.first_name }}">
+                                {% if entry.payroll_entry.pays.photo %}
+                                <img class="h-10 w-10 rounded-full" src="{{ entry.payroll_entry.pays.photo.url }}" alt="{{ entry.payroll_entry.pays.first_name }}">
                                 {% else %}
                                 <span class="inline-flex items-center justify-center h-10 w-10 rounded-full bg-gray-500">
-                                    <span class="font-medium leading-none text-white">{{ entry.payroll_id.pays.first_name|first }}{{ entry.payroll_id.pays.last_name|first }}</span>
+                                    <span class="font-medium leading-none text-white">{{ entry.payroll_entry.pays.first_name|first }}{{ entry.payroll_entry.pays.last_name|first }}</span>
                                 </span>
                                 {% endif %}
                             </div>
                             <div class="flex-1 min-w-0">
                                 <p class="text-sm font-medium text-gray-900 truncate">
-                                    {{ entry.payroll_id.pays.first_name }} {{ entry.payroll_id.pays.last_name }}
+                                    {{ entry.payroll_entry.pays.first_name }} {{ entry.payroll_entry.pays.last_name }}
                                 </p>
                                 <p class="text-sm text-gray-500 truncate">
-                                    {{ entry.payroll_id.pays.email|default_if_none:"" }}
+                                    {{ entry.payroll_entry.pays.email|default_if_none:"" }}
                                 </p>
                             </div>
                             <div>

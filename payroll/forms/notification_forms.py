@@ -68,46 +68,46 @@ class NotificationPreferenceForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
 
         # Add help texts
-        self.fields["notifications_enabled"].help_text = (
-            "Enable or disable all notifications for this user."
-        )
-        self.fields["in_app_enabled"].help_text = (
-            "Receive notifications in the application interface."
-        )
+        self.fields[
+            "notifications_enabled"
+        ].help_text = "Enable or disable all notifications for this user."
+        self.fields[
+            "in_app_enabled"
+        ].help_text = "Receive notifications in the application interface."
         self.fields["email_enabled"].help_text = "Receive notifications via email."
-        self.fields["push_enabled"].help_text = (
-            "Receive push notifications on mobile devices."
-        )
-        self.fields["sms_enabled"].help_text = (
-            "Receive SMS notifications (critical only recommended)."
-        )
-        self.fields["in_app_priority_threshold"].help_text = (
-            "Minimum priority level for in-app notifications."
-        )
-        self.fields["email_priority_threshold"].help_text = (
-            "Minimum priority level for email notifications."
-        )
-        self.fields["push_priority_threshold"].help_text = (
-            "Minimum priority level for push notifications."
-        )
-        self.fields["sms_priority_threshold"].help_text = (
-            "Minimum priority level for SMS notifications."
-        )
-        self.fields["email_digest_frequency"].help_text = (
-            "How often to receive email digests."
-        )
-        self.fields["push_digest_frequency"].help_text = (
-            "How often to receive push notification digests."
-        )
-        self.fields["quiet_hours_enabled"].help_text = (
-            "Suppress non-critical notifications during quiet hours."
-        )
-        self.fields["quiet_hours_start"].help_text = (
-            "Start time for quiet hours (e.g., 22:00)."
-        )
-        self.fields["quiet_hours_end"].help_text = (
-            "End time for quiet hours (e.g., 08:00)."
-        )
+        self.fields[
+            "push_enabled"
+        ].help_text = "Receive push notifications on mobile devices."
+        self.fields[
+            "sms_enabled"
+        ].help_text = "Receive SMS notifications (critical only recommended)."
+        self.fields[
+            "in_app_priority_threshold"
+        ].help_text = "Minimum priority level for in-app notifications."
+        self.fields[
+            "email_priority_threshold"
+        ].help_text = "Minimum priority level for email notifications."
+        self.fields[
+            "push_priority_threshold"
+        ].help_text = "Minimum priority level for push notifications."
+        self.fields[
+            "sms_priority_threshold"
+        ].help_text = "Minimum priority level for SMS notifications."
+        self.fields[
+            "email_digest_frequency"
+        ].help_text = "How often to receive email digests."
+        self.fields[
+            "push_digest_frequency"
+        ].help_text = "How often to receive push notification digests."
+        self.fields[
+            "quiet_hours_enabled"
+        ].help_text = "Suppress non-critical notifications during quiet hours."
+        self.fields[
+            "quiet_hours_start"
+        ].help_text = "Start time for quiet hours (e.g., 22:00)."
+        self.fields[
+            "quiet_hours_end"
+        ].help_text = "End time for quiet hours (e.g., 08:00)."
         self.fields["quiet_hours_timezone"].help_text = "Timezone for quiet hours."
 
     def clean(self):

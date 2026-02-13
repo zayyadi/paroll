@@ -11,25 +11,16 @@ from payroll.models import (
     EmployeeProfile,
     Allowance,
     LeaveRequest,
-    PayVar,
+    PayrollEntry,
     Payroll,
-    PayT,
+    PayrollRun,
     Deduction,
-    Payday,
+    PayrollRunEntry,
     Appraisal,
     Metric,
     Review,
     Rating,
     AppraisalAssignment,
-)
-
-# Import notification admin configurations
-from payroll.admin.notification_admin import (
-    NotificationAdmin,
-    ArchivedNotificationAdmin,
-    NotificationPreferenceAdmin,
-    NotificationDeliveryLogAdmin,
-    NotificationTemplateAdmin,
 )
 
 
@@ -46,14 +37,14 @@ class PayrollResource(resources.ModelResource):
         model = Payroll
 
 
-class PayTResource(resources.ModelResource):
+class PayrollRunResource(resources.ModelResource):
     class Meta:
-        model = PayT
+        model = PayrollRun
 
 
-class PayVarResource(resources.ModelResource):
+class PayrollEntryResource(resources.ModelResource):
     class Meta:
-        model = PayVar
+        model = PayrollEntry
 
 
 class IOUResource(resources.ModelResource):
@@ -71,9 +62,9 @@ class LeaveRequestResource(resources.ModelResource):
         model = LeaveRequest
 
 
-class PaydayResource(resources.ModelResource):
+class PayrollRunEntryResource(resources.ModelResource):
     class Meta:
-        model = Payday
+        model = PayrollRunEntry
 
 
 class AppraisalResource(resources.ModelResource):
@@ -112,14 +103,14 @@ class DeductionResources(resources.ModelResource):
 
 
 class PayrollInline(admin.StackedInline):
-    model = Payday
+    model = PayrollRunEntry
     extra = 1
-    raw_id_fields = ("payroll_id",)
+    raw_id_fields = ("payroll_entry",)
 
 
-@admin.register(PayT)
-class PayTAdmin(ImportExportModelAdmin):
-    resource_class = PayTResource
+@admin.register(PayrollRun)
+class PayrollRunAdmin(ImportExportModelAdmin):
+    resource_class = PayrollRunResource
     inlines = (PayrollInline,)
     list_display = ["name", "paydays", "is_active", "closed"]
     list_filter = ["is_active", "closed", "paydays"]
@@ -171,7 +162,8 @@ class EmployeeProfileAdmin(ImportExportModelAdmin):
         "department",
         "job_title",
         "date_of_employment",
-        # "get_is_active",  # Use custom method
+        "rent_paid",
+        "status",  # Use custom method
     )
     list_filter = (
         "department",
@@ -207,6 +199,7 @@ class EmployeeProfileAdmin(ImportExportModelAdmin):
                     "next_of_kin_name",
                     "next_of_kin_relationship",
                     "next_of_kin_phone",
+                    "status",
                 )
             },
         ),
@@ -231,6 +224,7 @@ class EmployeeProfileAdmin(ImportExportModelAdmin):
                     "bank",
                     "bank_account_name",
                     "bank_account_number",
+                    "rent_paid",
                 )
             },
         ),
@@ -295,33 +289,33 @@ class DepartmentAdmin(ImportExportModelAdmin):
     search_fields = ("name",)
 
 
-@admin.register(Payday)
-class PaydayAdmin(ImportExportModelAdmin):
-    resource_class = PaydayResource
-    list_display = ("paydays_id", "get_employee_name", "get_netpay")
-    list_filter = ("paydays_id", "payroll_id__pays__department")
+@admin.register(PayrollRunEntry)
+class PayrollRunEntryAdmin(ImportExportModelAdmin):
+    resource_class = PayrollRunEntryResource
+    list_display = ("payroll_run", "get_employee_name", "get_netpay")
+    list_filter = ("payroll_run", "payroll_entry__pays__department")
     search_fields = (
-        "paydays_id__name",
-        "payroll_id__pays__first_name",
-        "payroll_id__pays__last_name",
+        "payroll_run__name",
+        "payroll_entry__pays__first_name",
+        "payroll_entry__pays__last_name",
     )
     readonly_fields = ("get_netpay",)
-    date_hierarchy = "paydays_id__paydays"
+    date_hierarchy = "payroll_run__paydays"
 
     def get_employee_name(self, obj):
-        return f"{obj.payroll_id.pays.first_name} {obj.payroll_id.pays.last_name}"
+        return f"{obj.payroll_entry.pays.first_name} {obj.payroll_entry.pays.last_name}"
 
     get_employee_name.short_description = "Employee"
 
     def get_netpay(self, obj):
-        return obj.payroll_id.netpay
+        return obj.payroll_entry.netpay
 
     get_netpay.short_description = "Net Pay"
 
 
-@admin.register(PayVar)
-class PayVarAdmin(ImportExportModelAdmin):
-    resource_class = PayVarResource
+@admin.register(PayrollEntry)
+class PayrollEntryAdmin(ImportExportModelAdmin):
+    resource_class = PayrollEntryResource
 
 
 class RatingInline(admin.TabularInline):
@@ -367,19 +361,3 @@ class AppraisalAssignmentAdmin(ImportExportModelAdmin):
         "appraisee__first_name",
         "appraiser__first_name",
     )
-
-
-# Register notification admin classes
-from payroll.models.notification import (
-    Notification,
-    ArchivedNotification,
-    NotificationPreference,
-    NotificationDeliveryLog,
-    NotificationTemplate,
-)
-
-admin.site.register(Notification, NotificationAdmin)
-admin.site.register(ArchivedNotification, ArchivedNotificationAdmin)
-admin.site.register(NotificationPreference, NotificationPreferenceAdmin)
-admin.site.register(NotificationDeliveryLog, NotificationDeliveryLogAdmin)
-admin.site.register(NotificationTemplate, NotificationTemplateAdmin)

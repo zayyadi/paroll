@@ -65,7 +65,7 @@ The architecture follows Django best practices, leverages existing infrastructur
 
 2. **Signal-Based Creation** ([`payroll/notification_signals.py`](payroll/notification_signals.py:1))
    - Automatic notification generation via Django signals
-   - Event handlers for LeaveRequest, IOU, PayT, and AppraisalAssignment
+   - Event handlers for LeaveRequest, IOU, PayrollRun, and AppraisalAssignment
    - Bulk notification support for HR notifications
 
 3. **View Layer** ([`payroll/views/notification_view.py`](payroll/views/notification_view.py:1))
@@ -425,7 +425,7 @@ class Notification(models.Model):
     )
     
     payroll = models.ForeignKey(
-        "PayT",
+        "PayrollRun",
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
@@ -941,7 +941,7 @@ erDiagram
     
     Notification ||--o| LeaveRequest : references
     Notification ||--o| IOU : references
-    Notification ||--o| PayT : references
+    Notification ||--o| PayrollRun : references
     Notification ||--o| Appraisal : references
     
     NotificationTemplate ||--o{ NotificationTemplate : versions
@@ -1525,16 +1525,16 @@ class PayslipAvailableHandler(BaseNotificationHandler):
     
     def handle(self, event_data):
         payday = event_data["payday"]
-        employee = payday.payroll_id.pays
+        employee = payday.payroll_entry.pays
         
         self.create_notification(
             recipient=employee,
             notification_type="PAYSLIP_AVAILABLE",
             title="Payslip Available",
-            message=f"Your payslip for {payday.paydays_id.paydays} is now available. Net pay: ₦{payday.payroll_id.netpay:,.2f}",
+            message=f"Your payslip for {payday.payroll_run.paydays} is now available. Net pay: ₦{payday.payroll_entry.netpay:,.2f}",
             priority="HIGH",
-            payroll=payday.paydays_id,
-            action_url=reverse("payroll:pay_period_detail", args=[payday.paydays_id.slug])
+            payroll=payday.payroll_run,
+            action_url=reverse("payroll:pay_period_detail", args=[payday.payroll_run.slug])
         )
 ```
 

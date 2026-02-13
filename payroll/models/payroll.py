@@ -82,8 +82,42 @@ class Payroll(models.Model):
         default=Decimal(0.0),
         decimal_places=2,
         blank=True,
+        help_text=(" Annual gross income of employee. "),
     )
-    consolidated_relief = models.DecimalField(
+
+    is_housing = models.BooleanField(
+        verbose_name="is NHF deductable",
+        default=False,
+    )
+    is_nhif = models.BooleanField(
+        verbose_name="is NHIF deductable",
+        default=False,
+    )
+    nhf = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        blank=True,
+        default=Decimal(0.0),
+    )
+    employee_health = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        blank=True,
+        default=Decimal(0.0),
+    )
+    nhif = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        blank=True,
+        default=Decimal(0.0),
+    )
+    emplyr_health = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        blank=True,
+        default=Decimal(0.0),
+    )
+    rent_relief = models.DecimalField(
         max_digits=12,
         default=Decimal(0.0),
         decimal_places=2,
@@ -137,18 +171,8 @@ class Payroll(models.Model):
     def get_gross_income(self):
         return self.get_annual_gross - utils.get_pension_employee(self)
 
-    @property
-    def calculate_taxable_income(self) -> Decimal:
-        calc = (
-            self.get_annual_gross
-            - utils.get_consolidated_relief(self)
-            - utils.get_pension_employee(self)
-        )
-        if calc <= 0:
-            return Decimal(0.0)
-        return calc
-
     def save(self, *args, **kwargs):
+        # employee = self.employee_pay.first()
         # self.name = self.get_name
         self.basic = utils.get_basic(self)  # noqa: F405
         self.housing = utils.get_housing(self)  # noqa: F405
@@ -157,12 +181,16 @@ class Payroll(models.Model):
         self.pension_employee = utils.get_pension_employee(self)  # noqa: F405
         self.pension_employer = utils.get_pension_employer(self)  # noqa: F405
         self.pension = utils.get_pension(self)  # noqa: F405
-        self.gross_income = self.get_gross_income
-        self.consolidated_relief = utils.get_consolidated_relief(self)  # noqa: F405
-        self.taxable_income = self.calculate_taxable_income
+        self.gross_income = self.get_gross_income  # noqa: F405
+        self.taxable_income = utils.calculate_taxable_income(self)
         self.payee = utils.get_payee(self)  # noqa: F405
         self.water_rate = utils.get_water_rate(self)  # noqa: F405
+        self.nhf = utils.calc_housing(self)
+        self.employee_health = utils.calc_employee_health_contrib(self)
+        self.emplyr_health = utils.calc_employer_health_contrib(self)
+        self.nhif = utils.calc_health_contrib(self)
         self.nsitf = self.get_nsitf
+        self.rent_relief = utils.get_rent_relief(self)  # noqa: F405
 
         super(Payroll, self).save(*args, **kwargs)
 
@@ -249,47 +277,14 @@ class Deduction(models.Model):
 #         super(Deduction, self).save(*args, **kwargs)
 
 
-class PayVarManager(models.Manager):
+class PayrollEntryManager(models.Manager):
     def get_queryset(self):
         return super().get_queryset().filter(status="active")
 
 
-class PayVar(models.Model):
+class PayrollEntry(models.Model):
     pays = models.ForeignKey(
         EmployeeProfile, related_name="pays", on_delete=models.CASCADE
-    )
-
-    is_housing = models.BooleanField(
-        verbose_name="is NHF deductable",
-        default=False,
-    )
-    is_nhif = models.BooleanField(
-        verbose_name="is NHIF deductable",
-        default=False,
-    )
-    nhf = models.DecimalField(
-        max_digits=12,
-        decimal_places=2,
-        blank=True,
-        default=Decimal(0.0),
-    )
-    employee_health = models.DecimalField(
-        max_digits=12,
-        decimal_places=2,
-        blank=True,
-        default=Decimal(0.0),
-    )
-    nhif = models.DecimalField(
-        max_digits=12,
-        decimal_places=2,
-        blank=True,
-        default=Decimal(0.0),
-    )
-    emplyr_health = models.DecimalField(
-        max_digits=12,
-        decimal_places=2,
-        blank=True,
-        default=Decimal(0.0),
     )
     status = models.CharField(
         max_length=10,
@@ -303,25 +298,30 @@ class PayVar(models.Model):
         blank=True,
     )
 
-    objects = PayVarManager()
+    objects = PayrollEntryManager()
 
     def __str__(self):
         return self.pays.first_name
 
     @property
     def calc_allowance(self):
+        if not self.pk:
+            return Decimal(0)
+
         # Old implementation (commented out):
         # if self.allowance_id and self.allowance_id.percentage:
         #     return self.pays.net_pay * self.allowance_id.percentage / 100
         # return Decimal(0)
 
         # New implementation: Sum allowances for the employee within the payroll period
-        # Assuming 'self.paydays_id.paydays' gives the month/year for this payroll
-        if not hasattr(self, "paydays_id") or not self.paydays_id:
+        payroll_run_entry = (
+            self.payroll_run_entries.select_related("payroll_run").first()
+        )
+        if not payroll_run_entry:
             return Decimal(0)
 
-        payroll_month = self.paydays_id.paydays.month
-        payroll_year = self.paydays_id.paydays.year
+        payroll_month = payroll_run_entry.payroll_run.paydays.month
+        payroll_year = payroll_run_entry.payroll_run.paydays.year
 
         total_allowance = Decimal(0)
         for allowance in self.pays.allowances.filter(
@@ -332,17 +332,23 @@ class PayVar(models.Model):
 
     @property
     def calc_deduction(self):
+        if not self.pk:
+            return Decimal(0)
+
         # Old implementation (commented out):
         # if self.deduction_id and self.deduction_id.percentage:
         #     return self.pays.net_pay * self.deduction_id.percentage / 100
         # return Decimal(0)
 
         # New implementation: Sum deductions for the employee within the payroll period
-        if not hasattr(self, "paydays_id") or not self.paydays_id:
+        payroll_run_entry = (
+            self.payroll_run_entries.select_related("payroll_run").first()
+        )
+        if not payroll_run_entry:
             return Decimal(0)
 
-        payroll_month = self.paydays_id.paydays.month
-        payroll_year = self.paydays_id.paydays.year
+        payroll_month = payroll_run_entry.payroll_run.paydays.month
+        payroll_year = payroll_run_entry.payroll_run.paydays.year
 
         total_deduction = Decimal(0)
         for deduction in self.pays.deductions.filter(
@@ -355,31 +361,6 @@ class PayVar(models.Model):
         ):
             total_deduction += iou_deduction.amount
         return total_deduction
-
-    @property
-    def calc_housing(self) -> Decimal:
-        if self.is_housing:
-            return self.pays.employee_pay.basic_salary * Decimal(2.5) / 100
-        else:
-            return Decimal(0.0)
-
-    @property
-    def calc_employer_health_contrib(self) -> Decimal:
-        if self.is_nhif:
-            return self.pays.employee_pay.basic_salary * Decimal(3.25) / 100
-        else:
-            return Decimal(0.0)
-
-    @property
-    def calc_employee_health_contrib(self) -> Decimal:
-        if self.is_nhif:
-            return self.pays.employee_pay.basic_salary * Decimal(1.75) / 100
-        else:
-            return Decimal(0.0)
-
-    @property
-    def calc_health_contrib(self) -> Decimal:
-        return self.calc_employee_health_contrib + self.calc_employer_health_contrib
 
     @property
     def total_deductions(self) -> Decimal:
@@ -400,18 +381,14 @@ class PayVar(models.Model):
             self.pays.net_pay
             + self.calc_allowance
             - self.calc_deduction
-            - self.employee_health
-            - self.nhf
-            - self.pays.employee_pay.nsitf
+            # - self.employee_health
+            # - self.nhf
+            # - self.pays.employee_pay.nsitf
         )
 
     def save(self, *args, **kwargs):
         self.netpay = self.get_netpay
-        self.nhf = self.calc_housing
-        self.employee_health = self.calc_employee_health_contrib
-        self.emplyr_health = self.calc_employer_health_contrib
-        self.nhif = self.calc_health_contrib
-        super(PayVar, self).save(*args, **kwargs)
+        super(PayrollEntry, self).save(*args, **kwargs)
 
 
 class PayManager(models.Manager):
@@ -419,7 +396,7 @@ class PayManager(models.Manager):
         return super().get_queryset().filter(is_active=True)
 
 
-class PayT(models.Model):
+class PayrollRun(models.Model):
     name = models.CharField(
         max_length=50,
         unique=True,
@@ -438,14 +415,14 @@ class PayT(models.Model):
     )
     # month = MonthField()
     payroll_payday = models.ManyToManyField(
-        PayVar, related_name="payroll_payday", through="Payday"
+        PayrollEntry, related_name="payroll_payday", through="PayrollRunEntry"
     )
     is_active = models.BooleanField(default=False)
     closed = models.BooleanField(default=False)
     objects = PayManager()
 
     class Meta:
-        verbose_name_plural = "PayTs"
+        verbose_name_plural = "Payroll Runs"
 
     def get_absolute_url(self):
         from django.urls import reverse
@@ -470,23 +447,23 @@ class PayT(models.Model):
             else:
                 self.slug = slugify(f"pay-period-{uuid.uuid4().hex[:8]}")
 
-        if self.pk and PayT.objects.filter(pk=self.pk, closed=True).exists():
+        if self.pk and PayrollRun.objects.filter(pk=self.pk, closed=True).exists():
             raise ValidationError("This entry is closed and cannot be edited.")
         # self.paydays_str = self.save_month_str
 
-        super(PayT, self).save(*args, **kwargs)
+        super(PayrollRun, self).save(*args, **kwargs)
 
 
-class Payday(models.Model):
-    paydays_id = models.ForeignKey(
-        PayT,
+class PayrollRunEntry(models.Model):
+    payroll_run = models.ForeignKey(
+        PayrollRun,
         on_delete=models.CASCADE,
-        related_name="paydays_id",
+        related_name="payroll_run_entries",
     )
-    payroll_id = models.ForeignKey(
-        PayVar,
+    payroll_entry = models.ForeignKey(
+        PayrollEntry,
         on_delete=models.CASCADE,
-        related_name="payroll_paydays",
+        related_name="payroll_run_entries",
     )
 
 
@@ -496,7 +473,7 @@ class IOUDeduction(models.Model):
         "EmployeeProfile", on_delete=models.CASCADE, related_name="iou_deductions"
     )
     payday = models.ForeignKey(
-        "PayT", on_delete=models.CASCADE, related_name="iou_deductions"
+        "PayrollRun", on_delete=models.CASCADE, related_name="iou_deductions"
     )
     amount = models.DecimalField(max_digits=12, decimal_places=2)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -588,9 +565,9 @@ class IOU(SoftDeleteModel):
 
     def clean(self):
         super().clean()
-        if self.amount <= 0:
+        if self.amount is None or self.amount <= 0:
             raise ValidationError({"amount": "Amount must be greater than zero."})
-        if self.tenor <= 0:
+        if self.tenor is None or self.tenor <= 0:
             raise ValidationError({"tenor": "Tenor must be at least 1 month."})
 
     def save(self, *args, **kwargs):
