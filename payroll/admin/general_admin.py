@@ -112,8 +112,8 @@ class PayrollInline(admin.StackedInline):
 class PayrollRunAdmin(ImportExportModelAdmin):
     resource_class = PayrollRunResource
     inlines = (PayrollInline,)
-    list_display = ["name", "paydays", "is_active", "closed"]
-    list_filter = ["is_active", "closed", "paydays"]
+    list_display = ["name", "company", "paydays", "is_active", "closed"]
+    list_filter = ["company", "is_active", "closed", "paydays"]
     search_fields = ["name"]
     date_hierarchy = "paydays"
 
@@ -158,8 +158,10 @@ class EmployeeProfileAdmin(ImportExportModelAdmin):
     list_display = (
         "first_name",
         "last_name",
+        "company",
         "email",
         "department",
+        "company",
         "job_title",
         "date_of_employment",
         "rent_paid",
@@ -180,6 +182,7 @@ class EmployeeProfileAdmin(ImportExportModelAdmin):
             {
                 "fields": (
                     "user",
+                    "company",
                     "emp_id",
                     "first_name",
                     "last_name",
@@ -235,8 +238,8 @@ class EmployeeProfileAdmin(ImportExportModelAdmin):
 @admin.register(Payroll)
 class PayrollAdmin(ImportExportModelAdmin):
     resource_class = PayrollResource
-    list_display = ("basic_salary", "payee", "timestamp", "updated")
-    list_filter = ("timestamp",)
+    list_display = ("company", "basic_salary", "payee", "timestamp", "updated")
+    list_filter = ("company", "timestamp")
     search_fields = ("basic_salary",)
     readonly_fields = ("timestamp", "updated")
     date_hierarchy = "timestamp"
@@ -285,7 +288,8 @@ class DeductionAdmin(ImportExportModelAdmin):
 @admin.register(Department)
 class DepartmentAdmin(ImportExportModelAdmin):
     resource_class = DepartmentResource
-    list_display = ("name",)
+    list_display = ("name", "company")
+    list_filter = ("company",)
     search_fields = ("name",)
 
 
@@ -316,6 +320,8 @@ class PayrollRunEntryAdmin(ImportExportModelAdmin):
 @admin.register(PayrollEntry)
 class PayrollEntryAdmin(ImportExportModelAdmin):
     resource_class = PayrollEntryResource
+    list_display = ("pays", "company", "status", "netpay")
+    list_filter = ("company", "status")
 
 
 class RatingInline(admin.TabularInline):

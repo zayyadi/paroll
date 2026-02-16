@@ -1,0 +1,10 @@
+{% extends "base_auth_new.html" %}
+
+{# Compatibility layer for legacy auth templates still extending base_auth.html #}
+{% block page_title_in_head %}
+<title>{% block title %}PayrollCo{% endblock %}</title>
+{% endblock %}
+
+{% block auth_content %}
+{% block content %}{% endblock %}
+{% endblock %}

@@ -129,15 +129,15 @@
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div>
                     <p class="text-sm font-medium text-secondary-500">Total Debits</p>
-                    <p class="text-2xl font-bold text-danger-600" id="total-debits">$0.00</p>
+                    <p class="text-2xl font-bold text-danger-600" id="total-debits">₦0.00</p>
                 </div>
                 <div>
                     <p class="text-sm font-medium text-secondary-500">Total Credits</p>
-                    <p class="text-2xl font-bold text-success-600" id="total-credits">$0.00</p>
+                    <p class="text-2xl font-bold text-success-600" id="total-credits">₦0.00</p>
                 </div>
                 <div>
                     <p class="text-sm font-medium text-secondary-500">Balance</p>
-                    <p class="text-2xl font-bold" id="balance-difference">$0.00</p>
+                    <p class="text-2xl font-bold" id="balance-difference">₦0.00</p>
                 </div>
             </div>
         </div>
@@ -248,12 +248,12 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
         
-        document.getElementById('total-debits').textContent = '$' + totalDebits.toFixed(2);
-        document.getElementById('total-credits').textContent = '$' + totalCredits.toFixed(2);
+        document.getElementById('total-debits').textContent = '₦' + totalDebits.toFixed(2);
+        document.getElementById('total-credits').textContent = '₦' + totalCredits.toFixed(2);
         
         const difference = totalDebits - totalCredits;
         const balanceElement = document.getElementById('balance-difference');
-        balanceElement.textContent = '$' + Math.abs(difference).toFixed(2);
+        balanceElement.textContent = '₦' + Math.abs(difference).toFixed(2);
         
         if (difference === 0) {
             balanceElement.className = 'text-2xl font-bold text-success-600';

@@ -4,12 +4,13 @@
     <title>Welcome to Payroll</title>
 </head>
 <body>
-    <p>Dear {{ user.username }},</p>
+    <p>Dear {{ first_name }},</p>
     <p>Welcome to Payroll! We are excited to have you on board.</p>
-    <p>Your One-Time Password (OTP) for registration is: <strong>{{ otp }}</strong></p>
-    <p>Please use this OTP to complete your registration. This OTP is valid for a limited time.</p>
-    <p>You can verify your email using the following link:</p>
-    <p><a href="{{ login_url }}">Verify Email</a></p>
+    <p>Please activate your account using the link below:</p>
+    <p><a href="{{ activation_url }}">Activate Account</a></p>
+    <p>For extra security, you can also verify with this OTP: <strong>{{ otp }}</strong>.</p>
+    <p>This OTP is valid for 10 minutes.</p>
+    <p>You can log in here after activation: <a href="{{ login_url }}">Login</a></p>
     <p>If you have any questions, feel free to contact us.</p>
     <p>Best regards,</p>
     <p>The Payroll Team</p>

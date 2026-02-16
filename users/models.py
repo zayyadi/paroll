@@ -7,6 +7,22 @@ from users.manager import CustomUserManager
 
 
 class CustomUser(AbstractBaseUser, PermissionsMixin):
+    company = models.ForeignKey(
+        "company.Company",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="users",
+        db_index=True,
+    )
+    active_company = models.ForeignKey(
+        "company.Company",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="active_users",
+        db_index=True,
+    )
     email = models.EmailField(_("email address"), unique=True)
     first_name = models.CharField(
         _(

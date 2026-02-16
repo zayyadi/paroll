@@ -16,10 +16,16 @@
         <div class="flex items-center justify-between">
             <h3 class="text-lg font-semibold text-secondary-900">Chart of Accounts</h3>
             {% if is_accountant %}
-            <a href="{% url 'accounting:account_create' %}" class="btn-primary inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white">
-                <i data-lucide="plus" class="mr-2 h-4 w-4"></i>
-                New Account
-            </a>
+            <div class="flex items-center gap-2">
+                <a href="{% url 'accounting:opening_balance_import' %}" class="inline-flex items-center px-4 py-2 border border-secondary-300 text-sm font-medium rounded-md text-secondary-700 bg-white hover:bg-secondary-50">
+                    <i data-lucide="upload" class="mr-2 h-4 w-4"></i>
+                    Import Opening Balances
+                </a>
+                <a href="{% url 'accounting:account_create' %}" class="btn-primary inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white">
+                    <i data-lucide="plus" class="mr-2 h-4 w-4"></i>
+                    New Account
+                </a>
+            </div>
             {% endif %}
         </div>
     </div>
@@ -104,9 +110,9 @@
                             <div class="text-sm font-medium text-secondary-900">
                                 {% with balance=account.balance %}
                                 {% if balance >= 0 %}
-                                <span class="text-success-600">${{ balance|floatformat:2 }}</span>
+                                <span class="text-success-600">₦{{ balance|floatformat:2 }}</span>
                                 {% else %}
-                                <span class="text-danger-600">(${{ balance|floatformat:2|slice:"1:" }})</span>
+                                <span class="text-danger-600">(₦{{ balance|floatformat:2|slice:"1:" }})</span>
                                 {% endif %}
                                 {% endwith %}
                             </div>

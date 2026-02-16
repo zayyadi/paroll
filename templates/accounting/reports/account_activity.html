@@ -43,9 +43,9 @@
                 <p class="text-sm font-medium text-secondary-500">Opening Balance</p>
                 <p class="text-sm text-secondary-900 mt-1">
                     {% if opening_balance >= 0 %}
-                    <span class="text-success-600">${{ opening_balance|floatformat:2 }}</span>
+                    <span class="text-success-600">₦{{ opening_balance|floatformat:2 }}</span>
                     {% else %}
-                    <span class="text-danger-600">(${{ opening_balance|floatformat:2|slice:"1:" }})</span>
+                    <span class="text-danger-600">(₦{{ opening_balance|floatformat:2|slice:"1:" }})</span>
                     {% endif %}
                 </p>
             </div>
@@ -54,9 +54,9 @@
                 <p class="text-sm text-secondary-900 mt-1">
                     {% with balance=account.balance %}
                     {% if balance >= 0 %}
-                    <span class="text-success-600">${{ balance|floatformat:2 }}</span>
+                    <span class="text-success-600">₦{{ balance|floatformat:2 }}</span>
                     {% else %}
-                    <span class="text-danger-600">(${{ balance|floatformat:2|slice:"1:" }})</span>
+                    <span class="text-danger-600">(₦{{ balance|floatformat:2|slice:"1:" }})</span>
                     {% endif %}
                     {% endwith %}
                 </p>
@@ -124,35 +124,24 @@
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-right text-sm">
                             {% if entry.entry_type == 'DEBIT' %}
-                            <span class="text-danger-600">${{ entry.amount|floatformat:2 }}</span>
+                            <span class="text-danger-600">₦{{ entry.amount|floatformat:2 }}</span>
                             {% else %}
                             —
                             {% endif %}
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-right text-sm">
                             {% if entry.entry_type == 'CREDIT' %}
-                            <span class="text-success-600">${{ entry.amount|floatformat:2 }}</span>
+                            <span class="text-success-600">₦{{ entry.amount|floatformat:2 }}</span>
                             {% else %}
                             —
                             {% endif %}
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium text-secondary-900">
-                            {% regroup entries by journal.date as date_groups %}
-                            {% for date_group in date_groups %}
-                                {% if date_group.grouper == entry.journal.date %}
-                                    {% for running_entry in date_group.list %}
-                                        {% if running_entry.pk == entry.pk %}
-                                            {% if running_entry.entry_type == 'DEBIT' %}
-                                            <span class="text-danger-600">${{ running_balance|add:running_entry.amount|floatformat:2 }}</span>
-                                            {% else %}
-                                            <span class="text-success-600">${{ running_balance|add:running_entry.amount|negate|floatformat:2 }}</span>
-                                            {% endif %}
-                                            {% with running_balance=running_balance|add:running_entry.amount|negate %}
-                                            {% endwith %}
-                                        {% endif %}
-                                    {% endfor %}
-                                {% endif %}
-                            {% endfor %}
+                            {% if entry.running_balance >= 0 %}
+                            <span class="text-success-600">₦{{ entry.running_balance|floatformat:2 }}</span>
+                            {% else %}
+                            <span class="text-danger-600">(₦{{ entry.running_balance|floatformat:2|slice:"1:" }})</span>
+                            {% endif %}
                         </td>
                     </tr>
                     {% endfor %}
@@ -164,21 +153,21 @@
                         </td>
                         <td class="px-6 py-3 whitespace-nowrap text-right text-sm">
                             <div class="font-bold text-danger-600">
-                                ${{ entries|sum:'amount'|filter:'entry_type=DEBIT'|floatformat:2|default:"0.00" }}
+                                ₦{{ total_debits|floatformat:2|default:"0.00" }}
                             </div>
                         </td>
                         <td class="px-6 py-3 whitespace-nowrap text-right text-sm">
                             <div class="font-bold text-success-600">
-                                ${{ entries|sum:'amount'|filter:'entry_type=CREDIT'|floatformat:2|default:"0.00" }}
+                                ₦{{ total_credits|floatformat:2|default:"0.00" }}
                             </div>
                         </td>
                         <td class="px-6 py-3 whitespace-nowrap text-right text-sm">
                             <div class="font-bold text-secondary-900">
                                 {% with balance=account.balance %}
                                 {% if balance >= 0 %}
-                                <span class="text-success-600">${{ balance|floatformat:2 }}</span>
+                                <span class="text-success-600">₦{{ balance|floatformat:2 }}</span>
                                 {% else %}
-                                <span class="text-danger-600">(${{ balance|floatformat:2|slice:"1:" }})</span>
+                                <span class="text-danger-600">(₦{{ balance|floatformat:2|slice:"1:" }})</span>
                                 {% endif %}
                                 {% endwith %}
                             </div>

@@ -190,6 +190,22 @@ def validate_account_balance(account, amount, entry_type):
                 )
 
 
+def get_entry_type_for_balance_adjustment(account, direction):
+    """
+    Determine debit/credit direction for increasing/decreasing an account balance.
+
+    direction: "INCREASE" or "DECREASE"
+    """
+    if direction not in {"INCREASE", "DECREASE"}:
+        raise ValidationError("direction must be INCREASE or DECREASE")
+
+    is_debit_normal = account.type in [Account.AccountType.ASSET, Account.AccountType.EXPENSE]
+
+    if direction == "INCREASE":
+        return "DEBIT" if is_debit_normal else "CREDIT"
+    return "CREDIT" if is_debit_normal else "DEBIT"
+
+
 def log_accounting_activity(
     user=None,
     action=None,
@@ -249,6 +265,7 @@ def create_journal_with_entries(
     source_object=None,
     ip_address=None,
     user_agent=None,
+    validate_balances=True,
 ):
     """
     Create a journal with multiple entries, including validation and audit logging.
@@ -264,6 +281,7 @@ def create_journal_with_entries(
         source_object: Source object for generic foreign key
         ip_address: User's IP address
         user_agent: User's browser agent
+        validate_balances: Whether to enforce account balance validation checks
 
     Returns:
         Created Journal instance
@@ -309,8 +327,9 @@ def create_journal_with_entries(
             amount = entry_data["amount"]
             memo = entry_data.get("memo", "")
 
-            # Validate account balance
-            validate_account_balance(account, amount, entry_type)
+            # Validate account balance (optional for system-driven postings)
+            if validate_balances:
+                validate_account_balance(account, amount, entry_type)
 
             JournalEntry.objects.create(
                 journal=journal,
@@ -332,15 +351,22 @@ def create_journal_with_entries(
         )
 
         # Auto-post if requested
-        if auto_post and user:
-            journal.submit_for_approval()
-            journal.approve(user)
-            journal.post(user)
+        if auto_post:
+            if user:
+                journal.submit_for_approval()
+                journal.approve(user)
+                journal.post(user)
 
-            # Use enhanced logging functions for posting
-            log_journal_posting(
-                journal, user, f"Auto-posted journal: {journal.transaction_number}"
-            )
+                # Use enhanced logging functions for posting
+                log_journal_posting(
+                    journal, user, f"Auto-posted journal: {journal.transaction_number}"
+                )
+            else:
+                # System-generated auto posting path
+                journal.status = Journal.JournalStatus.POSTED
+                journal.approved_at = timezone.now()
+                journal.posted_at = timezone.now()
+                journal.save(update_fields=["status", "approved_at", "posted_at"])
 
         return journal
 

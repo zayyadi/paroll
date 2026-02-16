@@ -9,11 +9,12 @@ from django.contrib.auth.decorators import (
 )
 from django.urls import reverse_lazy
 from django.core.paginator import Paginator
-from django.db.models import Q, Sum
+from django.db.models import Q, Sum, Case, When, IntegerField
 from django.views.generic import CreateView, UpdateView, DeleteView
 from django.contrib import messages
 from django.contrib.messages.views import SuccessMessageMixin
 from django.http import HttpResponseForbidden
+from django.contrib.contenttypes.models import ContentType
 from django.contrib.auth.mixins import (
     LoginRequiredMixin,
     PermissionRequiredMixin,
@@ -55,6 +56,7 @@ from payroll.models import (
 )
 from django.utils import timezone
 from accounting.models import Account
+from accounting.models import Journal
 from accounting.utils import create_journal_entry
 from accounting.permissions import (
     is_auditor,
@@ -62,10 +64,27 @@ from accounting.permissions import (
     can_modify_payroll_data,
 )
 from payroll import utils
+from company.utils import get_user_company
 
 CACHE_TTL = getattr(settings, "CACHE_TTL", DEFAULT_TIMEOUT)
 
 logger = logging.getLogger(__name__)
+
+
+def _get_payroll_close_journal_transaction_number(payroll_run):
+    if not payroll_run or not getattr(payroll_run, "pk", None):
+        return None
+    payroll_ct = ContentType.objects.get_for_model(PayrollRun)
+    journal = (
+        Journal.objects.filter(
+            content_type=payroll_ct,
+            object_id=payroll_run.pk,
+            description__startswith="Payroll for period:",
+        )
+        .order_by("-created_at")
+        .first()
+    )
+    return journal.transaction_number if journal else None
 
 
 def generate_payslip_pdf(payslip_data, template_path="pay/payslip_pdf.html"):
@@ -80,12 +99,16 @@ def generate_payslip_pdf(payslip_data, template_path="pay/payslip_pdf.html"):
 
 @permission_required("payroll.add_payroll", raise_exception=True)
 def add_pay(request):
-    form = PayrollForm(request.POST or None)
+    form = PayrollForm(request.POST or None, user=request.user)
+    company = get_user_company(request.user)
     if form.is_valid():
         employee = form.cleaned_data["employee"]
         basic_salary = form.cleaned_data["basic_salary"]
 
-        payroll_instance = Payroll.objects.create(basic_salary=basic_salary)
+        payroll_instance = Payroll.objects.create(
+            basic_salary=basic_salary,
+            company=company,
+        )
         employee.employee_pay = payroll_instance
         employee.save()
 
@@ -208,9 +231,8 @@ def dashboard(request):  # payroll admin dashboard
     if not can_view_payroll_data(request.user):
         return HttpResponseForbidden("You don't have permission to view payroll data.")
 
-    emp = (
-        EmployeeProfile.objects.all()
-    )  # Consider if this list needs to be permission controlled
+    company = get_user_company(request.user)
+    emp = EmployeeProfile.objects.filter(company=company) if company else []
     context = {
         "emp": emp,
         "empty_list": [],  # For empty for loop handling in templates
@@ -221,7 +243,8 @@ def dashboard(request):  # payroll admin dashboard
 
 @login_required
 def list_payslip(request, emp_slug):
-    emp = get_object_or_404(EmployeeProfile, slug=emp_slug)
+    company = get_user_company(request.user)
+    emp = get_object_or_404(EmployeeProfile, slug=emp_slug, company=company)
 
     # Check if user can view payroll data (auditors have view-only access)
     if not (
@@ -231,9 +254,13 @@ def list_payslip(request, emp_slug):
     ):
         raise HttpResponseForbidden("You are not authorized to view this payslip.")
 
-    pay = PayrollRunEntry.objects.filter(payroll_entry__pays__slug=emp_slug).all()
+    pay = PayrollRunEntry.objects.filter(
+        payroll_entry__pays__slug=emp_slug,
+        payroll_entry__company=company,
+    ).all()
     paydays = PayrollRunEntry.objects.filter(
-        payroll_entry__pays__slug=emp_slug
+        payroll_entry__pays__slug=emp_slug,
+        payroll_entry__company=company,
     ).values_list("payroll_run__paydays", flat=True)
     conv_date = [utils.convert_month_to_word(str(payday)) for payday in paydays]
     context = {
@@ -255,10 +282,12 @@ def payslips(request):
     try:
         employee_profile = request.user.employee_user
         pay = PayrollRunEntry.objects.filter(
-            payroll_entry__pays__user=request.user
+            payroll_entry__pays__user=request.user,
+            payroll_entry__company=employee_profile.company,
         ).all()
         paydays = PayrollRunEntry.objects.filter(
-            payroll_entry__pays__user=request.user
+            payroll_entry__pays__user=request.user,
+            payroll_entry__company=employee_profile.company,
         ).values_list("payroll_run__paydays", flat=True)
         conv_date = [utils.convert_month_to_word(str(payday)) for payday in paydays]
         context = {
@@ -278,7 +307,12 @@ def payslips(request):
 
 @login_required
 def payslip_detail(request, id):
-    pay_id = get_object_or_404(PayrollRunEntry, id=id)
+    company = get_user_company(request.user)
+    pay_id = get_object_or_404(
+        PayrollRunEntry,
+        id=id,
+        payroll_entry__company=company,
+    )
     # target_employee_user = pay_id.payroll_entry.pays.user
 
     # Check if user can view payroll data (auditors have view-only access)
@@ -438,26 +472,32 @@ class AddPay(
     # If custom logic within get/post is needed beyond form_valid, it can be kept.
     # For now, assuming standard CreateView. If issues arise, these can be re-evaluated.
     def form_valid(self, form):
-        # Save the PayrollRun instance first
-        self.object = form.save(commit=False)
-        self.object.save()  # Now save the PayrollRun instance to the database
-
-        # Handle the ManyToMany field with the 'through' model
-        selected_payvars = form.cleaned_data["payroll_payday"]
-        for payvar_obj in selected_payvars:
-            PayrollRunEntry.objects.create(
-                payroll_run=self.object, payroll_entry=payvar_obj
-            )
+        # Delegate persistence to form.save() so closure-posting sequencing and
+        # M2M handling remain consistent.
+        self.object = form.save()
 
         messages.success(
             self.request, "PayrollRunEntry (PayrollRun) created successfully!!"
         )
-        return super().form_valid(form)  # This will now just handle the redirect
+        if self.object.closed:
+            txn = _get_payroll_close_journal_transaction_number(self.object)
+            if txn:
+                messages.success(
+                    self.request,
+                    f"Payroll period closed and posted to ledger (Journal: {txn}).",
+                )
+            else:
+                messages.warning(
+                    self.request,
+                    "Payroll period marked closed, but no journal was found. Check Unposted Events report.",
+                )
+        return redirect(self.success_url)
 
 
 @permission_required("payroll.view_payrollrun", raise_exception=True)
 def varview(request):  # Lists PayrollRun objects (Pay Periods)
-    var = PayrollRun.objects.order_by("paydays").distinct("paydays")
+    company = get_user_company(request.user)
+    var = PayrollRun.objects.filter(company=company).order_by("paydays").distinct("paydays")
     dates = [
         utils.convert_month_to_word(str(varss.paydays)) for varss in var
     ]  # Access .paydays attribute
@@ -470,7 +510,8 @@ def varview(request):  # Lists PayrollRun objects (Pay Periods)
 
 @permission_required("payroll.view_payrollrun", raise_exception=True)
 def pay_period_list(request):
-    pay_periods = PayrollRun.objects.all().order_by("-paydays")  # Order by most recent
+    company = get_user_company(request.user)
+    pay_periods = PayrollRun.objects.filter(company=company).order_by("-paydays")
     paginator = Paginator(pay_periods, 15)  # Show 15 pay periods per page
     page_number = request.GET.get("page")
     page_obj = paginator.get_page(page_number)
@@ -479,7 +520,8 @@ def pay_period_list(request):
 
 @permission_required("payroll.view_payrollrun", raise_exception=True)
 def pay_period_detail(request, slug):
-    pay_period = get_object_or_404(PayrollRun, slug=slug)
+    company = get_user_company(request.user)
+    pay_period = get_object_or_404(PayrollRun, slug=slug, company=company)
     # Fetch related PayrollRunEntry entries if needed for detail view
     payday_entries = PayrollRunEntry.objects.filter(payroll_run=pay_period)
     context = {
@@ -499,6 +541,32 @@ class PayPeriodUpdateView(
     permission_required = "payroll.change_payrollrun"
     success_message = "Pay Period updated successfully."
 
+    def get_queryset(self):
+        return PayrollRun.objects.filter(company=get_user_company(self.request.user))
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["user"] = self.request.user
+        return kwargs
+
+    def form_valid(self, form):
+        was_closed = self.get_object().closed
+        response = super().form_valid(form)
+        now_closed = self.object.closed
+        if not was_closed and now_closed:
+            txn = _get_payroll_close_journal_transaction_number(self.object)
+            if txn:
+                messages.success(
+                    self.request,
+                    f"Payroll period closed and posted to ledger (Journal: {txn}).",
+                )
+            else:
+                messages.warning(
+                    self.request,
+                    "Payroll period marked closed, but no journal was found. Check Unposted Events report.",
+                )
+        return response
+
 
 class PayPeriodDeleteView(
     LoginRequiredMixin, PermissionRequiredMixin, SuccessMessageMixin, DeleteView
@@ -508,6 +576,9 @@ class PayPeriodDeleteView(
     success_url = reverse_lazy("payroll:pay_period_list")
     permission_required = "payroll.delete_payrollrun"
     success_message = "Pay Period deleted successfully."
+
+    def get_queryset(self):
+        return PayrollRun.objects.filter(company=get_user_company(self.request.user))
 
 
 @permission_required("payroll.add_leaverequest", raise_exception=True)
@@ -936,8 +1007,9 @@ def audit_trail_list(request):
 
 
 @permission_required("payroll.view_audittrail", raise_exception=True)
-def audit_trail_detail(request, pk):
-    log = get_object_or_404(AuditTrail, pk=pk)
+def audit_trail_detail(request, id=None, pk=None):
+    log_id = pk if pk is not None else id
+    log = get_object_or_404(AuditTrail, pk=log_id)
     return render(request, "pay/audit_trail_detail.html", {"log": log})
 
 
@@ -962,14 +1034,28 @@ def iou_list(request):  # This is a general list, should be protected
     #     # If it's for users to see their own, redirect to iou_history or filter by own
     #     # For now, let's assume this is an admin/HR view of ALL IOUs
     #     raise HttpResponseForbidden("You are not authorized to view this list.")
-    ious = IOU.objects.all()
-    print(f"ious: {ious}")
+    company = get_user_company(request.user)
+    ious = (
+        IOU.objects.filter(employee_id__company=company)
+        .annotate(
+            status_priority=Case(
+                When(status="PENDING", then=0),
+                When(status="APPROVED", then=1),
+                When(status="PAID", then=2),
+                When(status="REJECTED", then=3),
+                default=9,
+                output_field=IntegerField(),
+            )
+        )
+        .order_by("status_priority", "-created_at")
+    )
     return render(request, "iou/iou_list.html", {"ious": ious})
 
 
 @login_required  # Object-level permission logic inside
 def iou_detail(request, pk):
-    iou = get_object_or_404(IOU, pk=pk)
+    company = get_user_company(request.user)
+    iou = get_object_or_404(IOU, pk=pk, employee_id__company=company)
     if not (
         request.user == iou.employee_id.user
         or request.user.has_perm("payroll.view_iou")
@@ -991,8 +1077,9 @@ def payday_create_new(request):
     import json
 
     # Get all active employees with their related data
+    company = get_user_company(request.user)
     employees = (
-        EmployeeProfile.objects.filter(status="active")
+        EmployeeProfile.objects.filter(status="active", company=company)
         .select_related("user", "employee_pay", "department")
         .prefetch_related("allowances", "deductions")
     )
@@ -1019,14 +1106,14 @@ def payday_create_new(request):
     # Get unique departments and job titles for filters
     from payroll.models import Department
 
-    departments = Department.objects.all()
+    departments = Department.objects.filter(company=company)
     job_titles = EmployeeProfile._meta.get_field("job_title").choices
 
     if request.method == "POST":
         logger.info(f"Pay period create POST request received")
         logger.debug(f"POST data: {request.POST}")
 
-        form = PayrollRunCreateForm(request.POST)
+        form = PayrollRunCreateForm(request.POST, user=request.user)
         if not form.is_valid():
             logger.error(f"Form validation errors: {form.errors}")
         else:
@@ -1045,9 +1132,21 @@ def payday_create_new(request):
                 request,
                 f"Pay period '{payt.name}' created successfully with {employee_count} employees.",
             )
+            if payt.closed:
+                txn = _get_payroll_close_journal_transaction_number(payt)
+                if txn:
+                    messages.success(
+                        request,
+                        f"Payroll period closed and posted to ledger (Journal: {txn}).",
+                    )
+                else:
+                    messages.warning(
+                        request,
+                        "Payroll period marked closed, but no journal was found. Check Unposted Events report.",
+                    )
             return redirect("payroll:pay_period_detail", slug=payt.slug)
     else:
-        form = PayrollRunCreateForm()
+        form = PayrollRunCreateForm(user=request.user)
 
     context = {
         "form": form,
@@ -1070,8 +1169,9 @@ def payday_create(request):
     import json
 
     # Get all active employees with their related data
+    company = get_user_company(request.user)
     employees = (
-        EmployeeProfile.objects.filter(status="active")
+        EmployeeProfile.objects.filter(status="active", company=company)
         .select_related("user", "employee_pay", "department")
         .prefetch_related("allowances", "deductions")
     )
@@ -1098,11 +1198,11 @@ def payday_create(request):
     # Get unique departments and job titles for filters
     from payroll.models import Department
 
-    departments = Department.objects.all()
+    departments = Department.objects.filter(company=company)
     job_titles = EmployeeProfile._meta.get_field("job_title").choices
 
     if request.method == "POST":
-        form = PayrollRunForm(request.POST)
+        form = PayrollRunForm(request.POST, user=request.user)
         if form.is_valid():
             # Save the PayrollRun instance - the form handles ManyToMany automatically
             payt = form.save()
@@ -1114,9 +1214,21 @@ def payday_create(request):
                 request,
                 f"Pay period '{payt.name}' created successfully with {employee_count} employees.",
             )
+            if payt.closed:
+                txn = _get_payroll_close_journal_transaction_number(payt)
+                if txn:
+                    messages.success(
+                        request,
+                        f"Payroll period closed and posted to ledger (Journal: {txn}).",
+                    )
+                else:
+                    messages.warning(
+                        request,
+                        "Payroll period marked closed, but no journal was found. Check Unposted Events report.",
+                    )
             return redirect("payroll:pay_period_detail", slug=payt.slug)
     else:
-        form = PayrollRunForm()
+        form = PayrollRunForm(user=request.user)
 
     context = {
         "form": form,
@@ -1138,8 +1250,9 @@ def payvar_create_new(request):
     import json
 
     # Get all active employees with their related data
+    company = get_user_company(request.user)
     employees = (
-        EmployeeProfile.objects.filter(status="active")
+        EmployeeProfile.objects.filter(status="active", company=company)
         .select_related("user", "employee_pay", "department")
         .prefetch_related("allowances", "deductions")
     )
@@ -1166,11 +1279,11 @@ def payvar_create_new(request):
     # Get unique departments and job titles for filters
     from payroll.models import Department
 
-    departments = Department.objects.all()
+    departments = Department.objects.filter(company=company)
     job_titles = EmployeeProfile._meta.get_field("job_title").choices
 
     if request.method == "POST":
-        form = PayrollEntryCreateForm(request.POST)
+        form = PayrollEntryCreateForm(request.POST, user=request.user)
         if form.is_valid():
             # Use the custom save method that creates PayrollEntry entries
             payvars = form.save()
@@ -1184,7 +1297,7 @@ def payvar_create_new(request):
             )
             return redirect("payroll:varview")
     else:
-        form = PayrollEntryCreateForm()
+        form = PayrollEntryCreateForm(user=request.user)
 
     context = {
         "form": form,

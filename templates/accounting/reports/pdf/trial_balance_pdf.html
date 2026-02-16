@@ -100,11 +100,11 @@
     <div class="summary">
         <div class="summary-item">
             <span class="summary-label">Total Debits:</span>
-            <span class="summary-value text-danger">${{ trial_balance.values|sum:'debit_balance'|floatformat:2|default:"0.00" }}</span>
+            <span class="summary-value text-danger">₦{{ trial_balance.values|sum:'debit_balance'|floatformat:2|default:"0.00" }}</span>
         </div>
         <div class="summary-item">
             <span class="summary-label">Total Credits:</span>
-            <span class="summary-value text-success">${{ trial_balance.values|sum:'credit_balance'|floatformat:2|default:"0.00" }}</span>
+            <span class="summary-value text-success">₦{{ trial_balance.values|sum:'credit_balance'|floatformat:2|default:"0.00" }}</span>
         </div>
         <div class="summary-item">
             <span class="summary-label">Balanced:</span>
@@ -136,14 +136,14 @@
                 <td>{{ account_data.account.get_type_display }}</td>
                 <td class="text-right">
                     {% if account_data.debit_balance > 0 %}
-                    ${{ account_data.debit_balance|floatformat:2 }}
+                    ₦{{ account_data.debit_balance|floatformat:2 }}
                     {% else %}
                     —
                     {% endif %}
                 </td>
                 <td class="text-right">
                     {% if account_data.credit_balance > 0 %}
-                    ${{ account_data.credit_balance|floatformat:2 }}
+                    ₦{{ account_data.credit_balance|floatformat:2 }}
                     {% else %}
                     —
                     {% endif %}
@@ -154,8 +154,8 @@
         <tfoot>
             <tr class="font-bold">
                 <td colspan="3" class="text-right">Totals:</td>
-                <td class="text-right text-danger">${{ trial_balance.values|sum:'debit_balance'|floatformat:2|default:"0.00" }}</td>
-                <td class="text-right text-success">${{ trial_balance.values|sum:'credit_balance'|floatformat:2|default:"0.00" }}</td>
+                <td class="text-right text-danger">₦{{ trial_balance.values|sum:'debit_balance'|floatformat:2|default:"0.00" }}</td>
+                <td class="text-right text-success">₦{{ trial_balance.values|sum:'credit_balance'|floatformat:2|default:"0.00" }}</td>
             </tr>
         </tfoot>
     </table>

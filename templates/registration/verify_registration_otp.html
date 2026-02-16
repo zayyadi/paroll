@@ -1,34 +1,42 @@
-{% extends "base_auth.html" %}
-{% load crispy_forms_tags %}
+{% extends "base_auth_new.html" %}
+{% load static %}
 
-{% block title %}Verify Registration OTP{% endblock %}
+{% block page_title_in_head %}<title>Verify Registration OTP - PayrollCo</title>{% endblock %}
 
-{% block content %}
-<div class="flex items-center justify-center min-h-screen bg-gray-100">
-    <div class="px-8 py-6 mt-4 text-left bg-white shadow-lg">
-        <h3 class="text-2xl font-bold text-center">Verify Registration OTP</h3>
-        {% if messages %}
-            <ul class="messages">
-                {% for message in messages %}
-                    <li{% if message.tags %} class="{{ message.tags }}"{% endif %}>{{ message }}</li>
-                {% endfor %}
-            </ul>
-        {% endif %}
-        <form method="post">
-            {% csrf_token %}
-            <div class="mt-4">
-                <div>
-                    <label class="block" for="otp">OTP</label>
-                    <input type="text" name="otp" id="otp" placeholder="Enter OTP"
-                           class="w-full px-4 py-2 mt-2 border rounded-md focus:outline-none focus:ring-1 focus:ring-blue-600" required>
-                </div>
-                <input type="hidden" name="email" value="{{ email }}">
-                <div class="flex items-baseline justify-between">
-                    <button type="submit"
-                            class="px-6 py-2 mt-4 text-white bg-blue-600 rounded-lg hover:bg-blue-900">Verify</button>
-                </div>
-            </div>
-        </form>
+{% block auth_content %}
+<div class="bg-white shadow-xl rounded-2xl p-8 md:p-10 space-y-6">
+    <h2 class="text-2xl font-bold text-center text-gray-800">Verify your account</h2>
+    <p class="text-sm text-gray-600 text-center">
+        We sent an activation link and OTP to <span class="font-medium text-gray-800">{{ email }}</span>.
+        Use the link in your email first. If needed, enter OTP below.
+    </p>
+
+    <form method="post" class="space-y-4">
+        {% csrf_token %}
+        <div>
+            <label for="otp" class="block text-sm font-medium text-gray-700 mb-1">OTP</label>
+            <input type="text" name="otp" id="otp" maxlength="6" placeholder="Enter 6-digit OTP"
+                class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary text-sm"
+                required>
+            <input type="hidden" name="email" value="{{ email }}">
+        </div>
+        <button type="submit"
+            class="w-full px-6 py-3 bg-primary hover:bg-indigo-700 text-white font-semibold rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 text-sm">
+            Verify OTP
+        </button>
+    </form>
+
+    <form method="post" action="{% url 'users:resend_registration_activation' email=email %}">
+        {% csrf_token %}
+        <button type="submit"
+            class="w-full px-6 py-3 bg-white border border-gray-300 hover:bg-gray-50 text-gray-800 font-semibold rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-300 focus:ring-offset-2 text-sm">
+            Resend Activation Email
+        </button>
+    </form>
+
+    <div class="text-sm text-center text-gray-500">
+        Already activated?
+        <a href="{% url 'users:login' %}" class="font-medium text-primary hover:underline">Log in</a>.
     </div>
 </div>
 {% endblock %}

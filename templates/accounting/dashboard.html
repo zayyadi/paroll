@@ -147,6 +147,10 @@
                     <i data-lucide="folder-plus" class="mr-2 h-4 w-4"></i>
                     New Account
                 </a>
+                <a href="{% url 'accounting:balance_adjustment' %}" class="w-full inline-flex items-center justify-center px-4 py-2 border border-secondary-300 text-sm font-medium rounded-md text-secondary-700 bg-white hover:bg-secondary-50">
+                    <i data-lucide="scale" class="mr-2 h-4 w-4"></i>
+                    Adjust Balance
+                </a>
                 {% endif %}
                 {% if is_auditor %}
                 <a href="{% url 'accounting:journal_list' %}?status=PENDING_APPROVAL" class="w-full inline-flex items-center justify-center px-4 py-2 border border-primary-300 text-sm font-medium rounded-md text-primary-700 bg-primary-50 hover:bg-primary-100">
@@ -161,6 +165,10 @@
                 <a href="{% url 'accounting:reports' %}" class="w-full inline-flex items-center justify-center px-4 py-2 border border-secondary-300 text-sm font-medium rounded-md text-secondary-700 bg-white hover:bg-secondary-50">
                     <i data-lucide="file-text" class="mr-2 h-4 w-4"></i>
                     Generate Reports
+                </a>
+                <a href="{% url 'payroll:pay_period_list' %}" class="w-full inline-flex items-center justify-center px-4 py-2 border border-secondary-300 text-sm font-medium rounded-md text-secondary-700 bg-white hover:bg-secondary-50">
+                    <i data-lucide="calendar-range" class="mr-2 h-4 w-4"></i>
+                    View Pay Periods
                 </a>
             </div>
         </div>

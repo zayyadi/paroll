@@ -19,7 +19,7 @@
             </form>
             {% else %}
             <button type="button" disabled class="px-4 py-2 text-sm font-medium text-gray-400 bg-gray-200 rounded-lg cursor-not-allowed">Disconnect from GitHub</button>
-            <p class="text-xs text-red-600 mt-1">You must <a href="{% url 'users:password_change' %}" class="hover:underline">define a password</a> for your account before disconnecting from GitHub.</p> {# Changed users:password to users:password_change #}
+            <p class="text-xs text-red-600 mt-1">You must <a href="{% url 'users:password' %}" class="hover:underline">define a password</a> for your account before disconnecting from GitHub.</p>
             {% endif %}
         {% else %}
             <a href="{% url 'social:begin' 'github' %}" class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">Connect to GitHub</a>
@@ -37,7 +37,7 @@
             </form>
             {% else %}
             <button type="button" disabled class="px-4 py-2 text-sm font-medium text-gray-400 bg-gray-200 rounded-lg cursor-not-allowed">Disconnect from Twitter</button>
-            <p class="text-xs text-red-600 mt-1">You must <a href="{% url 'users:password_change' %}" class="hover:underline">define a password</a> for your account before disconnecting from Twitter.</p> {# Changed users:password to users:password_change #}
+            <p class="text-xs text-red-600 mt-1">You must <a href="{% url 'users:password' %}" class="hover:underline">define a password</a> for your account before disconnecting from Twitter.</p>
             {% endif %}
         {% else %}
             <a href="{% url 'social:begin' 'twitter' %}" class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">Connect to Twitter</a>
@@ -55,7 +55,7 @@
             </form>
             {% else %}
             <button type="button" disabled class="px-4 py-2 text-sm font-medium text-gray-400 bg-gray-200 rounded-lg cursor-not-allowed">Disconnect from Facebook</button>
-            <p class="text-xs text-red-600 mt-1">You must <a href="{% url 'users:password_change' %}" class="hover:underline">define a password</a> for your account before disconnecting from Facebook.</p> {# Changed users:password to users:password_change #}
+            <p class="text-xs text-red-600 mt-1">You must <a href="{% url 'users:password' %}" class="hover:underline">define a password</a> for your account before disconnecting from Facebook.</p>
             {% endif %}
         {% else %}
             <a href="{% url 'social:begin' 'facebook' %}" class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">Connect to Facebook</a>
@@ -63,7 +63,7 @@
     </div>
 
     <div class="border-t border-gray-200 pt-6 mt-6 text-center">
-         <a href="{% url 'users:password_change' %}" class="text-blue-600 hover:underline text-sm">Change Password</a>
+         <a href="{% url 'users:password' %}" class="text-blue-600 hover:underline text-sm">Change Password</a>
     </div>
 </div>
 {% endblock auth_content %}

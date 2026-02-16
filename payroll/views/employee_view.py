@@ -45,6 +45,7 @@ import json
 from django.core.cache.backends.base import DEFAULT_TIMEOUT
 
 from users import forms as user_forms
+from company.utils import get_user_company
 
 CACHE_TTL = getattr(settings, "CACHE_TTL", DEFAULT_TIMEOUT)
 
@@ -65,7 +66,7 @@ def get_employee_notifications(employee_profile):
     return notifications
 
 
-def get_recent_activities(limit=10):
+def get_recent_activities(limit=10, company=None):
     """
     Get recent activities across the system for the dashboard.
     Aggregates data from multiple sources to show a comprehensive activity feed.
@@ -100,8 +101,10 @@ def get_recent_activities(limit=10):
 
     activities = []
 
-    # Get recent employees added
-    recent_employees = models.EmployeeProfile.objects.order_by("-created")[:5]
+    recent_employees_qs = models.EmployeeProfile.objects
+    if company is not None:
+        recent_employees_qs = recent_employees_qs.filter(company=company)
+    recent_employees = recent_employees_qs.order_by("-created")[:5]
     for emp in recent_employees:
         emp_timestamp = to_datetime(emp.created)
         activities.append(
@@ -117,9 +120,10 @@ def get_recent_activities(limit=10):
         )
 
     # Get recent payroll processed (PayrollRun with is_active=True)
-    recent_payrolls = models.PayrollRun.objects.filter(is_active=True).order_by("-paydays")[
-        :5
-    ]
+    recent_payrolls_qs = models.PayrollRun.objects.filter(is_active=True)
+    if company is not None:
+        recent_payrolls_qs = recent_payrolls_qs.filter(company=company)
+    recent_payrolls = recent_payrolls_qs.order_by("-paydays")[:5]
     for payroll in recent_payrolls:
         payroll_timestamp = to_datetime(payroll.paydays)
         activities.append(
@@ -135,7 +139,10 @@ def get_recent_activities(limit=10):
         )
 
     # Get recent leave requests
-    recent_leaves = models.LeaveRequest.objects.order_by("-created_at")[:5]
+    recent_leaves_qs = models.LeaveRequest.objects
+    if company is not None:
+        recent_leaves_qs = recent_leaves_qs.filter(employee__company=company)
+    recent_leaves = recent_leaves_qs.order_by("-created_at")[:5]
     for leave in recent_leaves:
         leave_timestamp = to_datetime(leave.created_at)
         activities.append(
@@ -151,7 +158,10 @@ def get_recent_activities(limit=10):
         )
 
     # Get recent IOU requests
-    recent_ious = models.IOU.objects.order_by("-created_at")[:5]
+    recent_ious_qs = models.IOU.objects
+    if company is not None:
+        recent_ious_qs = recent_ious_qs.filter(employee_id__company=company)
+    recent_ious = recent_ious_qs.order_by("-created_at")[:5]
     for iou in recent_ious:
         iou_timestamp = to_datetime(iou.created_at)
         activities.append(
@@ -176,33 +186,37 @@ def get_recent_activities(limit=10):
 
 @login_required  # index and dashboard remain login_required for now, internal logic dictates content
 def index(request):
+    company = get_user_company(request.user)
     # Check if user is HR/Admin (superuser or has payroll permissions)
     if request.user.is_superuser or request.user.has_perm(
         "payroll.view_employeeprofile"
     ):
         # HR/Admin gets the current dashboard
-        pay = models.PayrollRun.objects.all()
-        pay_count = models.PayrollEntry.objects.aggregate(total=Sum("netpay"))[
+        pay = models.PayrollRun.objects.filter(company=company)
+        pay_count = models.PayrollEntry.objects.filter(company=company).aggregate(total=Sum("netpay"))[
             "total"
         ] or Decimal("0.00")
 
         # Get the most recent pay period
-        recent_pay_period = models.PayrollRun.objects.order_by("-paydays").first()
-        pending_leaves = models.LeaveRequest.objects.all().filter(
+        recent_pay_period = models.PayrollRun.objects.filter(company=company).order_by("-paydays").first()
+        pending_leaves = models.LeaveRequest.objects.filter(
+            employee__company=company,
             status="APPROVED",
         )
         # Calculate total for the most recent month
         if recent_pay_period:
             recent_month_total = models.PayrollRunEntry.objects.filter(
-                payroll_run=recent_pay_period
+                payroll_run=recent_pay_period,
+                payroll_entry__company=company,
             ).aggregate(total=Sum("payroll_entry__netpay"))["total"] or Decimal("0.00")
         else:
             recent_month_total = Decimal("0.00")
 
-        previous_pay_period = models.PayrollRun.objects.order_by("-paydays")[1:2].first()
+        previous_pay_period = models.PayrollRun.objects.filter(company=company).order_by("-paydays")[1:2].first()
         if previous_pay_period:
             previous_month_total = models.PayrollRunEntry.objects.filter(
-                payroll_run=previous_pay_period
+                payroll_run=previous_pay_period,
+                payroll_entry__company=company,
             ).aggregate(total=Sum("payroll_entry__netpay"))["total"] or Decimal("0.00")
 
             if previous_month_total > 0:
@@ -215,12 +229,15 @@ def index(request):
             previous_month_total = Decimal("0.00")
             percentage_increase = Decimal("0.00")
 
-        pay_periods = models.PayrollRun.objects.order_by("paydays")
+        pay_periods = models.PayrollRun.objects.filter(company=company).order_by("paydays")
         pay_period_data = []
         pay_period_labels = []
 
         for period in pay_periods:
-            total = models.PayrollRunEntry.objects.filter(payroll_run=period).aggregate(
+            total = models.PayrollRunEntry.objects.filter(
+                payroll_run=period,
+                payroll_entry__company=company,
+            ).aggregate(
                 total=Sum("payroll_entry__netpay")
             )["total"] or Decimal("0.00")
 
@@ -238,7 +255,8 @@ def index(request):
         # Calculate total payee (tax) paid in the most recent pay period
         if recent_pay_period:
             total_payee_paid = models.PayrollRunEntry.objects.filter(
-                payroll_run=recent_pay_period
+                payroll_run=recent_pay_period,
+                payroll_entry__company=company,
             ).aggregate(total=Sum("payroll_entry__pays__employee_pay__payee"))[
                 "total"
             ] or Decimal(
@@ -250,15 +268,16 @@ def index(request):
         # Calculate total payee paid (net pay) in the most recent pay period
         if recent_pay_period:
             total_payee_net_paid = models.PayrollRunEntry.objects.filter(
-                payroll_run=recent_pay_period
+                payroll_run=recent_pay_period,
+                payroll_entry__company=company,
             ).aggregate(total=Sum("payroll_entry__netpay"))["total"] or Decimal("0.00")
         else:
             total_payee_net_paid = Decimal("0.00")
 
         # Calculate department distribution for the department chart
-        department_distribution = models.EmployeeProfile.emp_objects.values(
-            "department__name"
-        ).annotate(count=Count("id"))
+        department_distribution = models.EmployeeProfile.emp_objects.filter(
+            company=company
+        ).values("department__name").annotate(count=Count("id"))
         department_labels = json.dumps(
             [
                 item["department__name"] if item["department__name"] else "Unassigned"
@@ -269,8 +288,8 @@ def index(request):
             [item["count"] for item in department_distribution]
         )
 
-        emp = models.EmployeeProfile.emp_objects.all()
-        leave = models.LeaveRequest.objects.all()
+        emp = models.EmployeeProfile.emp_objects.filter(company=company)
+        leave = models.LeaveRequest.objects.filter(employee__company=company)
         # iou = models.IOU.objects.all()
         count = emp.count()
 
@@ -294,7 +313,7 @@ def index(request):
             "pay_period_labels": pay_period_trend_data["labels"],
             "department_labels": department_labels,
             "department_counts": department_counts,
-            "recent_activities": get_recent_activities(limit=10),
+            "recent_activities": get_recent_activities(limit=10, company=company),
         }
         return render(request, "index.html", context)
     else:
@@ -433,8 +452,11 @@ def hr_dashboard(request):
     context = {
         "total_employees": total_employees,
         "active_leave_requests": pending_leave_requests_count,  # Original name, kept for compatibility
+        "leave_count": pending_leave_requests_count,  # Compatibility with dashboard template fallback
         "pending_leave_requests_count_for_link": pending_leave_requests_count,  # Explicit for new section
+        "iou_count": pending_iou_requests_count,  # Compatibility with dashboard template fallback
         "pending_iou_requests_count_for_link": pending_iou_requests_count,  # Explicit for new section
+        "allowance_count": models.Allowance.objects.count(),  # Compatibility with HR widgets
         "recent_performance_reviews": recent_performance_reviews,
         "department_labels": department_labels,
         "department_counts": department_counts,
@@ -448,11 +470,10 @@ def hr_dashboard(request):
 
 @permission_required("payroll.view_employeeprofile", raise_exception=True)
 def employee_list(request):
+    company = get_user_company(request.user)
     query = request.GET.get("q")
     department_filter = request.GET.get("department")
-    employees = (
-        models.EmployeeProfile.objects.all()
-    )  # Further filtering by query params
+    employees = models.EmployeeProfile.objects.filter(company=company)
     if query:
         employees = employees.filter(
             Q(user__first_name__icontains=query)
@@ -461,7 +482,7 @@ def employee_list(request):
         )
     if department_filter:
         employees = employees.filter(department__id=department_filter)
-    departments = models.Department.objects.all()
+    departments = models.Department.objects.filter(company=company)
     return render(
         request,
         "employee/employee_list_new.html",
@@ -473,12 +494,17 @@ def employee_list(request):
     ["payroll.add_employeeprofile", "users.add_customuser"], raise_exception=True
 )
 def add_employee(request):
+    company = get_user_company(request.user)
     if request.method == "POST":
         user_form = user_forms.CustomUserCreationForm(request.POST)
-        employee_form = EmployeeProfileForm(request.POST, request.FILES)
+        employee_form = EmployeeProfileForm(request.POST, request.FILES, user=request.user)
         if user_form.is_valid() and employee_form.is_valid():
-            user = user_form.save()
+            user = user_form.save(commit=False)
+            user.company = company
+            user.active_company = company
+            user.save()
             employee_profile = employee_form.save(commit=False)
+            employee_profile.company = company
             employee_profile.user = user
             employee_profile.email = user.email
             employee_profile.first_name = (
@@ -490,7 +516,7 @@ def add_employee(request):
             return redirect("payroll:employee_list")
     else:
         user_form = user_forms.CustomUserCreationForm()
-        employee_form = EmployeeProfileForm()
+        employee_form = EmployeeProfileForm(user=request.user)
     context = {"user_form": user_form, "employee_form": employee_form}
     return render(request, "employee/add_employee.html", context)
 
@@ -501,8 +527,9 @@ def input_id(request):  # No specific permissions, seems like a generic utility 
 
 @permission_required("payroll.change_employeeprofile", raise_exception=True)
 def update_employee(request, id):
-    employee = get_object_or_404(models.EmployeeProfile, id=id)
-    form = EmployeeProfileForm(request.POST or None, instance=employee)
+    company = get_user_company(request.user)
+    employee = get_object_or_404(models.EmployeeProfile, id=id, company=company)
+    form = EmployeeProfileForm(request.POST or None, instance=employee, user=request.user)
     if form.is_valid():
         form.save()
         messages.success(request, "Employee updated successfully!!")
@@ -556,7 +583,8 @@ def update_employee(request, id):
 
 @permission_required("payroll.delete_employeeprofile", raise_exception=True)
 def delete_employee(request, id):  # FBV for delete
-    employee_profile = get_object_or_404(models.EmployeeProfile, id=id)
+    company = get_user_company(request.user)
+    employee_profile = get_object_or_404(models.EmployeeProfile, id=id, company=company)
     employee_profile.delete()
     messages.success(request, "Employee deleted Successfully!!")
     return redirect("payroll:employee_list")  # Ensure redirect after delete

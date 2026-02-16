@@ -12,17 +12,21 @@ from django.contrib.auth.forms import (
 )
 from django.contrib.auth.forms import PasswordResetForm
 from django.core.cache import cache
+from django.conf import settings
 import random
 import string
+import logging
 from django.contrib.auth.views import PasswordResetView, PasswordResetConfirmView
 from django.urls import reverse_lazy
 from django.template.loader import render_to_string
 from django.utils.http import urlsafe_base64_encode
+from django.utils.http import urlsafe_base64_decode
 from django.contrib.sites.shortcuts import get_current_site  # For dynamic domain
 from django.contrib.auth.tokens import default_token_generator
 
 # from django.http import HttpResponseRedirect  # For returning from form_valid
 from django.utils.encoding import force_bytes
+from django.utils.encoding import force_str
 
 # from django.utils.encoding import force_str
 # from django.utils.http import urlsafe_base64_decode
@@ -33,6 +37,10 @@ from social_django.models import UserSocialAuth
 
 from users.forms import SignUpForm
 from users.models import CustomUser
+from company.models import Company
+from company.utils import set_active_company
+
+logger = logging.getLogger(__name__)
 
 
 class RegisterView(views.View):
@@ -52,6 +60,38 @@ class RegisterView(views.View):
 class MyLoginView(LoginView):
     template_name = "registration/login_new.html"
 
+    def _resolve_login_company(self, user):
+        if settings.MULTI_COMPANY_MEMBERSHIP_ENABLED:
+            memberships = user.company_memberships.select_related("company").filter(
+                company__is_active=True
+            )
+            if memberships.exists():
+                active_company = getattr(user, "active_company", None)
+                if active_company and memberships.filter(company=active_company).exists():
+                    return active_company
+
+                default_membership = memberships.filter(is_default=True).first()
+                if default_membership:
+                    return default_membership.company
+
+                if user.company_id and memberships.filter(company=user.company).exists():
+                    return user.company
+
+                return memberships.first().company
+
+            if user.company and user.company.is_active:
+                return user.company
+
+            if user.active_company and user.active_company.is_active:
+                return user.active_company
+
+            return None
+
+        company = user.company or user.active_company
+        if company and getattr(company, "is_active", True):
+            return company
+        return None
+
     def get_success_url(self):
         redirect_url = self.request.GET.get("next")
         if redirect_url:
@@ -60,6 +100,25 @@ class MyLoginView(LoginView):
         return reverse("payroll:index")
 
     def form_valid(self, form):
+        user = form.get_user()
+        company = self._resolve_login_company(user)
+        if company is None:
+            form.add_error(
+                None,
+                "Your account is not assigned to an active company. Contact your administrator.",
+            )
+            return self.form_invalid(form)
+
+        update_fields = []
+        if not user.company_id:
+            user.company = company
+            update_fields.append("company")
+        if user.active_company_id != company.id:
+            user.active_company = company
+            update_fields.append("active_company")
+        if update_fields:
+            user.save(update_fields=update_fields)
+
         remember_me = self.request.POST.get("remember")
         if not remember_me:
             self.request.session.set_expiry(0)
@@ -72,7 +131,7 @@ def social_login(request):
 
 
 @login_required
-def settings(request):
+def settings_view(request):
     user = request.user
 
     try:
@@ -206,11 +265,9 @@ class CustomPasswordResetView(PasswordResetView):
 
         messages.success(
             self.request,
-            "A password reset OTP has been sent to your email address. Please verify it to continue.",
+            "Password reset instructions have been sent to your email address.",
         )
-        return redirect(
-            reverse("users:verify_password_reset_otp", kwargs={"email": email})
-        )
+        return redirect(reverse("users:password_reset_done"))
 
 
 class CustomPasswordResetConfirmView(PasswordResetConfirmView):
@@ -239,6 +296,58 @@ def logout_view(request):
 
 def generate_otp():
     return "".join(random.choices(string.digits, k=6))
+
+
+def send_registration_activation_email(request, user):
+    otp_timeout = getattr(settings, "REGISTRATION_OTP_TIMEOUT_SECONDS", 600)
+    otp = generate_otp()
+    cache.set(f"registration_otp_{user.email}", otp, timeout=otp_timeout)
+
+    current_site = get_current_site(request)
+    uid = urlsafe_base64_encode(force_bytes(user.pk))
+    token = default_token_generator.make_token(user)
+    context = {
+        "user": user,
+        "first_name": user.first_name or user.email,
+        "domain": current_site.domain,
+        "uid": uid,
+        "token": token,
+        "login_url": f"{request.scheme}://{current_site.domain}{reverse('users:login')}",
+        "activation_url": f"{request.scheme}://{current_site.domain}{reverse('users:activate', kwargs={'uidb64': uid, 'token': token})}",
+        "otp": otp,
+    }
+
+    custom_send_mail(
+        "Activate Your Payroll Account",
+        "email/registration_email.html",
+        context,
+        DEFAULT_FROM_EMAIL,
+        [user.email],
+    )
+
+
+def get_resend_limit_status(email):
+    cooldown_seconds = getattr(settings, "REGISTRATION_RESEND_COOLDOWN_SECONDS", 60)
+    max_per_hour = getattr(settings, "REGISTRATION_RESEND_MAX_PER_HOUR", 5)
+    cooldown_key = f"registration_resend_cooldown_{email}"
+    count_key = f"registration_resend_count_{email}"
+
+    if cache.get(cooldown_key):
+        return False, (
+            f"Please wait {cooldown_seconds} seconds before requesting another "
+            "activation email."
+        )
+
+    resend_count = int(cache.get(count_key, 0))
+    if resend_count >= max_per_hour:
+        return (
+            False,
+            "Activation email resend limit reached. Please wait up to an hour.",
+        )
+
+    cache.set(cooldown_key, 1, timeout=cooldown_seconds)
+    cache.set(count_key, resend_count + 1, timeout=3600)
+    return True, None
 
 
 @login_required
@@ -290,37 +399,10 @@ class CustomRegisterView(RegisterView):
             user = form.save(commit=False)
             user.is_active = False  # Deactivate account until email is verified
             user.save()
-
-            current_site = get_current_site(request)
-            subject = "Activate Your Payroll Account"
-
-            # Generate OTP for registration confirmation
-            otp = generate_otp()
-            cache.set(
-                f"registration_otp_{user.email}", otp, timeout=600
-            )  # OTP valid for 10 minutes
-
-            context = {
-                "user": user,
-                "domain": current_site.domain,
-                "uid": urlsafe_base64_encode(force_bytes(user.pk)),
-                "token": self.token_generator.make_token(
-                    user
-                ),  # This token is for password reset, not direct activation
-                "login_url": f"{request.scheme}://{current_site.domain}{reverse('users:login')}",
-                "otp": otp,  # Pass OTP to the template
-            }
-
-            custom_send_mail(
-                subject,
-                "email/registration_email.html",  # Use a template that includes OTP
-                context,
-                DEFAULT_FROM_EMAIL,
-                [user.email],
-            )
+            send_registration_activation_email(request, user)
             messages.success(
                 request,
-                "Please confirm your email address with the OTP sent to your email to complete the registration.",
+                "Activation link sent to your email. You can use the OTP as fallback if needed.",
             )
             return redirect(
                 reverse("users:verify_registration_otp", kwargs={"email": user.email})
@@ -329,7 +411,14 @@ class CustomRegisterView(RegisterView):
 
 
 def verify_registration_otp_view(request, email):
-    user = CustomUser.objects.get(email=email)
+    user = CustomUser.objects.filter(email=email).first()
+    if user is None:
+        messages.error(request, "No account found for this email address.")
+        return redirect("users:register")
+    if user.is_active:
+        messages.info(request, "This account is already active. Please log in.")
+        return redirect("users:login")
+
     if request.method == "POST":
         user_otp = request.POST.get("otp")
         stored_otp = cache.get(f"registration_otp_{user.email}")
@@ -337,16 +426,100 @@ def verify_registration_otp_view(request, email):
         if stored_otp and stored_otp == user_otp:
             cache.delete(f"registration_otp_{user.email}")
             user.is_active = True
-            user.save()
+            user.save(update_fields=["is_active"])
+            logger.info("Registration OTP verified for user_id=%s", user.id)
             messages.success(
                 request, "Email verified successfully. You can now log in."
             )
             return redirect("users:login")
         else:
+            logger.warning(
+                "Invalid registration OTP attempt for email=%s ip=%s",
+                email,
+                request.META.get("REMOTE_ADDR"),
+            )
             messages.error(request, "Invalid or expired OTP.")
     return render(
         request, "registration/verify_registration_otp.html", {"email": email}
     )
+
+
+def activate_account_view(request, uidb64, token):
+    user = None
+    try:
+        uid = force_str(urlsafe_base64_decode(uidb64))
+        user = CustomUser.objects.filter(pk=uid).first()
+    except (TypeError, ValueError, OverflowError):
+        user = None
+
+    if user and default_token_generator.check_token(user, token):
+        if not user.is_active:
+            user.is_active = True
+            user.save(update_fields=["is_active"])
+            logger.info("Account activated by token for user_id=%s", user.id)
+        cache.delete(f"registration_otp_{user.email}")
+        messages.success(request, "Account activated. You can now log in.")
+        return redirect("users:login")
+    if user and user.is_active:
+        messages.info(request, "This account is already active. Please log in.")
+        return redirect("users:login")
+
+    timeout_seconds = getattr(settings, "PASSWORD_RESET_TIMEOUT", 60 * 60 * 24 * 3)
+    logger.warning(
+        "Invalid activation token for uidb64=%s ip=%s",
+        uidb64,
+        request.META.get("REMOTE_ADDR"),
+    )
+    return render(
+        request,
+        "registration/account_activation_invalid.html",
+        {"expiry_minutes": timeout_seconds // 60},
+        status=400,
+    )
+
+
+def resend_registration_activation_view(request, email):
+    if request.method != "POST":
+        return redirect(reverse("users:verify_registration_otp", kwargs={"email": email}))
+
+    user = CustomUser.objects.filter(email=email).first()
+    if user is None:
+        messages.error(request, "No account found for this email address.")
+        return redirect("users:register")
+    if user.is_active:
+        messages.info(request, "This account is already active. Please log in.")
+        return redirect("users:login")
+
+    allowed, message = get_resend_limit_status(email)
+    if not allowed:
+        messages.error(request, message)
+        return redirect(reverse("users:verify_registration_otp", kwargs={"email": email}))
+
+    send_registration_activation_email(request, user)
+    logger.info("Resent activation email for user_id=%s", user.id)
+    messages.success(request, "A new activation email and OTP have been sent.")
+    return redirect(reverse("users:verify_registration_otp", kwargs={"email": email}))
+
+
+@login_required
+def switch_company_view(request, company_id):
+    if request.method != "POST":
+        return redirect("payroll:index")
+
+    if not settings.MULTI_COMPANY_MEMBERSHIP_ENABLED:
+        messages.error(request, "Company switching is not enabled.")
+        return redirect("payroll:index")
+
+    company = Company.objects.filter(id=company_id, is_active=True).first()
+    if company is None:
+        messages.error(request, "Company not found.")
+        return redirect("payroll:index")
+
+    if set_active_company(request.user, company):
+        messages.success(request, f"Switched to {company.name}.")
+    else:
+        messages.error(request, "You do not have access to that company.")
+    return redirect("payroll:index")
 
 
 class CustomPasswordResetForm(PasswordResetForm):

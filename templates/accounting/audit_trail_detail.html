@@ -132,7 +132,7 @@
             </div>
             <div>
                 <p class="text-sm font-medium text-secondary-500">Current Balance</p>
-                <p class="text-sm text-secondary-900 mt-1">${{ audit_log.content_object.balance|floatformat:2 }}</p>
+                <p class="text-sm text-secondary-900 mt-1">₦{{ audit_log.content_object.balance|floatformat:2 }}</p>
             </div>
         </div>
         {% elif audit_log.content_type.model == 'fiscalyear' %}

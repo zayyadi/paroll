@@ -1,5 +1,6 @@
 {% extends "base_new.html" %}
 {% load static %}
+{% load humanize %}
 
 {% block extra_head %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -200,14 +201,14 @@
                 </div>
             </div>
         </a>
-        <a href="{% url 'payroll:pay_period_list' %}" class="group bg-white p-6 rounded-xl shadow-lg hover:shadow-xl hover:bg-pink-50 transition-all duration-300 ease-in-out transform hover:-translate-y-1"> {# Placeholder URL payroll:manage_pay_variables #}
+        <a href="{% url 'payroll:pay_period_list' %}" class="group bg-white p-6 rounded-xl shadow-lg hover:shadow-xl hover:bg-pink-50 transition-all duration-300 ease-in-out transform hover:-translate-y-1">
             <div class="flex items-center space-x-4">
                 <div class="flex-shrink-0 p-3 bg-pink-100 group-hover:bg-pink-500 rounded-lg transition-colors duration-300">
-                    <i data-lucide="sliders-horizontal" class="text-pink-600 group-hover:text-white w-7 h-7 transition-colors duration-300"></i>
+                    <i data-lucide="calendar-range" class="text-pink-600 group-hover:text-white w-7 h-7 transition-colors duration-300"></i>
                 </div>
                 <div>
-                    <h3 class="text-lg font-semibold text-gray-800">Pay Variables</h3>
-                    <p class="text-sm text-gray-500">Manage allowances, deductions, etc.</p>
+                    <h3 class="text-lg font-semibold text-gray-800">Pay Periods List</h3>
+                    <p class="text-sm text-gray-500">View all payroll periods and their status.</p>
                 </div>
             </div>
         </a>

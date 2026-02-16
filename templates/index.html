@@ -190,7 +190,7 @@
         <p class="text-3xl font-bold text-gray-900 dark:text-white mt-2">{{ pay_count }}</p>
         <div class="mt-4 flex items-center text-sm">
             <span class="text-gray-500 dark:text-gray-400">This month:</span>
-            <span class="ml-2 font-medium text-gray-900 dark:text-white">${{ recent_month_total|floatformat:"2"|intcomma }}</span>
+            <span class="ml-2 font-medium text-gray-900 dark:text-white">₦{{ recent_month_total|floatformat:"2"|intcomma }}</span>
         </div>
     </div>
     
@@ -222,18 +222,18 @@
             </span>
         </div>
         <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400">Total Payroll</h3>
-        <p class="text-3xl font-bold text-gray-900 dark:text-white mt-2">${{ pay_count|floatformat:"2"|intcomma }}</p>
+        <p class="text-3xl font-bold text-gray-900 dark:text-white mt-2">₦{{ pay_count|floatformat:"2"|intcomma }}</p>
         <div class="mt-4 flex items-center text-sm">
             <span class="text-gray-500 dark:text-gray-400">This month:</span>
-            <span class="ml-2 font-medium text-gray-900 dark:text-white">${{ recent_month_total|floatformat:"2"|intcomma }}</span>
+            <span class="ml-2 font-medium text-gray-900 dark:text-white">₦{{ recent_month_total|floatformat:"2"|intcomma }}</span>
         </div>
         <div class="mt-2 flex items-center text-sm">
             <span class="text-gray-500 dark:text-gray-400">Payee (tax):</span>
-            <span class="ml-2 font-medium text-gray-900 dark:text-white">${{ total_payee_paid|floatformat:"2"|intcomma }}</span>
+            <span class="ml-2 font-medium text-gray-900 dark:text-white">₦{{ total_payee_paid|floatformat:"2"|intcomma }}</span>
         </div>
         <div class="mt-2 flex items-center text-sm">
             <span class="text-gray-500 dark:text-gray-400">Payee (net):</span>
-            <span class="ml-2 font-medium text-gray-900 dark:text-white">${{ total_payee_net_paid|floatformat:"2"|intcomma }}</span>
+            <span class="ml-2 font-medium text-gray-900 dark:text-white">₦{{ total_payee_net_paid|floatformat:"2"|intcomma }}</span>
         </div>
     </div>
 </div>

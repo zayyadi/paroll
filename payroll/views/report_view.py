@@ -19,6 +19,7 @@ from payroll.models import (
     EmployeeProfile,
 )
 from payroll import utils
+from company.utils import get_user_company
 from num2words import num2words
 from weasyprint import HTML
 import xlwt
@@ -32,7 +33,8 @@ CACHE_TTL = getattr(settings, "CACHE_TTL", DEFAULT_TIMEOUT)
 @login_required
 @cache_page(CACHE_TTL)
 def payslip(request, id):
-    pay_id = get_object_or_404(PayrollRunEntry, id=id)
+    company = get_user_company(request.user)
+    pay_id = get_object_or_404(PayrollRunEntry, id=id, payroll_entry__company=company)
     target_employee_user = pay_id.payroll_entry.pays.user
     if not (
         request.user == target_employee_user
@@ -121,8 +123,12 @@ def varview_report(request, paydays):
     if not pay_period_date_obj:
         raise Http404("Invalid date format for pay period.")
 
-    var = PayrollRunEntry.objects.filter(payroll_run__paydays=pay_period_date_obj)
-    varx = get_object_or_404(PayrollRun, paydays=pay_period_date_obj)  # Use get_object_or_404
+    company = get_user_company(request.user)
+    var = PayrollRunEntry.objects.filter(
+        payroll_run__paydays=pay_period_date_obj,
+        payroll_entry__company=company,
+    )
+    varx = get_object_or_404(PayrollRun, paydays=pay_period_date_obj, company=company)
     dates = utils.convert_month_to_word(str(varx.paydays))  # Use varx.paydays
     paydays_total = var.aggregate(
         Sum("payroll_entry__netpay")
@@ -139,7 +145,8 @@ def varview_report(request, paydays):
 
 @login_required
 def payslip_pdf(request, id):  # id here is EmployeeProfile.id
-    target_employee_profile = get_object_or_404(EmployeeProfile, id=id)
+    company = get_user_company(request.user)
+    target_employee_profile = get_object_or_404(EmployeeProfile, id=id, company=company)
     if not (
         request.user == target_employee_profile.user
         or request.user.has_perm("payroll.view_payroll")
@@ -174,7 +181,8 @@ def payslip_pdf(request, id):  # id here is EmployeeProfile.id
 @permission_required("payroll.view_payrollrun", raise_exception=True)
 @cache_page(CACHE_TTL)
 def bank_reports(request):
-    payroll = PayrollRun.objects.order_by("paydays").distinct("paydays")
+    company = get_user_company(request.user)
+    payroll = PayrollRun.objects.filter(company=company).order_by("paydays").distinct("paydays")
     dates = [
         utils.convert_month_to_word(str(varss.paydays)) for varss in payroll
     ]  # Access .paydays
@@ -186,10 +194,12 @@ def bank_reports(request):
 @permission_required("payroll.view_payrollrun", raise_exception=True)
 @cache_page(CACHE_TTL)
 def bank_report(request, pay_id):  # pay_id here is PayrollRun.id
-    pay_period_obj = get_object_or_404(PayrollRun, id=pay_id)
+    company = get_user_company(request.user)
+    pay_period_obj = get_object_or_404(PayrollRun, id=pay_id, company=company)
     payroll_data = PayrollRunEntry.objects.filter(
-        payroll_run=pay_period_obj
-    )  # Filter PayrollRunEntry by PayrollRun object
+        payroll_run=pay_period_obj,
+        payroll_entry__company=company,
+    )
     dates = utils.convert_month_to_word(str(pay_period_obj.paydays))
     netpay_total = payroll_data.aggregate(Sum("payroll_entry__netpay"))
     return render(
@@ -205,7 +215,8 @@ def bank_report(request, pay_id):  # pay_id here is PayrollRun.id
 
 @permission_required("payroll.view_payrollrun", raise_exception=True)
 def bank_report_download(request, pay_id):
-    pay_period = get_object_or_404(PayrollRun, id=pay_id)
+    company = get_user_company(request.user)
+    pay_period = get_object_or_404(PayrollRun, id=pay_id, company=company)
     columns = [
         "Employee No",
         "Employee First Name",
@@ -215,7 +226,10 @@ def bank_report_download(request, pay_id):
         "Employee Bank Account No.",
         "Net Pay",
     ]
-    data_rows = PayrollRunEntry.objects.filter(payroll_run_id=pay_id).values_list(
+    data_rows = PayrollRunEntry.objects.filter(
+        payroll_run_id=pay_id,
+        payroll_entry__company=company,
+    ).values_list(
         "payroll_entry__pays__emp_id",
         "payroll_entry__pays__first_name",
         "payroll_entry__pays__last_name",
@@ -238,7 +252,8 @@ def bank_report_download(request, pay_id):
 @permission_required("payroll.view_payrollrun", raise_exception=True)
 @cache_page(CACHE_TTL)
 def nhis_reports(request):
-    payroll = PayrollRun.objects.order_by("paydays").distinct("paydays")
+    company = get_user_company(request.user)
+    payroll = PayrollRun.objects.filter(company=company).order_by("paydays").distinct("paydays")
     dates = [
         utils.convert_month_to_word(str(varss.paydays)) for varss in payroll
     ]  # Access .paydays
@@ -250,8 +265,12 @@ def nhis_reports(request):
 @permission_required("payroll.view_payrollrun", raise_exception=True)
 @cache_page(CACHE_TTL)
 def nhis_report(request, pay_id):
-    pay_period_obj = get_object_or_404(PayrollRun, id=pay_id)
-    payroll_data = PayrollRunEntry.objects.filter(payroll_run=pay_period_obj)
+    company = get_user_company(request.user)
+    pay_period_obj = get_object_or_404(PayrollRun, id=pay_id, company=company)
+    payroll_data = PayrollRunEntry.objects.filter(
+        payroll_run=pay_period_obj,
+        payroll_entry__company=company,
+    )
     dates = utils.convert_month_to_word(str(pay_period_obj.paydays))
     nhis_total = payroll_data.aggregate(Sum("payroll_entry__nhif"))
     return render(
@@ -267,7 +286,8 @@ def nhis_report(request, pay_id):
 
 @permission_required("payroll.view_payrollrun", raise_exception=True)
 def nhis_report_download(request, pay_id):
-    pay_period = get_object_or_404(PayrollRun, id=pay_id)
+    company = get_user_company(request.user)
+    pay_period = get_object_or_404(PayrollRun, id=pay_id, company=company)
     columns = [
         "EmpNo",
         "Emp First_Name",
@@ -276,7 +296,10 @@ def nhis_report_download(request, pay_id):
         "Account No.",
         "Health insurance payment",
     ]
-    data_rows = PayrollRunEntry.objects.filter(payroll_run_id=pay_id).values_list(
+    data_rows = PayrollRunEntry.objects.filter(
+        payroll_run_id=pay_id,
+        payroll_entry__company=company,
+    ).values_list(
         "payroll_entry__pays__emp_id",
         "payroll_entry__pays__first_name",
         "payroll_entry__pays__last_name",
@@ -298,7 +321,8 @@ def nhis_report_download(request, pay_id):
 @permission_required("payroll.view_payrollrun", raise_exception=True)
 @cache_page(CACHE_TTL)
 def nhf_reports(request):
-    payroll = PayrollRun.objects.order_by("paydays").distinct("paydays")
+    company = get_user_company(request.user)
+    payroll = PayrollRun.objects.filter(company=company).order_by("paydays").distinct("paydays")
     dates = [
         utils.convert_month_to_word(str(varss.paydays)) for varss in payroll
     ]  # Access .paydays
@@ -308,8 +332,12 @@ def nhf_reports(request):
 @permission_required("payroll.view_payrollrun", raise_exception=True)
 @cache_page(CACHE_TTL)
 def nhf_report(request, pay_id):
-    pay_period_obj = get_object_or_404(PayrollRun, id=pay_id)
-    payroll_data = PayrollRunEntry.objects.filter(payroll_run=pay_period_obj)
+    company = get_user_company(request.user)
+    pay_period_obj = get_object_or_404(PayrollRun, id=pay_id, company=company)
+    payroll_data = PayrollRunEntry.objects.filter(
+        payroll_run=pay_period_obj,
+        payroll_entry__company=company,
+    )
     dates = utils.convert_month_to_word(str(pay_period_obj.paydays))
     nhf_total = payroll_data.aggregate(Sum("payroll_entry__nhf"))
     return render(
@@ -325,7 +353,8 @@ def nhf_report(request, pay_id):
 
 @permission_required("payroll.view_payrollrun", raise_exception=True)
 def nhf_report_download(request, pay_id):
-    pay_period = get_object_or_404(PayrollRun, id=pay_id)
+    company = get_user_company(request.user)
+    pay_period = get_object_or_404(PayrollRun, id=pay_id, company=company)
     columns = [
         "EmpNo",
         "Emp First_Name",
@@ -334,7 +363,10 @@ def nhf_report_download(request, pay_id):
         "Account No.",
         "National Housing Fund payment",
     ]
-    data_rows = PayrollRunEntry.objects.filter(payroll_run_id=pay_id).values_list(
+    data_rows = PayrollRunEntry.objects.filter(
+        payroll_run_id=pay_id,
+        payroll_entry__company=company,
+    ).values_list(
         "payroll_entry__pays__emp_id",
         "payroll_entry__pays__first_name",
         "payroll_entry__pays__last_name",
@@ -358,7 +390,8 @@ def nhf_report_download(request, pay_id):
 )  # Assuming these list PayrollRun periods for selection
 @cache_page(CACHE_TTL)
 def payee_reports(request):
-    payroll = PayrollRun.objects.order_by("paydays").distinct("paydays")
+    company = get_user_company(request.user)
+    payroll = PayrollRun.objects.filter(company=company).order_by("paydays").distinct("paydays")
     dates = [
         utils.convert_month_to_word(str(varss.paydays)) for varss in payroll
     ]  # Access .paydays
@@ -372,8 +405,12 @@ def payee_reports(request):
 )  # Specific report for a PayrollRun period
 @cache_page(CACHE_TTL)
 def payee_report(request, pay_id):
-    pay_period_obj = get_object_or_404(PayrollRun, id=pay_id)
-    payroll_data = PayrollRunEntry.objects.filter(payroll_run=pay_period_obj)
+    company = get_user_company(request.user)
+    pay_period_obj = get_object_or_404(PayrollRun, id=pay_id, company=company)
+    payroll_data = PayrollRunEntry.objects.filter(
+        payroll_run=pay_period_obj,
+        payroll_entry__company=company,
+    )
     dates = utils.convert_month_to_word(str(pay_period_obj.paydays))
     payee_total = payroll_data.aggregate(Sum("payroll_entry__pays__employee_pay__payee"))
     return render(
@@ -389,7 +426,8 @@ def payee_report(request, pay_id):
 
 @permission_required("payroll.view_payrollrun", raise_exception=True)
 def payee_report_download(request, pay_id):
-    pay_period = get_object_or_404(PayrollRun, id=pay_id)
+    company = get_user_company(request.user)
+    pay_period = get_object_or_404(PayrollRun, id=pay_id, company=company)
     columns = [
         "EmpNo",
         "Employee First_Name",
@@ -398,7 +436,10 @@ def payee_report_download(request, pay_id):
         "Gross Pay",
         "Payee Amount",
     ]
-    data_rows = PayrollRunEntry.objects.filter(payroll_run_id=pay_id).values_list(
+    data_rows = PayrollRunEntry.objects.filter(
+        payroll_run_id=pay_id,
+        payroll_entry__company=company,
+    ).values_list(
         "payroll_entry__pays__emp_id",
         "payroll_entry__pays__first_name",
         "payroll_entry__pays__last_name",
@@ -422,7 +463,8 @@ def payee_report_download(request, pay_id):
 )  # Assuming these list PayrollRun periods
 @cache_page(CACHE_TTL)
 def pension_reports(request):
-    payroll = PayrollRun.objects.order_by("paydays").distinct("paydays")
+    company = get_user_company(request.user)
+    payroll = PayrollRun.objects.filter(company=company).order_by("paydays").distinct("paydays")
     dates = [
         utils.convert_month_to_word(str(varss.paydays)) for varss in payroll
     ]  # Access .paydays
@@ -436,8 +478,12 @@ def pension_reports(request):
 )  # Specific report for a PayrollRun period
 @cache_page(CACHE_TTL)
 def pension_report(request, pay_id):
-    pay_period_obj = get_object_or_404(PayrollRun, id=pay_id)
-    payroll_data = PayrollRunEntry.objects.filter(payroll_run=pay_period_obj)
+    company = get_user_company(request.user)
+    pay_period_obj = get_object_or_404(PayrollRun, id=pay_id, company=company)
+    payroll_data = PayrollRunEntry.objects.filter(
+        payroll_run=pay_period_obj,
+        payroll_entry__company=company,
+    )
     dates = utils.convert_month_to_word(str(pay_period_obj.paydays))
     pension_total = payroll_data.aggregate(
         Sum("payroll_entry__pays__employee_pay__pension")
@@ -455,7 +501,8 @@ def pension_report(request, pay_id):
 
 @permission_required("payroll.view_payrollrun", raise_exception=True)
 def pension_report_download(request, pay_id):
-    pay_period = get_object_or_404(PayrollRun, id=pay_id)
+    company = get_user_company(request.user)
+    pay_period = get_object_or_404(PayrollRun, id=pay_id, company=company)
     columns = [
         "EmpNo",
         "Employee First_Name",
@@ -464,7 +511,10 @@ def pension_report_download(request, pay_id):
         "Gross Pay",
         "Total Pension Contribution",
     ]
-    data_rows = PayrollRunEntry.objects.filter(payroll_run_id=pay_id).values_list(
+    data_rows = PayrollRunEntry.objects.filter(
+        payroll_run_id=pay_id,
+        payroll_entry__company=company,
+    ).values_list(
         "payroll_entry__pays__emp_id",
         "payroll_entry__pays__first_name",
         "payroll_entry__pays__last_name",
@@ -488,7 +538,8 @@ def varview_download(request, paydays):
     pay_period_date_obj = utils.try_parse_date(paydays)
     if not pay_period_date_obj:
         raise Http404("Invalid date format for pay period.")
-    pay_period = get_object_or_404(PayrollRun, paydays=pay_period_date_obj)
+    company = get_user_company(request.user)
+    pay_period = get_object_or_404(PayrollRun, paydays=pay_period_date_obj, company=company)
     columns = [
         "Employee First_Name",
         "Employee Last Name",
@@ -498,7 +549,10 @@ def varview_download(request, paydays):
         "Pension Contribution",
         "Net Pay",
     ]
-    data_rows = PayrollRunEntry.objects.filter(payroll_run=pay_period).values_list(
+    data_rows = PayrollRunEntry.objects.filter(
+        payroll_run=pay_period,
+        payroll_entry__company=company,
+    ).values_list(
         "payroll_entry__pays__first_name",
         "payroll_entry__pays__last_name",
         "payroll_entry__pays__employee_pay__basic_salary",
