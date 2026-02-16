@@ -80,7 +80,7 @@
                             {{ fiscal_year.periods.count }}
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-secondary-900">
-                            {{ fiscal_year.periods.all|aggregate:Sum('journals__count')|default:0 }}
+                            {{ fiscal_year.journal_count|default:0 }}
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                             <div class="flex items-center justify-end space-x-2">

@@ -44,11 +44,11 @@
             <div class="flex items-center space-x-4">
                 <div class="text-sm">
                     <span class="font-medium text-secondary-900">Total Debits:</span>
-                    <span class="font-bold text-danger-600">${{ trial_balance.values|sum:'debit_balance'|floatformat:2|default:"0.00" }}</span>
+                    <span class="font-bold text-danger-600">₦{{ trial_balance.values|sum:'debit_balance'|floatformat:2|default:"0.00" }}</span>
                 </div>
                 <div class="text-sm">
                     <span class="font-medium text-secondary-900">Total Credits:</span>
-                    <span class="font-bold text-success-600">${{ trial_balance.values|sum:'credit_balance'|floatformat:2|default:"0.00" }}</span>
+                    <span class="font-bold text-success-600">₦{{ trial_balance.values|sum:'credit_balance'|floatformat:2|default:"0.00" }}</span>
                 </div>
                 <div class="text-sm">
                     <span class="font-medium text-secondary-900">Balanced:</span>
@@ -106,14 +106,14 @@
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium text-secondary-900">
                             {% if account_data.debit_balance > 0 %}
-                            <span class="text-danger-600">${{ account_data.debit_balance|floatformat:2 }}</span>
+                            <span class="text-danger-600">₦{{ account_data.debit_balance|floatformat:2 }}</span>
                             {% else %}
                             —
                             {% endif %}
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium text-secondary-900">
                             {% if account_data.credit_balance > 0 %}
-                            <span class="text-success-600">${{ account_data.credit_balance|floatformat:2 }}</span>
+                            <span class="text-success-600">₦{{ account_data.credit_balance|floatformat:2 }}</span>
                             {% else %}
                             —
                             {% endif %}
@@ -127,10 +127,10 @@
                             Totals:
                         </td>
                         <td class="px-6 py-3 whitespace-nowrap text-right text-sm">
-                            <div class="font-bold text-danger-600">${{ trial_balance.values|sum:'debit_balance'|floatformat:2|default:"0.00" }}</div>
+                            <div class="font-bold text-danger-600">₦{{ trial_balance.values|sum:'debit_balance'|floatformat:2|default:"0.00" }}</div>
                         </td>
                         <td class="px-6 py-3 whitespace-nowrap text-right text-sm">
-                            <div class="font-bold text-success-600">${{ trial_balance.values|sum:'credit_balance'|floatformat:2|default:"0.00" }}</div>
+                            <div class="font-bold text-success-600">₦{{ trial_balance.values|sum:'credit_balance'|floatformat:2|default:"0.00" }}</div>
                         </td>
                     </tr>
                 </tfoot>

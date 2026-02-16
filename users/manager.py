@@ -1,4 +1,5 @@
 from django.contrib.auth.base_user import BaseUserManager
+from django.conf import settings
 from django.utils.translation import gettext_lazy as _
 
 
@@ -14,10 +15,25 @@ class CustomUserManager(BaseUserManager):
         """
         if not email:
             raise ValueError(_("The Email must be set"))
+        if not extra_fields.get("company"):
+            from company.models import Company
+
+            company, created = Company.objects.get_or_create(name="Default Company")
+            extra_fields["company"] = company
+        if not extra_fields.get("active_company"):
+            extra_fields["active_company"] = extra_fields["company"]
         email = self.normalize_email(email)
         user = self.model(email=email, **extra_fields)
         user.set_password(password)
         user.save()
+        if settings.MULTI_COMPANY_MEMBERSHIP_ENABLED:
+            from company.models import CompanyMembership
+
+            CompanyMembership.objects.get_or_create(
+                user=user,
+                company=user.active_company or user.company,
+                defaults={"is_default": True},
+            )
         return user
 
     def create_superuser(self, email, password, **extra_fields):

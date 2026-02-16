@@ -29,6 +29,14 @@ class PayrollManager(models.Manager):
 
 
 class Payroll(models.Model):
+    company = models.ForeignKey(
+        "company.Company",
+        on_delete=models.CASCADE,
+        related_name="payroll_configs",
+        null=True,
+        blank=True,
+        db_index=True,
+    )
     basic_salary = models.DecimalField(
         max_digits=12,
         decimal_places=2,
@@ -283,6 +291,14 @@ class PayrollEntryManager(models.Manager):
 
 
 class PayrollEntry(models.Model):
+    company = models.ForeignKey(
+        "company.Company",
+        on_delete=models.CASCADE,
+        related_name="payroll_entries",
+        null=True,
+        blank=True,
+        db_index=True,
+    )
     pays = models.ForeignKey(
         EmployeeProfile, related_name="pays", on_delete=models.CASCADE
     )
@@ -376,7 +392,6 @@ class PayrollEntry(models.Model):
     def get_netpay(self):
         if not self.pays.net_pay:
             return Decimal(0.0)
-        print(f"pays: {self.pays.net_pay}")
         return (
             self.pays.net_pay
             + self.calc_allowance
@@ -387,6 +402,8 @@ class PayrollEntry(models.Model):
         )
 
     def save(self, *args, **kwargs):
+        if self.pays and self.pays.company_id and not self.company_id:
+            self.company_id = self.pays.company_id
         self.netpay = self.get_netpay
         super(PayrollEntry, self).save(*args, **kwargs)
 
@@ -397,13 +414,19 @@ class PayManager(models.Manager):
 
 
 class PayrollRun(models.Model):
+    company = models.ForeignKey(
+        "company.Company",
+        on_delete=models.CASCADE,
+        related_name="payroll_runs",
+        null=True,
+        blank=True,
+        db_index=True,
+    )
     name = models.CharField(
         max_length=50,
-        unique=True,
         default="test",
     )
     slug = models.SlugField(
-        unique=True,
         max_length=255,
         editable=False,
         db_index=True,
@@ -423,6 +446,7 @@ class PayrollRun(models.Model):
 
     class Meta:
         verbose_name_plural = "Payroll Runs"
+        unique_together = (("company", "name"), ("company", "slug"))
 
     def get_absolute_url(self):
         from django.urls import reverse
@@ -439,6 +463,10 @@ class PayrollRun(models.Model):
 
     def save(self, *args, **kwargs):
         from django.utils.text import slugify
+
+        first_entry = self.payroll_payday.first() if self.pk else None
+        if first_entry and first_entry.company_id and not self.company_id:
+            self.company_id = first_entry.company_id
 
         if not self.slug:
             # Generate slug from paydays field (YYYY-MM format)

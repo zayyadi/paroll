@@ -1,7 +1,9 @@
 from django import forms
 from django.forms import formset_factory
 from django.forms.models import inlineformset_factory
+from django.utils import timezone
 from .models import Account, Journal, JournalEntry, FiscalYear, AccountingPeriod
+from .utils import get_entry_type_for_balance_adjustment
 
 
 class AccountForm(forms.ModelForm):
@@ -13,7 +15,30 @@ class AccountForm(forms.ModelForm):
         model = Account
         fields = ["name", "account_number", "type", "description"]
         widgets = {
-            "description": forms.Textarea(attrs={"rows": 3}),
+            "name": forms.TextInput(
+                attrs={
+                    "class": "form-input block w-full px-3 py-2 border border-secondary-300 rounded-md leading-5 bg-white text-secondary-900 focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500 sm:text-sm",
+                    "placeholder": "e.g. Cash and Cash Equivalents",
+                }
+            ),
+            "account_number": forms.TextInput(
+                attrs={
+                    "class": "form-input block w-full px-3 py-2 border border-secondary-300 rounded-md leading-5 bg-white text-secondary-900 focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500 sm:text-sm",
+                    "placeholder": "e.g. 1010",
+                }
+            ),
+            "type": forms.Select(
+                attrs={
+                    "class": "form-input block w-full px-3 py-2 border border-secondary-300 rounded-md leading-5 bg-white text-secondary-900 focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500 sm:text-sm",
+                }
+            ),
+            "description": forms.Textarea(
+                attrs={
+                    "rows": 3,
+                    "class": "form-input block w-full px-3 py-2 border border-secondary-300 rounded-md leading-5 bg-white text-secondary-900 focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500 sm:text-sm",
+                    "placeholder": "Optional notes about this account",
+                }
+            ),
         }
 
 
@@ -185,6 +210,135 @@ class AccountActivityForm(forms.Form):
     end_date = forms.DateField(
         required=False, widget=forms.DateInput(attrs={"type": "date"})
     )
+
+
+class OpeningBalanceImportForm(forms.Form):
+    """
+    Import opening balances from CSV and post a balancing journal.
+    """
+
+    opening_date = forms.DateField(
+        initial=timezone.now().date,
+        widget=forms.DateInput(attrs={"type": "date"}),
+        label="Opening Balance Date",
+    )
+    offset_account = forms.ModelChoiceField(
+        queryset=Account.objects.all().order_by("account_number", "name"),
+        label="Offset Account (e.g. Opening Balance Equity)",
+    )
+    csv_file = forms.FileField(
+        label="CSV File",
+        help_text="Required columns: account_number,balance. Optional: memo,account_name",
+    )
+    description = forms.CharField(
+        max_length=255,
+        required=False,
+        initial="Opening balances import",
+        widget=forms.TextInput(),
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        base_class = (
+            "w-full px-3 py-2 border border-secondary-300 rounded-md "
+            "focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
+        )
+        for field in self.fields.values():
+            field.widget.attrs["class"] = base_class
+
+
+class BalanceAdjustmentForm(forms.Form):
+    """
+    Journal-backed account balance adjustment form.
+    """
+
+    ADJUSTMENT_CHOICES = [
+        ("INCREASE", "Increase Balance"),
+        ("DECREASE", "Decrease Balance"),
+    ]
+
+    account = forms.ModelChoiceField(
+        queryset=Account.objects.all().order_by("account_number", "name"),
+        label="Primary Account",
+    )
+    adjustment_type = forms.ChoiceField(
+        choices=ADJUSTMENT_CHOICES,
+        label="Adjustment Type",
+    )
+    amount = forms.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        min_value=0.01,
+        widget=forms.NumberInput(attrs={"step": "0.01"}),
+        error_messages={
+            "max_digits": "Amount can have at most 10 digits before the decimal point and 2 decimal places.",
+            "max_decimal_places": "Amount can have at most 2 decimal places.",
+        },
+    )
+    offset_account = forms.ModelChoiceField(
+        queryset=Account.objects.all().order_by("account_number", "name"),
+        label="Offset Account",
+        help_text="Counter account for double-entry balancing.",
+    )
+    description = forms.CharField(
+        max_length=255,
+        widget=forms.Textarea(attrs={"rows": 3}),
+        help_text="Reason for adjustment (required for audit).",
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        base_class = (
+            "w-full px-3 py-2 border border-secondary-300 rounded-md "
+            "focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
+        )
+        for field in self.fields.values():
+            field.widget.attrs["class"] = base_class
+
+    def clean(self):
+        cleaned_data = super().clean()
+        account = cleaned_data.get("account")
+        offset_account = cleaned_data.get("offset_account")
+        if account and offset_account and account.pk == offset_account.pk:
+            self.add_error("offset_account", "Offset account must be different.")
+        return cleaned_data
+
+    def clean_amount(self):
+        amount = self.cleaned_data["amount"]
+        if amount is None:
+            return amount
+
+        if amount.adjusted() + 1 > 10:
+            raise forms.ValidationError(
+                "Amount can have at most 10 digits before the decimal point."
+            )
+        return amount
+
+    def build_entries(self):
+        account = self.cleaned_data["account"]
+        offset_account = self.cleaned_data["offset_account"]
+        amount = self.cleaned_data["amount"]
+        adjustment_type = self.cleaned_data["adjustment_type"]
+
+        primary_entry_type = get_entry_type_for_balance_adjustment(
+            account, adjustment_type
+        )
+        offset_entry_type = "CREDIT" if primary_entry_type == "DEBIT" else "DEBIT"
+
+        return [
+            {
+                "account": account,
+                "entry_type": primary_entry_type,
+                "amount": amount,
+                "memo": f"Balance {adjustment_type.lower()} - primary account",
+            },
+            {
+                "account": offset_account,
+                "entry_type": offset_entry_type,
+                "amount": amount,
+                "memo": f"Balance {adjustment_type.lower()} - offset account",
+            },
+        ]
 
 
 class JournalReversalInitiationForm(forms.Form):

@@ -66,6 +66,10 @@
                     <i data-lucide="plus-circle" class="mr-3 h-5 w-5 text-secondary-400 group-hover:text-secondary-500"></i>
                     New Journal Entry
                 </a>
+                <a href="{% url 'accounting:balance_adjustment' %}" class="sidebar-link group flex items-center px-3 py-2 text-sm font-medium rounded-md {% if request.resolver_match.url_name == 'balance_adjustment' %}active{% endif %}">
+                    <i data-lucide="scale" class="mr-3 h-5 w-5 text-secondary-400 group-hover:text-secondary-500"></i>
+                    Adjust Balances
+                </a>
                 {% endif %}
                 
                 <div class="pt-2 pb-1">
@@ -78,6 +82,10 @@
                 <a href="{% url 'accounting:period_list' %}" class="sidebar-link group flex items-center px-3 py-2 text-sm font-medium rounded-md {% if request.resolver_match.url_name == 'period_list' or request.resolver_match.url_name == 'period_detail' %}active{% endif %}">
                     <i data-lucide="calendar-days" class="mr-3 h-5 w-5 text-secondary-400 group-hover:text-secondary-500"></i>
                     Accounting Periods
+                </a>
+                <a href="{% url 'payroll:pay_period_list' %}" class="sidebar-link group flex items-center px-3 py-2 text-sm font-medium rounded-md">
+                    <i data-lucide="calendar-range" class="mr-3 h-5 w-5 text-secondary-400 group-hover:text-secondary-500"></i>
+                    Payroll Pay Periods
                 </a>
                 
                 <div class="pt-2 pb-1">

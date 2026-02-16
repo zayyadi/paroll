@@ -1,61 +1,211 @@
-{% extends "base_tailwind.html" %}
+{% extends "base_new.html" %}
 {% load static %}
 
 {% block title %}{% if object %}Edit Pay Period: {{ object.name }}{% else %}Create Pay Period{% endif %}{% endblock %}
-
-{% block page_header %}{% if object %}Edit Pay Period{% else %}Create New Pay Period{% endif %}{% endblock %}
+{% block page_header %}{% if object %}Edit Pay Period{% else %}Create Pay Period{% endif %}{% endblock %}
 
 {% block content %}
-<div class="container mx-auto px-4 py-8">
-    <div class="max-w-2xl mx-auto bg-white shadow-xl rounded-lg p-6 md:p-8">
-        <h1 class="text-2xl font-bold text-gray-800 mb-6">{% if object %}Edit: {{ object.name }}{% else %}Create New Pay Period{% endif %}</h1>
+<div class="max-w-7xl mx-auto">
+    <div class="bg-gradient-to-r from-primary-500 to-primary-600 rounded-2xl p-6 text-white shadow-medium mb-6">
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div>
+                <h1 class="text-2xl font-bold mb-2">{% if object %}Update {{ object.name }}{% else %}Create New Pay Period{% endif %}</h1>
+                <p class="text-primary-100">Manage pay period metadata and choose payroll entries for this period.</p>
+            </div>
+            <div class="bg-white bg-opacity-20 text-white text-sm font-medium px-4 py-2 rounded-full">
+                <i data-lucide="calendar" class="inline h-4 w-4 mr-1"></i>
+                {% if object and object.paydays %}{{ object.paydays|date:"F Y" }}{% else %}New period{% endif %}
+            </div>
+        </div>
+    </div>
 
-        <form method="post" novalidate>
-            {% csrf_token %}
+    <form method="post" novalidate id="payPeriodUpdateForm">
+        {% csrf_token %}
 
-            {% if form.non_field_errors %}
-                <div class="mb-4 p-3 bg-red-100 text-red-700 rounded-md">
-                    {% for error in form.non_field_errors %}
-                        <p>{{ error }}</p>
+        {% if form.non_field_errors %}
+        <div class="mb-6 rounded-xl border border-danger-200 bg-danger-50 text-danger-700 p-4">
+            {% for error in form.non_field_errors %}
+            <p>{{ error }}</p>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
+            <div class="xl:col-span-1 space-y-6">
+                <div class="bg-white rounded-xl shadow-soft p-6">
+                    <h2 class="text-lg font-semibold text-secondary-900 mb-4">Pay Period Details</h2>
+
+                    <div class="space-y-4">
+                        <div>
+                            <label for="{{ form.name.id_for_label }}" class="block text-sm font-medium text-secondary-700 mb-2">
+                                {{ form.name.label }} <span class="text-danger-500">*</span>
+                            </label>
+                            {{ form.name }}
+                            {% for error in form.name.errors %}
+                            <p class="mt-1 text-sm text-danger-600">{{ error }}</p>
+                            {% endfor %}
+                        </div>
+
+                        <div>
+                            <label for="{{ form.paydays.id_for_label }}" class="block text-sm font-medium text-secondary-700 mb-2">
+                                {{ form.paydays.label }} <span class="text-danger-500">*</span>
+                            </label>
+                            {{ form.paydays }}
+                            {% for error in form.paydays.errors %}
+                            <p class="mt-1 text-sm text-danger-600">{{ error }}</p>
+                            {% endfor %}
+                        </div>
+
+                        <div class="rounded-lg border border-secondary-200 p-3">
+                            <label for="{{ form.is_active.id_for_label }}" class="flex items-center gap-2 text-sm text-secondary-700 cursor-pointer">
+                                {{ form.is_active }}
+                                <span>{{ form.is_active.label }}</span>
+                            </label>
+                        </div>
+
+                        <div class="rounded-lg border border-warning-200 bg-warning-50 p-3">
+                            <label for="{{ form.closed.id_for_label }}" class="flex items-start gap-2 text-sm text-secondary-700 cursor-pointer">
+                                <span class="mt-0.5">{{ form.closed }}</span>
+                                <span>
+                                    {{ form.closed.label }}
+                                    {% if form.closed.help_text %}
+                                    <span class="block text-xs text-secondary-500 mt-1">{{ form.closed.help_text }}</span>
+                                    {% endif %}
+                                </span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-xl shadow-soft p-6">
+                    <h2 class="text-lg font-semibold text-secondary-900 mb-4">Selection Summary</h2>
+                    <div class="space-y-2 text-sm">
+                        <div class="flex items-center justify-between py-2 border-b border-secondary-100">
+                            <span class="text-secondary-600">Selected Entries</span>
+                            <span class="font-semibold text-primary-600" id="selectedCount">0</span>
+                        </div>
+                        <div class="flex items-center justify-between py-2">
+                            <span class="text-secondary-600">Available Entries</span>
+                            <span class="font-semibold text-secondary-900" id="availableCount">0</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-xl shadow-soft p-6">
+                    <div class="space-y-3">
+                        <button type="submit" class="w-full btn-primary text-white py-3 px-6 rounded-xl text-sm font-medium flex items-center justify-center">
+                            <i data-lucide="save" class="h-4 w-4 mr-2"></i>
+                            {% if object %}Save Changes{% else %}Create Pay Period{% endif %}
+                        </button>
+                        <a href="{% if object %}{{ object.get_absolute_url }}{% else %}{% url 'payroll:pay_period_list' %}{% endif %}"
+                            class="w-full block text-center py-3 px-6 border border-secondary-300 text-secondary-700 rounded-xl text-sm font-medium hover:bg-secondary-50 transition-colors">
+                            Cancel
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <div class="xl:col-span-2 bg-white rounded-xl shadow-soft p-6">
+                <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
+                    <h2 class="text-lg font-semibold text-secondary-900">Employees In This Pay Period</h2>
+                    <div class="flex gap-2">
+                        <button type="button" id="selectAllVisible" class="px-3 py-2 bg-primary-100 text-primary-700 rounded-lg text-sm font-medium hover:bg-primary-200 transition-colors">Select Visible</button>
+                        <button type="button" id="clearSelection" class="px-3 py-2 bg-secondary-100 text-secondary-700 rounded-lg text-sm font-medium hover:bg-secondary-200 transition-colors">Clear</button>
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <input
+                        type="text"
+                        id="employeeSearch"
+                        placeholder="Search employee name..."
+                        class="form-input w-full px-4 py-2.5 border border-secondary-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm"
+                    />
+                </div>
+
+                {% if form.payroll_payday.errors %}
+                <div class="mb-4 rounded-lg border border-danger-200 bg-danger-50 p-3">
+                    {% for error in form.payroll_payday.errors %}
+                    <p class="text-sm text-danger-600">{{ error }}</p>
                     {% endfor %}
                 </div>
-            {% endif %}
+                {% endif %}
 
-            <div class="space-y-6">
-                {% for field in form %}
-                    <div class="fieldWrapper">
-                        <label for="{{ field.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">
-                            {{ field.label }} {% if field.field.required %}<span class="text-red-500">*</span>{% endif %}
-                        </label>
-                        
-                        {% if field.name == "payroll_payday" %}
-                            {# Special handling for CheckboxSelectMultiple for better scrolling/layout #}
-                            <div class="max-h-60 overflow-y-auto border border-gray-300 rounded-md p-3 space-y-2 bg-gray-50">
-                                {{ field }}
-                            </div>
-                        {% else %}
-                            {{ field }} {# Assumes widgets in forms.py have appropriate classes #}
-                        {% endif %}
-
-                        {% if field.help_text %}
-                            <p class="mt-1 text-xs text-gray-500">{{ field.help_text|safe }}</p>
-                        {% endif %}
-                        {% for error in field.errors %}
-                            <p class="mt-1 text-xs text-red-600">{{ error }}</p>
-                        {% endfor %}
+                <div id="payrollEntryList" class="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[620px] overflow-y-auto pr-1">
+                    {% for checkbox in form.payroll_payday %}
+                    <label class="entry-item flex items-center gap-3 p-3 border border-secondary-200 rounded-lg hover:bg-secondary-50 cursor-pointer transition-colors"
+                        data-label="{{ checkbox.choice_label|lower }}">
+                        {{ checkbox.tag }}
+                        <span class="text-sm text-secondary-800">{{ checkbox.choice_label }}</span>
+                    </label>
+                    {% empty %}
+                    <div class="col-span-2 text-center py-10 text-secondary-500 border border-dashed border-secondary-300 rounded-lg">
+                        No payroll entries available to include in this period.
                     </div>
-                {% endfor %}
+                    {% endfor %}
+                </div>
             </div>
-
-            <div class="mt-8 flex justify-end space-x-3">
-                <a href="{% if object %}{{ object.get_absolute_url }}{% else %}{% url 'payroll:pay_period_list' %}{% endif %}" class="bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-2 px-4 rounded-lg shadow-md transition duration-150 ease-in-out">
-                    Cancel
-                </a>
-                <button type="submit" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-150 ease-in-out">
-                    <i data-lucide="save" class="inline-block mr-2 h-5 w-5"></i> {% if object %}Save Changes{% else %}Create Pay Period{% endif %}
-                </button>
-            </div>
-        </form>
-    </div>
+        </div>
+    </form>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    if (typeof lucide !== 'undefined') {
+        lucide.createIcons();
+    }
+
+    const list = document.getElementById('payrollEntryList');
+    if (!list) return;
+
+    const searchInput = document.getElementById('employeeSearch');
+    const selectAllBtn = document.getElementById('selectAllVisible');
+    const clearBtn = document.getElementById('clearSelection');
+    const selectedCountEl = document.getElementById('selectedCount');
+    const availableCountEl = document.getElementById('availableCount');
+
+    const items = Array.from(list.querySelectorAll('.entry-item'));
+
+    function updateCounts() {
+        const visibleItems = items.filter(item => item.style.display !== 'none');
+        const selected = list.querySelectorAll('input[type="checkbox"]:checked').length;
+        selectedCountEl.textContent = selected;
+        availableCountEl.textContent = visibleItems.length;
+    }
+
+    function filterItems() {
+        const term = (searchInput.value || '').toLowerCase().trim();
+        items.forEach((item) => {
+            const label = item.dataset.label || '';
+            item.style.display = !term || label.includes(term) ? '' : 'none';
+        });
+        updateCounts();
+    }
+
+    selectAllBtn.addEventListener('click', () => {
+        items.forEach((item) => {
+            if (item.style.display === 'none') return;
+            const cb = item.querySelector('input[type="checkbox"]');
+            if (cb) cb.checked = true;
+        });
+        updateCounts();
+    });
+
+    clearBtn.addEventListener('click', () => {
+        list.querySelectorAll('input[type="checkbox"]').forEach((cb) => {
+            cb.checked = false;
+        });
+        updateCounts();
+    });
+
+    list.addEventListener('change', function (event) {
+        if (event.target.matches('input[type="checkbox"]')) {
+            updateCounts();
+        }
+    });
+
+    searchInput.addEventListener('input', filterItems);
+    updateCounts();
+});
+</script>
 {% endblock %}

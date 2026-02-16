@@ -1,0 +1,13 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>IOU Request Update</title>
+</head>
+<body>
+    <p>Hi {{ employee_name }},</p>
+    <p>Your IOU request has been <strong>{{ status|lower }}</strong>.</p>
+    <p>Amount: ₦{{ amount }}</p>
+    <p>Tenor: {{ tenor }} month{{ tenor|pluralize }}</p>
+    <p>Please log in to your payroll account for more details.</p>
+</body>
+</html>

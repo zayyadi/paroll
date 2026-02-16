@@ -101,6 +101,18 @@
                             </div>
                         </div>
                     </a>
+
+                    <a href="{% url 'accounting:unposted_events' %}" class="block p-4 border border-secondary-200 rounded-lg hover:border-primary-300 hover:bg-primary-50 transition-colors">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0 bg-danger-100 rounded-lg p-3">
+                                <i data-lucide="alert-triangle" class="h-6 w-6 text-danger-600"></i>
+                            </div>
+                            <div class="ml-4">
+                                <h4 class="text-base font-medium text-secondary-900">Unposted Events</h4>
+                                <p class="mt-1 text-sm text-secondary-600">Find transactions missing ledger journals</p>
+                            </div>
+                        </div>
+                    </a>
                 </div>
             </div>
         </div>

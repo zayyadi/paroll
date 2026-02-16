@@ -15,7 +15,7 @@
             <p><span class="font-medium text-gray-600">Employee:</span> {{ iou.employee_id.first_name }} {{ iou.employee_id.last_name }}</p>
             <p><span class="font-medium text-gray-600">Emp ID:</span> {{ iou.employee_id.emp_id }}</p>
             <p><span class="font-medium text-gray-600">Amount:</span> ₦{{ iou.amount|floatformat:2 }}</p>
-            <p><span class="font-medium text-gray-600">Requested:</span> {{ iou.requested_at|date:"d M Y" }}</p>
+            <p><span class="font-medium text-gray-600">Requested:</span> {{ iou.created_at|date:"d M Y" }}</p>
         </div>
         <p class="mt-2 text-sm"><span class="font-medium text-gray-600">Reason:</span> {{ iou.reason }}</p>
     </div>

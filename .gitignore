@@ -40,3 +40,6 @@ templ
 resume.json
 workflow.json
 junks
+.md
+.agents/
+.agent/

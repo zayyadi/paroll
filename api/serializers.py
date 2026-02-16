@@ -4,6 +4,7 @@ from django.contrib.auth.hashers import make_password
 from users.models import CustomUser
 
 from rest_framework import serializers
+from company.utils import get_user_company
 
 from payroll.models import EmployeeProfile, PayrollRun, PayrollRunEntry, Payroll, PayrollEntry, Allowance
 
@@ -12,11 +13,15 @@ class UserSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True)
 
     def create(self, validated_data):
+        request = self.context.get("request")
+        company = get_user_company(getattr(request, "user", None))
         user = CustomUser.objects.create_user(
             email=validated_data["email"],
             password=validated_data["password"],
             first_name=validated_data.get("first_name", ""),
             last_name=validated_data.get("last_name", ""),
+            company=company,
+            active_company=company,
         )
         return user
 

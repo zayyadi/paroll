@@ -44,7 +44,13 @@
             </div>
             <div>
                 <p class="text-sm font-medium text-secondary-500">Created By</p>
-                <p class="text-sm text-secondary-900 mt-1">{{ journal.created_by.first_name|default:journal.created_by.email|default:"—" }}</p>
+                <p class="text-sm text-secondary-900 mt-1">
+                    {% if journal.created_by %}
+                        {{ journal.created_by.first_name|default:journal.created_by.email|default:"—" }}
+                    {% else %}
+                        —
+                    {% endif %}
+                </p>
             </div>
             <div>
                 <p class="text-sm font-medium text-secondary-500">Created At</p>
@@ -53,7 +59,9 @@
             {% if journal.approved_by %}
             <div>
                 <p class="text-sm font-medium text-secondary-500">Approved By</p>
-                <p class="text-sm text-secondary-900 mt-1">{{ journal.approved_by.first_name|default:journal.approved_by.email }}</p>
+                <p class="text-sm text-secondary-900 mt-1">
+                    {{ journal.approved_by.first_name|default:journal.approved_by.email|default:"—" }}
+                </p>
             </div>
             <div>
                 <p class="text-sm font-medium text-secondary-500">Approved At</p>
@@ -63,7 +71,9 @@
             {% if journal.posted_by %}
             <div>
                 <p class="text-sm font-medium text-secondary-500">Posted By</p>
-                <p class="text-sm text-secondary-900 mt-1">{{ journal.posted_by.first_name|default:journal.posted_by.email }}</p>
+                <p class="text-sm text-secondary-900 mt-1">
+                    {{ journal.posted_by.first_name|default:journal.posted_by.email|default:"—" }}
+                </p>
             </div>
             <div>
                 <p class="text-sm font-medium text-secondary-500">Posted At</p>
@@ -88,11 +98,11 @@
             <div class="flex items-center space-x-4">
                 <div class="text-sm">
                     <span class="font-medium text-secondary-900">Total Debits:</span>
-                    <span class="font-bold text-danger-600">${{ total_debits|floatformat:2 }}</span>
+                    <span class="font-bold text-danger-600">₦{{ total_debits|floatformat:2 }}</span>
                 </div>
                 <div class="text-sm">
                     <span class="font-medium text-secondary-900">Total Credits:</span>
-                    <span class="font-bold text-success-600">${{ total_credits|floatformat:2 }}</span>
+                    <span class="font-bold text-success-600">₦{{ total_credits|floatformat:2 }}</span>
                 </div>
                 <div class="text-sm">
                     <span class="font-medium text-secondary-900">Balanced:</span>
@@ -142,9 +152,9 @@
                         <td class="px-6 py-4 whitespace-nowrap">
                             <div class="text-sm font-medium text-secondary-900">
                                 {% if entry.entry_type == 'DEBIT' %}
-                                <span class="text-danger-600">${{ entry.amount|floatformat:2 }}</span>
+                                <span class="text-danger-600">₦{{ entry.amount|floatformat:2 }}</span>
                                 {% else %}
-                                <span class="text-success-600">${{ entry.amount|floatformat:2 }}</span>
+                                <span class="text-success-600">₦{{ entry.amount|floatformat:2 }}</span>
                                 {% endif %}
                             </div>
                         </td>
@@ -162,10 +172,10 @@
                             Totals:
                         </td>
                         <td class="px-6 py-3 whitespace-nowrap text-sm">
-                            <div class="font-medium text-danger-600">${{ total_debits|floatformat:2 }}</div>
+                            <div class="font-medium text-danger-600">₦{{ total_debits|floatformat:2 }}</div>
                         </td>
                         <td class="px-6 py-3 whitespace-nowrap text-sm">
-                            <div class="font-medium text-success-600">${{ total_credits|floatformat:2 }}</div>
+                            <div class="font-medium text-success-600">₦{{ total_credits|floatformat:2 }}</div>
                         </td>
                     </tr>
                 </tfoot>

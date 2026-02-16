@@ -6,10 +6,11 @@ Events are dispatched and handled by the NotificationService.
 """
 
 import logging
-from django.db.models.signals import post_save
+from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
 from django.contrib.auth import get_user_model
 from django.urls import reverse
+from django.conf import settings
 
 from payroll.models import (
     LeaveRequest,
@@ -20,6 +21,7 @@ from payroll.models import (
     PayrollRunEntry,
 )
 from payroll.models.employee_profile import EmployeeProfile
+from users.email_backend import send_mail as custom_send_mail
 from payroll.events.notification_events import (
     EventType,
     LeaveRequestEvent,
@@ -51,6 +53,9 @@ def handle_leave_request_signal(sender, instance, created, **kwargs):
             _dispatch_leave_request_created_event(instance)
         else:
             # Status change - notify employee
+            previous_status = getattr(instance, "_previous_status", None)
+            if previous_status == instance.status:
+                return
             if instance.status == "APPROVED":
                 _dispatch_leave_request_approved_event(instance)
             elif instance.status == "REJECTED":
@@ -135,6 +140,7 @@ def _dispatch_leave_request_approved_event(leave_request):
         action_url=reverse("payroll:leave_requests"),
         priority="HIGH",
     )
+    _send_leave_status_email(leave_request)
 
 
 def _dispatch_leave_request_rejected_event(leave_request):
@@ -166,6 +172,7 @@ def _dispatch_leave_request_rejected_event(leave_request):
         action_url=reverse("payroll:leave_requests"),
         priority="HIGH",
     )
+    _send_leave_status_email(leave_request)
 
 
 @receiver(post_save, sender=IOU)
@@ -182,6 +189,9 @@ def handle_iou_signal(sender, instance, created, **kwargs):
             _dispatch_iou_created_event(instance)
         else:
             # Status change - notify employee
+            previous_status = getattr(instance, "_previous_status", None)
+            if previous_status == instance.status:
+                return
             if instance.status == "APPROVED":
                 _dispatch_iou_approved_event(instance)
             elif instance.status == "REJECTED":
@@ -267,6 +277,7 @@ def _dispatch_iou_approved_event(iou):
         action_url=reverse("payroll:iou_list"),
         priority="HIGH",
     )
+    _send_iou_status_email(iou)
 
 
 def _dispatch_iou_rejected_event(iou):
@@ -295,6 +306,7 @@ def _dispatch_iou_rejected_event(iou):
         action_url=reverse("payroll:iou_list"),
         priority="HIGH",
     )
+    _send_iou_status_email(iou)
 
 
 def _dispatch_iou_paid_event(iou):
@@ -333,8 +345,11 @@ def handle_payroll_signal(sender, instance, created, **kwargs):
     Dispatches PayrollEvent when payroll becomes active (processed).
     """
     try:
-        # Only notify when payroll becomes active (processed)
-        if instance.is_active:
+        previous_is_active = getattr(instance, "_previous_is_active", False)
+        became_active = instance.is_active and (created or not previous_is_active)
+
+        # Notify only when payroll transitions to active
+        if became_active:
             _dispatch_payroll_processed_event(instance)
 
     except Exception as e:
@@ -381,6 +396,7 @@ def _dispatch_payroll_processed_event(payroll):
             action_url=reverse("payroll:pay_period_detail", args=[payroll.slug]),
             priority="HIGH",
         )
+        _send_salary_created_email(payroll, payday)
 
     # Notify HR
     hr_users = User.objects.filter(
@@ -546,3 +562,123 @@ def create_bulk_notification(recipients, notification_type, title, message, **kw
         message=message,
         **kwargs,
     )
+
+
+@receiver(pre_save, sender=LeaveRequest)
+def track_leave_previous_status(sender, instance, **kwargs):
+    if not instance.pk:
+        instance._previous_status = None
+        return
+    try:
+        instance._previous_status = LeaveRequest.objects.get(pk=instance.pk).status
+    except LeaveRequest.DoesNotExist:
+        instance._previous_status = None
+
+
+@receiver(pre_save, sender=IOU)
+def track_iou_previous_status(sender, instance, **kwargs):
+    if not instance.pk:
+        instance._previous_status = None
+        return
+    try:
+        instance._previous_status = IOU.objects.get(pk=instance.pk).status
+    except IOU.DoesNotExist:
+        instance._previous_status = None
+
+
+@receiver(pre_save, sender=PayrollRun)
+def track_payroll_previous_active(sender, instance, **kwargs):
+    if not instance.pk:
+        instance._previous_is_active = False
+        return
+    try:
+        instance._previous_is_active = PayrollRun.objects.get(pk=instance.pk).is_active
+    except PayrollRun.DoesNotExist:
+        instance._previous_is_active = False
+
+
+def _get_employee_email(employee_profile):
+    if not employee_profile:
+        return None
+    if employee_profile.user and employee_profile.user.email:
+        return employee_profile.user.email
+    if employee_profile.email:
+        return employee_profile.email
+    return None
+
+
+def _get_employee_name(employee_profile):
+    if not employee_profile:
+        return "Employee"
+    name = f"{employee_profile.first_name or ''} {employee_profile.last_name or ''}".strip()
+    return name or "Employee"
+
+
+def _send_leave_status_email(leave_request):
+    recipient_email = _get_employee_email(leave_request.employee)
+    if not recipient_email:
+        return
+
+    try:
+        custom_send_mail(
+            subject=f"Leave Request {leave_request.status.title()}",
+            template_name="email/leave_status_email.html",
+            context={
+                "employee_name": _get_employee_name(leave_request.employee),
+                "status": leave_request.status,
+                "leave_type": leave_request.get_leave_type_display(),
+                "start_date": leave_request.start_date,
+                "end_date": leave_request.end_date,
+            },
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[recipient_email],
+            fail_silently=False,
+        )
+    except Exception as exc:
+        logger.error("Failed to send leave status email: %s", exc)
+
+
+def _send_iou_status_email(iou):
+    recipient_email = _get_employee_email(iou.employee_id)
+    if not recipient_email:
+        return
+
+    try:
+        custom_send_mail(
+            subject=f"IOU Request {iou.status.title()}",
+            template_name="email/iou_status_email.html",
+            context={
+                "employee_name": _get_employee_name(iou.employee_id),
+                "status": iou.status,
+                "amount": iou.amount,
+                "tenor": iou.tenor,
+            },
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[recipient_email],
+            fail_silently=False,
+        )
+    except Exception as exc:
+        logger.error("Failed to send IOU status email: %s", exc)
+
+
+def _send_salary_created_email(payroll, payday):
+    employee = payday.payroll_entry.pays
+    recipient_email = _get_employee_email(employee)
+    if not recipient_email:
+        return
+
+    try:
+        custom_send_mail(
+            subject="Monthly Salary Created",
+            template_name="email/monthly_salary_created_email.html",
+            context={
+                "employee_name": _get_employee_name(employee),
+                "payday": payroll.paydays,
+                "netpay": payday.payroll_entry.netpay,
+            },
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[recipient_email],
+            fail_silently=False,
+        )
+    except Exception as exc:
+        logger.error("Failed to send monthly salary email: %s", exc)

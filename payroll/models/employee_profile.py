@@ -24,8 +24,19 @@ from users.models import CustomUser
 
 
 class Department(SoftDeleteModel):
+    company = models.ForeignKey(
+        "company.Company",
+        on_delete=models.CASCADE,
+        related_name="departments",
+        null=True,
+        blank=True,
+        db_index=True,
+    )
     name = models.CharField(max_length=100, db_index=True)
     description = models.TextField(blank=True)
+
+    class Meta:
+        unique_together = ("company", "name")
 
     def __str__(self):
         return self.name
@@ -40,6 +51,14 @@ class EmployeeManager(models.Manager):
 
 
 class EmployeeProfile(SoftDeleteModel):
+    company = models.ForeignKey(
+        "company.Company",
+        on_delete=models.CASCADE,
+        related_name="employees",
+        null=True,
+        blank=True,
+        db_index=True,
+    )
     emp_id = models.CharField(
         default=emp_id,
         unique=True,
@@ -325,7 +344,13 @@ class EmployeeProfile(SoftDeleteModel):
 @receiver(post_save, sender=CustomUser)
 def create_employee_profile(sender, instance, created, **kwargs):
     if created:
+        company = instance.active_company or instance.company
+        if company is None:
+            from company.models import Company
+
+            company, _ = Company.objects.get_or_create(name="Default Company")
         EmployeeProfile.objects.create(
+            company=company,
             user=instance,
             email=instance.email,
             first_name=instance.first_name,

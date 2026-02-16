@@ -1,0 +1,54 @@
+{% extends "accounting/base.html" %}
+
+{% block page_title %}Account Balance{% endblock %}
+
+{% block accounting_content %}
+<div class="space-y-6">
+    <div class="bg-white rounded-lg shadow-soft">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h3 class="text-lg font-semibold text-secondary-900">Account Balance Report</h3>
+        </div>
+        <div class="p-6">
+            <form method="get" action="{% url 'accounting:account_balance' %}" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="md:col-span-2">
+                    <label for="account" class="block text-sm font-medium text-secondary-700 mb-1">Account</label>
+                    <select name="account" id="account" class="form-input block w-full px-3 py-2 border border-secondary-300 rounded-md">
+                        <option value="">Select an account</option>
+                        {% for account in accounts %}
+                        <option value="{{ account.pk }}" {% if selected_account and selected_account.pk == account.pk %}selected{% endif %}>
+                            {{ account.name }} ({{ account.account_number|default:"—" }})
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label for="as_of_date" class="block text-sm font-medium text-secondary-700 mb-1">As Of Date</label>
+                    <input type="date" name="as_of_date" id="as_of_date" value="{{ as_of_date|default:'' }}" class="form-input block w-full px-3 py-2 border border-secondary-300 rounded-md">
+                </div>
+                <div class="md:col-span-3">
+                    <button type="submit" class="btn-primary inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white">
+                        Generate
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {% if selected_account %}
+    <div class="bg-white rounded-lg shadow-soft">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h3 class="text-lg font-semibold text-secondary-900">Result</h3>
+        </div>
+        <div class="p-6">
+            <p class="text-sm text-secondary-700">
+                <span class="font-medium">Account:</span> {{ selected_account.name }} ({{ selected_account.account_number|default:"—" }})
+            </p>
+            <p class="text-sm text-secondary-700 mt-2">
+                <span class="font-medium">Balance{% if as_of_date %} as of {{ as_of_date }}{% endif %}:</span>
+                {{ selected_balance|floatformat:2 }}
+            </p>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

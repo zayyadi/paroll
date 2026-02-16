@@ -1,6 +1,26 @@
-{% extends "../base-registration.html" %}
-{% block content-registration %}
+{% extends "base_auth_new.html" %}
 
-{% block title %}Email verify invalid!{% endblock title %}
-<h2>The confirmation link was invalid, possibly because it has already been used.</h2>
+{% block page_title_in_head %}<title>Activation Link Invalid - PayrollCo</title>{% endblock %}
+
+{% block auth_content %}
+<div class="bg-white shadow-xl rounded-2xl p-8 md:p-10 space-y-5">
+    <h2 class="text-2xl font-bold text-center text-gray-800">Activation link invalid</h2>
+    <p class="text-sm text-gray-600 text-center">
+        This activation link is invalid or expired. Activation links typically expire after
+        {{ expiry_minutes }} minutes.
+    </p>
+    <p class="text-sm text-gray-600 text-center">
+        Use the OTP verification page or request a fresh activation email.
+    </p>
+    <div class="space-y-3">
+        <a href="{% url 'users:register' %}"
+            class="block w-full text-center px-6 py-3 bg-primary hover:bg-indigo-700 text-white font-semibold rounded-xl shadow-sm">
+            Register Again
+        </a>
+        <a href="{% url 'users:login' %}"
+            class="block w-full text-center px-6 py-3 bg-white border border-gray-300 hover:bg-gray-50 text-gray-800 font-semibold rounded-xl shadow-sm">
+            Go to Login
+        </a>
+    </div>
+</div>
 {% endblock %}

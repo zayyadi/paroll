@@ -39,6 +39,7 @@ INSTALLED_APPS = [
     "import_export",
     "social_django",
     "accounting",
+    "company",
     # Channels for real-time notifications
     "channels",
     "channels_redis",
@@ -80,6 +81,7 @@ TEMPLATES = [
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
                 "django.template.context_processors.i18n",
+                "company.context_processors.tenant_context",
             ],
         },
     },
@@ -210,7 +212,7 @@ LOGIN_URL = "users:login"
 
 LOGOUT_URL = "users:logout"
 
-SOCIAL_AUTH_LOGIN_ERROR_URL = "accounts:settings"
+SOCIAL_AUTH_LOGIN_ERROR_URL = "users:settings"
 
 SOCIAL_AUTH_LOGIN_REDIRECT_URL = "payroll:index"
 
@@ -234,7 +236,7 @@ SOCIAL_AUTH_ADMIN_USER_SEARCH_FIELDS = ["username", "first_name", "email"]
 
 X_FRAME_OPTIONS = "SAMEORIGIN"
 
-EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+EMAIL_BACKEND = os.getenv("EMAIL_BACKEND", "users.email_backend.EmailBackend")
 
 EMAIL_HOST = os.environ.get("EMAIL_HOST")
 
@@ -252,6 +254,20 @@ EMAIL_FILE_PATH = os.getenv("EMAIL_FILE_PATH", os.path.join(BASE_DIR, "test-emai
 
 if not os.path.exists(EMAIL_FILE_PATH):
     os.makedirs(EMAIL_FILE_PATH)
+
+MULTI_COMPANY_MEMBERSHIP_ENABLED = (
+    os.getenv("MULTI_COMPANY_MEMBERSHIP_ENABLED", "False").lower() == "true"
+)
+
+REGISTRATION_OTP_TIMEOUT_SECONDS = int(
+    os.getenv("REGISTRATION_OTP_TIMEOUT_SECONDS", "600")
+)
+REGISTRATION_RESEND_COOLDOWN_SECONDS = int(
+    os.getenv("REGISTRATION_RESEND_COOLDOWN_SECONDS", "60")
+)
+REGISTRATION_RESEND_MAX_PER_HOUR = int(
+    os.getenv("REGISTRATION_RESEND_MAX_PER_HOUR", "5")
+)
 
 # ============================================================================
 # NOTIFICATION SYSTEM SETTINGS

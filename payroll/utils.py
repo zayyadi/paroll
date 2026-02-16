@@ -85,6 +85,11 @@ def calc_health_contrib(self) -> Decimal:
 
 
 def get_rent_relief(payroll):
+    # During initial Payroll.save(), the instance may not have a PK yet.
+    # Reverse relations cannot be queried until the object is persisted.
+    if not getattr(payroll, "pk", None):
+        return Decimal("0.00")
+
     profile = payroll.employee_pay.first()  # reverse FK to EmployeeProfile
     rent_paid = profile.rent_paid if profile else Decimal("0.00")
     relief = calculate_percentage(rent_paid, Decimal("20"))
@@ -196,10 +201,16 @@ def get_num2words(self):
 
 def convert_month_to_word(date_str):
     try:
-
-        year, month = date_str.split("-")
-        month = int(month)
-        year = int(year)
+        # Accept date-like objects, 'YYYY-MM', and 'YYYY-MM-DD' strings.
+        if hasattr(date_str, "year") and hasattr(date_str, "month"):
+            year = int(date_str.year)
+            month = int(date_str.month)
+        else:
+            parts = str(date_str).split("-")
+            if len(parts) < 2:
+                raise ValueError("Invalid date format")
+            year = int(parts[0])
+            month = int(parts[1])
 
         if month < 1 or month > 12:
             raise ValueError("Invalid month value")
@@ -211,10 +222,8 @@ def convert_month_to_word(date_str):
         return output
 
     except ValueError as e:
-        print(f"Error: {e}")
         return None
     except Exception as e:
-        print(f"Error: {e}")
         return None
 
 

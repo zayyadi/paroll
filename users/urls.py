@@ -7,13 +7,24 @@ app_name = "users"
 
 
 urlpatterns = [
+    path("settings", views.settings_view, name="settings"),
     path("register", views.CustomRegisterView.as_view(), name="register"),
+    path(
+        "activate/<uidb64>/<token>/",
+        views.activate_account_view,
+        name="activate",
+    ),
     path("send_otp/", views.send_otp_view, name="send_otp"),
     path("verify_otp/", views.verify_otp_view, name="verify_otp"),
     path(
         "verify_registration_otp/<str:email>/",
         views.verify_registration_otp_view,
         name="verify_registration_otp",
+    ),
+    path(
+        "resend-registration-activation/<str:email>/",
+        views.resend_registration_activation_view,
+        name="resend_registration_activation",
     ),
     # path(
     #     "verify_password_reset_otp/<str:email>/",
@@ -41,6 +52,11 @@ urlpatterns = [
         name="password_reset_confirm",
     ),
     path("password", views.password, name="password"),
+    path(
+        "switch-company/<int:company_id>/",
+        views.switch_company_view,
+        name="switch_company",
+    ),
     path("login", views.MyLoginView.as_view(), name="login"),
     path("socials", views.social_login, name="socials"),
     path("logout", views.logout_view, name="logout"),

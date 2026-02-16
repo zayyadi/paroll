@@ -6,12 +6,25 @@ from django.utils import timezone
 
 from payroll import models
 from monthyear.forms import MonthField
+from company.utils import get_user_company
 
 # from crispy_forms.layout import Field, Layout, Div, ButtonHolder, Submit
 # from crispy_forms.helper import FormHelper
 
 
 class EmployeeProfileForm(forms.ModelForm):
+    def __init__(self, *args, **kwargs):
+        user = kwargs.pop("user", None)
+        super().__init__(*args, **kwargs)
+        company = get_user_company(user)
+        if company:
+            self.fields["department"].queryset = models.Department.objects.filter(
+                company=company
+            )
+            self.fields["employee_pay"].queryset = models.Payroll.objects.filter(
+                company=company
+            )
+
     class Meta:
         model = models.EmployeeProfile
         fields = [
@@ -176,6 +189,17 @@ class PayrollForm(forms.Form):
     employee = forms.ModelChoiceField(queryset=models.EmployeeProfile.objects.all())
     basic_salary = forms.DecimalField(max_digits=12, decimal_places=2)
 
+    def __init__(self, *args, **kwargs):
+        user = kwargs.pop("user", None)
+        super().__init__(*args, **kwargs)
+        company = get_user_company(user)
+        if company:
+            self.fields["employee"].queryset = models.EmployeeProfile.objects.filter(
+                company=company
+            )
+        else:
+            self.fields["employee"].queryset = models.EmployeeProfile.objects.none()
+
 
 class AllowanceForm(forms.ModelForm):
     class Meta:
@@ -240,6 +264,50 @@ class PayrollRunForm(forms.ModelForm):
         #     # widget=forms.CheckboxSelectMultiple,  # Use checkboxes for multiple selection
         #     required=False,
         # )
+
+    def __init__(self, *args, **kwargs):
+        self.user = kwargs.pop("user", None)
+        super().__init__(*args, **kwargs)
+        company = get_user_company(self.user)
+        if company:
+            self.fields["payroll_payday"].queryset = models.PayrollEntry.objects.filter(
+                company=company
+            ).order_by("pays__first_name")
+        else:
+            self.fields["payroll_payday"].queryset = models.PayrollEntry.objects.none()
+
+        input_classes = (
+            "form-input w-full px-4 py-2.5 border border-secondary-300 rounded-xl "
+            "focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm"
+        )
+        checkbox_classes = (
+            "h-4 w-4 text-primary-600 border-secondary-300 rounded focus:ring-primary-500"
+        )
+        self.fields["name"].widget.attrs["class"] = input_classes
+        self.fields["paydays"].widget.attrs["class"] = input_classes
+        self.fields["is_active"].widget.attrs["class"] = checkbox_classes
+        self.fields["closed"].widget.attrs["class"] = checkbox_classes
+
+    def save(self, commit=True):
+        obj = super().save(commit=False)
+        requested_closed = bool(self.cleaned_data.get("closed", False))
+        is_new = obj.pk is None
+
+        # For newly-created payroll runs, defer closure until after M2M entries
+        # are persisted so close-trigger posting can see linked payroll entries.
+        if is_new and requested_closed:
+            obj.closed = False
+
+        company = get_user_company(self.user)
+        if company and not obj.company_id:
+            obj.company = company
+        if commit:
+            obj.save()
+            self.save_m2m()
+            if is_new and requested_closed:
+                obj.closed = True
+                obj.save(update_fields=["closed"])
+        return obj
 
 
 class MonthForm(forms.Form):
@@ -460,16 +528,24 @@ class PayrollRunCreateForm(forms.Form):
         required=False,
     )
 
+    def __init__(self, *args, **kwargs):
+        self.user = kwargs.pop("user", None)
+        super().__init__(*args, **kwargs)
+
     def save(self):
         """Create PayrollRun instance and related PayrollEntry/PayrollRunEntry entries."""
         from payroll.models import PayrollRun, PayrollEntry, PayrollRunEntry, EmployeeProfile
+
+        requested_closed = bool(self.cleaned_data.get("closed", False))
+        company = get_user_company(self.user)
 
         # Create the PayrollRun instance
         payt = PayrollRun.objects.create(
             name=self.cleaned_data["name"],
             paydays=self.cleaned_data["paydays"],
             is_active=self.cleaned_data.get("is_active", False),
-            closed=self.cleaned_data.get("closed", False),
+            closed=False,
+            company=company,
         )
 
         # Get selected employee IDs
@@ -482,11 +558,22 @@ class PayrollRunCreateForm(forms.Form):
             # Create PayrollEntry and PayrollRunEntry entries for selected employees
             for emp_id in employee_ids:
                 try:
-                    employee = EmployeeProfile.objects.get(id=emp_id)
-                    payvar = PayrollEntry.objects.create(pays=employee)
+                    employee = EmployeeProfile.objects.get(
+                        id=emp_id,
+                        company=company,
+                    )
+                    payvar = PayrollEntry.objects.create(
+                        pays=employee,
+                        company=company,
+                        status="active",
+                    )
                     PayrollRunEntry.objects.create(payroll_run=payt, payroll_entry=payvar)
                 except EmployeeProfile.DoesNotExist:
                     continue
+
+        if requested_closed:
+            payt.closed = True
+            payt.save(update_fields=["closed"])
 
         return payt
 
@@ -527,6 +614,10 @@ class PayrollEntryCreateForm(forms.Form):
         ),
     )
 
+    def __init__(self, *args, **kwargs):
+        self.user = kwargs.pop("user", None)
+        super().__init__(*args, **kwargs)
+
     def save(self):
         """Create PayrollEntry entries for selected employees."""
         from payroll.models import PayrollEntry, EmployeeProfile
@@ -543,7 +634,10 @@ class PayrollEntryCreateForm(forms.Form):
             # Create PayrollEntry entries for selected employees
             for emp_id in employee_ids:
                 try:
-                    employee = EmployeeProfile.objects.get(id=emp_id)
+                    employee = EmployeeProfile.objects.get(
+                        id=emp_id,
+                        company=get_user_company(self.user),
+                    )
                     payvar = PayrollEntry.objects.create(
                         pays=employee,
                         status=self.cleaned_data.get("status", "pending"),

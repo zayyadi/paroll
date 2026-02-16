@@ -6,14 +6,17 @@ from django.views.generic.edit import FormView
 from django.http import JsonResponse, HttpResponseForbidden, HttpResponse
 from django.urls import reverse_lazy
 from django.db import transaction
-from django.db.models import Sum, Q
+from django.db.models import Sum, Q, Count
 from django.utils import timezone
 from django.core.paginator import Paginator
+from django.core.exceptions import ValidationError
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.template.loader import render_to_string
 from django.contrib.auth import get_user_model
 from django.contrib.contenttypes.models import ContentType
 from weasyprint import HTML, CSS
+import csv
+from decimal import Decimal, InvalidOperation
 
 from .models import (
     Account,
@@ -40,10 +43,13 @@ from .forms import (
     CorrectionEntryFormSet,
     BatchJournalReversalForm,
     JournalReversalConfirmationForm,
+    BalanceAdjustmentForm,
+    OpeningBalanceImportForm,
 )
 from .utils import (
     get_trial_balance,
     get_account_balance_as_of,
+    create_journal_with_entries,
     post_journal,
     reverse_journal,
     reverse_journal_partial,
@@ -191,6 +197,145 @@ class AccountCreateView(LoginRequiredMixin, AccountantRequiredMixin, CreateView)
 
     def form_valid(self, form):
         messages.success(self.request, "Account created successfully.")
+        return super().form_valid(form)
+
+
+class OpeningBalanceImportView(LoginRequiredMixin, AccountantRequiredMixin, FormView):
+    """
+    Bulk import opening balances from CSV and post a single balanced journal.
+    """
+
+    template_name = "accounting/opening_balance_import.html"
+    form_class = OpeningBalanceImportForm
+    success_url = reverse_lazy("accounting:account_list")
+
+    def _parse_balance(self, value):
+        normalized = str(value or "").strip().replace(",", "")
+        if not normalized:
+            raise InvalidOperation("blank")
+        return Decimal(normalized)
+
+    def _get_entry_type_from_signed_balance(self, account, signed_balance):
+        debit_normal = account.type in [Account.AccountType.ASSET, Account.AccountType.EXPENSE]
+        if signed_balance >= 0:
+            return "DEBIT" if debit_normal else "CREDIT"
+        return "CREDIT" if debit_normal else "DEBIT"
+
+    def form_valid(self, form):
+        offset_account = form.cleaned_data["offset_account"]
+        opening_date = form.cleaned_data["opening_date"]
+        base_description = (form.cleaned_data.get("description") or "").strip()
+        csv_file = form.cleaned_data["csv_file"]
+
+        try:
+            decoded = csv_file.read().decode("utf-8-sig")
+        except Exception:
+            form.add_error("csv_file", "Could not read CSV file. Use UTF-8 CSV format.")
+            return self.form_invalid(form)
+
+        reader = csv.DictReader(decoded.splitlines())
+        required_columns = {"account_number", "balance"}
+        if not reader.fieldnames or not required_columns.issubset(set(reader.fieldnames)):
+            form.add_error(
+                "csv_file",
+                "CSV must include columns: account_number,balance (optional: memo,account_name).",
+            )
+            return self.form_invalid(form)
+
+        entries = []
+        row_errors = []
+        total_debits = Decimal("0.00")
+        total_credits = Decimal("0.00")
+        processed_rows = 0
+
+        for index, row in enumerate(reader, start=2):
+            account_number = (row.get("account_number") or "").strip()
+            account_name = (row.get("account_name") or "").strip()
+            memo = (row.get("memo") or "").strip()
+
+            if not account_number and not account_name:
+                continue
+
+            account = None
+            if account_number:
+                account = Account.objects.filter(account_number=account_number).first()
+            if not account and account_name:
+                account = Account.objects.filter(name=account_name).first()
+            if not account:
+                row_errors.append(f"Row {index}: account not found ({account_number or account_name}).")
+                continue
+
+            try:
+                signed_balance = self._parse_balance(row.get("balance"))
+            except InvalidOperation:
+                row_errors.append(f"Row {index}: invalid balance value '{row.get('balance')}'.")
+                continue
+
+            if signed_balance == 0:
+                continue
+
+            entry_type = self._get_entry_type_from_signed_balance(account, signed_balance)
+            amount = abs(signed_balance)
+
+            entry_memo = memo or f"Opening balance import for {account.name}"
+            entries.append(
+                {
+                    "account": account,
+                    "entry_type": entry_type,
+                    "amount": amount,
+                    "memo": entry_memo,
+                }
+            )
+            processed_rows += 1
+            if entry_type == "DEBIT":
+                total_debits += amount
+            else:
+                total_credits += amount
+
+        if row_errors:
+            form.add_error("csv_file", " | ".join(row_errors[:5]))
+            if len(row_errors) > 5:
+                form.add_error("csv_file", f"... and {len(row_errors) - 5} more row errors.")
+            return self.form_invalid(form)
+
+        if not entries:
+            form.add_error("csv_file", "No valid non-zero rows found to import.")
+            return self.form_invalid(form)
+
+        difference = total_debits - total_credits
+        if difference > 0:
+            entries.append(
+                {
+                    "account": offset_account,
+                    "entry_type": "CREDIT",
+                    "amount": difference,
+                    "memo": "Opening balances offset entry",
+                }
+            )
+        elif difference < 0:
+            entries.append(
+                {
+                    "account": offset_account,
+                    "entry_type": "DEBIT",
+                    "amount": abs(difference),
+                    "memo": "Opening balances offset entry",
+                }
+            )
+
+        description = base_description or "Opening balances import"
+        journal = create_journal_with_entries(
+            date=opening_date,
+            description=description,
+            entries=entries,
+            user=self.request.user,
+            auto_post=True,
+            validate_balances=False,
+        )
+
+        messages.success(
+            self.request,
+            f"Imported {processed_rows} account balances. Journal {journal.transaction_number} posted.",
+        )
         return super().form_valid(form)
 
 
@@ -343,6 +488,71 @@ class JournalCreateView(LoginRequiredMixin, AccountantRequiredMixin, CreateView)
         return super().form_invalid(form)
 
 
+class JournalEditView(LoginRequiredMixin, AccountantRequiredMixin, UpdateView):
+    """
+    Edit a draft/pending journal header details.
+    """
+
+    model = Journal
+    form_class = JournalForm
+    template_name = "accounting/journal_form.html"
+    success_url = reverse_lazy("accounting:journal_list")
+
+    def dispatch(self, request, *args, **kwargs):
+        journal = self.get_object()
+        if journal.status not in [
+            Journal.JournalStatus.DRAFT,
+            Journal.JournalStatus.PENDING_APPROVAL,
+        ]:
+            messages.error(request, "Only draft or pending journals can be edited.")
+            return redirect("accounting:journal_detail", pk=journal.pk)
+        return super().dispatch(request, *args, **kwargs)
+
+    def form_valid(self, form):
+        messages.success(self.request, "Journal updated successfully.")
+        return super().form_valid(form)
+
+
+class BalanceAdjustmentView(LoginRequiredMixin, AccountantRequiredMixin, FormView):
+    """
+    Create an auditable, journal-backed balance adjustment.
+    """
+
+    template_name = "accounting/balance_adjustment.html"
+    form_class = BalanceAdjustmentForm
+    success_url = reverse_lazy("accounting:account_list")
+
+    def form_valid(self, form):
+        entries = form.build_entries()
+        description = form.cleaned_data["description"].strip()
+        account = form.cleaned_data["account"]
+        adjustment_type = form.cleaned_data["adjustment_type"].lower()
+
+        try:
+            create_journal_with_entries(
+                date=timezone.now().date(),
+                description=(
+                    f"Balance {adjustment_type} for {account.name}. "
+                    f"Reason: {description}"
+                ),
+                entries=entries,
+                user=self.request.user,
+                auto_post=True,
+                # Balance adjustments are authorized override entries used to
+                # set or correct balances, so they bypass operational balance gates.
+                validate_balances=False,
+            )
+        except ValidationError as exc:
+            form.add_error(None, exc)
+            messages.error(self.request, "Balance adjustment failed. Check details and retry.")
+            return self.form_invalid(form)
+
+        messages.success(
+            self.request, "Balance adjustment posted successfully and auto-posted."
+        )
+        return super().form_valid(form)
+
+
 class JournalApprovalView(LoginRequiredMixin, JournalApprovalMixin, FormView):
     """
     Approve or reject a journal (auditors only)
@@ -435,6 +645,12 @@ class FiscalYearListView(
     template_name = "accounting/fiscal_year_list.html"
     context_object_name = "fiscal_years"
     ordering = ["-year"]
+
+    def get_queryset(self):
+        return (
+            FiscalYear.objects.annotate(journal_count=Count("periods__journals", distinct=True))
+            .order_by("-year")
+        )
 
 
 class FiscalYearDetailView(
@@ -651,22 +867,43 @@ def account_activity_report(request):
     start_date = request.GET.get("start_date")
     end_date = request.GET.get("end_date")
 
-    entries = account.entries.all()
+    entries_qs = account.entries.select_related("journal").all()
 
     if start_date:
-        entries = entries.filter(journal__date__gte=start_date)
+        entries_qs = entries_qs.filter(journal__date__gte=start_date)
     if end_date:
-        entries = entries.filter(journal__date__lte=end_date)
+        entries_qs = entries_qs.filter(journal__date__lte=end_date)
 
-    entries = entries.order_by("-journal__date")
+    entries_qs = entries_qs.order_by("journal__date", "journal__created_at", "pk")
+
+    filtered_delta = sum(
+        entry.amount if entry.entry_type == "DEBIT" else -entry.amount
+        for entry in entries_qs
+    )
+    opening_balance = account.get_balance() - filtered_delta
+
+    running_balance = opening_balance
+    entries = list(entries_qs)
+    total_debits = Decimal("0.00")
+    total_credits = Decimal("0.00")
+    for entry in entries:
+        if entry.entry_type == "DEBIT":
+            total_debits += entry.amount
+            running_balance += entry.amount
+        else:
+            total_credits += entry.amount
+            running_balance -= entry.amount
+        entry.running_balance = running_balance
 
     context = {
         "account": account,
         "entries": entries,
         "start_date": start_date,
         "end_date": end_date,
-        "opening_balance": account.get_balance()
-        - sum(e.amount if e.entry_type == "DEBIT" else -e.amount for e in entries),
+        "opening_balance": opening_balance,
+        "total_debits": total_debits,
+        "total_credits": total_credits,
+        "accounts": Account.objects.all().order_by("account_number", "name"),
     }
 
     return render(request, "accounting/reports/account_activity.html", context)
@@ -689,6 +926,147 @@ def reports_index(request):
     }
 
     return render(request, "accounting/reports/index.html", context)
+
+
+@login_required
+@auditor_or_accountant_required
+def unposted_financial_events_report(request):
+    """
+    Show financial source events that do not yet have a corresponding ledger journal.
+    """
+    from payroll.models import PayrollRun, IOU
+
+    payroll_ct = ContentType.objects.get_for_model(PayrollRun)
+    iou_ct = ContentType.objects.get_for_model(IOU)
+
+    posted_payroll_ids = set(
+        Journal.objects.filter(
+            content_type=payroll_ct,
+            description__startswith="Payroll for period:",
+        ).values_list("object_id", flat=True)
+    )
+    posted_iou_approval_ids = set(
+        Journal.objects.filter(
+            content_type=iou_ct,
+            description__startswith="IOU approved for",
+        ).values_list("object_id", flat=True)
+    )
+    posted_iou_direct_paid_ids = set(
+        Journal.objects.filter(
+            content_type=iou_ct,
+            description__startswith="IOU paid (direct) by",
+        ).values_list("object_id", flat=True)
+    )
+
+    unposted_closed_payroll = PayrollRun.objects.filter(closed=True).exclude(
+        pk__in=posted_payroll_ids
+    ).order_by("-paydays")
+    unposted_iou_approved = IOU.objects.filter(status="APPROVED").exclude(
+        pk__in=posted_iou_approval_ids
+    ).order_by("-approved_at", "-created_at")
+    unposted_iou_direct_paid = IOU.objects.filter(
+        status="PAID", payment_method="DIRECT_PAYMENT"
+    ).exclude(pk__in=posted_iou_direct_paid_ids).order_by("-due_date", "-created_at")
+
+    context = {
+        "unposted_closed_payroll": unposted_closed_payroll,
+        "unposted_iou_approved": unposted_iou_approved,
+        "unposted_iou_direct_paid": unposted_iou_direct_paid,
+        "total_unposted": (
+            unposted_closed_payroll.count()
+            + unposted_iou_approved.count()
+            + unposted_iou_direct_paid.count()
+        ),
+    }
+    return render(request, "accounting/reports/unposted_events.html", context)
+
+
+@login_required
+@auditor_or_accountant_required
+def account_balance_report(request):
+    """
+    Show account balances as of today or a selected date.
+    """
+    account_id = request.GET.get("account")
+    as_of_date = request.GET.get("as_of_date")
+
+    accounts = Account.objects.all().order_by("account_number", "name")
+    selected_account = None
+    selected_balance = None
+
+    if account_id:
+        selected_account = get_object_or_404(Account, pk=account_id)
+        if as_of_date:
+            try:
+                from datetime import datetime
+
+                date_obj = datetime.strptime(as_of_date, "%Y-%m-%d").date()
+                selected_balance = get_account_balance_as_of(selected_account, date_obj)
+            except ValueError:
+                messages.error(request, "Invalid date format")
+                return redirect("accounting:account_balance")
+        else:
+            selected_balance = selected_account.get_balance()
+
+    context = {
+        "accounts": accounts,
+        "selected_account": selected_account,
+        "selected_balance": selected_balance,
+        "as_of_date": as_of_date,
+    }
+    return render(request, "accounting/reports/account_balance.html", context)
+
+
+@login_required
+@auditor_or_accountant_required
+def export_reports(request):
+    """
+    Export account balances.
+    format=excel returns CSV for spreadsheet use.
+    format=pdf redirects to trial balance PDF.
+    """
+    export_format = (request.GET.get("format") or "").lower()
+
+    if export_format == "pdf":
+        query_parts = []
+        period = request.GET.get("period")
+        as_of_date = request.GET.get("as_of_date")
+        if period:
+            query_parts.append(f"period={period}")
+        if as_of_date:
+            query_parts.append(f"as_of_date={as_of_date}")
+        query = f"?{'&'.join(query_parts)}" if query_parts else ""
+        return redirect(f"{reverse_lazy('accounting:trial_balance_pdf')}{query}")
+
+    if export_format in {"excel", "csv"}:
+        as_of_date = request.GET.get("as_of_date")
+        response = HttpResponse(content_type="text/csv")
+        response["Content-Disposition"] = (
+            f'attachment; filename="account_balances_{timezone.now().date()}.csv"'
+        )
+
+        writer = csv.writer(response)
+        writer.writerow(["Account Number", "Account Name", "Type", "Balance"])
+
+        accounts = Account.objects.all().order_by("account_number", "name")
+        for account in accounts:
+            balance = account.get_balance()
+            if as_of_date:
+                try:
+                    from datetime import datetime
+
+                    date_obj = datetime.strptime(as_of_date, "%Y-%m-%d").date()
+                    balance = get_account_balance_as_of(account, date_obj)
+                except ValueError:
+                    messages.error(request, "Invalid date format")
+                    return redirect("accounting:reports")
+            writer.writerow(
+                [account.account_number, account.name, account.get_type_display(), balance]
+            )
+        return response
+
+    messages.error(request, "Unsupported export format")
+    return redirect("accounting:reports")
 
 
 # PDF Export Views
@@ -773,19 +1151,33 @@ def account_activity_pdf(request):
 
     account = get_object_or_404(Account, pk=account_id)
 
-    entries = account.entries.all()
+    entries_qs = account.entries.select_related("journal").all()
 
     if start_date:
-        entries = entries.filter(journal__date__gte=start_date)
+        entries_qs = entries_qs.filter(journal__date__gte=start_date)
     if end_date:
-        entries = entries.filter(journal__date__lte=end_date)
+        entries_qs = entries_qs.filter(journal__date__lte=end_date)
 
-    entries = entries.order_by("-journal__date")
+    entries_qs = entries_qs.order_by("journal__date", "journal__created_at", "pk")
 
-    # Calculate opening balance
-    opening_balance = account.get_balance() - sum(
-        e.amount if e.entry_type == "DEBIT" else -e.amount for e in entries
+    filtered_delta = sum(
+        entry.amount if entry.entry_type == "DEBIT" else -entry.amount
+        for entry in entries_qs
     )
+    opening_balance = account.get_balance() - filtered_delta
+
+    running_balance = opening_balance
+    entries = list(entries_qs)
+    total_debits = Decimal("0.00")
+    total_credits = Decimal("0.00")
+    for entry in entries:
+        if entry.entry_type == "DEBIT":
+            total_debits += entry.amount
+            running_balance += entry.amount
+        else:
+            total_credits += entry.amount
+            running_balance -= entry.amount
+        entry.running_balance = running_balance
 
     context = {
         "account": account,
@@ -793,6 +1185,8 @@ def account_activity_pdf(request):
         "start_date": start_date,
         "end_date": end_date,
         "opening_balance": opening_balance,
+        "total_debits": total_debits,
+        "total_credits": total_credits,
     }
 
     # Generate PDF

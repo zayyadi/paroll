@@ -1,7 +1,7 @@
 {% extends "base_new.html" %}
 {% load humanize %}
 
-{% block page_header %}Employee Dashboard{% endblock %}
+{% block page_header %}HR Dashboard{% endblock %}
 
 {% block content %}
 <div class="space-y-6">
@@ -10,7 +10,7 @@
         <div class="flex flex-col md:flex-row md:items-center md:justify-between">
             <div>
                 <h1 class="text-2xl font-bold mb-2">Welcome back, {{ user.first_name|default:user.email }}!</h1>
-                <p class="text-primary-100">Here's what's happening with your payroll today.</p>
+                <p class="text-primary-100">Here's your HR operations overview for today.</p>
             </div>
             <div class="mt-4 md:mt-0">
                 <span class="bg-white bg-opacity-20 text-white text-sm font-medium px-4 py-2 rounded-full">
@@ -77,28 +77,80 @@
     <div class="bg-white rounded-xl shadow-soft p-6">
         <h2 class="text-lg font-semibold text-secondary-900 mb-4">Quick Actions</h2>
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <a href="{% url 'payroll:profile' user.id %}"
+            <a href="{% url 'payroll:employee_list' %}"
                 class="group flex flex-col items-center p-4 border border-secondary-200 rounded-lg hover:border-primary-300 hover:bg-primary-50 transition-all">
-                <i data-lucide="user" class="h-8 w-8 text-secondary-600 group-hover:text-primary-600 mb-2"></i>
-                <span class="text-sm font-medium text-secondary-700 group-hover:text-primary-700">View Profile</span>
+                <i data-lucide="users" class="h-8 w-8 text-secondary-600 group-hover:text-primary-600 mb-2"></i>
+                <span class="text-sm font-medium text-secondary-700 group-hover:text-primary-700">Manage Employees</span>
             </a>
 
-            <a href="{% url 'payroll:apply_leave' %}"
+            <a href="{% url 'payroll:add_employee' %}"
                 class="group flex flex-col items-center p-4 border border-secondary-200 rounded-lg hover:border-primary-300 hover:bg-primary-50 transition-all">
-                <i data-lucide="calendar-plus" class="h-8 w-8 text-secondary-600 group-hover:text-primary-600 mb-2"></i>
-                <span class="text-sm font-medium text-secondary-700 group-hover:text-primary-700">Apply for Leave</span>
+                <i data-lucide="user-plus" class="h-8 w-8 text-secondary-600 group-hover:text-primary-600 mb-2"></i>
+                <span class="text-sm font-medium text-secondary-700 group-hover:text-primary-700">Add Employee</span>
             </a>
 
-            <a href="{% url 'payroll:request_iou' %}"
-                class="group flex flex-col items-center p-4 border border-secondary-200 rounded-lg hover:border-primary-300 hover:bg-primary-50 transition-all">
-                <i data-lucide="credit-card" class="h-8 w-8 text-secondary-600 group-hover:text-primary-600 mb-2"></i>
-                <span class="text-sm font-medium text-secondary-700 group-hover:text-primary-700">Request IOU</span>
+            <a href="{% url 'payroll:manage_leave_requests' %}"
+                class="group flex flex-col items-center p-4 border border-secondary-200 rounded-lg hover:border-warning-300 hover:bg-warning-50 transition-all">
+                <i data-lucide="calendar-check-2" class="h-8 w-8 text-secondary-600 group-hover:text-warning-600 mb-2"></i>
+                <span class="text-sm font-medium text-secondary-700 group-hover:text-warning-700">
+                    Approve Leave ({{ pending_leave_requests_count_for_link|default:leave_count|default:active_leave_requests|default:0 }})
+                </span>
             </a>
 
-            <a href="{% url 'payroll:payslips' %}"
+            <a href="{% url 'payroll:iou_list' %}"
+                class="group flex flex-col items-center p-4 border border-secondary-200 rounded-lg hover:border-success-300 hover:bg-success-50 transition-all">
+                <i data-lucide="badge-check" class="h-8 w-8 text-secondary-600 group-hover:text-success-600 mb-2"></i>
+                <span class="text-sm font-medium text-secondary-700 group-hover:text-success-700">
+                    Approve IOU ({{ pending_iou_requests_count_for_link|default:iou_count|default:iou_status_counts|default:0 }})
+                </span>
+            </a>
+
+            <a href="{% url 'payroll:payday' %}"
                 class="group flex flex-col items-center p-4 border border-secondary-200 rounded-lg hover:border-primary-300 hover:bg-primary-50 transition-all">
-                <i data-lucide="file-text" class="h-8 w-8 text-secondary-600 group-hover:text-primary-600 mb-2"></i>
-                <span class="text-sm font-medium text-secondary-700 group-hover:text-primary-700">View Payslips</span>
+                <i data-lucide="calendar-plus-2" class="h-8 w-8 text-secondary-600 group-hover:text-primary-600 mb-2"></i>
+                <span class="text-sm font-medium text-secondary-700 group-hover:text-primary-700">Create Payroll Run</span>
+            </a>
+
+            <a href="{% url 'payroll:pay_period_list' %}"
+                class="group flex flex-col items-center p-4 border border-secondary-200 rounded-lg hover:border-primary-300 hover:bg-primary-50 transition-all">
+                <i data-lucide="clipboard-list" class="h-8 w-8 text-secondary-600 group-hover:text-primary-600 mb-2"></i>
+                <span class="text-sm font-medium text-secondary-700 group-hover:text-primary-700">Payroll Periods</span>
+            </a>
+
+            <a href="{% url 'payroll:add-allowance' %}"
+                class="group flex flex-col items-center p-4 border border-secondary-200 rounded-lg hover:border-primary-300 hover:bg-primary-50 transition-all">
+                <i data-lucide="plus-circle" class="h-8 w-8 text-secondary-600 group-hover:text-primary-600 mb-2"></i>
+                <span class="text-sm font-medium text-secondary-700 group-hover:text-primary-700">Add Allowance</span>
+            </a>
+
+            <a href="{% url 'payroll:add-deduction' %}"
+                class="group flex flex-col items-center p-4 border border-secondary-200 rounded-lg hover:border-primary-300 hover:bg-primary-50 transition-all">
+                <i data-lucide="minus-circle" class="h-8 w-8 text-secondary-600 group-hover:text-primary-600 mb-2"></i>
+                <span class="text-sm font-medium text-secondary-700 group-hover:text-primary-700">Add Deduction</span>
+            </a>
+
+            <a href="{% url 'payroll:appraisal_assign' %}"
+                class="group flex flex-col items-center p-4 border border-secondary-200 rounded-lg hover:border-primary-300 hover:bg-primary-50 transition-all">
+                <i data-lucide="user-check" class="h-8 w-8 text-secondary-600 group-hover:text-primary-600 mb-2"></i>
+                <span class="text-sm font-medium text-secondary-700 group-hover:text-primary-700">Assign Appraisal</span>
+            </a>
+
+            <a href="{% url 'payroll:audit_trail_list' %}"
+                class="group flex flex-col items-center p-4 border border-secondary-200 rounded-lg hover:border-primary-300 hover:bg-primary-50 transition-all">
+                <i data-lucide="scroll-text" class="h-8 w-8 text-secondary-600 group-hover:text-primary-600 mb-2"></i>
+                <span class="text-sm font-medium text-secondary-700 group-hover:text-primary-700">Audit Trail</span>
+            </a>
+
+            <a href="{% url 'payroll:notifications' %}"
+                class="group flex flex-col items-center p-4 border border-secondary-200 rounded-lg hover:border-primary-300 hover:bg-primary-50 transition-all">
+                <i data-lucide="bell" class="h-8 w-8 text-secondary-600 group-hover:text-primary-600 mb-2"></i>
+                <span class="text-sm font-medium text-secondary-700 group-hover:text-primary-700">Notifications</span>
+            </a>
+
+            <a href="{% url 'users:settings' %}"
+                class="group flex flex-col items-center p-4 border border-secondary-200 rounded-lg hover:border-primary-300 hover:bg-primary-50 transition-all">
+                <i data-lucide="settings" class="h-8 w-8 text-secondary-600 group-hover:text-primary-600 mb-2"></i>
+                <span class="text-sm font-medium text-secondary-700 group-hover:text-primary-700">Account Settings</span>
             </a>
         </div>
     </div>

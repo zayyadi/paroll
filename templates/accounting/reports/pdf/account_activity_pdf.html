@@ -111,9 +111,9 @@
             <span class="account-info-label">Opening Balance:</span>
             <span class="account-info-value">
                 {% if opening_balance >= 0 %}
-                <span class="text-success">${{ opening_balance|floatformat:2 }}</span>
+                <span class="text-success">₦{{ opening_balance|floatformat:2 }}</span>
                 {% else %}
-                <span class="text-danger">(${{ opening_balance|floatformat:2|slice:"1:" }})</span>
+                <span class="text-danger">(₦{{ opening_balance|floatformat:2|slice:"1:" }})</span>
                 {% endif %}
             </span>
         </div>
@@ -122,9 +122,9 @@
             <span class="account-info-value">
                 {% with balance=account.balance %}
                 {% if balance >= 0 %}
-                <span class="text-success">${{ balance|floatformat:2 }}</span>
+                <span class="text-success">₦{{ balance|floatformat:2 }}</span>
                 {% else %}
-                <span class="text-danger">(${{ balance|floatformat:2|slice:"1:" }})</span>
+                <span class="text-danger">(₦{{ balance|floatformat:2|slice:"1:" }})</span>
                 {% endif %}
                 {% endwith %}
             </span>
@@ -144,7 +144,6 @@
             </tr>
         </thead>
         <tbody>
-            {% set current_balance = opening_balance %}
             {% for entry in entries %}
             <tr>
                 <td>{{ entry.journal.date|date:"M d, Y" }}</td>
@@ -153,25 +152,23 @@
                 <td>{{ entry.get_entry_type_display }}</td>
                 <td class="text-right">
                     {% if entry.entry_type == 'DEBIT' %}
-                    <span class="text-danger">${{ entry.amount|floatformat:2 }}</span>
+                    <span class="text-danger">₦{{ entry.amount|floatformat:2 }}</span>
                     {% else %}
                     —
                     {% endif %}
                 </td>
                 <td class="text-right">
                     {% if entry.entry_type == 'CREDIT' %}
-                    <span class="text-success">${{ entry.amount|floatformat:2 }}</span>
+                    <span class="text-success">₦{{ entry.amount|floatformat:2 }}</span>
                     {% else %}
                     —
                     {% endif %}
                 </td>
                 <td class="text-right running-balance">
-                    {% if entry.entry_type == 'DEBIT' %}
-                    {% set current_balance = current_balance|add:entry.amount %}
-                    <span class="text-danger">${{ current_balance|floatformat:2 }}</span>
+                    {% if entry.running_balance >= 0 %}
+                    <span class="text-success">₦{{ entry.running_balance|floatformat:2 }}</span>
                     {% else %}
-                    {% set current_balance = current_balance|add:entry.amount %}
-                    <span class="text-success">${{ current_balance|floatformat:2 }}</span>
+                    <span class="text-danger">(₦{{ entry.running_balance|floatformat:2|slice:"1:" }})</span>
                     {% endif %}
                 </td>
             </tr>
@@ -181,17 +178,17 @@
             <tr>
                 <td colspan="4" class="text-right">Totals:</td>
                 <td class="text-right text-danger">
-                    ${{ entries|sum:'amount'|filter:'entry_type=DEBIT'|floatformat:2|default:"0.00" }}
+                    ₦{{ total_debits|floatformat:2|default:"0.00" }}
                 </td>
                 <td class="text-right text-success">
-                    ${{ entries|sum:'amount'|filter:'entry_type=CREDIT'|floatformat:2|default:"0.00" }}
+                    ₦{{ total_credits|floatformat:2|default:"0.00" }}
                 </td>
                 <td class="text-right">
                     {% with balance=account.balance %}
                     {% if balance >= 0 %}
-                    <span class="text-success">${{ balance|floatformat:2 }}</span>
+                    <span class="text-success">₦{{ balance|floatformat:2 }}</span>
                     {% else %}
-                    <span class="text-danger">(${{ balance|floatformat:2|slice:"1:" }})</span>
+                    <span class="text-danger">(₦{{ balance|floatformat:2|slice:"1:" }})</span>
                     {% endif %}
                     {% endwith %}
                 </td>

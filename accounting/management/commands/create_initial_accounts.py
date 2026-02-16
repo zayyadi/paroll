@@ -8,8 +8,8 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         accounts = [
             {
-                "name": "Cash",
-                "account_number": "1010",
+                "name": "Cash and Cash Equivalents",
+                "account_number": "1100",
                 "type": Account.AccountType.ASSET,
             },
             {
