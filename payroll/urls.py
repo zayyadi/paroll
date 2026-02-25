@@ -4,6 +4,7 @@ from payroll import views
 from payroll.views import payroll_view
 from payroll.views.payroll_view import payslips, payslip_detail
 from payroll.views import notification_view
+from accounting import views as accounting_views
 
 app_name = "payroll"
 
@@ -18,6 +19,16 @@ urlpatterns = [
     path("employees/<int:id>/update/", views.update_employee, name="update_employee"),
     path("add_pay", views.add_pay, name="add_pay"),
     path("dashboard", views.dashboard, name="dashboard"),
+    path(
+        "settings/payroll/",
+        views.company_payroll_settings,
+        name="company_payroll_settings",
+    ),
+    path(
+        "settings/payroll/edit/",
+        views.company_payroll_settings_edit,
+        name="company_payroll_settings_edit",
+    ),
     path("list_payslip/<slug:emp_slug>/", views.list_payslip, name="list-payslip"),
     path("payslips/", payslips, name="payslips"),
     path("add_allowance/", views.create_allowance, name="add-allowance"),
@@ -202,30 +213,91 @@ urlpatterns = [
         views.AssignAppraisalView.as_view(),
         name="appraisal_assign",
     ),
+    # HR Disciplinary System (moved from accounting namespace)
+    path(
+        "hr/disciplinary-system/",
+        accounting_views.disciplinary_system_view,
+        name="disciplinary_system",
+    ),
+    path(
+        "hr/disciplinary/cases/",
+        accounting_views.DisciplinaryCaseListView.as_view(),
+        name="discipline_case_list",
+    ),
+    path(
+        "hr/disciplinary/cases/new/",
+        accounting_views.DisciplinaryCaseCreateView.as_view(),
+        name="discipline_case_create",
+    ),
+    path(
+        "hr/disciplinary/cases/<int:pk>/",
+        accounting_views.DisciplinaryCaseDetailView.as_view(),
+        name="discipline_case_detail",
+    ),
+    path(
+        "hr/disciplinary/cases/<int:pk>/edit/",
+        accounting_views.DisciplinaryCaseUpdateView.as_view(),
+        name="discipline_case_update",
+    ),
+    path(
+        "hr/disciplinary/cases/<int:pk>/start-investigation/",
+        accounting_views.disciplinary_case_start_investigation,
+        name="discipline_case_start_investigation",
+    ),
+    path(
+        "hr/disciplinary/cases/<int:pk>/evidence/add/",
+        accounting_views.DisciplinaryEvidenceCreateView.as_view(),
+        name="discipline_evidence_create",
+    ),
+    path(
+        "hr/disciplinary/cases/<int:pk>/decision/",
+        accounting_views.DisciplinaryDecisionUpdateView.as_view(),
+        name="discipline_decision_update",
+    ),
+    path(
+        "hr/disciplinary/cases/<int:pk>/sanction/add/",
+        accounting_views.DisciplinarySanctionCreateView.as_view(),
+        name="discipline_sanction_create",
+    ),
+    path(
+        "hr/disciplinary/cases/<int:pk>/appeal/add/",
+        accounting_views.DisciplinaryAppealCreateView.as_view(),
+        name="discipline_appeal_create",
+    ),
+    path(
+        "hr/disciplinary/appeals/<int:pk>/review/",
+        accounting_views.DisciplinaryAppealReviewView.as_view(),
+        name="discipline_appeal_review",
+    ),
     # Notification URLs
     path("notifications/", notification_view.notification_list, name="notifications"),
+    path(
+        "notifications/enhanced/",
+        notification_view.notification_list,
+        name="notifications_enhanced",
+    ),
     path(
         "notifications/dropdown/",
         notification_view.notification_dropdown,
         name="notification_dropdown",
     ),
     path(
-        "notifications/<int:notification_id>/",
+        "notifications/<uuid:notification_id>/",
         notification_view.notification_detail,
         name="notification_detail",
     ),
     path(
-        "notifications/<int:notification_id>/mark-read/",
+        "notifications/<uuid:notification_id>/mark-read/",
         notification_view.mark_notification_read,
         name="mark_notification_read",
     ),
     path(
-        "notifications/<int:notification_id>/mark-unread/",
+        "notifications/<uuid:notification_id>/mark-unread/",
         notification_view.mark_notification_unread,
         name="mark_notification_unread",
     ),
     path(
-        "notifications/<int:notification_id>/delete/",
+        "notifications/<uuid:notification_id>/delete/",
         notification_view.delete_notification,
         name="delete_notification",
     ),
@@ -257,7 +329,7 @@ urlpatterns = [
         name="aggregated_notifications",
     ),
     path(
-        "notifications/<int:notification_id>/expand/",
+        "notifications/<uuid:notification_id>/expand/",
         notification_view.expand_aggregated_notification,
         name="expand_aggregated_notification",
     ),
@@ -266,6 +338,16 @@ urlpatterns = [
         "notifications/digests/",
         notification_view.notification_digests,
         name="notification_digests",
+    ),
+    path(
+        "notifications/digests/settings/",
+        notification_view.notification_digest_settings,
+        name="notification_digest_settings",
+    ),
+    path(
+        "notifications/digests/<uuid:notification_id>/",
+        notification_view.notification_detail,
+        name="notification_digest_detail",
     ),
     path(
         "notifications/digest/enable-daily/",

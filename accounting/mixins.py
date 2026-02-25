@@ -5,6 +5,8 @@ from .permissions import (
     is_auditor,
     is_accountant,
     is_payroll_processor,
+    can_access_disciplinary,
+    can_manage_disciplinary_case,
     can_approve_journal,
     can_reverse_journal,
     can_close_period,
@@ -191,3 +193,33 @@ class SelfModificationMixin(UserPassesTestMixin):
         if self.request.user.is_authenticated:
             return HttpResponseForbidden("You cannot modify your own journal.")
         return redirect("login")
+
+
+class DisciplineAccessRequiredMixin(AccessMixin):
+    """
+    Mixin to ensure user can access disciplinary pages.
+    """
+
+    def dispatch(self, request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return self.handle_no_permission()
+
+        if not can_access_disciplinary(request.user):
+            return self.handle_no_permission()
+
+        return super().dispatch(request, *args, **kwargs)
+
+
+class DisciplineManagerRequiredMixin(AccessMixin):
+    """
+    Mixin to ensure user can manage disciplinary decisions/sanctions/appeals.
+    """
+
+    def dispatch(self, request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return self.handle_no_permission()
+
+        if not can_manage_disciplinary_case(request.user):
+            return self.handle_no_permission()
+
+        return super().dispatch(request, *args, **kwargs)

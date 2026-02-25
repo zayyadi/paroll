@@ -1,7 +1,15 @@
 from django.contrib import admin
 from import_export import resources
 from import_export.admin import ImportExportModelAdmin
-from .models import Account, Journal, JournalEntry
+from .models import (
+    Account,
+    Journal,
+    JournalEntry,
+    DisciplinaryCase,
+    DisciplinaryEvidence,
+    DisciplinarySanction,
+    DisciplinaryAppeal,
+)
 
 
 class AccountResource(resources.ModelResource):
@@ -79,3 +87,43 @@ class JournalAdmin(ImportExportModelAdmin):
     def has_delete_permission(self, request, obj=None):
         # Preventing accidental deletion of financial records
         return False
+
+
+class DisciplinaryEvidenceInline(admin.TabularInline):
+    model = DisciplinaryEvidence
+    extra = 0
+    readonly_fields = ("title", "evidence_type", "submitted_by", "created_at")
+
+
+class DisciplinarySanctionInline(admin.TabularInline):
+    model = DisciplinarySanction
+    extra = 0
+    readonly_fields = ("sanction_type", "status", "created_by", "created_at")
+
+
+class DisciplinaryAppealInline(admin.TabularInline):
+    model = DisciplinaryAppeal
+    extra = 0
+    readonly_fields = ("grounds", "status", "appellant", "reviewed_by", "created_at")
+
+
+@admin.register(DisciplinaryCase)
+class DisciplinaryCaseAdmin(admin.ModelAdmin):
+    list_display = (
+        "case_number",
+        "allegation_summary",
+        "violation_level",
+        "status",
+        "required_review_level",
+        "respondent",
+        "reporter",
+        "created_at",
+    )
+    list_filter = ("violation_level", "status", "required_review_level")
+    search_fields = ("case_number", "allegation_summary", "respondent__email")
+    readonly_fields = ("case_number", "required_review_level", "created_at", "updated_at")
+    inlines = [
+        DisciplinaryEvidenceInline,
+        DisciplinarySanctionInline,
+        DisciplinaryAppealInline,
+    ]

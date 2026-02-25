@@ -5,6 +5,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/svg+xml" href="{{ APP_LOGO_URL }}">
+    <link rel="shortcut icon" href="{{ APP_LOGO_URL }}">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest" defer></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" as="style">
@@ -175,7 +177,7 @@
             animation: slideUp 0.3s ease-out;
         }
     </style>
-    {% block page_title_in_head %}<title>PayrollCo - Employee Management System</title>{% endblock %}
+    {% block page_title_in_head %}<title>{{ APP_NAME }} - {{ APP_TAGLINE }}</title>{% endblock %}
     {% block extra_head %}{% endblock %}
 </head>
 <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
@@ -200,10 +202,8 @@
                     <!-- Logo -->
                     <a href="{% url 'payroll:index' %}" class="flex items-center ml-2 md:ml-0">
                         <div class="flex-shrink-0 flex items-center">
-                            <div class="h-8 w-8 bg-primary-600 rounded-lg flex items-center justify-center">
-                                <i data-lucide="users" class="h-5 w-5 text-white"></i>
-                            </div>
-                            <span class="ml-2 text-xl font-bold text-secondary-900">PayrollCo</span>
+                            <img src="{{ APP_LOGO_URL }}" alt="{{ APP_NAME }} logo" class="h-8 w-auto">
+                            <span class="ml-2 text-xl font-bold text-secondary-900">{{ APP_NAME }}</span>
                         </div>
                     </a>
                 </div>
@@ -593,7 +593,7 @@
         <footer class="bg-white border-t border-gray-200">
             <div class="max-w-7xl mx-auto py-4 px-4 sm:px-6 md:px-8">
                 <p class="text-center text-sm text-secondary-500">
-                    © {% now "Y" %} PayrollCo. All rights reserved.
+                    © {% now "Y" %} {{ APP_NAME }}. All rights reserved.
                 </p>
             </div>
         </footer>
@@ -693,6 +693,41 @@
                 })
                 .catch(error => console.error('Error loading notifications:', error));
         }
+
+        function markAsRead(notificationId) {
+            fetch(`/payroll/notifications/${notificationId}/mark-read/`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': getCookie('csrftoken'),
+                    'Content-Type': 'application/json',
+                },
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        updateNotificationBadge(data.unread_count);
+                    }
+                })
+                .catch(error => console.error('Error marking notification as read:', error));
+        }
+
+        function markAllAsRead() {
+            fetch('/payroll/notifications/mark-all-read/', {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': getCookie('csrftoken'),
+                    'Content-Type': 'application/json',
+                },
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        updateNotificationBadge(data.unread_count);
+                        loadNotifications();
+                    }
+                })
+                .catch(error => console.error('Error marking all notifications as read:', error));
+        }
     
         function getCookie(name) {
             let cookieValue = null;
@@ -708,6 +743,13 @@
             }
             return cookieValue;
         }
+
+        // Expose notification utilities to Alpine expressions and inline handlers.
+        window.loadNotifications = loadNotifications;
+        window.loadNotificationCount = loadNotificationCount;
+        window.markAsRead = markAsRead;
+        window.markAllAsRead = markAllAsRead;
+        window.updateNotificationCount = updateNotificationBadge;
     })();
     </script>
 

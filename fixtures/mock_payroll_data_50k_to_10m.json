@@ -1,0 +1,1384 @@
+[
+  {
+    "model": "company.company",
+    "pk": 101,
+    "fields": {
+      "name": "Range Payroll Nigeria Ltd",
+      "slug": "range-payroll-nigeria-ltd",
+      "is_active": true,
+      "created_at": "2026-02-01T08:00:00Z",
+      "updated_at": "2026-02-01T08:00:00Z"
+    }
+  },
+  {
+    "model": "users.customuser",
+    "pk": 101,
+    "fields": {
+      "company": 101,
+      "active_company": 101,
+      "email": "admin@range.test",
+      "first_name": "System",
+      "last_name": "Admin",
+      "password": "!",
+      "is_staff": true,
+      "is_active": true,
+      "is_manager": true,
+      "is_superuser": true,
+      "last_login": null,
+      "date_joined": "2026-02-01T08:05:00Z",
+      "groups": [],
+      "user_permissions": []
+    }
+  },
+  {
+    "model": "users.customuser",
+    "pk": 102,
+    "fields": {
+      "company": 101,
+      "active_company": 101,
+      "email": "emp1@range.test",
+      "first_name": "Amina",
+      "last_name": "Usman",
+      "password": "!",
+      "is_staff": false,
+      "is_active": true,
+      "is_manager": false,
+      "is_superuser": false,
+      "last_login": null,
+      "date_joined": "2026-02-01T09:00:00Z",
+      "groups": [],
+      "user_permissions": []
+    }
+  },
+  {
+    "model": "users.customuser",
+    "pk": 103,
+    "fields": {
+      "company": 101,
+      "active_company": 101,
+      "email": "emp2@range.test",
+      "first_name": "Bassey",
+      "last_name": "Etim",
+      "password": "!",
+      "is_staff": false,
+      "is_active": true,
+      "is_manager": false,
+      "is_superuser": false,
+      "last_login": null,
+      "date_joined": "2026-02-01T09:05:00Z",
+      "groups": [],
+      "user_permissions": []
+    }
+  },
+  {
+    "model": "users.customuser",
+    "pk": 104,
+    "fields": {
+      "company": 101,
+      "active_company": 101,
+      "email": "emp3@range.test",
+      "first_name": "Chinedu",
+      "last_name": "Okoye",
+      "password": "!",
+      "is_staff": false,
+      "is_active": true,
+      "is_manager": false,
+      "is_superuser": false,
+      "last_login": null,
+      "date_joined": "2026-02-01T09:10:00Z",
+      "groups": [],
+      "user_permissions": []
+    }
+  },
+  {
+    "model": "users.customuser",
+    "pk": 105,
+    "fields": {
+      "company": 101,
+      "active_company": 101,
+      "email": "emp4@range.test",
+      "first_name": "Damilola",
+      "last_name": "Adebayo",
+      "password": "!",
+      "is_staff": false,
+      "is_active": true,
+      "is_manager": false,
+      "is_superuser": false,
+      "last_login": null,
+      "date_joined": "2026-02-01T09:15:00Z",
+      "groups": [],
+      "user_permissions": []
+    }
+  },
+  {
+    "model": "users.customuser",
+    "pk": 106,
+    "fields": {
+      "company": 101,
+      "active_company": 101,
+      "email": "emp5@range.test",
+      "first_name": "Efe",
+      "last_name": "Akpan",
+      "password": "!",
+      "is_staff": false,
+      "is_active": true,
+      "is_manager": false,
+      "is_superuser": false,
+      "last_login": null,
+      "date_joined": "2026-02-01T09:20:00Z",
+      "groups": [],
+      "user_permissions": []
+    }
+  },
+  {
+    "model": "users.customuser",
+    "pk": 107,
+    "fields": {
+      "company": 101,
+      "active_company": 101,
+      "email": "emp6@range.test",
+      "first_name": "Femi",
+      "last_name": "Olaoye",
+      "password": "!",
+      "is_staff": false,
+      "is_active": true,
+      "is_manager": false,
+      "is_superuser": false,
+      "last_login": null,
+      "date_joined": "2026-02-01T09:25:00Z",
+      "groups": [],
+      "user_permissions": []
+    }
+  },
+  {
+    "model": "users.customuser",
+    "pk": 108,
+    "fields": {
+      "company": 101,
+      "active_company": 101,
+      "email": "emp7@range.test",
+      "first_name": "Grace",
+      "last_name": "Nwankwo",
+      "password": "!",
+      "is_staff": false,
+      "is_active": true,
+      "is_manager": false,
+      "is_superuser": false,
+      "last_login": null,
+      "date_joined": "2026-02-01T09:30:00Z",
+      "groups": [],
+      "user_permissions": []
+    }
+  },
+  {
+    "model": "users.customuser",
+    "pk": 109,
+    "fields": {
+      "company": 101,
+      "active_company": 101,
+      "email": "emp8@range.test",
+      "first_name": "Hauwa",
+      "last_name": "Bello",
+      "password": "!",
+      "is_staff": false,
+      "is_active": true,
+      "is_manager": false,
+      "is_superuser": false,
+      "last_login": null,
+      "date_joined": "2026-02-01T09:35:00Z",
+      "groups": [],
+      "user_permissions": []
+    }
+  },
+  {
+    "model": "company.companymembership",
+    "pk": 101,
+    "fields": {
+      "user": 101,
+      "company": 101,
+      "role": "owner",
+      "is_default": true,
+      "created_at": "2026-02-01T08:10:00Z"
+    }
+  },
+  {
+    "model": "company.companymembership",
+    "pk": 102,
+    "fields": {
+      "user": 102,
+      "company": 101,
+      "role": "member",
+      "is_default": true,
+      "created_at": "2026-02-01T09:00:00Z"
+    }
+  },
+  {
+    "model": "company.companymembership",
+    "pk": 103,
+    "fields": {
+      "user": 103,
+      "company": 101,
+      "role": "member",
+      "is_default": true,
+      "created_at": "2026-02-01T09:05:00Z"
+    }
+  },
+  {
+    "model": "company.companymembership",
+    "pk": 104,
+    "fields": {
+      "user": 104,
+      "company": 101,
+      "role": "member",
+      "is_default": true,
+      "created_at": "2026-02-01T09:10:00Z"
+    }
+  },
+  {
+    "model": "company.companymembership",
+    "pk": 105,
+    "fields": {
+      "user": 105,
+      "company": 101,
+      "role": "member",
+      "is_default": true,
+      "created_at": "2026-02-01T09:15:00Z"
+    }
+  },
+  {
+    "model": "company.companymembership",
+    "pk": 106,
+    "fields": {
+      "user": 106,
+      "company": 101,
+      "role": "member",
+      "is_default": true,
+      "created_at": "2026-02-01T09:20:00Z"
+    }
+  },
+  {
+    "model": "company.companymembership",
+    "pk": 107,
+    "fields": {
+      "user": 107,
+      "company": 101,
+      "role": "member",
+      "is_default": true,
+      "created_at": "2026-02-01T09:25:00Z"
+    }
+  },
+  {
+    "model": "company.companymembership",
+    "pk": 108,
+    "fields": {
+      "user": 108,
+      "company": 101,
+      "role": "member",
+      "is_default": true,
+      "created_at": "2026-02-01T09:30:00Z"
+    }
+  },
+  {
+    "model": "company.companymembership",
+    "pk": 109,
+    "fields": {
+      "user": 109,
+      "company": 101,
+      "role": "member",
+      "is_default": true,
+      "created_at": "2026-02-01T09:35:00Z"
+    }
+  },
+  {
+    "model": "payroll.department",
+    "pk": 101,
+    "fields": {
+      "deleted_at": null,
+      "company": 101,
+      "name": "Operations",
+      "description": "Operations unit"
+    }
+  },
+  {
+    "model": "payroll.department",
+    "pk": 102,
+    "fields": {
+      "deleted_at": null,
+      "company": 101,
+      "name": "Finance",
+      "description": "Finance unit"
+    }
+  },
+  {
+    "model": "payroll.department",
+    "pk": 103,
+    "fields": {
+      "deleted_at": null,
+      "company": 101,
+      "name": "Executive",
+      "description": "Executive office"
+    }
+  },
+  {
+    "model": "payroll.payroll",
+    "pk": 101,
+    "fields": {
+      "company": 101,
+      "basic_salary": "50000.00",
+      "basic": "240000.00",
+      "housing": "60000.00",
+      "transport": "60000.00",
+      "bht": "360000.00",
+      "pension_employee": "48000.00",
+      "pension_employer": "60000.00",
+      "pension": "108000.00",
+      "gross_income": "552000.00",
+      "is_housing": false,
+      "is_nhif": false,
+      "nhf": "0.00",
+      "employee_health": "0.00",
+      "nhif": "0.00",
+      "emplyr_health": "0.00",
+      "taxable_income": "528000.00",
+      "payee": "0.00",
+      "water_rate": "150.00",
+      "nsitf": "500.00",
+      "timestamp": "2026-02-02T08:00:00Z",
+      "updated": "2026-02-02T08:00:00Z",
+      "status": "active"
+    }
+  },
+  {
+    "model": "payroll.payroll",
+    "pk": 102,
+    "fields": {
+      "company": 101,
+      "basic_salary": "120000.00",
+      "basic": "576000.00",
+      "housing": "144000.00",
+      "transport": "144000.00",
+      "bht": "864000.00",
+      "pension_employee": "115200.00",
+      "pension_employer": "144000.00",
+      "pension": "259200.00",
+      "gross_income": "1324800.00",
+      "is_housing": true,
+      "is_nhif": false,
+      "nhf": "36000.00",
+      "employee_health": "0.00",
+      "nhif": "0.00",
+      "emplyr_health": "0.00",
+      "taxable_income": "1228800.00",
+      "payee": "5360.00",
+      "water_rate": "200.00",
+      "nsitf": "1200.00",
+      "timestamp": "2026-02-02T08:01:00Z",
+      "updated": "2026-02-02T08:01:00Z",
+      "status": "active"
+    }
+  },
+  {
+    "model": "payroll.payroll",
+    "pk": 103,
+    "fields": {
+      "company": 101,
+      "basic_salary": "250000.00",
+      "basic": "1200000.00",
+      "housing": "300000.00",
+      "transport": "300000.00",
+      "bht": "1800000.00",
+      "pension_employee": "240000.00",
+      "pension_employer": "300000.00",
+      "pension": "540000.00",
+      "gross_income": "2760000.00",
+      "is_housing": true,
+      "is_nhif": true,
+      "nhf": "75000.00",
+      "employee_health": "52500.00",
+      "nhif": "150000.00",
+      "emplyr_health": "97500.00",
+      "taxable_income": "2532500.00",
+      "payee": "22487.50",
+      "water_rate": "200.00",
+      "nsitf": "2500.00",
+      "timestamp": "2026-02-02T08:02:00Z",
+      "updated": "2026-02-02T08:02:00Z",
+      "status": "active"
+    }
+  },
+  {
+    "model": "payroll.payroll",
+    "pk": 104,
+    "fields": {
+      "company": 101,
+      "basic_salary": "500000.00",
+      "basic": "2400000.00",
+      "housing": "600000.00",
+      "transport": "600000.00",
+      "bht": "3600000.00",
+      "pension_employee": "480000.00",
+      "pension_employer": "600000.00",
+      "pension": "1080000.00",
+      "gross_income": "5520000.00",
+      "is_housing": true,
+      "is_nhif": true,
+      "nhf": "150000.00",
+      "employee_health": "105000.00",
+      "nhif": "300000.00",
+      "emplyr_health": "195000.00",
+      "taxable_income": "5065000.00",
+      "payee": "60475.00",
+      "water_rate": "200.00",
+      "nsitf": "5000.00",
+      "timestamp": "2026-02-02T08:03:00Z",
+      "updated": "2026-02-02T08:03:00Z",
+      "status": "active"
+    }
+  },
+  {
+    "model": "payroll.payroll",
+    "pk": 105,
+    "fields": {
+      "company": 101,
+      "basic_salary": "900000.00",
+      "basic": "4320000.00",
+      "housing": "1080000.00",
+      "transport": "1080000.00",
+      "bht": "6480000.00",
+      "pension_employee": "864000.00",
+      "pension_employer": "1080000.00",
+      "pension": "1944000.00",
+      "gross_income": "9936000.00",
+      "is_housing": true,
+      "is_nhif": true,
+      "nhf": "270000.00",
+      "employee_health": "189000.00",
+      "nhif": "540000.00",
+      "emplyr_health": "351000.00",
+      "taxable_income": "9127000.00",
+      "payee": "121722.50",
+      "water_rate": "200.00",
+      "nsitf": "9000.00",
+      "timestamp": "2026-02-02T08:04:00Z",
+      "updated": "2026-02-02T08:04:00Z",
+      "status": "active"
+    }
+  },
+  {
+    "model": "payroll.payroll",
+    "pk": 106,
+    "fields": {
+      "company": 101,
+      "basic_salary": "1500000.00",
+      "basic": "7200000.00",
+      "housing": "1800000.00",
+      "transport": "1800000.00",
+      "bht": "10800000.00",
+      "pension_employee": "1440000.00",
+      "pension_employer": "1800000.00",
+      "pension": "3240000.00",
+      "gross_income": "16560000.00",
+      "is_housing": true,
+      "is_nhif": true,
+      "nhf": "450000.00",
+      "employee_health": "315000.00",
+      "nhif": "900000.00",
+      "emplyr_health": "585000.00",
+      "taxable_income": "15295000.00",
+      "payee": "233487.50",
+      "water_rate": "200.00",
+      "nsitf": "15000.00",
+      "timestamp": "2026-02-02T08:05:00Z",
+      "updated": "2026-02-02T08:05:00Z",
+      "status": "active"
+    }
+  },
+  {
+    "model": "payroll.payroll",
+    "pk": 107,
+    "fields": {
+      "company": 101,
+      "basic_salary": "5000000.00",
+      "basic": "24000000.00",
+      "housing": "6000000.00",
+      "transport": "6000000.00",
+      "bht": "36000000.00",
+      "pension_employee": "4800000.00",
+      "pension_employer": "6000000.00",
+      "pension": "10800000.00",
+      "gross_income": "55200000.00",
+      "is_housing": true,
+      "is_nhif": true,
+      "nhf": "1500000.00",
+      "employee_health": "1050000.00",
+      "nhif": "3000000.00",
+      "emplyr_health": "1950000.00",
+      "taxable_income": "52150000.00",
+      "payee": "985125.00",
+      "water_rate": "200.00",
+      "nsitf": "50000.00",
+      "timestamp": "2026-02-02T08:06:00Z",
+      "updated": "2026-02-02T08:06:00Z",
+      "status": "active"
+    }
+  },
+  {
+    "model": "payroll.payroll",
+    "pk": 108,
+    "fields": {
+      "company": 101,
+      "basic_salary": "10000000.00",
+      "basic": "48000000.00",
+      "housing": "12000000.00",
+      "transport": "12000000.00",
+      "bht": "72000000.00",
+      "pension_employee": "9600000.00",
+      "pension_employer": "12000000.00",
+      "pension": "21600000.00",
+      "gross_income": "110400000.00",
+      "is_housing": true,
+      "is_nhif": true,
+      "nhf": "3000000.00",
+      "employee_health": "2100000.00",
+      "nhif": "6000000.00",
+      "emplyr_health": "3900000.00",
+      "taxable_income": "104800000.00",
+      "payee": "2082000.00",
+      "water_rate": "200.00",
+      "nsitf": "100000.00",
+      "timestamp": "2026-02-02T08:07:00Z",
+      "updated": "2026-02-02T08:07:00Z",
+      "status": "active"
+    }
+  },
+  {
+    "model": "payroll.employeeprofile",
+    "pk": 101,
+    "fields": {
+      "deleted_at": null,
+      "company": 101,
+      "emp_id": "EMP-RANGE-0001",
+      "slug": "amina-usman",
+      "department": 101,
+      "user": 102,
+      "first_name": "Amina",
+      "last_name": "Usman",
+      "email": "emp1@range.test",
+      "employee_pay": 101,
+      "rent_paid": "120000.00",
+      "created": "2026-02-03T08:00:00Z",
+      "photo": "default.png",
+      "nin": "NIN-RANGE-0001",
+      "tin_no": "TIN-RANGE-0001",
+      "pension_rsa": "RSA-RANGE-0001",
+      "date_of_birth": "1998-01",
+      "date_of_employment": "2025-01",
+      "contract_type": "T",
+      "phone": "+2348010000001",
+      "gender": "female",
+      "address": "Kano",
+      "emergency_contact_name": "Khadija Usman",
+      "emergency_contact_relationship": "Mother",
+      "emergency_contact_phone": "+2348011000001",
+      "next_of_kin_name": "Musa Usman",
+      "next_of_kin_relationship": "Brother",
+      "next_of_kin_phone": "+2348012000001",
+      "job_title": "C",
+      "bank": "GTB",
+      "bank_account_name": "Amina Usman",
+      "bank_account_number": "5000000001",
+      "net_pay": "45850.00",
+      "status": "active"
+    }
+  },
+  {
+    "model": "payroll.employeeprofile",
+    "pk": 102,
+    "fields": {
+      "deleted_at": null,
+      "company": 101,
+      "emp_id": "EMP-RANGE-0002",
+      "slug": "bassey-etim",
+      "department": 101,
+      "user": 103,
+      "first_name": "Bassey",
+      "last_name": "Etim",
+      "email": "emp2@range.test",
+      "employee_pay": 102,
+      "rent_paid": "300000.00",
+      "created": "2026-02-03T08:01:00Z",
+      "photo": "default.png",
+      "nin": "NIN-RANGE-0002",
+      "tin_no": "TIN-RANGE-0002",
+      "pension_rsa": "RSA-RANGE-0002",
+      "date_of_birth": "1995-02",
+      "date_of_employment": "2024-01",
+      "contract_type": "P",
+      "phone": "+2348010000002",
+      "gender": "male",
+      "address": "Uyo",
+      "emergency_contact_name": "Ini Etim",
+      "emergency_contact_relationship": "Sister",
+      "emergency_contact_phone": "+2348011000002",
+      "next_of_kin_name": "Ekaette Etim",
+      "next_of_kin_relationship": "Parent",
+      "next_of_kin_phone": "+2348012000002",
+      "job_title": "JS",
+      "bank": "UBA",
+      "bank_account_name": "Bassey Etim",
+      "bank_account_number": "5000000002",
+      "net_pay": "105040.00",
+      "status": "active"
+    }
+  },
+  {
+    "model": "payroll.employeeprofile",
+    "pk": 103,
+    "fields": {
+      "deleted_at": null,
+      "company": 101,
+      "emp_id": "EMP-RANGE-0003",
+      "slug": "chinedu-okoye",
+      "department": 102,
+      "user": 104,
+      "first_name": "Chinedu",
+      "last_name": "Okoye",
+      "email": "emp3@range.test",
+      "employee_pay": 103,
+      "rent_paid": "500000.00",
+      "created": "2026-02-03T08:02:00Z",
+      "photo": "default.png",
+      "nin": "NIN-RANGE-0003",
+      "tin_no": "TIN-RANGE-0003",
+      "pension_rsa": "RSA-RANGE-0003",
+      "date_of_birth": "1992-03",
+      "date_of_employment": "2022-01",
+      "contract_type": "P",
+      "phone": "+2348010000003",
+      "gender": "male",
+      "address": "Enugu",
+      "emergency_contact_name": "Ijeoma Okoye",
+      "emergency_contact_relationship": "Spouse",
+      "emergency_contact_phone": "+2348011000003",
+      "next_of_kin_name": "Obi Okoye",
+      "next_of_kin_relationship": "Parent",
+      "next_of_kin_phone": "+2348012000003",
+      "job_title": "OP",
+      "bank": "Access",
+      "bank_account_name": "Chinedu Okoye",
+      "bank_account_number": "5000000003",
+      "net_pay": "170812.50",
+      "status": "active"
+    }
+  },
+  {
+    "model": "payroll.employeeprofile",
+    "pk": 104,
+    "fields": {
+      "deleted_at": null,
+      "company": 101,
+      "emp_id": "EMP-RANGE-0004",
+      "slug": "damilola-adebayo",
+      "department": 102,
+      "user": 105,
+      "first_name": "Damilola",
+      "last_name": "Adebayo",
+      "email": "emp4@range.test",
+      "employee_pay": 104,
+      "rent_paid": "1000000.00",
+      "created": "2026-02-03T08:03:00Z",
+      "photo": "default.png",
+      "nin": "NIN-RANGE-0004",
+      "tin_no": "TIN-RANGE-0004",
+      "pension_rsa": "RSA-RANGE-0004",
+      "date_of_birth": "1990-04",
+      "date_of_employment": "2020-01",
+      "contract_type": "P",
+      "phone": "+2348010000004",
+      "gender": "female",
+      "address": "Ibadan",
+      "emergency_contact_name": "Tosin Adebayo",
+      "emergency_contact_relationship": "Spouse",
+      "emergency_contact_phone": "+2348011000004",
+      "next_of_kin_name": "Segun Adebayo",
+      "next_of_kin_relationship": "Sibling",
+      "next_of_kin_phone": "+2348012000004",
+      "job_title": "SU",
+      "bank": "Zenith",
+      "bank_account_name": "Damilola Adebayo",
+      "bank_account_number": "5000000004",
+      "net_pay": "309525.00",
+      "status": "active"
+    }
+  },
+  {
+    "model": "payroll.employeeprofile",
+    "pk": 105,
+    "fields": {
+      "deleted_at": null,
+      "company": 101,
+      "emp_id": "EMP-RANGE-0005",
+      "slug": "efe-akpan",
+      "department": 102,
+      "user": 106,
+      "first_name": "Efe",
+      "last_name": "Akpan",
+      "email": "emp5@range.test",
+      "employee_pay": 105,
+      "rent_paid": "1750000.00",
+      "created": "2026-02-03T08:04:00Z",
+      "photo": "default.png",
+      "nin": "NIN-RANGE-0005",
+      "tin_no": "TIN-RANGE-0005",
+      "pension_rsa": "RSA-RANGE-0005",
+      "date_of_birth": "1988-05",
+      "date_of_employment": "2018-01",
+      "contract_type": "P",
+      "phone": "+2348010000005",
+      "gender": "male",
+      "address": "Port Harcourt",
+      "emergency_contact_name": "Emem Akpan",
+      "emergency_contact_relationship": "Spouse",
+      "emergency_contact_phone": "+2348011000005",
+      "next_of_kin_name": "Udo Akpan",
+      "next_of_kin_relationship": "Sibling",
+      "next_of_kin_phone": "+2348012000005",
+      "job_title": "M",
+      "bank": "FBN",
+      "bank_account_name": "Efe Akpan",
+      "bank_account_number": "5000000005",
+      "net_pay": "655077.50",
+      "status": "active"
+    }
+  },
+  {
+    "model": "payroll.employeeprofile",
+    "pk": 106,
+    "fields": {
+      "deleted_at": null,
+      "company": 101,
+      "emp_id": "EMP-RANGE-0006",
+      "slug": "femi-olaoye",
+      "department": 103,
+      "user": 107,
+      "first_name": "Femi",
+      "last_name": "Olaoye",
+      "email": "emp6@range.test",
+      "employee_pay": 106,
+      "rent_paid": "3000000.00",
+      "created": "2026-02-03T08:05:00Z",
+      "photo": "default.png",
+      "nin": "NIN-RANGE-0006",
+      "tin_no": "TIN-RANGE-0006",
+      "pension_rsa": "RSA-RANGE-0006",
+      "date_of_birth": "1985-06",
+      "date_of_employment": "2015-01",
+      "contract_type": "P",
+      "phone": "+2348010000006",
+      "gender": "male",
+      "address": "Lagos",
+      "emergency_contact_name": "Tola Olaoye",
+      "emergency_contact_relationship": "Spouse",
+      "emergency_contact_phone": "+2348011000006",
+      "next_of_kin_name": "Kemi Olaoye",
+      "next_of_kin_relationship": "Sibling",
+      "next_of_kin_phone": "+2348012000006",
+      "job_title": "M",
+      "bank": "GTB",
+      "bank_account_name": "Femi Olaoye",
+      "bank_account_number": "5000000006",
+      "net_pay": "1281512.50",
+      "status": "active"
+    }
+  },
+  {
+    "model": "payroll.employeeprofile",
+    "pk": 107,
+    "fields": {
+      "deleted_at": null,
+      "company": 101,
+      "emp_id": "EMP-RANGE-0007",
+      "slug": "grace-nwankwo",
+      "department": 103,
+      "user": 108,
+      "first_name": "Grace",
+      "last_name": "Nwankwo",
+      "email": "emp7@range.test",
+      "employee_pay": 107,
+      "rent_paid": "6000000.00",
+      "created": "2026-02-03T08:06:00Z",
+      "photo": "default.png",
+      "nin": "NIN-RANGE-0007",
+      "tin_no": "TIN-RANGE-0007",
+      "pension_rsa": "RSA-RANGE-0007",
+      "date_of_birth": "1982-07",
+      "date_of_employment": "2012-01",
+      "contract_type": "P",
+      "phone": "+2348010000007",
+      "gender": "female",
+      "address": "Lekki, Lagos",
+      "emergency_contact_name": "Chika Nwankwo",
+      "emergency_contact_relationship": "Spouse",
+      "emergency_contact_phone": "+2348011000007",
+      "next_of_kin_name": "Ada Nwankwo",
+      "next_of_kin_relationship": "Sibling",
+      "next_of_kin_phone": "+2348012000007",
+      "job_title": "COO",
+      "bank": "Access",
+      "bank_account_name": "Grace Nwankwo",
+      "bank_account_number": "5000000007",
+      "net_pay": "3064675.00",
+      "status": "active"
+    }
+  },
+  {
+    "model": "payroll.employeeprofile",
+    "pk": 108,
+    "fields": {
+      "deleted_at": null,
+      "company": 101,
+      "emp_id": "EMP-RANGE-0008",
+      "slug": "hauwa-bello",
+      "department": 103,
+      "user": 109,
+      "first_name": "Hauwa",
+      "last_name": "Bello",
+      "email": "emp8@range.test",
+      "employee_pay": 108,
+      "rent_paid": "9000000.00",
+      "created": "2026-02-03T08:07:00Z",
+      "photo": "default.png",
+      "nin": "NIN-RANGE-0008",
+      "tin_no": "TIN-RANGE-0008",
+      "pension_rsa": "RSA-RANGE-0008",
+      "date_of_birth": "1980-08",
+      "date_of_employment": "2010-01",
+      "contract_type": "P",
+      "phone": "+2348010000008",
+      "gender": "female",
+      "address": "Maitama, Abuja",
+      "emergency_contact_name": "Ali Bello",
+      "emergency_contact_relationship": "Spouse",
+      "emergency_contact_phone": "+2348011000008",
+      "next_of_kin_name": "Aisha Bello",
+      "next_of_kin_relationship": "Sibling",
+      "next_of_kin_phone": "+2348012000008",
+      "job_title": "COO",
+      "bank": "Zenith",
+      "bank_account_name": "Hauwa Bello",
+      "bank_account_number": "5000000008",
+      "net_pay": "4098000.00",
+      "status": "active"
+    }
+  },
+  {
+    "model": "payroll.payrollentry",
+    "pk": 101,
+    "fields": {
+      "company": 101,
+      "pays": 101,
+      "status": "active",
+      "netpay": "45850.00"
+    }
+  },
+  {
+    "model": "payroll.payrollentry",
+    "pk": 102,
+    "fields": {
+      "company": 101,
+      "pays": 102,
+      "status": "active",
+      "netpay": "105040.00"
+    }
+  },
+  {
+    "model": "payroll.payrollentry",
+    "pk": 103,
+    "fields": {
+      "company": 101,
+      "pays": 103,
+      "status": "active",
+      "netpay": "170812.50"
+    }
+  },
+  {
+    "model": "payroll.payrollentry",
+    "pk": 104,
+    "fields": {
+      "company": 101,
+      "pays": 104,
+      "status": "active",
+      "netpay": "309525.00"
+    }
+  },
+  {
+    "model": "payroll.payrollentry",
+    "pk": 105,
+    "fields": {
+      "company": 101,
+      "pays": 105,
+      "status": "active",
+      "netpay": "655077.50"
+    }
+  },
+  {
+    "model": "payroll.payrollentry",
+    "pk": 106,
+    "fields": {
+      "company": 101,
+      "pays": 106,
+      "status": "active",
+      "netpay": "1281512.50"
+    }
+  },
+  {
+    "model": "payroll.payrollentry",
+    "pk": 107,
+    "fields": {
+      "company": 101,
+      "pays": 107,
+      "status": "active",
+      "netpay": "3064675.00"
+    }
+  },
+  {
+    "model": "payroll.payrollentry",
+    "pk": 108,
+    "fields": {
+      "company": 101,
+      "pays": 108,
+      "status": "active",
+      "netpay": "4098000.00"
+    }
+  },
+  {
+    "model": "payroll.payrollrun",
+    "pk": 101,
+    "fields": {
+      "company": 101,
+      "name": "Payroll 2026-01",
+      "slug": "range-pay-period-2026-01",
+      "paydays": "2026-01",
+      "is_active": false,
+      "closed": false
+    }
+  },
+  {
+    "model": "payroll.payrollrun",
+    "pk": 102,
+    "fields": {
+      "company": 101,
+      "name": "Payroll 2026-02",
+      "slug": "range-pay-period-2026-02",
+      "paydays": "2026-02",
+      "is_active": true,
+      "closed": false
+    }
+  },
+  {
+    "model": "payroll.payrollrunentry",
+    "pk": 1001,
+    "fields": {
+      "payroll_run": 101,
+      "payroll_entry": 101
+    }
+  },
+  {
+    "model": "payroll.payrollrunentry",
+    "pk": 1002,
+    "fields": {
+      "payroll_run": 101,
+      "payroll_entry": 102
+    }
+  },
+  {
+    "model": "payroll.payrollrunentry",
+    "pk": 1003,
+    "fields": {
+      "payroll_run": 101,
+      "payroll_entry": 103
+    }
+  },
+  {
+    "model": "payroll.payrollrunentry",
+    "pk": 1004,
+    "fields": {
+      "payroll_run": 101,
+      "payroll_entry": 104
+    }
+  },
+  {
+    "model": "payroll.payrollrunentry",
+    "pk": 1005,
+    "fields": {
+      "payroll_run": 101,
+      "payroll_entry": 105
+    }
+  },
+  {
+    "model": "payroll.payrollrunentry",
+    "pk": 1006,
+    "fields": {
+      "payroll_run": 101,
+      "payroll_entry": 106
+    }
+  },
+  {
+    "model": "payroll.payrollrunentry",
+    "pk": 1007,
+    "fields": {
+      "payroll_run": 101,
+      "payroll_entry": 107
+    }
+  },
+  {
+    "model": "payroll.payrollrunentry",
+    "pk": 1008,
+    "fields": {
+      "payroll_run": 101,
+      "payroll_entry": 108
+    }
+  },
+  {
+    "model": "payroll.payrollrunentry",
+    "pk": 1009,
+    "fields": {
+      "payroll_run": 102,
+      "payroll_entry": 101
+    }
+  },
+  {
+    "model": "payroll.payrollrunentry",
+    "pk": 1010,
+    "fields": {
+      "payroll_run": 102,
+      "payroll_entry": 102
+    }
+  },
+  {
+    "model": "payroll.payrollrunentry",
+    "pk": 1011,
+    "fields": {
+      "payroll_run": 102,
+      "payroll_entry": 103
+    }
+  },
+  {
+    "model": "payroll.payrollrunentry",
+    "pk": 1012,
+    "fields": {
+      "payroll_run": 102,
+      "payroll_entry": 104
+    }
+  },
+  {
+    "model": "payroll.payrollrunentry",
+    "pk": 1013,
+    "fields": {
+      "payroll_run": 102,
+      "payroll_entry": 105
+    }
+  },
+  {
+    "model": "payroll.payrollrunentry",
+    "pk": 1014,
+    "fields": {
+      "payroll_run": 102,
+      "payroll_entry": 106
+    }
+  },
+  {
+    "model": "payroll.payrollrunentry",
+    "pk": 1015,
+    "fields": {
+      "payroll_run": 102,
+      "payroll_entry": 107
+    }
+  },
+  {
+    "model": "payroll.payrollrunentry",
+    "pk": 1016,
+    "fields": {
+      "payroll_run": 102,
+      "payroll_entry": 108
+    }
+  },
+  {
+    "model": "payroll.allowance",
+    "pk": 101,
+    "fields": {
+      "employee": 103,
+      "allowance_type": "Ovr",
+      "amount": "15000.00",
+      "created_at": "2026-02-10T09:00:00Z"
+    }
+  },
+  {
+    "model": "payroll.allowance",
+    "pk": 102,
+    "fields": {
+      "employee": 104,
+      "allowance_type": "LV",
+      "amount": "40000.00",
+      "created_at": "2026-02-10T09:30:00Z"
+    }
+  },
+  {
+    "model": "payroll.allowance",
+    "pk": 103,
+    "fields": {
+      "employee": 107,
+      "allowance_type": "13th",
+      "amount": "250000.00",
+      "created_at": "2026-02-15T10:00:00Z"
+    }
+  },
+  {
+    "model": "payroll.deduction",
+    "pk": 101,
+    "fields": {
+      "employee": 102,
+      "iou": null,
+      "deduction_type": "LT",
+      "amount": "2000.00",
+      "reason": "Late resumption",
+      "created_at": "2026-02-11T10:30:00Z"
+    }
+  },
+  {
+    "model": "payroll.deduction",
+    "pk": 102,
+    "fields": {
+      "employee": 104,
+      "iou": null,
+      "deduction_type": "DM",
+      "amount": "12000.00",
+      "reason": "Asset damage",
+      "created_at": "2026-02-12T11:00:00Z"
+    }
+  },
+  {
+    "model": "payroll.iou",
+    "pk": 101,
+    "fields": {
+      "deleted_at": null,
+      "employee_id": 104,
+      "amount": "180000.00",
+      "tenor": 6,
+      "reason": "Medical support",
+      "interest_rate": "5.00",
+      "payment_method": "SALARY_DEDUCTION",
+      "status": "APPROVED",
+      "created_at": "2026-01-05",
+      "approved_at": "2026-01-06",
+      "due_date": "2026-07-06"
+    }
+  },
+  {
+    "model": "payroll.ioudeduction",
+    "pk": 101,
+    "fields": {
+      "iou": 101,
+      "employee": 104,
+      "payday": 101,
+      "amount": "30000.00",
+      "created_at": "2026-01-31T17:00:00Z"
+    }
+  },
+  {
+    "model": "payroll.ioudeduction",
+    "pk": 102,
+    "fields": {
+      "iou": 101,
+      "employee": 104,
+      "payday": 102,
+      "amount": "30000.00",
+      "created_at": "2026-02-28T17:00:00Z"
+    }
+  },
+  {
+    "model": "payroll.publicholiday",
+    "pk": 101,
+    "fields": {
+      "company": 101,
+      "name": "New Year Day",
+      "date": "2026-01-01"
+    }
+  },
+  {
+    "model": "payroll.publicholiday",
+    "pk": 102,
+    "fields": {
+      "company": 101,
+      "name": "Democracy Day",
+      "date": "2026-06-12"
+    }
+  },
+  {
+    "model": "payroll.leavepolicy",
+    "pk": 101,
+    "fields": {
+      "company": 101,
+      "leave_type": "ANNUAL",
+      "max_days": 15
+    }
+  },
+  {
+    "model": "payroll.leavepolicy",
+    "pk": 102,
+    "fields": {
+      "company": 101,
+      "leave_type": "SICK",
+      "max_days": 8
+    }
+  },
+  {
+    "model": "payroll.leavepolicy",
+    "pk": 103,
+    "fields": {
+      "company": 101,
+      "leave_type": "CASUAL",
+      "max_days": 5
+    }
+  },
+  {
+    "model": "payroll.leavebalance",
+    "pk": 101,
+    "fields": {
+      "employee": 101,
+      "year": 2026,
+      "annual_leave": 10,
+      "sick_leave": 5,
+      "casual_leave": 3,
+      "maternity_leave": 40,
+      "paternity_leave": 14
+    }
+  },
+  {
+    "model": "payroll.leavebalance",
+    "pk": 102,
+    "fields": {
+      "employee": 102,
+      "year": 2026,
+      "annual_leave": 10,
+      "sick_leave": 5,
+      "casual_leave": 3,
+      "maternity_leave": 40,
+      "paternity_leave": 14
+    }
+  },
+  {
+    "model": "payroll.leavebalance",
+    "pk": 103,
+    "fields": {
+      "employee": 103,
+      "year": 2026,
+      "annual_leave": 12,
+      "sick_leave": 5,
+      "casual_leave": 3,
+      "maternity_leave": 40,
+      "paternity_leave": 14
+    }
+  },
+  {
+    "model": "payroll.leavebalance",
+    "pk": 104,
+    "fields": {
+      "employee": 104,
+      "year": 2026,
+      "annual_leave": 12,
+      "sick_leave": 5,
+      "casual_leave": 3,
+      "maternity_leave": 40,
+      "paternity_leave": 14
+    }
+  },
+  {
+    "model": "payroll.leavebalance",
+    "pk": 105,
+    "fields": {
+      "employee": 105,
+      "year": 2026,
+      "annual_leave": 15,
+      "sick_leave": 5,
+      "casual_leave": 3,
+      "maternity_leave": 40,
+      "paternity_leave": 14
+    }
+  },
+  {
+    "model": "payroll.leavebalance",
+    "pk": 106,
+    "fields": {
+      "employee": 106,
+      "year": 2026,
+      "annual_leave": 15,
+      "sick_leave": 5,
+      "casual_leave": 3,
+      "maternity_leave": 40,
+      "paternity_leave": 14
+    }
+  },
+  {
+    "model": "payroll.leavebalance",
+    "pk": 107,
+    "fields": {
+      "employee": 107,
+      "year": 2026,
+      "annual_leave": 15,
+      "sick_leave": 5,
+      "casual_leave": 3,
+      "maternity_leave": 40,
+      "paternity_leave": 14
+    }
+  },
+  {
+    "model": "payroll.leavebalance",
+    "pk": 108,
+    "fields": {
+      "employee": 108,
+      "year": 2026,
+      "annual_leave": 15,
+      "sick_leave": 5,
+      "casual_leave": 3,
+      "maternity_leave": 40,
+      "paternity_leave": 14
+    }
+  },
+  {
+    "model": "payroll.leaverequest",
+    "pk": 101,
+    "fields": {
+      "employee": 102,
+      "leave_type": "CASUAL",
+      "start_date": "2026-02-18",
+      "end_date": "2026-02-19",
+      "is_half_day": false,
+      "reason": "Family event",
+      "status": "APPROVED",
+      "approved_by": 101,
+      "hr_override": false,
+      "override_reason": null,
+      "created_at": "2026-02-12T08:00:00Z",
+      "updated_at": "2026-02-14T09:00:00Z"
+    }
+  },
+  {
+    "model": "payroll.leaverequest",
+    "pk": 102,
+    "fields": {
+      "employee": 106,
+      "leave_type": "ANNUAL",
+      "start_date": "2026-03-02",
+      "end_date": "2026-03-06",
+      "is_half_day": false,
+      "reason": "Annual vacation",
+      "status": "PENDING",
+      "approved_by": null,
+      "hr_override": false,
+      "override_reason": null,
+      "created_at": "2026-02-20T10:00:00Z",
+      "updated_at": "2026-02-20T10:00:00Z"
+    }
+  }
+]

@@ -10,6 +10,7 @@ from django.contrib.auth.decorators import (
 from django.urls import reverse_lazy
 from django.core.paginator import Paginator
 from django.db.models import Q, Sum, Case, When, IntegerField
+from django.db import transaction
 from django.views.generic import CreateView, UpdateView, DeleteView
 from django.contrib import messages
 from django.contrib.messages.views import SuccessMessageMixin
@@ -22,7 +23,6 @@ from django.contrib.auth.mixins import (
 from django.conf import settings
 from django.core.cache.backends.base import DEFAULT_TIMEOUT
 from django.template.loader import render_to_string
-from num2words import num2words
 from payroll.models.payroll import get_leave_balance
 from users.email_backend import send_mail as custom_send_mail
 from core.settings import DEFAULT_FROM_EMAIL
@@ -40,6 +40,8 @@ from payroll.forms import (
     DeductionForm,
     PayrollRunCreateForm,
     PayrollEntryCreateForm,
+    CompanyPayrollSettingForm,
+    CompanyHealthInsuranceTierFormSet,
 )
 from payroll.models import (
     EmployeeProfile,
@@ -53,6 +55,7 @@ from payroll.models import (
     AuditTrail,
     Deduction,
     PayrollEntry,
+    CompanyPayrollSetting,
 )
 from django.utils import timezone
 from accounting.models import Account
@@ -95,6 +98,104 @@ def generate_payslip_pdf(payslip_data, template_path="pay/payslip_pdf.html"):
     if not pdf.err:
         return result.getvalue()
     return None
+
+
+def _send_payslips_for_payroll_run(payroll_run):
+    """
+    Send payslip emails with PDF attachments to employees included in a payroll run.
+    Returns (sent_count, skipped_details).
+    """
+    sent_count = 0
+    skipped_details = []
+
+    run_entries = payroll_run.payroll_run_entries.select_related(
+        "payroll_entry__pays__user",
+        "payroll_entry__pays",
+    )
+
+    for run_entry in run_entries:
+        payroll_entry = run_entry.payroll_entry
+        employee = payroll_entry.pays
+        employee_label = (
+            f"{(employee.first_name or '').strip()} {(employee.last_name or '').strip()}".strip()
+            if employee
+            else "Unknown employee"
+        )
+        if employee and not employee_label:
+            employee_label = employee.emp_id or f"Employee #{employee.id}"
+
+        if not employee:
+            skipped_details.append("Unknown employee (missing payroll linkage)")
+            continue
+
+        recipient_email = (
+            employee.user.email
+            if employee.user and employee.user.email
+            else employee.email
+        )
+        if not recipient_email:
+            skipped_details.append(f"{employee_label} (missing email)")
+            continue
+
+        payslip_data = {
+            "payroll": payroll_entry,
+            "employee": employee,
+        }
+        pdf_content = generate_payslip_pdf(payslip_data)
+        if not pdf_content:
+            logger.error(
+                "Failed to generate payslip PDF for employee_id=%s in payroll_run=%s",
+                employee.id,
+                payroll_run.id,
+            )
+            skipped_details.append(f"{employee_label} (PDF generation failed)")
+            continue
+
+        period_label = (
+            payroll_run.paydays.strftime("%B %Y")
+            if payroll_run.paydays and hasattr(payroll_run.paydays, "strftime")
+            else str(payroll_run.paydays or "")
+        )
+        employee_identifier = employee.emp_id or str(employee.id)
+        filename = f"payslip_{employee_identifier}_{period_label.replace(' ', '_')}.pdf"
+
+        try:
+            custom_send_mail(
+                subject=f"Payslip for {period_label}",
+                template_name="email/payslip_email.html",
+                context={
+                    "user": employee.user or employee,
+                    "employee": employee,
+                    "employee_name": (
+                        f"{employee.first_name or ''} {employee.last_name or ''}".strip()
+                        or recipient_email
+                    ),
+                    "payroll": payroll_entry,
+                    "month_year": period_label,
+                    "net_pay_amount": payroll_entry.netpay,
+                },
+                from_email=DEFAULT_FROM_EMAIL,
+                recipient_list=[recipient_email],
+                attachments=[
+                    {
+                        "filename": filename,
+                        "content": pdf_content,
+                        "mimetype": "application/pdf",
+                    }
+                ],
+                fail_silently=False,
+            )
+            sent_count += 1
+        except Exception as exc:
+            logger.error(
+                "Failed to send payslip email for employee_id=%s in payroll_run=%s: %s",
+                employee.id,
+                payroll_run.id,
+                exc,
+            )
+            skipped_details.append(f"{employee_label} (email send failed)")
+
+    return sent_count, skipped_details
 
 
 @permission_required("payroll.add_payroll", raise_exception=True)
@@ -179,14 +280,20 @@ def add_pay(request):
                 subject = f"Your Payslip for {payroll_instance.month_year}"
                 context = {
                     "user": employee.user,
+                    "employee": employee,
+                    "employee_name": (
+                        f"{employee.first_name or ''} {employee.last_name or ''}".strip()
+                        or employee.user.email
+                    ),
                     "payroll": payroll_instance,
                     "month_year": payroll_instance.month_year,
+                    "net_pay_amount": payroll_instance.net_pay,
                 }
 
                 # Prepare attachments for custom_send_mail
                 attachments = [
                     {
-                        "filename": f"payslip_{employee.user.username}_{payroll_instance.month_year}.pdf",
+                        "filename": f"payslip_{employee.emp_id or employee.id}_{payroll_instance.month_year}.pdf",
                         "content": pdf_content,
                         "mimetype": "application/pdf",
                     }
@@ -215,7 +322,8 @@ def add_pay(request):
 def delete_pay(
     request, id
 ):  # This function was missing from the plan but existed in file, applying perm
-    pay = get_object_or_404(Payroll, id=id)
+    company = get_user_company(request.user)
+    pay = get_object_or_404(Payroll, id=id, company=company)
     pay.delete()
     messages.success(request, "Pay deleted Successfully!!")
     return redirect(
@@ -239,6 +347,62 @@ def dashboard(request):  # payroll admin dashboard
         "is_auditor": is_auditor(request.user),  # Add auditor flag for template
     }
     return render(request, "pay/dashboard_new.html", context)
+
+
+@permission_required("payroll.view_companypayrollsetting", raise_exception=True)
+def company_payroll_settings(request):
+    company = get_user_company(request.user)
+    if not company:
+        messages.error(request, "No active company found for your account.")
+        return redirect("payroll:dashboard")
+
+    settings_obj, created = CompanyPayrollSetting.objects.get_or_create(company=company)
+    if created:
+        settings_obj.create_default_health_tiers()
+    tiers = settings_obj.health_insurance_tiers.all()
+
+    context = {
+        "company": company,
+        "settings_obj": settings_obj,
+        "tiers": tiers,
+    }
+    return render(request, "payroll/company_payroll_settings.html", context)
+
+
+@permission_required("payroll.change_companypayrollsetting", raise_exception=True)
+def company_payroll_settings_edit(request):
+    company = get_user_company(request.user)
+    if not company:
+        messages.error(request, "No active company found for your account.")
+        return redirect("payroll:dashboard")
+
+    settings_obj, created = CompanyPayrollSetting.objects.get_or_create(company=company)
+    if created:
+        settings_obj.create_default_health_tiers()
+
+    if request.method == "POST":
+        form = CompanyPayrollSettingForm(request.POST, instance=settings_obj)
+        formset = CompanyHealthInsuranceTierFormSet(
+            request.POST, instance=settings_obj, prefix="tiers"
+        )
+        if form.is_valid() and formset.is_valid():
+            with transaction.atomic():
+                form.save()
+                formset.save()
+            messages.success(request, "Payroll settings updated successfully.")
+            return redirect("payroll:company_payroll_settings")
+    else:
+        form = CompanyPayrollSettingForm(instance=settings_obj)
+        formset = CompanyHealthInsuranceTierFormSet(
+            instance=settings_obj, prefix="tiers"
+        )
+
+    context = {
+        "company": company,
+        "form": form,
+        "formset": formset,
+    }
+    return render(request, "payroll/company_payroll_settings_form.html", context)
 
 
 @login_required
@@ -313,22 +477,23 @@ def payslip_detail(request, id):
         id=id,
         payroll_entry__company=company,
     )
-    # target_employee_user = pay_id.payroll_entry.pays.user
+    target_employee_user = pay_id.payroll_entry.pays.user
 
-    # Check if user can view payroll data (auditors have view-only access)
-    # if not (
-    #     request.user == target_employee_user
-    #     or request.user.has_perm("payroll.view_payroll")
-    #     or is_auditor(request.user)
-    # ):
-    #     raise HttpResponseForbidden("You are not authorized to view this payslip.")
+    # Enforce object-level access to prevent horizontal privilege escalation.
+    if not (
+        request.user == target_employee_user
+        or request.user.has_perm("payroll.view_payroll")
+        or is_auditor(request.user)
+    ):
+        return HttpResponseForbidden("You are not authorized to view this payslip.")
 
-    num2word = num2words(pay_id.payroll_entry.netpay)
+    num2word = utils.format_currency_words_with_kobo(pay_id.payroll_entry.netpay)
     dates = utils.convert_month_to_word(str(pay_id.payroll_run.paydays))
     pay_ids = pay_id.payroll_entry.pays.pk
     payroll_record = pay_id.payroll_entry.pays.employee_pay
 
     pay_id_nhif = payroll_record.nhif if payroll_record else Decimal("0.00")
+    pay_id_basic = payroll_record.basic if payroll_record else Decimal("0.00")
     pay_id_nhf = payroll_record.nhf if payroll_record else Decimal("0.00")
     pay_id_nsitf = (
         (payroll_record.nsitf or Decimal("0.00")) / 12
@@ -369,6 +534,7 @@ def payslip_detail(request, id):
         "pays": pay_ids,
         "num2words": num2word,
         "dates": dates,
+        "basic": pay_id_basic,
         "pay_id_nhif": pay_id_nhif,
         "pay_id_nhf": pay_id_nhf,
         "pay_id_nsitf": pay_id_nsitf,
@@ -410,7 +576,8 @@ def edit_allowance(request, id):
             "You don't have permission to modify payroll data."
         )
 
-    var = get_object_or_404(Allowance, id=id)
+    company = get_user_company(request.user)
+    var = get_object_or_404(Allowance, id=id, employee__company=company)
     form = AllowanceForm(request.POST or None, instance=var)
     if form.is_valid():
         form.save()
@@ -430,7 +597,10 @@ def delete_allowance(request, id):
             "You don't have permission to modify payroll data."
         )
 
-    allowance_obj = get_object_or_404(Allowance, id=id)  # Renamed variable
+    company = get_user_company(request.user)
+    allowance_obj = get_object_or_404(
+        Allowance, id=id, employee__company=company
+    )  # Renamed variable
     allowance_obj.delete()
     messages.success(request, "Allowance deleted Successfully!!")
     return redirect("payroll:dashboard")  # Or a list view for allowances
@@ -455,6 +625,12 @@ class AddDeduction(PermissionRequiredMixin, CreateView):
         return super().dispatch(request, *args, **kwargs)
 
     def form_valid(self, form):
+        deduction = form.instance
+        print(
+            "[DEDUCTION_DEBUG] Deduction form submit: "
+            f"employee_id={deduction.employee_id}, type={deduction.deduction_type}, "
+            f"amount={deduction.amount}, reason={deduction.reason or ''}."
+        )
         messages.success(self.request, "Deduction created successfully!!")
         return super().form_valid(form)
 
@@ -497,7 +673,11 @@ class AddPay(
 @permission_required("payroll.view_payrollrun", raise_exception=True)
 def varview(request):  # Lists PayrollRun objects (Pay Periods)
     company = get_user_company(request.user)
-    var = PayrollRun.objects.filter(company=company).order_by("paydays").distinct("paydays")
+    var = (
+        PayrollRun.objects.filter(company=company)
+        .order_by("paydays")
+        .distinct("paydays")
+    )
     dates = [
         utils.convert_month_to_word(str(varss.paydays)) for varss in var
     ]  # Access .paydays attribute
@@ -523,7 +703,10 @@ def pay_period_detail(request, slug):
     company = get_user_company(request.user)
     pay_period = get_object_or_404(PayrollRun, slug=slug, company=company)
     # Fetch related PayrollRunEntry entries if needed for detail view
-    payday_entries = PayrollRunEntry.objects.filter(payroll_run=pay_period)
+    payday_entries = PayrollRunEntry.objects.filter(
+        payroll_run=pay_period,
+        payroll_entry__company=company,
+    )
     context = {
         "pay_period": pay_period,
         "payday_entries": payday_entries,
@@ -624,6 +807,7 @@ def apply_leave(request):
 def leave_requests(request):
     user = request.user
     current_year = date.today().year
+    company = get_user_company(user)
 
     try:
         employee_profile = user.employee_user
@@ -632,7 +816,7 @@ def leave_requests(request):
         if user.has_perm("payroll.view_leaverequest"):
             leave_requests_qs = LeaveRequest.objects.select_related(
                 "employee", "approved_by"
-            ).order_by("-created_at")
+            ).filter(employee__company=company).order_by("-created_at")
         else:
             leave_requests_qs = LeaveRequest.objects.filter(employee=employee_profile)
 
@@ -699,8 +883,9 @@ def leave_requests(request):
     "payroll.change_leaverequest", raise_exception=True
 )  # For managing any leave request
 def manage_leave_requests(request):
+    company = get_user_company(request.user)
     requests = LeaveRequest.objects.filter(
-        status="PENDING"
+        employee__company=company, status="PENDING"
     )  # Shows only PENDING for action
     return render(
         request, "employee/manage_leave_requests.html", {"requests": requests}
@@ -709,7 +894,8 @@ def manage_leave_requests(request):
 
 @permission_required("payroll.change_leaverequest", raise_exception=True)
 def approve_leave(request, pk):
-    leave_request = get_object_or_404(LeaveRequest, pk=pk)
+    company = get_user_company(request.user)
+    leave_request = get_object_or_404(LeaveRequest, pk=pk, employee__company=company)
     leave_request.status = "APPROVED"
     # Pass the current user to the save method for audit logging
     leave_request.save(user=request.user)
@@ -719,7 +905,8 @@ def approve_leave(request, pk):
 
 @permission_required("payroll.change_leaverequest", raise_exception=True)
 def reject_leave(request, pk):
-    leave_request = get_object_or_404(LeaveRequest, pk=pk)
+    company = get_user_company(request.user)
+    leave_request = get_object_or_404(LeaveRequest, pk=pk, employee__company=company)
     leave_request.status = "REJECTED"
     # Pass current user to the save method for audit logging
     leave_request.save(user=request.user)
@@ -729,13 +916,15 @@ def reject_leave(request, pk):
 
 @permission_required("payroll.view_leavepolicy", raise_exception=True)
 def leave_policies(request):
-    policies = LeavePolicy.objects.all()
+    company = get_user_company(request.user)
+    policies = LeavePolicy.objects.filter(company=company)
     return render(request, "employee/leave_policies.html", {"policies": policies})
 
 
 @login_required  # Combined with object-level check
 def edit_leave_request(request, pk):
-    leave_request = get_object_or_404(LeaveRequest, pk=pk)
+    company = get_user_company(request.user)
+    leave_request = get_object_or_404(LeaveRequest, pk=pk, employee__company=company)
     # User must be owner or have general change permission
     if not (
         request.user == leave_request.employee.user
@@ -759,7 +948,8 @@ def edit_leave_request(request, pk):
 
 @login_required  # Combined with object-level check
 def delete_leave_request(request, pk):
-    leave_request = get_object_or_404(LeaveRequest, pk=pk)
+    company = get_user_company(request.user)
+    leave_request = get_object_or_404(LeaveRequest, pk=pk, employee__company=company)
     # User must be owner or have general delete permission
     if not (
         request.user == leave_request.employee.user
@@ -775,7 +965,8 @@ def delete_leave_request(request, pk):
 
 @login_required  # Combined with object-level check
 def view_leave_request(request, pk):
-    leave_request = get_object_or_404(LeaveRequest, pk=pk)
+    company = get_user_company(request.user)
+    leave_request = get_object_or_404(LeaveRequest, pk=pk, employee__company=company)
     # User must be owner or have general view permission
     if not (
         request.user == leave_request.employee.user
@@ -789,9 +980,8 @@ def view_leave_request(request, pk):
     )
 
 
-# @permission_required(
-#     "payroll.add_iou", raise_exception=True
-# )  # User needs permission to add any IOU (usually self)
+@login_required
+@permission_required("payroll.add_iou", raise_exception=True)
 def request_iou(request):
     # Try to get the employee profile linked to the current user
     try:
@@ -852,7 +1042,8 @@ def request_iou(request):
     "payroll.change_iou", raise_exception=True
 )  # For approving/rejecting IOUs
 def approve_iou(request, iou_id):
-    iou = get_object_or_404(IOU, id=iou_id)
+    company = get_user_company(request.user)
+    iou = get_object_or_404(IOU, id=iou_id, employee_id__company=company)
     if request.method == "POST":
         form = IOUApprovalForm(request.POST, instance=iou)
         if form.is_valid():
@@ -866,7 +1057,12 @@ def approve_iou(request, iou_id):
     return render(request, "iou/approve_iou.html", {"form": form, "iou": iou})
 
 
-class IOUUpdateView(LoginRequiredMixin, SuccessMessageMixin, UpdateView):
+class IOUUpdateView(
+    LoginRequiredMixin,
+    PermissionRequiredMixin,
+    SuccessMessageMixin,
+    UpdateView,
+):
     model = IOU
     form_class = IOUUpdateForm
     template_name = "iou/iou_update_form.html"  # Path to your update template
@@ -875,6 +1071,11 @@ class IOUUpdateView(LoginRequiredMixin, SuccessMessageMixin, UpdateView):
         "payroll:iou_list"
     )  # Redirect to IOU list view (assuming you have one)
     success_message = "IOU request updated successfully."
+    permission_required = "payroll.change_iou"
+
+    def get_queryset(self):
+        company = get_user_company(self.request.user)
+        return IOU.objects.filter(employee_id__company=company)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -890,7 +1091,12 @@ class IOUUpdateView(LoginRequiredMixin, SuccessMessageMixin, UpdateView):
     #     return super().form_valid(form)
 
 
-class IOUDeleteView(LoginRequiredMixin, SuccessMessageMixin, DeleteView):
+class IOUDeleteView(
+    LoginRequiredMixin,
+    PermissionRequiredMixin,
+    SuccessMessageMixin,
+    DeleteView,
+):
     model = IOU
     template_name = (
         "iou/iou_confirm_delete.html"  # Path to your delete confirmation template
@@ -898,6 +1104,11 @@ class IOUDeleteView(LoginRequiredMixin, SuccessMessageMixin, DeleteView):
     context_object_name = "iou"
     success_url = reverse_lazy("payroll:iou_list")  # Redirect to IOU list view
     success_message = "IOU request deleted successfully."
+    permission_required = "payroll.delete_iou"
+
+    def get_queryset(self):
+        company = get_user_company(self.request.user)
+        return IOU.objects.filter(employee_id__company=company)
 
 
 @login_required  # Shows user's own IOUs or all if staff/has permission
@@ -908,12 +1119,16 @@ def iou_history(request):
 
     try:
         employee_profile = request.user.employee_user
+        company = get_user_company(request.user)
         if request.user.has_perm("payroll.view_iou"):  # Staff/HR with general view perm
-            ious = IOU.objects.all().order_by("-created_at")
-        else:
-            ious = IOU.objects.filter(employee_id=employee_profile).order_by(
+            ious = IOU.objects.filter(employee_id__company=company).order_by(
                 "-created_at"
             )
+        else:
+            ious = IOU.objects.filter(
+                employee_id=employee_profile,
+                employee_id__company=company,
+            ).order_by("-created_at")
     except EmployeeProfile.DoesNotExist:
         ious = IOU.objects.none()
         messages.info(
@@ -985,15 +1200,31 @@ def audit_trail_list(request):
     logs = AuditTrail.objects.all().order_by("-timestamp")
     if query:
         logs = logs.filter(
-            Q(user__username__icontains=query)
+            Q(user__email__icontains=query)
             | Q(action__icontains=query)
             | Q(content_type__model__icontains=query)
             | Q(content_object__icontains=query)
         )
     if user_filter:
-        logs = logs.filter(user__username__icontains=user_filter)
+        logs = logs.filter(user__email__icontains=user_filter)
     if action_filter:
         logs = logs.filter(action__icontains=action_filter)
+    action_choices = (
+        AuditTrail.objects.exclude(action__isnull=True)
+        .exclude(action__exact="")
+        .values_list("action", flat=True)
+        .distinct()
+        .order_by("action")
+    )
+    total_logs = logs.count()
+    changed_logs_count = logs.exclude(changes={}).exclude(changes__isnull=True).count()
+    users_count = logs.values("user").distinct().count()
+
+    params = request.GET.copy()
+    if "page" in params:
+        params.pop("page")
+    filters_querystring = params.urlencode()
+
     paginator = Paginator(logs, 10)
     page_number = request.GET.get("page")
     audit_logs = paginator.get_page(page_number)
@@ -1002,6 +1233,11 @@ def audit_trail_list(request):
         "query": query,
         "user_filter": user_filter,
         "action_filter": action_filter,
+        "action_choices": action_choices,
+        "total_logs": total_logs,
+        "changed_logs_count": changed_logs_count,
+        "users_count": users_count,
+        "filters_querystring": filters_querystring,
     }
     return render(request, "pay/audit_trail_list.html", context)
 
@@ -1017,7 +1253,13 @@ def audit_trail_detail(request, id=None, pk=None):
     "payroll.change_employeeprofile", raise_exception=True
 )  # Restoring is a type of change
 def restore_employee(request, id):
-    employee = get_object_or_404(EmployeeProfile, id=id, deleted_at__isnull=False)
+    company = get_user_company(request.user)
+    employee = get_object_or_404(
+        EmployeeProfile,
+        id=id,
+        company=company,
+        deleted_at__isnull=False,
+    )
     old_status = "deleted"
     new_status = "active"
     changes = {"status": {"old": old_status, "new": new_status}}
@@ -1132,6 +1374,24 @@ def payday_create_new(request):
                 request,
                 f"Pay period '{payt.name}' created successfully with {employee_count} employees.",
             )
+            sent_count, skipped_email_details = _send_payslips_for_payroll_run(payt)
+            if sent_count:
+                messages.success(
+                    request,
+                    f"Payslips emailed successfully to {sent_count} employee(s).",
+                )
+            if skipped_email_details:
+                messages.warning(
+                    request,
+                    f"{len(skipped_email_details)} employee(s) were skipped for payslip email: "
+                    + ", ".join(skipped_email_details),
+                )
+            skipped = getattr(payt, "_skipped_employee_reasons", [])
+            if skipped:
+                messages.warning(
+                    request,
+                    "Skipped non-eligible employees: " + ", ".join(skipped),
+                )
             if payt.closed:
                 txn = _get_payroll_close_journal_transaction_number(payt)
                 if txn:
@@ -1214,6 +1474,18 @@ def payday_create(request):
                 request,
                 f"Pay period '{payt.name}' created successfully with {employee_count} employees.",
             )
+            sent_count, skipped_email_details = _send_payslips_for_payroll_run(payt)
+            if sent_count:
+                messages.success(
+                    request,
+                    f"Payslips emailed successfully to {sent_count} employee(s).",
+                )
+            if skipped_email_details:
+                messages.warning(
+                    request,
+                    f"{len(skipped_email_details)} employee(s) were skipped for payslip email: "
+                    + ", ".join(skipped_email_details),
+                )
             if payt.closed:
                 txn = _get_payroll_close_journal_transaction_number(payt)
                 if txn:

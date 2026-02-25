@@ -21,6 +21,7 @@ from django.urls import reverse_lazy
 from django.template.loader import render_to_string
 from django.utils.http import urlsafe_base64_encode
 from django.utils.http import urlsafe_base64_decode
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.contrib.sites.shortcuts import get_current_site  # For dynamic domain
 from django.contrib.auth.tokens import default_token_generator
 
@@ -93,8 +94,14 @@ class MyLoginView(LoginView):
         return None
 
     def get_success_url(self):
-        redirect_url = self.request.GET.get("next")
-        if redirect_url:
+        redirect_url = self.request.POST.get(self.redirect_field_name) or self.request.GET.get(
+            self.redirect_field_name
+        )
+        if redirect_url and url_has_allowed_host_and_scheme(
+            redirect_url,
+            allowed_hosts={self.request.get_host()},
+            require_https=self.request.is_secure(),
+        ):
             return redirect_url
 
         return reverse("payroll:index")
@@ -233,10 +240,7 @@ class CustomPasswordResetView(PasswordResetView):
 
         # Get the user for whom the password reset is requested
         email = form.cleaned_data["email"]
-        users = form.get_users(email)
-        if not users:
-            messages.error(self.request, "No user found with that email address.")
-            return self.form_invalid(form)
+        users = list(form.get_users(email))
 
         for user in users:
             current_site = get_current_site(self.request)
@@ -263,10 +267,7 @@ class CustomPasswordResetView(PasswordResetView):
                 html_email_template_name=self.email_template_name,
             )
 
-        messages.success(
-            self.request,
-            "Password reset instructions have been sent to your email address.",
-        )
+        messages.success(self.request, "If the account exists, reset instructions were sent.")
         return redirect(reverse("users:password_reset_done"))
 
 
@@ -296,6 +297,41 @@ def logout_view(request):
 
 def generate_otp():
     return "".join(random.choices(string.digits, k=6))
+
+
+def _get_client_ip(request):
+    xff = request.META.get("HTTP_X_FORWARDED_FOR")
+    if xff:
+        return xff.split(",")[0].strip()
+    return request.META.get("REMOTE_ADDR", "unknown")
+
+
+def _otp_attempts_key(flow: str, email: str, ip: str) -> str:
+    return f"otp_attempts:{flow}:{email.lower()}:{ip}"
+
+
+def _otp_lock_key(flow: str, email: str, ip: str) -> str:
+    return f"otp_lock:{flow}:{email.lower()}:{ip}"
+
+
+def _is_otp_locked(flow: str, email: str, ip: str) -> bool:
+    return bool(cache.get(_otp_lock_key(flow, email, ip)))
+
+
+def _record_failed_otp_attempt(flow: str, email: str, ip: str):
+    max_attempts = int(getattr(settings, "OTP_MAX_ATTEMPTS", 5))
+    window_seconds = int(getattr(settings, "OTP_ATTEMPT_WINDOW_SECONDS", 600))
+    lockout_seconds = int(getattr(settings, "OTP_LOCKOUT_SECONDS", 900))
+    key = _otp_attempts_key(flow, email, ip)
+    attempts = int(cache.get(key, 0)) + 1
+    cache.set(key, attempts, timeout=window_seconds)
+    if attempts >= max_attempts:
+        cache.set(_otp_lock_key(flow, email, ip), 1, timeout=lockout_seconds)
+
+
+def _clear_otp_attempts(flow: str, email: str, ip: str):
+    cache.delete(_otp_attempts_key(flow, email, ip))
+    cache.delete(_otp_lock_key(flow, email, ip))
 
 
 def send_registration_activation_email(request, user):
@@ -374,18 +410,28 @@ def send_otp_view(request):
 
 @login_required
 def verify_otp_view(request):
+    user = request.user
+    ip = _get_client_ip(request)
+    flow = "session_otp"
+    email = user.email
+
+    if _is_otp_locked(flow, email, ip):
+        messages.error(request, "Too many attempts. Please try again later.")
+        return render(request, "registration/verify_otp.html")
+
     if request.method == "POST":
         user_otp = request.POST.get("otp")
-        user = request.user
         stored_otp = cache.get(f"otp_{user.email}")
 
         if stored_otp and stored_otp == user_otp:
             cache.delete(
                 f"otp_{user.email}"
             )  # Invalidate OTP after successful verification
+            _clear_otp_attempts(flow, email, ip)
             messages.success(request, "OTP verified successfully.")
             return redirect("payroll:index")  # Redirect to a dashboard or success page
         else:
+            _record_failed_otp_attempt(flow, email, ip)
             messages.error(request, "Invalid or expired OTP.")
     return render(request, "registration/verify_otp.html")
 
@@ -411,20 +457,24 @@ class CustomRegisterView(RegisterView):
 
 
 def verify_registration_otp_view(request, email):
+    ip = _get_client_ip(request)
+    flow = "registration"
+
+    if _is_otp_locked(flow, email, ip):
+        messages.error(request, "Too many attempts. Please try again later.")
+        return render(
+            request, "registration/verify_registration_otp.html", {"email": email}
+        )
+
     user = CustomUser.objects.filter(email=email).first()
-    if user is None:
-        messages.error(request, "No account found for this email address.")
-        return redirect("users:register")
-    if user.is_active:
-        messages.info(request, "This account is already active. Please log in.")
-        return redirect("users:login")
 
     if request.method == "POST":
         user_otp = request.POST.get("otp")
-        stored_otp = cache.get(f"registration_otp_{user.email}")
+        stored_otp = cache.get(f"registration_otp_{email}")
 
-        if stored_otp and stored_otp == user_otp:
-            cache.delete(f"registration_otp_{user.email}")
+        if user and (not user.is_active) and stored_otp and stored_otp == user_otp:
+            cache.delete(f"registration_otp_{email}")
+            _clear_otp_attempts(flow, email, ip)
             user.is_active = True
             user.save(update_fields=["is_active"])
             logger.info("Registration OTP verified for user_id=%s", user.id)
@@ -433,6 +483,7 @@ def verify_registration_otp_view(request, email):
             )
             return redirect("users:login")
         else:
+            _record_failed_otp_attempt(flow, email, ip)
             logger.warning(
                 "Invalid registration OTP attempt for email=%s ip=%s",
                 email,
@@ -483,21 +534,19 @@ def resend_registration_activation_view(request, email):
         return redirect(reverse("users:verify_registration_otp", kwargs={"email": email}))
 
     user = CustomUser.objects.filter(email=email).first()
-    if user is None:
-        messages.error(request, "No account found for this email address.")
-        return redirect("users:register")
-    if user.is_active:
-        messages.info(request, "This account is already active. Please log in.")
-        return redirect("users:login")
+    if user and not user.is_active:
+        allowed, message = get_resend_limit_status(email)
+        if not allowed:
+            messages.error(request, message)
+            return redirect(reverse("users:verify_registration_otp", kwargs={"email": email}))
 
-    allowed, message = get_resend_limit_status(email)
-    if not allowed:
-        messages.error(request, message)
-        return redirect(reverse("users:verify_registration_otp", kwargs={"email": email}))
+        send_registration_activation_email(request, user)
+        logger.info("Resent activation email for user_id=%s", user.id)
 
-    send_registration_activation_email(request, user)
-    logger.info("Resent activation email for user_id=%s", user.id)
-    messages.success(request, "A new activation email and OTP have been sent.")
+    messages.success(
+        request,
+        "If the account exists and is pending activation, a new activation email was sent.",
+    )
     return redirect(reverse("users:verify_registration_otp", kwargs={"email": email}))
 
 

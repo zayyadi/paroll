@@ -1,12 +1,20 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Monthly Salary Created</title>
-</head>
-<body>
-    <p>Hi {{ employee_name }},</p>
-    <p>Your monthly salary for <strong>{{ payday|date:"F Y" }}</strong> has been created.</p>
-    <p>Net pay: ₦{{ netpay }}</p>
-    <p>Please log in to view your payslip details.</p>
-</body>
-</html>
+{% extends "email/base_email.html" %}
+
+{% block title %}Monthly Salary Processed{% endblock %}
+{% block header_subtitle %}Payroll Update{% endblock %}
+
+{% block content %}
+<p style="margin:0 0 12px 0; font-size:15px;">Hi {{ employee_name }},</p>
+<p style="margin:0 0 14px 0; font-size:14px; line-height:1.6;">
+    Your salary for <strong>{{ payday|date:"F Y" }}</strong> has been processed.
+</p>
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border:1px solid #e5e7eb; border-radius:10px; overflow:hidden;">
+    <tr>
+        <td style="padding:12px 14px; background:#f8fafc; font-size:13px; color:#475569;">Net Pay</td>
+        <td style="padding:12px 14px; font-size:13px; color:#0f172a; text-align:right;">₦{{ netpay }}</td>
+    </tr>
+</table>
+<p style="margin:16px 0 0 0; font-size:14px; line-height:1.6;">
+    Log in to your account to view full payslip details.
+</p>
+{% endblock %}

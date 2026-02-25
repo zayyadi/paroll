@@ -4,8 +4,9 @@
   <div class="container mx-auto px-4">
     <div class="flex justify-between items-center py-4">
       <!-- Logo -->
-      <a href="{% url 'payroll:index' %}" class="text-2xl font-bold text-gray-800">
-        <img src="{% static 'images/logo.png' %}" alt="Logo" class="h-8">
+      <a href="{% url 'payroll:index' %}" class="text-2xl font-bold text-gray-800 flex items-center gap-2">
+        <img src="{{ APP_LOGO_URL }}" alt="{{ APP_NAME }} logo" class="h-8 w-auto">
+        <span>{{ APP_NAME }}</span>
       </a>
 
       <!-- Navigation Links -->

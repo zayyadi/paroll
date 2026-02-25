@@ -2,7 +2,7 @@
 {% load static %}
 
 {% block page_title_in_head %}
-<title>PayrollCo - Accounting {% if page_title %}| {{ page_title }}{% endif %}</title>
+<title>{{ APP_NAME }} - Accounting {% if page_title %}| {{ page_title }}{% endif %}</title>
 {% endblock %}
 
 {% block page_header %}{{ page_title|default:"Accounting" }}{% endblock %}
@@ -95,7 +95,7 @@
                     <i data-lucide="file-text" class="mr-3 h-5 w-5 text-secondary-400 group-hover:text-secondary-500"></i>
                     Financial Reports
                 </a>
-                
+
                 {% if is_auditor %}
                 <div class="pt-2 pb-1">
                     <p class="px-3 text-xs font-semibold text-secondary-500 uppercase tracking-wider">Audit</p>

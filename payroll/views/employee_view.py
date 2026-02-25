@@ -6,14 +6,17 @@ from payroll.forms import (
     EmployeeProfileUpdateForm,
     AppraisalForm,
     ReviewForm,
-    BaseRatingFormSet,
+    RatingForm,
 )
 from payroll import models
 from django.contrib.auth.decorators import login_required
 
 
 from django.db.models import Q, Count, Sum
+from django.db.models import Avg
 from django.views.generic.edit import FormView
+from django.forms import inlineformset_factory
+from django.db import transaction
 
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import (
@@ -32,22 +35,17 @@ from django.contrib.auth.mixins import (
     PermissionRequiredMixin,
 )  # Added PermissionRequiredMixin, removed UserPassesTestMixin
 from django.contrib import messages
-from django.views.decorators.cache import cache_page
 
 # Removed user_passes_test as it's replaced by permission_required or custom logic in views
-from django.conf import settings
 from django.http import (
     Http404,
     HttpResponseForbidden,
 )
+from django.core.exceptions import PermissionDenied
 import json
-
-from django.core.cache.backends.base import DEFAULT_TIMEOUT
 
 from users import forms as user_forms
 from company.utils import get_user_company
-
-CACHE_TTL = getattr(settings, "CACHE_TTL", DEFAULT_TIMEOUT)
 
 # Removed is_hr_user and check_super helper functions as their use is replaced
 
@@ -119,8 +117,8 @@ def get_recent_activities(limit=10, company=None):
             }
         )
 
-    # Get recent payroll processed (PayrollRun with is_active=True)
-    recent_payrolls_qs = models.PayrollRun.objects.filter(is_active=True)
+    # Get recent payroll processed (closed payroll periods only)
+    recent_payrolls_qs = models.PayrollRun.objects.filter(closed=True)
     if company is not None:
         recent_payrolls_qs = recent_payrolls_qs.filter(company=company)
     recent_payrolls = recent_payrolls_qs.order_by("-paydays")[:5]
@@ -192,27 +190,42 @@ def index(request):
         "payroll.view_employeeprofile"
     ):
         # HR/Admin gets the current dashboard
-        pay = models.PayrollRun.objects.filter(company=company)
-        pay_count = models.PayrollEntry.objects.filter(company=company).aggregate(total=Sum("netpay"))[
-            "total"
-        ] or Decimal("0.00")
+        pay = models.PayrollRun.objects.filter(company=company, closed=True)
 
-        # Get the most recent pay period
-        recent_pay_period = models.PayrollRun.objects.filter(company=company).order_by("-paydays").first()
-        pending_leaves = models.LeaveRequest.objects.filter(
+        closed_pay_periods = models.PayrollRun.objects.filter(
+            company=company,
+            closed=True,
+        ).order_by("-paydays")
+
+        # Use latest closed pay period for dashboard totals to avoid inflating values
+        # with all historical payroll runs.
+        recent_pay_period = closed_pay_periods.first()
+        pending_leave_requests = models.LeaveRequest.objects.filter(
             employee__company=company,
-            status="APPROVED",
+            status="PENDING",
         )
-        # Calculate total for the most recent month
+        pending_iou_requests = models.IOU.objects.filter(
+            employee_id__company=company,
+            status="PENDING",
+        )
+        # Calculate totals for the most recent closed month
         if recent_pay_period:
-            recent_month_total = models.PayrollRunEntry.objects.filter(
+            recent_period_entries = models.PayrollRunEntry.objects.filter(
                 payroll_run=recent_pay_period,
                 payroll_entry__company=company,
-            ).aggregate(total=Sum("payroll_entry__netpay"))["total"] or Decimal("0.00")
+            )
+            recent_month_total = (
+                recent_period_entries.aggregate(total=Sum("payroll_entry__netpay"))["total"]
+                or Decimal("0.00")
+            )
+            pay_count = recent_month_total
+            processed_payments_count = recent_period_entries.count()
         else:
             recent_month_total = Decimal("0.00")
+            pay_count = Decimal("0.00")
+            processed_payments_count = 0
 
-        previous_pay_period = models.PayrollRun.objects.filter(company=company).order_by("-paydays")[1:2].first()
+        previous_pay_period = closed_pay_periods[1:2].first()
         if previous_pay_period:
             previous_month_total = models.PayrollRunEntry.objects.filter(
                 payroll_run=previous_pay_period,
@@ -229,7 +242,10 @@ def index(request):
             previous_month_total = Decimal("0.00")
             percentage_increase = Decimal("0.00")
 
-        pay_periods = models.PayrollRun.objects.filter(company=company).order_by("paydays")
+        pay_periods = models.PayrollRun.objects.filter(
+            company=company,
+            closed=True,
+        ).order_by("paydays")
         pay_period_data = []
         pay_period_labels = []
 
@@ -301,6 +317,7 @@ def index(request):
             "emp": emp,
             "count": count,
             "pay_count": pay_count,
+            "processed_payments_count": processed_payments_count,
             "leave": leave.count(),
             "recent_month_total": recent_month_total,
             "recent_pay_period": recent_pay_period,
@@ -308,7 +325,11 @@ def index(request):
             "percentage_increase": percentage_increase,
             "total_payee_paid": total_payee_paid,
             "total_payee_net_paid": total_payee_net_paid,
-            "pending": pending_leaves.count(),
+            "pending": pending_leave_requests.count(),
+            "pending_leave_requests_count": pending_leave_requests.count(),
+            "pending_iou_requests_count": pending_iou_requests.count(),
+            "pending_approvals_count": pending_leave_requests.count()
+            + pending_iou_requests.count(),
             "pay_period_data": pay_period_trend_data["data"],
             "pay_period_labels": pay_period_trend_data["labels"],
             "department_labels": department_labels,
@@ -323,7 +344,8 @@ def index(request):
 
             # Get recent payslips for this employee
             recent_payslips = models.PayrollRunEntry.objects.filter(
-                payroll_entry__pays__user=request.user
+                payroll_entry__pays__user=request.user,
+                payroll_entry__company=company,
             ).order_by("-payroll_run__paydays")[:5]
 
             # Get notifications for this employee
@@ -381,6 +403,7 @@ def update_employee_profile(request):
 @login_required
 def dashboard(request):
     user = request.user
+    company = get_user_company(user)
 
     if user.is_superuser:  # Superuser gets admin dashboard
         return render(request, "dashboard_admin_new.html")
@@ -388,10 +411,16 @@ def dashboard(request):
     elif request.user.has_perm(
         "payroll.view_employeeprofile"
     ):  # Representative permission for HR
-        employee_count = models.EmployeeProfile.objects.count()
-        leave_count = models.LeaveRequest.objects.filter(status="PENDING").count()
-        iou_count = models.IOU.objects.filter(status="PENDING").count()
-        allowance_count = models.Allowance.objects.count()
+        employee_count = models.EmployeeProfile.objects.filter(company=company).count()
+        leave_count = models.LeaveRequest.objects.filter(
+            employee__company=company, status="PENDING"
+        ).count()
+        iou_count = models.IOU.objects.filter(
+            employee_id__company=company, status="PENDING"
+        ).count()
+        allowance_count = models.Allowance.objects.filter(
+            employee__company=company
+        ).count()
         context = {
             "employee_count": employee_count,
             "leave_count": leave_count,
@@ -401,11 +430,46 @@ def dashboard(request):
         }
         return render(request, "employee/dashboard_new.html", context)
     else:  # Regular user dashboard
-        assignments = models.AppraisalAssignment.objects.filter(
-            appraiser=request.user.employee_user
-        )
+        reviewer_profile = getattr(request.user, "employee_user", None)
+        assignments = models.AppraisalAssignment.objects.none()
+        pending_assignment_count = 0
+        completed_assignment_count = 0
+        next_assignment = None
+
+        if reviewer_profile:
+            assignments = (
+                models.AppraisalAssignment.objects.filter(
+                    appraiser=reviewer_profile,
+                    appraisal__company=company,
+                )
+                .select_related("appraisal", "appraisee")
+                .order_by("appraisal__end_date", "id")
+            )
+            reviewed_pairs = set(
+                models.Review.objects.filter(
+                    reviewer=reviewer_profile,
+                    appraisal__company=company,
+                ).values_list("appraisal_id", "employee_id")
+            )
+
+            pending_assignments = []
+            for assignment in assignments:
+                assignment.has_review = (
+                    assignment.appraisal_id,
+                    assignment.appraisee_id,
+                ) in reviewed_pairs
+                if not assignment.has_review:
+                    pending_assignments.append(assignment)
+
+            completed_assignment_count = assignments.count() - len(pending_assignments)
+            pending_assignment_count = len(pending_assignments)
+            next_assignment = pending_assignments[0] if pending_assignments else assignments.first()
+
         context = {
             "assignments": assignments,
+            "pending_assignment_count": pending_assignment_count,
+            "completed_assignment_count": completed_assignment_count,
+            "next_assignment": next_assignment,
             "empty_list": [],  # For empty for loop handling in templates
         }
         return render(request, "dashboard_user_new.html", context)
@@ -414,19 +478,42 @@ def dashboard(request):
 @permission_required(
     "payroll.view_employeeprofile", raise_exception=True
 )  # Example permission for HR dashboard
-@cache_page(CACHE_TTL)
 def hr_dashboard(request):
+    company = get_user_company(request.user)
     # Counts for new "Approvals" section links
     pending_leave_requests_count = models.LeaveRequest.objects.filter(
-        status="PENDING"
+        employee__company=company,
+        status="PENDING",
     ).count()
-    pending_iou_requests_count = models.IOU.objects.filter(status="PENDING").count()
+    pending_iou_requests_count = models.IOU.objects.filter(
+        employee_id__company=company,
+        status="PENDING",
+    ).count()
 
-    total_employees = models.EmployeeProfile.objects.count()
-    recent_performance_reviews = models.Appraisal.objects.all().order_by("-end_date")[
-        :5
-    ]
-    department_distribution = models.EmployeeProfile.objects.values(
+    employee_qs = models.EmployeeProfile.objects.filter(company=company)
+    total_employees = employee_qs.count()
+    active_employees_count = employee_qs.filter(status="active").count()
+    suspended_employees_count = employee_qs.filter(status="suspended").count()
+    terminated_employees_count = employee_qs.filter(status="terminated").count()
+    recent_performance_reviews = models.Appraisal.objects.order_by("-end_date")[:5]
+    appraisal_qs = models.Appraisal.objects.filter(company=company)
+    today = timezone.now().date()
+    active_appraisal_count = appraisal_qs.filter(
+        start_date__lte=today, end_date__gte=today
+    ).count()
+    total_appraisal_assignments = models.AppraisalAssignment.objects.filter(
+        appraisal__company=company
+    ).count()
+    completed_appraisal_reviews = (
+        models.Review.objects.filter(appraisal__company=company)
+        .values("appraisal_id", "employee_id", "reviewer_id")
+        .distinct()
+        .count()
+    )
+    pending_appraisal_reviews = max(
+        total_appraisal_assignments - completed_appraisal_reviews, 0
+    )
+    department_distribution = models.EmployeeProfile.objects.filter(company=company).values(
         "department__name"
     ).annotate(count=Count("id"))
     department_labels = json.dumps(
@@ -437,8 +524,12 @@ def hr_dashboard(request):
     leave_status_chart_data = json.dumps(
         [
             pending_leave_requests_count,  # Use already computed value
-            models.LeaveRequest.objects.filter(status="APPROVED").count(),
-            models.LeaveRequest.objects.filter(status="REJECTED").count(),
+            models.LeaveRequest.objects.filter(
+                employee__company=company, status="APPROVED"
+            ).count(),
+            models.LeaveRequest.objects.filter(
+                employee__company=company, status="REJECTED"
+            ).count(),
         ]
     )
 
@@ -446,18 +537,29 @@ def hr_dashboard(request):
     from payroll.models import PayrollRunEntry
 
     total_salary_paid = (
-        PayrollRunEntry.objects.aggregate(total=Sum("payroll_entry__netpay"))["total"] or 0
+        PayrollRunEntry.objects.filter(payroll_entry__company=company).aggregate(
+            total=Sum("payroll_entry__netpay")
+        )["total"]
+        or 0
     )
 
     context = {
         "total_employees": total_employees,
+        "active_employees_count": active_employees_count,
+        "suspended_employees_count": suspended_employees_count,
+        "terminated_employees_count": terminated_employees_count,
         "active_leave_requests": pending_leave_requests_count,  # Original name, kept for compatibility
         "leave_count": pending_leave_requests_count,  # Compatibility with dashboard template fallback
         "pending_leave_requests_count_for_link": pending_leave_requests_count,  # Explicit for new section
         "iou_count": pending_iou_requests_count,  # Compatibility with dashboard template fallback
         "pending_iou_requests_count_for_link": pending_iou_requests_count,  # Explicit for new section
-        "allowance_count": models.Allowance.objects.count(),  # Compatibility with HR widgets
+        "allowance_count": models.Allowance.objects.filter(
+            employee__company=company
+        ).count(),  # Compatibility with HR widgets
         "recent_performance_reviews": recent_performance_reviews,
+        "appraisal_count": appraisal_qs.count(),
+        "active_appraisal_count": active_appraisal_count,
+        "pending_appraisal_reviews": pending_appraisal_reviews,
         "department_labels": department_labels,
         "department_counts": department_counts,
         "leave_status_counts": leave_status_chart_data,  # For chart
@@ -483,10 +585,19 @@ def employee_list(request):
     if department_filter:
         employees = employees.filter(department__id=department_filter)
     departments = models.Department.objects.filter(company=company)
+    active_employees_count = employees.filter(status="active").count()
+    suspended_employees_count = employees.filter(status="suspended").count()
+    terminated_employees_count = employees.filter(status="terminated").count()
     return render(
         request,
         "employee/employee_list_new.html",
-        {"employees": employees, "departments": departments},
+        {
+            "employees": employees,
+            "departments": departments,
+            "active_employees_count": active_employees_count,
+            "suspended_employees_count": suspended_employees_count,
+            "terminated_employees_count": terminated_employees_count,
+        },
     )
 
 
@@ -592,7 +703,10 @@ def delete_employee(request, id):  # FBV for delete
 
 @login_required
 def employee(request, user_id: int):
-    target_user_profile = get_object_or_404(models.EmployeeProfile, user_id=user_id)
+    company = get_user_company(request.user)
+    target_user_profile = get_object_or_404(
+        models.EmployeeProfile, user_id=user_id, company=company
+    )
     print(target_user_profile.user_id, request.user.id)
 
     # Check if request.user is viewing their own profile or has general view permission
@@ -604,7 +718,8 @@ def employee(request, user_id: int):
         raise HttpResponseForbidden("You are not authorized to view this profile.")
 
     pay = models.PayrollRunEntry.objects.filter(
-        payroll_entry__pays__user_id=employee_profile_to_display.user.id
+        payroll_entry__pays__user_id=employee_profile_to_display.user.id,
+        payroll_entry__company=company,
     )
     context = {"emp": employee_profile_to_display, "pay": pay}
     return render(request, "employee/profile_new.html", context)
@@ -615,22 +730,83 @@ class AppraisalListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
     template_name = "reviews/appraisal_list_new.html"
     permission_required = "payroll.view_appraisal"
 
+    def get_queryset(self):
+        company = get_user_company(self.request.user)
+        queryset = (
+            models.Appraisal.objects.annotate(
+                overall_avg=Avg("review__rating__rating"),
+                assignments_count=Count("appraisalassignment", distinct=True),
+                reviews_count=Count("review", distinct=True),
+            )
+            .order_by("-start_date", "-id")
+            .distinct()
+        )
+        if company:
+            queryset = queryset.filter(company=company)
+        return queryset
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        today = timezone.now().date()
+        appraisals = list(context["object_list"])
+        completed = 0
+        in_progress = 0
+
+        for appraisal in appraisals:
+            status_label = "Pending"
+            status_css = "bg-secondary-100 text-secondary-800"
+            if appraisal.start_date <= today <= appraisal.end_date:
+                status_label = "In Progress"
+                status_css = "bg-warning-100 text-warning-800"
+                in_progress += 1
+            elif appraisal.end_date < today:
+                status_label = "Completed"
+                status_css = "bg-success-100 text-success-800"
+                completed += 1
+
+            appraisal.status_label = status_label
+            appraisal.status_css = status_css
+            if appraisal.overall_avg is not None:
+                appraisal.overall_avg_percentage = appraisal.overall_avg * 20
+            else:
+                appraisal.overall_avg_percentage = None
+
+        avg_rating = [
+            item.overall_avg for item in appraisals if item.overall_avg is not None
+        ]
+        context["total_appraisals"] = len(appraisals)
+        context["completed_appraisals"] = completed
+        context["in_progress_appraisals"] = in_progress
+        context["average_score"] = round((sum(avg_rating) / len(avg_rating)) * 20, 1) if avg_rating else 0
+        return context
+
 
 class AppraisalDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
     model = models.Appraisal
     template_name = "reviews/appraisal_detail.html"
     permission_required = "payroll.view_appraisal"
 
+    def get_queryset(self):
+        company = get_user_company(self.request.user)
+        queryset = models.Appraisal.objects.all()
+        if company:
+            queryset = queryset.filter(company=company)
+        return queryset
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         appraisal = self.get_object()
-        reviews = models.Review.objects.filter(appraisal=appraisal)
-        assignments = models.AppraisalAssignment.objects.filter(appraisal=appraisal)
+        reviews = models.Review.objects.filter(appraisal=appraisal).select_related(
+            "employee", "reviewer"
+        )
+        assignments = models.AppraisalAssignment.objects.filter(
+            appraisal=appraisal
+        ).select_related("appraisee", "appraiser")
 
         completed_reviews = reviews.count()
-        pending_reviews = assignments.count() - completed_reviews
+        pending_reviews = max(assignments.count() - completed_reviews, 0)
 
-        ratings = models.Rating.objects.filter(review__in=reviews)
+        ratings = models.Rating.objects.filter(review__in=reviews).select_related("metric")
         metrics = models.Metric.objects.all()
 
         metric_ratings = {}
@@ -663,6 +839,10 @@ class AppraisalCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateVie
     success_url = reverse_lazy("payroll:appraisal_list")
     permission_required = "payroll.add_appraisal"
 
+    def form_valid(self, form):
+        form.instance.company = get_user_company(self.request.user)
+        return super().form_valid(form)
+
 
 class AppraisalUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
     model = models.Appraisal
@@ -671,6 +851,13 @@ class AppraisalUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateVie
     success_url = reverse_lazy("payroll:appraisal_list")
     permission_required = "payroll.change_appraisal"
 
+    def get_queryset(self):
+        company = get_user_company(self.request.user)
+        queryset = models.Appraisal.objects.all()
+        if company:
+            queryset = queryset.filter(company=company)
+        return queryset
+
 
 class AppraisalDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteView):
     model = models.Appraisal
@@ -678,38 +865,98 @@ class AppraisalDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteVie
     success_url = reverse_lazy("payroll:appraisal_list")
     permission_required = "payroll.delete_appraisal"
 
+    def get_queryset(self):
+        company = get_user_company(self.request.user)
+        queryset = models.Appraisal.objects.all()
+        if company:
+            queryset = queryset.filter(company=company)
+        return queryset
 
-class ReviewCreateView(LoginRequiredMixin, CreateView):
+
+class ReviewCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
     model = models.Review
     form_class = ReviewForm
     template_name = "reviews/review_form.html"
+    permission_required = "payroll.add_review"
+
+    def _rating_formset_class(self):
+        metric_count = max(models.Metric.objects.count(), 1)
+        return inlineformset_factory(
+            models.Review,
+            models.Rating,
+            form=RatingForm,
+            extra=metric_count,
+            can_delete=False,
+        )
+
+    def _rating_formset(self, data=None):
+        rating_formset_class = self._rating_formset_class()
+        initial = [{"metric": metric.pk} for metric in models.Metric.objects.all()]
+        if data is not None:
+            return rating_formset_class(data, prefix="ratings")
+        return rating_formset_class(prefix="ratings", initial=initial)
+
+    def _get_targets(self):
+        appraisal = get_object_or_404(models.Appraisal, pk=self.kwargs["appraisal_pk"])
+        employee = get_object_or_404(models.EmployeeProfile, pk=self.kwargs["employee_pk"])
+        company = get_user_company(self.request.user)
+        if company and (
+            appraisal.company_id != company.id or employee.company_id != company.id
+        ):
+            raise Http404("Appraisal or employee not found in your company.")
+        return appraisal, employee
+
+    def dispatch(self, request, *args, **kwargs):
+        appraisal, employee = self._get_targets()
+        requester_profile = getattr(request.user, "employee_user", None)
+        if requester_profile is None:
+            raise PermissionDenied("Employee profile is required to submit a review.")
+
+        has_assignment = models.AppraisalAssignment.objects.filter(
+            appraisal=appraisal, appraisee=employee, appraiser=requester_profile
+        ).exists()
+        if not (request.user.has_perm("payroll.add_review") and has_assignment):
+            raise PermissionDenied("You are not assigned to submit this review.")
+        return super().dispatch(request, *args, **kwargs)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        if self.request.POST:
-            context["rating_formset"] = BaseRatingFormSet(self.request.POST)
-        else:
-            context["rating_formset"] = BaseRatingFormSet()
+        context["rating_formset"] = self._rating_formset(
+            data=self.request.POST if self.request.POST else None
+        )
         return context
+
+    def _validate_unique_metrics(self, rating_formset):
+        seen_metric_ids = set()
+        for rating_form in rating_formset.forms:
+            if rating_form.cleaned_data.get("DELETE"):
+                continue
+            metric = rating_form.cleaned_data.get("metric")
+            if not metric:
+                continue
+            if metric.pk in seen_metric_ids:
+                rating_form.add_error("metric", "Each metric can only be rated once.")
+                return False
+            seen_metric_ids.add(metric.pk)
+        return True
 
     def form_valid(self, form):
         context = self.get_context_data()
         rating_formset = context["rating_formset"]
-        if rating_formset.is_valid():
+        if not rating_formset.is_valid() or not self._validate_unique_metrics(rating_formset):
+            return self.render_to_response(self.get_context_data(form=form))
+        appraisal, employee = self._get_targets()
+        with transaction.atomic():
             review = form.save(commit=False)
-            review.appraisal = get_object_or_404(
-                models.Appraisal, pk=self.kwargs["appraisal_pk"]
-            )
-            review.employee = get_object_or_404(
-                models.EmployeeProfile, pk=self.kwargs["employee_pk"]
-            )
+            review.appraisal = appraisal
+            review.employee = employee
             review.reviewer = self.request.user.employee_user
+            review.full_clean()
             review.save()
             rating_formset.instance = review
             rating_formset.save()
-            return super().form_valid(form)
-        else:
-            return self.render_to_response(self.get_context_data(form=form))
+            self.object = review
+        return super().form_valid(form)
 
     def get_success_url(self):
         return reverse_lazy(
@@ -717,25 +964,88 @@ class ReviewCreateView(LoginRequiredMixin, CreateView):
         )
 
 
-class ReviewUpdateView(LoginRequiredMixin, UpdateView):
+class ReviewAccessMixin(LoginRequiredMixin):
+    required_permission = None
+
+    def _review_in_scope(self):
+        queryset = models.Review.objects.select_related(
+            "appraisal", "employee", "reviewer"
+        )
+        company = get_user_company(self.request.user)
+        if company:
+            queryset = queryset.filter(appraisal__company=company)
+        return queryset
+
+    def get_queryset(self):
+        return self._review_in_scope()
+
+    def dispatch(self, request, *args, **kwargs):
+        obj = self.get_object()
+        is_owner = (
+            getattr(request.user, "employee_user", None) in [obj.reviewer, obj.employee]
+        )
+        has_permission = (
+            request.user.is_superuser
+            or is_owner
+            or (
+                self.required_permission
+                and request.user.has_perm(self.required_permission)
+            )
+        )
+        if not has_permission:
+            raise PermissionDenied("You are not allowed to access this review.")
+        return super().dispatch(request, *args, **kwargs)
+
+
+class ReviewUpdateView(ReviewAccessMixin, UpdateView):
     model = models.Review
     form_class = ReviewForm
     template_name = "reviews/review_form.html"
+    required_permission = "payroll.change_review"
+
+    def _rating_formset_class(self):
+        return inlineformset_factory(
+            models.Review,
+            models.Rating,
+            fields=("metric", "rating", "comments"),
+            extra=0,
+            can_delete=False,
+        )
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+        rating_formset_class = self._rating_formset_class()
         if self.request.POST:
-            context["rating_formset"] = BaseRatingFormSet(
-                self.request.POST, instance=self.object
+            context["rating_formset"] = rating_formset_class(
+                self.request.POST, instance=self.object, prefix="ratings"
             )
         else:
-            context["rating_formset"] = BaseRatingFormSet(instance=self.object)
+            context["rating_formset"] = rating_formset_class(
+                instance=self.object, prefix="ratings"
+            )
         return context
+
+    def _validate_unique_metrics(self, rating_formset):
+        seen_metric_ids = set()
+        for rating_form in rating_formset.forms:
+            if rating_form.cleaned_data.get("DELETE"):
+                continue
+            metric = rating_form.cleaned_data.get("metric")
+            if not metric:
+                continue
+            if metric.pk in seen_metric_ids:
+                rating_form.add_error("metric", "Each metric can only be rated once.")
+                return False
+            seen_metric_ids.add(metric.pk)
+        return True
 
     def form_valid(self, form):
         context = self.get_context_data()
         rating_formset = context["rating_formset"]
-        if rating_formset.is_valid():
+        if not rating_formset.is_valid() or not self._validate_unique_metrics(rating_formset):
+            return self.render_to_response(self.get_context_data(form=form))
+        with transaction.atomic():
+            self.object = form.save()
             rating_formset.instance = self.object
             rating_formset.save()
         return super().form_valid(form)
@@ -746,14 +1056,16 @@ class ReviewUpdateView(LoginRequiredMixin, UpdateView):
         )
 
 
-class ReviewDetailView(LoginRequiredMixin, DetailView):
+class ReviewDetailView(ReviewAccessMixin, DetailView):
     model = models.Review
     template_name = "reviews/review_detail.html"
+    required_permission = "payroll.view_review"
 
 
-class ReviewDeleteView(LoginRequiredMixin, DeleteView):
+class ReviewDeleteView(ReviewAccessMixin, DeleteView):
     model = models.Review
     template_name = "reviews/review_confirm_delete.html"
+    required_permission = "payroll.delete_review"
 
     def get_success_url(self):
         return reverse_lazy(
@@ -766,6 +1078,11 @@ class AssignAppraisalView(LoginRequiredMixin, PermissionRequiredMixin, FormView)
     template_name = "reviews/appraisal_assign.html"
     success_url = reverse_lazy("payroll:appraisal_list")
     permission_required = "payroll.add_appraisalassignment"
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["user"] = self.request.user
+        return kwargs
 
     def form_valid(self, form):
         form.save()

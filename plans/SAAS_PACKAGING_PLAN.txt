@@ -1,0 +1,34 @@
+SaaS Packaging Implementation Plan
+================================
+
+Date: 2026-02-16
+Status: In progress
+
+1) Baseline + Direction
+- Keep shared-schema multi-tenant architecture.
+- Tenant identity: company + membership + active company.
+
+2) Tenant Hardening
+- Add reusable tenancy utilities for scoped queries and object lookup.
+- Add middleware to enforce active company for authenticated users.
+
+3) Data Model Alignment
+- Tenantize leave policies and public holidays.
+- Backfill existing records to default company.
+
+4) Access Flow
+- Keep company switch flow in users app.
+- Scope critical leave and IOU approval/listing endpoints by company.
+- Scope API employee/payroll endpoints by active company.
+
+5) SaaS Deployment Packaging
+- Add settings overlay: core.settings_saas.
+- Add env-driven SaaS and security flags.
+- Package compose stack for web, db, redis, worker, beat, daphne.
+
+6) SaaS Operations
+- Add create_tenant command to onboard workspaces and owner users.
+
+7) Validation
+- Add focused tests for middleware and tenancy helpers.
+- Run targeted test suite and Django checks.

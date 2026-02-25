@@ -1,0 +1,59 @@
+{% extends "base_new.html" %}
+
+{% block page_header %}{{ page_title|default:"HR Disciplinary Management" }}{% endblock %}
+
+{% block breadcrumbs %}
+<nav class="flex" aria-label="Breadcrumb">
+    <ol class="inline-flex items-center space-x-1 md:space-x-3">
+        <li class="inline-flex items-center">
+            <a href="{% url 'payroll:hr_dashboard' %}" class="inline-flex items-center text-sm font-medium text-secondary-700 hover:text-primary-600">
+                <i data-lucide="home" class="mr-2 w-4 h-4"></i>
+                HR Dashboard
+            </a>
+        </li>
+        {% if breadcrumbs %}
+        {% for breadcrumb in breadcrumbs %}
+        <li>
+            <div class="flex items-center">
+                <i data-lucide="chevron-right" class="w-4 h-4 text-secondary-400"></i>
+                {% if forloop.last or not breadcrumb.url %}
+                <span class="ml-1 text-sm font-medium text-secondary-500">{{ breadcrumb.title }}</span>
+                {% else %}
+                <a href="{{ breadcrumb.url }}" class="ml-1 text-sm font-medium text-secondary-700 hover:text-primary-600">{{ breadcrumb.title }}</a>
+                {% endif %}
+            </div>
+        </li>
+        {% endfor %}
+        {% endif %}
+    </ol>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+    <div class="lg:col-span-1">
+        <div class="bg-white rounded-lg shadow-soft p-4">
+            <h3 class="text-lg font-semibold text-secondary-900 mb-4">HR Governance</h3>
+            <nav class="space-y-1">
+                <a href="{% url 'payroll:hr_dashboard' %}" class="sidebar-link group flex items-center px-3 py-2 text-sm font-medium rounded-md">
+                    <i data-lucide="layout-dashboard" class="mr-3 h-5 w-5 text-secondary-400 group-hover:text-secondary-500"></i>
+                    HR Dashboard
+                </a>
+                <a href="{% url 'payroll:disciplinary_system' %}" class="sidebar-link group flex items-center px-3 py-2 text-sm font-medium rounded-md {% if request.resolver_match.url_name == 'disciplinary_system' %}active{% endif %}">
+                    <i data-lucide="scale-3d" class="mr-3 h-5 w-5 text-secondary-400 group-hover:text-secondary-500"></i>
+                    Disciplinary System
+                </a>
+                <a href="{% url 'payroll:discipline_case_list' %}" class="sidebar-link group flex items-center px-3 py-2 text-sm font-medium rounded-md {% if request.resolver_match.url_name == 'discipline_case_list' or request.resolver_match.url_name == 'discipline_case_detail' or request.resolver_match.url_name == 'discipline_case_create' or request.resolver_match.url_name == 'discipline_case_update' %}active{% endif %}">
+                    <i data-lucide="shield-alert" class="mr-3 h-5 w-5 text-secondary-400 group-hover:text-secondary-500"></i>
+                    Case Management
+                </a>
+            </nav>
+        </div>
+    </div>
+
+    <div class="lg:col-span-3">
+        {% block accounting_content %}
+        {% endblock %}
+    </div>
+</div>
+{% endblock %}

@@ -43,7 +43,7 @@
     </div>
 
     <!-- Employee Stats -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
         <div class="bg-white rounded-xl shadow-soft p-6">
             <div class="flex items-center">
                 <div class="flex-shrink-0 bg-primary-100 rounded-lg p-3">
@@ -63,8 +63,7 @@
                 </div>
                 <div class="ml-4">
                     <p class="text-sm font-medium text-secondary-600">Active Employees</p>
-                    <p class="text-2xl font-semibold text-secondary-900">{{ active_employees|default:employees|length }}
-                    </p>
+                    <p class="text-2xl font-semibold text-secondary-900">{{ active_employees_count|default:0 }}</p>
                 </div>
             </div>
         </div>
@@ -72,11 +71,23 @@
         <div class="bg-white rounded-xl shadow-soft p-6">
             <div class="flex items-center">
                 <div class="flex-shrink-0 bg-warning-100 rounded-lg p-3">
-                    <i data-lucide="building" class="h-6 w-6 text-warning-600"></i>
+                    <i data-lucide="user-minus" class="h-6 w-6 text-warning-700"></i>
                 </div>
                 <div class="ml-4">
-                    <p class="text-sm font-medium text-secondary-600">Departments</p>
-                    <p class="text-2xl font-semibold text-secondary-900">{{ departments|length }}</p>
+                    <p class="text-sm font-medium text-secondary-600">Suspended</p>
+                    <p class="text-2xl font-semibold text-secondary-900">{{ suspended_employees_count|default:0 }}</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-soft p-6">
+            <div class="flex items-center">
+                <div class="flex-shrink-0 bg-danger-100 rounded-lg p-3">
+                    <i data-lucide="user-x" class="h-6 w-6 text-danger-700"></i>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-secondary-600">Terminated</p>
+                    <p class="text-2xl font-semibold text-secondary-900">{{ terminated_employees_count|default:0 }}</p>
                 </div>
             </div>
         </div>
@@ -164,9 +175,27 @@
                         {{ employee.date_of_employment|date:"d M Y"|default:"N/A" }}
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap">
-                        <span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-success-100 text-success-800">
-                            Active
-                        </span>
+                        {% if employee.status == "terminated" %}
+                            <span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-danger-100 text-danger-800">
+                                Terminated
+                            </span>
+                        {% elif employee.user and not employee.user.is_active %}
+                            <span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-danger-100 text-danger-800">
+                                Terminated
+                            </span>
+                        {% elif employee.status == "suspended" %}
+                            <span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-warning-100 text-warning-800">
+                                Suspended
+                            </span>
+                        {% elif employee.status == "active" %}
+                            <span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-success-100 text-success-800">
+                                Active
+                            </span>
+                        {% else %}
+                            <span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-secondary-100 text-secondary-700">
+                                {{ employee.status|default:"pending"|title }}
+                            </span>
+                        {% endif %}
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                         <a href="{% url 'payroll:profile' employee.user.id %}" 

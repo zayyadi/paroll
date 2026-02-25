@@ -1,18 +1,23 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Welcome to Payroll</title>
-</head>
-<body>
-    <p>Dear {{ first_name }},</p>
-    <p>Welcome to Payroll! We are excited to have you on board.</p>
-    <p>Please activate your account using the link below:</p>
-    <p><a href="{{ activation_url }}">Activate Account</a></p>
-    <p>For extra security, you can also verify with this OTP: <strong>{{ otp }}</strong>.</p>
-    <p>This OTP is valid for 10 minutes.</p>
-    <p>You can log in here after activation: <a href="{{ login_url }}">Login</a></p>
-    <p>If you have any questions, feel free to contact us.</p>
-    <p>Best regards,</p>
-    <p>The Payroll Team</p>
-</body>
-</html>
+{% extends "email/base_email.html" %}
+
+{% block title %}Welcome to Payroll{% endblock %}
+{% block header_subtitle %}Activate Your Account{% endblock %}
+
+{% block content %}
+<p style="margin:0 0 12px 0; font-size:15px;">Hi {{ first_name }},</p>
+<p style="margin:0 0 16px 0; font-size:14px; line-height:1.6;">
+    Welcome to Payroll. Your account is ready to be activated.
+</p>
+<p style="margin:0 0 18px 0;">
+    <a href="{{ activation_url }}" style="display:inline-block; padding:10px 16px; border-radius:8px; text-decoration:none; background:#2563eb; color:#ffffff; font-size:14px; font-weight:600;">Activate Account</a>
+</p>
+<p style="margin:0 0 8px 0; font-size:14px; line-height:1.6;">For extra security, you can also verify with this OTP:</p>
+<p style="margin:0 0 16px 0; text-align:center;">
+    <span style="display:inline-block; padding:10px 18px; border-radius:8px; background:#e2e8f0; color:#0f172a; font-size:24px; letter-spacing:4px; font-weight:700;">{{ otp }}</span>
+</p>
+<p style="margin:0 0 12px 0; font-size:13px; color:#64748b;">OTP validity: 10 minutes.</p>
+<p style="margin:0; font-size:14px; line-height:1.6;">
+    After activation, you can sign in here:
+    <a href="{{ login_url }}" style="color:#2563eb; text-decoration:none;">Login</a>
+</p>
+{% endblock %}

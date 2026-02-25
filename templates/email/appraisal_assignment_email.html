@@ -1,0 +1,37 @@
+{% extends "email/base_email.html" %}
+
+{% block title %}Appraisal Assignment{% endblock %}
+{% block header_subtitle %}Performance Review Notification{% endblock %}
+
+{% block content %}
+<p style="margin:0 0 12px 0; font-size:15px;">Hi {{ recipient_name }},</p>
+
+{% if recipient_role == "appraiser" %}
+<p style="margin:0 0 14px 0; font-size:14px; line-height:1.6;">
+    You have been assigned to appraise <strong>{{ appraisee_name }}</strong> for
+    <strong>{{ appraisal_name }}</strong>.
+</p>
+{% else %}
+<p style="margin:0 0 14px 0; font-size:14px; line-height:1.6;">
+    You have been added to the <strong>{{ appraisal_name }}</strong> appraisal cycle.
+    Your assigned appraiser is <strong>{{ appraiser_name }}</strong>.
+</p>
+{% endif %}
+
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border:1px solid #e5e7eb; border-radius:10px; overflow:hidden;">
+    <tr>
+        <td style="padding:12px 14px; background:#f8fafc; font-size:13px; color:#475569;">Appraisal</td>
+        <td style="padding:12px 14px; font-size:13px; color:#0f172a; text-align:right;">{{ appraisal_name }}</td>
+    </tr>
+    <tr>
+        <td style="padding:12px 14px; background:#f8fafc; font-size:13px; color:#475569;">Period</td>
+        <td style="padding:12px 14px; font-size:13px; color:#0f172a; text-align:right;">{{ appraisal_period }}</td>
+    </tr>
+</table>
+
+<p style="margin:18px 0 0 0;">
+    <a href="{{ action_url }}" style="display:inline-block; padding:10px 14px; background:#2563eb; color:#ffffff; text-decoration:none; border-radius:8px; font-size:13px; font-weight:600;">
+        {% if recipient_role == "appraiser" %}Start Review{% else %}View Appraisal{% endif %}
+    </a>
+</p>
+{% endblock %}

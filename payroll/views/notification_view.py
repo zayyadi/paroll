@@ -2,8 +2,9 @@
 Views for handling notifications using the new NotificationService layer.
 """
 
-from django.shortcuts import render, get_object_or_404
+from django.shortcuts import render, get_object_or_404, redirect
 from django.http import JsonResponse
+from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_POST, require_GET
 from django.views.generic import ListView
@@ -561,7 +562,41 @@ def notification_digests(request):
         "unread_count": unread_count,
     }
 
-    return render(request, "notifications/digests.html", context)
+    return render(request, "notifications/notification_digests.html", context)
+
+
+@login_required
+@require_POST
+def notification_digest_settings(request):
+    """
+    Update digest settings from digest management page.
+    """
+    try:
+        employee_profile = request.user.employee_user
+    except models.EmployeeProfile.DoesNotExist:
+        messages.error(request, "Employee profile not found.")
+        return redirect("payroll:notification_digests")
+
+    daily_enabled = request.POST.get("daily_digest_enabled") == "on"
+    weekly_enabled = request.POST.get("weekly_digest_enabled") == "on"
+
+    preference_service = PreferenceService()
+    try:
+        if weekly_enabled and not daily_enabled:
+            frequency = "weekly"
+        elif daily_enabled:
+            frequency = "daily"
+        else:
+            frequency = "immediate"
+
+        preference_service.update_preferences(
+            employee_profile, {"email_digest_frequency": frequency}
+        )
+        messages.success(request, "Digest settings updated successfully.")
+    except Exception as exc:
+        messages.error(request, f"Failed to update digest settings: {exc}")
+
+    return redirect("payroll:notification_digests")
 
 
 @login_required

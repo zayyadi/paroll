@@ -1,19 +1,24 @@
 from decimal import Decimal
 import uuid
+import logging
 
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator
+from django.core.validators import MaxValueValidator
 
 from django.utils import timezone  # Import timezone
 
 # from autoslug import AutoSlugField  # Temporarily commented out for testing
 
+from calendar import monthrange
 from datetime import date, timedelta
 
 
 from core import settings
+
+logger = logging.getLogger(__name__)
 
 from payroll import utils
 from payroll import choices
@@ -26,6 +31,177 @@ from payroll.models.utils import SoftDeleteModel
 class PayrollManager(models.Manager):
     def get_queryset(self):
         return super().get_queryset().filter(status="active")
+
+
+def _deduction_debug_print(message: str) -> None:
+    logger.debug("[DEDUCTION_DEBUG] %s", message)
+
+
+class CompanyPayrollSetting(models.Model):
+    company = models.OneToOneField(
+        "company.Company",
+        on_delete=models.CASCADE,
+        related_name="payroll_setting",
+    )
+    basic_percentage = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=Decimal("40.00"),
+        validators=[MinValueValidator(Decimal("0")), MaxValueValidator(Decimal("100"))],
+    )
+    housing_percentage = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=Decimal("10.00"),
+        validators=[MinValueValidator(Decimal("0")), MaxValueValidator(Decimal("100"))],
+    )
+    transport_percentage = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=Decimal("10.00"),
+        validators=[MinValueValidator(Decimal("0")), MaxValueValidator(Decimal("100"))],
+    )
+    pension_employee_percentage = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=Decimal("8.00"),
+        validators=[MinValueValidator(Decimal("0")), MaxValueValidator(Decimal("100"))],
+    )
+    pension_employer_percentage = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=Decimal("10.00"),
+        validators=[MinValueValidator(Decimal("0")), MaxValueValidator(Decimal("100"))],
+    )
+    nhf_percentage = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=Decimal("2.50"),
+        validators=[MinValueValidator(Decimal("0")), MaxValueValidator(Decimal("100"))],
+    )
+    leave_allowance_percentage = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=Decimal("0.00"),
+        validators=[MinValueValidator(Decimal("0")), MaxValueValidator(Decimal("100"))],
+        help_text="Percentage of monthly basic salary paid as leave allowance.",
+    )
+    pays_thirteenth_month = models.BooleanField(
+        default=True,
+        help_text="When enabled, employees receive 13th month in December.",
+    )
+    thirteenth_month_percentage = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=Decimal("20.00"),
+        validators=[MinValueValidator(Decimal("0")), MaxValueValidator(Decimal("100"))],
+        help_text="Percentage of annual basic salary paid as 13th month.",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Company Payroll Setting"
+        verbose_name_plural = "Company Payroll Settings"
+
+    def __str__(self):
+        return f"{self.company} payroll settings"
+
+    def get_health_tier_for_salary(self, basic_salary: Decimal):
+        salary = Decimal(basic_salary or Decimal("0"))
+        for tier in self.health_insurance_tiers.all().order_by(
+            "sort_order", "min_salary"
+        ):
+            if tier.matches_salary(salary):
+                return tier
+        return None
+
+    def create_default_health_tiers(self):
+        if self.health_insurance_tiers.exists():
+            return
+        CompanyHealthInsuranceTier.objects.bulk_create(
+            [
+                CompanyHealthInsuranceTier(
+                    setting=self,
+                    min_salary=Decimal("0.00"),
+                    max_salary=Decimal("499999.99"),
+                    employee_percentage=Decimal("5.00"),
+                    employer_percentage=Decimal("10.00"),
+                    sort_order=1,
+                ),
+                CompanyHealthInsuranceTier(
+                    setting=self,
+                    min_salary=Decimal("500000.00"),
+                    max_salary=Decimal("999999.99"),
+                    employee_percentage=Decimal("10.00"),
+                    employer_percentage=Decimal("5.00"),
+                    sort_order=2,
+                ),
+                CompanyHealthInsuranceTier(
+                    setting=self,
+                    min_salary=Decimal("1000000.00"),
+                    max_salary=None,
+                    employee_percentage=Decimal("15.00"),
+                    employer_percentage=Decimal("0.00"),
+                    sort_order=3,
+                ),
+            ]
+        )
+
+
+class CompanyHealthInsuranceTier(models.Model):
+    setting = models.ForeignKey(
+        CompanyPayrollSetting,
+        on_delete=models.CASCADE,
+        related_name="health_insurance_tiers",
+    )
+    min_salary = models.DecimalField(max_digits=12, decimal_places=2)
+    max_salary = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Leave empty for no upper limit.",
+    )
+    employee_percentage = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        validators=[MinValueValidator(Decimal("0")), MaxValueValidator(Decimal("100"))],
+    )
+    employer_percentage = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        validators=[MinValueValidator(Decimal("0")), MaxValueValidator(Decimal("100"))],
+    )
+    sort_order = models.PositiveIntegerField(default=1)
+
+    class Meta:
+        verbose_name = "Health Insurance Tier"
+        verbose_name_plural = "Health Insurance Tiers"
+        ordering = ("sort_order", "min_salary")
+
+    def __str__(self):
+        max_salary = self.max_salary if self.max_salary is not None else "and above"
+        return (
+            f"{self.setting.company}: {self.min_salary} - {max_salary} "
+            f"(E:{self.employee_percentage}% / ER:{self.employer_percentage}%)"
+        )
+
+    def clean(self):
+        super().clean()
+        if self.max_salary is not None and self.max_salary < self.min_salary:
+            raise ValidationError(
+                {
+                    "max_salary": "Max salary must be greater than or equal to min salary."
+                }
+            )
+
+    def matches_salary(self, salary: Decimal) -> bool:
+        if salary < self.min_salary:
+            return False
+        if self.max_salary is None:
+            return True
+        return salary <= self.max_salary
 
 
 class Payroll(models.Model):
@@ -125,12 +301,6 @@ class Payroll(models.Model):
         blank=True,
         default=Decimal(0.0),
     )
-    rent_relief = models.DecimalField(
-        max_digits=12,
-        default=Decimal(0.0),
-        decimal_places=2,
-        blank=True,
-    )
     taxable_income = models.DecimalField(
         max_digits=12,
         default=Decimal(0.0),
@@ -175,9 +345,11 @@ class Payroll(models.Model):
     def get_nsitf(self):
         return self.basic_salary * Decimal(1) / Decimal(100)
 
-    @property
-    def get_gross_income(self):
-        return self.get_annual_gross - utils.get_pension_employee(self)
+    # @property
+    # def get_gross_income(self):
+    #     gross = self.get_annual_gross - utils.get_pension_employee(self)
+    #     print(f" gross : {gross}")
+    #     return gross
 
     def save(self, *args, **kwargs):
         # employee = self.employee_pay.first()
@@ -185,20 +357,19 @@ class Payroll(models.Model):
         self.basic = utils.get_basic(self)  # noqa: F405
         self.housing = utils.get_housing(self)  # noqa: F405
         self.transport = utils.get_transport(self)  # noqa: F405
-        self.bht = utils.get_bht(self)  # noqa: F405
+        self.bht = utils.gross_income(self)  # noqa: F405
         self.pension_employee = utils.get_pension_employee(self)  # noqa: F405
         self.pension_employer = utils.get_pension_employer(self)  # noqa: F405
         self.pension = utils.get_pension(self)  # noqa: F405
-        self.gross_income = self.get_gross_income  # noqa: F405
-        self.taxable_income = utils.calculate_taxable_income(self)
-        self.payee = utils.get_payee(self)  # noqa: F405
-        self.water_rate = utils.get_water_rate(self)  # noqa: F405
+        self.gross_income = utils.gross_income(self)  # noqa: F405
         self.nhf = utils.calc_housing(self)
         self.employee_health = utils.calc_employee_health_contrib(self)
         self.emplyr_health = utils.calc_employer_health_contrib(self)
         self.nhif = utils.calc_health_contrib(self)
         self.nsitf = self.get_nsitf
-        self.rent_relief = utils.get_rent_relief(self)  # noqa: F405
+        self.taxable_income = utils.calculate_taxable_income(self)
+        self.payee = utils.get_payee(self)  # noqa: F405
+        self.water_rate = utils.get_water_rate(self)  # noqa: F405
 
         super(Payroll, self).save(*args, **kwargs)
 
@@ -330,9 +501,9 @@ class PayrollEntry(models.Model):
         # return Decimal(0)
 
         # New implementation: Sum allowances for the employee within the payroll period
-        payroll_run_entry = (
-            self.payroll_run_entries.select_related("payroll_run").first()
-        )
+        payroll_run_entry = self.payroll_run_entries.select_related(
+            "payroll_run"
+        ).first()
         if not payroll_run_entry:
             return Decimal(0)
 
@@ -344,11 +515,83 @@ class PayrollEntry(models.Model):
             created_at__month=payroll_month, created_at__year=payroll_year
         ):
             total_allowance += allowance.amount
+
+        total_allowance += self._get_auto_leave_allowance(
+            payroll_month=payroll_month,
+            payroll_year=payroll_year,
+        )
+        total_allowance += self._get_auto_thirteenth_month_allowance(payroll_month)
+
         return total_allowance
+
+    def _get_company_payroll_setting(self):
+        company = self.company or self.pays.company
+        if not company:
+            return None
+        return CompanyPayrollSetting.objects.filter(company=company).first()
+
+    def _get_auto_leave_allowance(self, payroll_month: int, payroll_year: int) -> Decimal:
+        payroll = self.pays.employee_pay
+        if not payroll:
+            return Decimal("0.00")
+
+        setting = self._get_company_payroll_setting()
+        if not setting:
+            return Decimal("0.00")
+
+        leave_allowance_percentage = Decimal(
+            setting.leave_allowance_percentage or Decimal("0.00")
+        )
+        if leave_allowance_percentage <= 0:
+            return Decimal("0.00")
+
+        month_start = date(payroll_year, payroll_month, 1)
+        month_end = date(
+            payroll_year,
+            payroll_month,
+            monthrange(payroll_year, payroll_month)[1],
+        )
+        is_on_approved_leave = self.pays.leave_requests.filter(
+            status="APPROVED",
+            start_date__lte=month_end,
+            end_date__gte=month_start,
+        ).exists()
+        if not is_on_approved_leave:
+            return Decimal("0.00")
+
+        monthly_basic_salary = Decimal(payroll.basic_salary or Decimal("0.00"))
+        return (monthly_basic_salary * leave_allowance_percentage) / Decimal("100")
+
+    def _get_auto_thirteenth_month_allowance(self, payroll_month: int) -> Decimal:
+        if payroll_month != 12:
+            return Decimal("0.00")
+
+        payroll = self.pays.employee_pay
+        if not payroll:
+            return Decimal("0.00")
+
+        setting = self._get_company_payroll_setting()
+        pays_thirteenth_month = True
+        thirteenth_month_percentage = Decimal("20.00")
+
+        if setting:
+            pays_thirteenth_month = bool(setting.pays_thirteenth_month)
+            thirteenth_month_percentage = Decimal(
+                setting.thirteenth_month_percentage or Decimal("20.00")
+            )
+
+        if not pays_thirteenth_month or thirteenth_month_percentage <= 0:
+            return Decimal("0.00")
+
+        annual_basic_salary = Decimal(payroll.basic_salary or Decimal("0.00")) * Decimal("12")
+        return (annual_basic_salary * thirteenth_month_percentage) / Decimal("100")
 
     @property
     def calc_deduction(self):
         if not self.pk:
+            _deduction_debug_print(
+                f"PayrollEntry has no PK yet for employee={getattr(self.pays, 'id', None)}; returning 0."
+            )
             return Decimal(0)
 
         # Old implementation (commented out):
@@ -357,34 +600,49 @@ class PayrollEntry(models.Model):
         # return Decimal(0)
 
         # New implementation: Sum deductions for the employee within the payroll period
-        payroll_run_entry = (
-            self.payroll_run_entries.select_related("payroll_run").first()
-        )
+        payroll_run_entry = self.payroll_run_entries.select_related(
+            "payroll_run"
+        ).first()
         if not payroll_run_entry:
+            _deduction_debug_print(
+                f"No payroll run entry linked for payroll_entry_id={self.pk}; returning 0."
+            )
             return Decimal(0)
 
         payroll_month = payroll_run_entry.payroll_run.paydays.month
         payroll_year = payroll_run_entry.payroll_run.paydays.year
+        employee_name = f"{self.pays.first_name} {self.pays.last_name}".strip()
+        _deduction_debug_print(
+            f"Starting deduction calc for payroll_entry_id={self.pk}, employee={employee_name}, period={payroll_year}-{payroll_month:02d}."
+        )
 
         total_deduction = Decimal(0)
         for deduction in self.pays.deductions.filter(
             created_at__month=payroll_month, created_at__year=payroll_year
         ):
+            _deduction_debug_print(
+                f"Standard deduction included: id={deduction.id}, type={deduction.deduction_type}, amount={deduction.amount}."
+            )
             total_deduction += deduction.amount
 
         for iou_deduction in self.pays.iou_deductions.filter(
             payday__paydays__month=payroll_month, payday__paydays__year=payroll_year
         ):
+            _deduction_debug_print(
+                f"IOU deduction included: id={iou_deduction.id}, iou_id={iou_deduction.iou_id}, amount={iou_deduction.amount}."
+            )
             total_deduction += iou_deduction.amount
+        _deduction_debug_print(
+            f"Total calculated deductions for payroll_entry_id={self.pk}: {total_deduction}."
+        )
         return total_deduction
 
     @property
     def total_deductions(self) -> Decimal:
-        total = (
-            self.calc_deduction
-            + self.employee_health
-            + self.nhf
-            + self.pays.employee_pay.nsitf
+        total = self.calc_deduction + self.employee_health + self.nhf
+        _deduction_debug_print(
+            f"Total deductions rollup for payroll_entry_id={self.pk}: "
+            f"calc_deduction={self.calc_deduction}, employee_health={self.employee_health}, nhf={self.nhf}, total={total}."
         )
         return total
 
@@ -618,8 +876,19 @@ class IOU(SoftDeleteModel):
 
 
 class PublicHoliday(models.Model):
+    company = models.ForeignKey(
+        "company.Company",
+        on_delete=models.CASCADE,
+        related_name="public_holidays",
+        null=True,
+        blank=True,
+        db_index=True,
+    )
     name = models.CharField(max_length=255)
-    date = models.DateField(unique=True)
+    date = models.DateField()
+
+    class Meta:
+        unique_together = (("company", "date"),)
 
     def __str__(self):
         return f"{self.name} ({self.date})"
@@ -633,8 +902,19 @@ class LeavePolicy(models.Model):
         ("MATERNITY", "Maternity Leave"),
         ("PATERNITY", "Paternity Leave"),
     ]
-    leave_type = models.CharField(max_length=20, choices=LEAVE_TYPES, unique=True)
+    company = models.ForeignKey(
+        "company.Company",
+        on_delete=models.CASCADE,
+        related_name="leave_policies",
+        null=True,
+        blank=True,
+        db_index=True,
+    )
+    leave_type = models.CharField(max_length=20, choices=LEAVE_TYPES)
     max_days = models.PositiveIntegerField()
+
+    class Meta:
+        unique_together = (("company", "leave_type"),)
 
     def __str__(self):
         return f"{self.leave_type} - {self.max_days} days"
@@ -721,7 +1001,8 @@ class LeaveRequest(models.Model):
 
         holidays = set(
             PublicHoliday.objects.filter(
-                date__range=(self.start_date, self.end_date)
+                company=self.employee.company,
+                date__range=(self.start_date, self.end_date),
             ).values_list("date", flat=True)
         )
 

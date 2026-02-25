@@ -50,7 +50,7 @@
                 {% for notification in notifications %}
                     <a href="{% if notification.action_url %}{{ notification.action_url }}{% else %}{% url 'payroll:notification_detail' notification.id %}{% endif %}"
                        class="block px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 border-b border-gray-100 dark:border-gray-700 {% if not notification.is_read %}bg-blue-50 dark:bg-blue-900/10{% endif %}"
-                       onclick="markAsRead({{ notification.id }})">
+                       onclick="markAsRead('{{ notification.id }}')">
                         <div class="flex items-start space-x-3">
                             <div class="flex-shrink-0 relative">
                                 <div class="w-8 h-8 rounded-full flex items-center justify-center

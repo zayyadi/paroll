@@ -18,6 +18,7 @@ from rest_framework.permissions import (
 
 from payroll import models
 from company.utils import get_user_company
+from company.tenancy import scoped_queryset
 
 
 class CreateEmployeeView(generics.CreateAPIView):
@@ -31,7 +32,7 @@ class CreateEmployeeView(generics.CreateAPIView):
     def perform_create(self, serializer):
         employee = serializer.save()
         company = get_user_company(self.request.user)
-        if company and employee.company_id is None:
+        if company:
             employee.company = company
             employee.save(update_fields=["company"])
 
@@ -41,8 +42,7 @@ class ListAllEmployee(views.APIView):
     permission_classes = [DjangoModelPermissions]  # Changed from IsAdminUser
 
     def get(self, request):
-        company = get_user_company(request.user)
-        queryset = models.EmployeeProfile.objects.filter(company=company)
+        queryset = scoped_queryset(models.EmployeeProfile.objects, request.user)
         serializer = EmployeeViewSerializer(queryset, many=True)
         return Response(serializer.data)
 
@@ -52,7 +52,10 @@ class ListEmployee(views.APIView):
 
     def get(self, request):
         user_id = self.request.user.id
-        employee_profile = get_object_or_404(models.EmployeeProfile, user_id=user_id)
+        employee_profile = get_object_or_404(
+            scoped_queryset(models.EmployeeProfile.objects, request.user),
+            user_id=user_id,
+        )
         serializer = EmployeeViewSerializer(employee_profile)
         return Response(serializer.data)
 
@@ -72,8 +75,7 @@ class ListPayrollView(generics.ListAPIView):
     permission_classes = [DjangoModelPermissions]  # Changed from IsAdminUser
 
     def get_queryset(self):
-        company = get_user_company(self.request.user)
-        return models.Payroll.objects.filter(company=company)
+        return scoped_queryset(models.Payroll.objects, self.request.user)
 
 
 class PayrollRunEntryView(viewsets.ViewSet):
@@ -81,8 +83,11 @@ class PayrollRunEntryView(viewsets.ViewSet):
     permission_classes = [DjangoModelPermissions]  # Changed from IsAdminUser
 
     def list(self, request):
-        company = get_user_company(request.user)
-        pay = models.PayrollRunEntry.objects.filter(payroll_entry__company=company)
+        pay = scoped_queryset(
+            models.PayrollRunEntry.objects,
+            request.user,
+            company_field="payroll_entry__company",
+        )
         serializer = PayrollRunEntrySerializer(pay, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -91,10 +96,12 @@ class PayrollRunEntryView(viewsets.ViewSet):
         # or just model-level if not. The queryset here is for the ViewSet's general model.
         # The actual object fetching for retrieve is usually handled by get_object() or manually.
         # The current manual filtering is kept:
-        company = get_user_company(request.user)
-        queryset_data = models.PayrollRunEntry.objects.filter(
-            payroll_run=pk,
-            payroll_entry__company=company,
+        queryset_data = scoped_queryset(
+            models.PayrollRunEntry.objects.filter(
+                payroll_run=pk,
+            ),
+            request.user,
+            company_field="payroll_entry__company",
         )
         serializer = PayrollRunEntrySerializer(
             queryset_data, many=True

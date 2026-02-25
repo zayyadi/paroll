@@ -1,15 +1,22 @@
 import os
+from datetime import timedelta
 from celery.schedules import crontab
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 SECRET_KEY = os.environ.get("SECRET_KEY")
 
-DEBUG = bool(os.environ.get("DEBUG"))
+
+def env_bool(name: str, default: bool = False) -> bool:
+    return os.getenv(name, str(default)).lower() in {"1", "true", "yes", "on"}
+
+
+DEBUG = env_bool("DEBUG", False)
 
 ALLOWED_HOSTS = [
-    "localhost",
-    "127.0.0.1",
+    host.strip()
+    for host in os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
+    if host.strip()
 ]
 
 INSTALLED_APPS = [
@@ -27,6 +34,7 @@ INSTALLED_APPS = [
     "crispy_tailwind",
     "api",
     "rest_framework",
+    "drf_spectacular",
     "users",
     "users.email_backend",
     "payroll",
@@ -59,6 +67,7 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "company.middleware.ActiveCompanyMiddleware",
     "accounting.middleware.AuditTrailMiddleware",
     "accounting.middleware.SystemUserMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
@@ -82,6 +91,7 @@ TEMPLATES = [
                 "django.contrib.messages.context_processors.messages",
                 "django.template.context_processors.i18n",
                 "company.context_processors.tenant_context",
+                "core.context_processors.branding",
             ],
         },
     },
@@ -135,7 +145,13 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
+MEDIA_URL = "/media/"
+
 SITE_TITLE = os.getenv("SITE_TITLE", "PAYROLL")
+APP_NAME = os.getenv("APP_NAME", "PayNest")
+APP_TAGLINE = os.getenv("APP_TAGLINE", "Employee Management System")
+APP_LOGO_URL = os.getenv("APP_LOGO_URL", f"{MEDIA_URL}branding/paynest-logo.svg")
+APP_LOGO_PATH = os.getenv("APP_LOGO_PATH", "images/logo.png")
 
 CACHE_TTL = 60 * 15
 
@@ -172,7 +188,7 @@ LOGGING = {
     },
 }
 
-DEBUG_PROPAGATE_EXCEPTIONS = True
+DEBUG_PROPAGATE_EXCEPTIONS = env_bool("DEBUG_PROPAGATE_EXCEPTIONS", False)
 
 LANGUAGE_CODE = "en-ng"
 
@@ -259,6 +275,8 @@ MULTI_COMPANY_MEMBERSHIP_ENABLED = (
     os.getenv("MULTI_COMPANY_MEMBERSHIP_ENABLED", "False").lower() == "true"
 )
 
+SAAS_ENFORCE_ACTIVE_COMPANY = env_bool("SAAS_ENFORCE_ACTIVE_COMPANY", True)
+
 REGISTRATION_OTP_TIMEOUT_SECONDS = int(
     os.getenv("REGISTRATION_OTP_TIMEOUT_SECONDS", "600")
 )
@@ -268,6 +286,9 @@ REGISTRATION_RESEND_COOLDOWN_SECONDS = int(
 REGISTRATION_RESEND_MAX_PER_HOUR = int(
     os.getenv("REGISTRATION_RESEND_MAX_PER_HOUR", "5")
 )
+OTP_MAX_ATTEMPTS = int(os.getenv("OTP_MAX_ATTEMPTS", "5"))
+OTP_ATTEMPT_WINDOW_SECONDS = int(os.getenv("OTP_ATTEMPT_WINDOW_SECONDS", "600"))
+OTP_LOCKOUT_SECONDS = int(os.getenv("OTP_LOCKOUT_SECONDS", "900"))
 
 # ============================================================================
 # NOTIFICATION SYSTEM SETTINGS
@@ -503,29 +524,80 @@ LOGGING["loggers"]["channels"] = {
     "propagate": False,
 }
 
+REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "rest_framework.authentication.SessionAuthentication",
+    ],
+    "DEFAULT_PERMISSION_CLASSES": [
+        "rest_framework.permissions.IsAuthenticated",
+    ],
+    "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
+    "PAGE_SIZE": int(os.getenv("API_PAGE_SIZE", "25")),
+    "DEFAULT_FILTER_BACKENDS": [
+        "rest_framework.filters.SearchFilter",
+        "rest_framework.filters.OrderingFilter",
+    ],
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+    "DEFAULT_THROTTLE_CLASSES": [
+        "rest_framework.throttling.AnonRateThrottle",
+        "rest_framework.throttling.UserRateThrottle",
+    ],
+    "DEFAULT_THROTTLE_RATES": {
+        "anon": os.getenv("DRF_THROTTLE_ANON", "60/min"),
+        "user": os.getenv("DRF_THROTTLE_USER", "300/min"),
+    },
+}
+
+SPECTACULAR_SETTINGS = {
+    "TITLE": "Payroll SaaS API",
+    "DESCRIPTION": "Multi-tenant payroll and employee management API",
+    "VERSION": "1.0.0",
+    "SERVE_INCLUDE_SCHEMA": False,
+}
+
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(
+        minutes=int(os.getenv("JWT_ACCESS_MINUTES", "30"))
+    ),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=int(os.getenv("JWT_REFRESH_DAYS", "7"))),
+    "ROTATE_REFRESH_TOKENS": True,
+    "BLACKLIST_AFTER_ROTATION": False,
+    "UPDATE_LAST_LOGIN": True,
+}
+
+try:
+    import rest_framework_simplejwt  # noqa: F401
+
+    REST_FRAMEWORK["DEFAULT_AUTHENTICATION_CLASSES"].insert(
+        0, "rest_framework_simplejwt.authentication.JWTAuthentication"
+    )
+    SIMPLE_JWT_ENABLED = True
+except ImportError:
+    SIMPLE_JWT_ENABLED = False
+
 AUTH_USER_MODEL = "users.CustomUser"
 
 AUTH_USER_DEFAULT_GROUP = "payroll-members"
 
 DEFAULT_EMAIL_DOMAIN = "example.com"
 
-SITE_TAGLINE = os.getenv("SITE_TAGLINE", "Demo Site")
+SITE_TAGLINE = os.getenv("SITE_TAGLINE", APP_TAGLINE)
 
 SITE_DESCRIPTION = "SITE_DESCRIPTION"
 
-SITE_LOGO = os.getenv("SITE_LOGO", "http://localhost:8000/static/logo.png")
+SITE_LOGO = os.getenv("SITE_LOGO", APP_LOGO_URL)
 
 JAZZMIN_SETTINGS = {
-    "site_title": "Payroll Admin",
-    "site_header": "Payroll",
-    "site_brand": "Payroll",
-    "site_logo": "images/logo.png",
-    "login_logo": "images/logo.png",
-    "login_logo_dark": "images/logo.png",
+    "site_title": f"{APP_NAME} Admin",
+    "site_header": APP_NAME,
+    "site_brand": APP_NAME,
+    "site_logo": APP_LOGO_PATH,
+    "login_logo": APP_LOGO_PATH,
+    "login_logo_dark": APP_LOGO_PATH,
     "site_logo_classes": "img-circle",
-    "site_icon": "images/logo.png",
-    "welcome_sign": "Welcome to Payroll Admin",
-    "copyright": "Payroll Ltd",
+    "site_icon": APP_LOGO_PATH,
+    "welcome_sign": f"Welcome to {APP_NAME} Admin",
+    "copyright": APP_NAME,
     "search_model": "auth.User",
     "user_avatar": "employee_user.photo",
     "topmenu_links": [

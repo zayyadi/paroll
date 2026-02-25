@@ -2,7 +2,17 @@ from django import forms
 from django.forms import formset_factory
 from django.forms.models import inlineformset_factory
 from django.utils import timezone
-from .models import Account, Journal, JournalEntry, FiscalYear, AccountingPeriod
+from .models import (
+    Account,
+    Journal,
+    JournalEntry,
+    FiscalYear,
+    AccountingPeriod,
+    DisciplinaryCase,
+    DisciplinaryEvidence,
+    DisciplinarySanction,
+    DisciplinaryAppeal,
+)
 from .utils import get_entry_type_for_balance_adjustment
 
 
@@ -518,3 +528,154 @@ class JournalReversalConfirmationForm(forms.Form):
         label="Final confirmation reason",
         help_text="Please restate the reason for this reversal for audit purposes.",
     )
+
+
+class DisciplinaryCaseForm(forms.ModelForm):
+    class Meta:
+        model = DisciplinaryCase
+        fields = [
+            "allegation_summary",
+            "allegation_details",
+            "incident_date",
+            "respondent",
+            "violation_level",
+            "emergency_case",
+            "repeat_offense_suspected",
+            "power_imbalance_flag",
+            "conflict_of_interest_flag",
+            "mental_health_context",
+            "cultural_context",
+            "interim_measures",
+        ]
+        widgets = {
+            "incident_date": forms.DateInput(attrs={"type": "date"}),
+            "allegation_details": forms.Textarea(attrs={"rows": 4}),
+            "interim_measures": forms.Textarea(attrs={"rows": 3}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        base_class = (
+            "w-full px-3 py-2 border border-secondary-300 rounded-md "
+            "focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
+        )
+        for field_name, field in self.fields.items():
+            if isinstance(field.widget, forms.CheckboxInput):
+                field.widget.attrs["class"] = "rounded border-secondary-300 text-primary-600"
+            else:
+                field.widget.attrs["class"] = base_class
+
+
+class DisciplinaryEvidenceForm(forms.ModelForm):
+    class Meta:
+        model = DisciplinaryEvidence
+        fields = [
+            "title",
+            "evidence_type",
+            "description",
+            "file",
+            "is_confidential",
+            "chain_of_custody_notes",
+            "reliability_score",
+        ]
+        widgets = {
+            "description": forms.Textarea(attrs={"rows": 3}),
+            "chain_of_custody_notes": forms.Textarea(attrs={"rows": 3}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        base_class = (
+            "w-full px-3 py-2 border border-secondary-300 rounded-md "
+            "focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
+        )
+        for field_name, field in self.fields.items():
+            if isinstance(field.widget, forms.CheckboxInput):
+                field.widget.attrs["class"] = "rounded border-secondary-300 text-primary-600"
+            else:
+                field.widget.attrs["class"] = base_class
+
+
+class DisciplinaryDecisionForm(forms.ModelForm):
+    class Meta:
+        model = DisciplinaryCase
+        fields = ["finding", "findings_summary", "decision_rationale"]
+        widgets = {
+            "findings_summary": forms.Textarea(attrs={"rows": 4}),
+            "decision_rationale": forms.Textarea(attrs={"rows": 4}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        base_class = (
+            "w-full px-3 py-2 border border-secondary-300 rounded-md "
+            "focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
+        )
+        for field in self.fields.values():
+            field.widget.attrs["class"] = base_class
+
+
+class DisciplinarySanctionForm(forms.ModelForm):
+    class Meta:
+        model = DisciplinarySanction
+        fields = [
+            "sanction_type",
+            "rationale",
+            "effective_date",
+            "duration_days",
+            "compliance_due_date",
+            "is_rehabilitative",
+        ]
+        widgets = {
+            "effective_date": forms.DateInput(attrs={"type": "date"}),
+            "compliance_due_date": forms.DateInput(attrs={"type": "date"}),
+            "rationale": forms.Textarea(attrs={"rows": 3}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        base_class = (
+            "w-full px-3 py-2 border border-secondary-300 rounded-md "
+            "focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
+        )
+        for field_name, field in self.fields.items():
+            if isinstance(field.widget, forms.CheckboxInput):
+                field.widget.attrs["class"] = "rounded border-secondary-300 text-primary-600"
+            else:
+                field.widget.attrs["class"] = base_class
+
+
+class DisciplinaryAppealForm(forms.ModelForm):
+    class Meta:
+        model = DisciplinaryAppeal
+        fields = ["grounds", "details"]
+        widgets = {
+            "details": forms.Textarea(attrs={"rows": 4}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        base_class = (
+            "w-full px-3 py-2 border border-secondary-300 rounded-md "
+            "focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
+        )
+        for field in self.fields.values():
+            field.widget.attrs["class"] = base_class
+
+
+class DisciplinaryAppealReviewForm(forms.ModelForm):
+    class Meta:
+        model = DisciplinaryAppeal
+        fields = ["status", "outcome_notes"]
+        widgets = {
+            "outcome_notes": forms.Textarea(attrs={"rows": 4}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        base_class = (
+            "w-full px-3 py-2 border border-secondary-300 rounded-md "
+            "focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
+        )
+        for field in self.fields.values():
+            field.widget.attrs["class"] = base_class

@@ -116,7 +116,6 @@ def log_payroll_save(sender, instance, created, **kwargs):
                 "nhif",
                 "emplyr_health",
                 "gross_income",
-                "rent_relief",
                 "taxable_income",
                 "payee",
                 "water_rate",

@@ -1,8 +1,10 @@
 from datetime import timedelta
 import math
+from calendar import monthrange
 
 from django import forms
 from django.utils import timezone
+from django.apps import apps
 
 from payroll import models
 from monthyear.forms import MonthField
@@ -10,6 +12,47 @@ from company.utils import get_user_company
 
 # from crispy_forms.layout import Field, Layout, Div, ButtonHolder, Submit
 # from crispy_forms.helper import FormHelper
+
+
+def _get_period_bounds(paydays):
+    month_start = paydays.replace(day=1)
+    month_end = month_start.replace(day=monthrange(paydays.year, paydays.month)[1])
+    return month_start, month_end
+
+
+def _employee_blocked_for_payday(employee, paydays):
+    if not employee:
+        return True, "missing employee"
+
+    if employee.status == "terminated":
+        return True, "terminated employee"
+
+    user = employee.user
+    if user and not user.is_active:
+        return True, "disabled user account"
+
+    DisciplinarySanction = apps.get_model("accounting", "DisciplinarySanction")
+    period_start, period_end = _get_period_bounds(paydays)
+    active_sanctions = DisciplinarySanction.objects.filter(
+        case__respondent=user,
+        status=DisciplinarySanction.Status.ACTIVE,
+    )
+
+    termination_exists = active_sanctions.filter(
+        sanction_type=DisciplinarySanction.SanctionType.TERMINATION,
+        effective_date__lte=period_end,
+    ).exists()
+    if termination_exists:
+        return True, "terminated employee"
+
+    for sanction in active_sanctions.filter(
+        sanction_type=DisciplinarySanction.SanctionType.SUSPENSION,
+        effective_date__lte=period_end,
+    ):
+        if sanction.overlaps_period(period_start, period_end):
+            return True, "suspended in selected pay period"
+
+    return False, ""
 
 
 class EmployeeProfileForm(forms.ModelForm):
@@ -40,6 +83,8 @@ class EmployeeProfileForm(forms.ModelForm):
             "contract_type",
             "date_of_employment",
             "employee_pay",
+            "hmo_provider",
+            "pension_fund_manager",
             "pension_rsa",
             # "nin",
             # "tin_no",
@@ -81,6 +126,8 @@ class EmployeeProfileForm(forms.ModelForm):
                 }
             ),
             "employee_pay": forms.Select(),
+            "hmo_provider": forms.Select(),
+            "pension_fund_manager": forms.Select(),
             "photo": forms.FileInput(),
             "pension_rsa": forms.TextInput(
                 attrs={
@@ -309,6 +356,27 @@ class PayrollRunForm(forms.ModelForm):
                 obj.save(update_fields=["closed"])
         return obj
 
+    def clean_payroll_payday(self):
+        payroll_entries = self.cleaned_data.get("payroll_payday")
+        paydays = self.cleaned_data.get("paydays")
+        if not payroll_entries or not paydays:
+            return payroll_entries
+
+        blocked = []
+        for payroll_entry in payroll_entries:
+            employee = payroll_entry.pays
+            is_blocked, reason = _employee_blocked_for_payday(employee, paydays)
+            if is_blocked:
+                name = f"{employee.first_name} {employee.last_name}".strip()
+                blocked.append(f"{name or employee.emp_id} ({reason})")
+
+        if blocked:
+            raise forms.ValidationError(
+                "Some selected employees are not payroll-eligible for this period: "
+                + ", ".join(blocked)
+            )
+        return payroll_entries
+
 
 class MonthForm(forms.Form):
     month = MonthField()
@@ -462,6 +530,14 @@ class AppraisalForm(forms.ModelForm):
             "end_date": forms.DateInput(attrs={"type": "date"}),
         }
 
+    def clean(self):
+        cleaned_data = super().clean()
+        start_date = cleaned_data.get("start_date")
+        end_date = cleaned_data.get("end_date")
+        if start_date and end_date and end_date < start_date:
+            self.add_error("end_date", "End date cannot be before start date.")
+        return cleaned_data
+
 
 class ReviewForm(forms.ModelForm):
     class Meta:
@@ -475,15 +551,36 @@ class RatingForm(forms.ModelForm):
         fields = ["metric", "rating", "comments"]
 
 
-BaseRatingFormSet = forms.inlineformset_factory(
-    models.Review, models.Rating, form=RatingForm, extra=0, can_delete=False
-)
-
-
 class AppraisalAssignmentForm(forms.ModelForm):
+    def __init__(self, *args, **kwargs):
+        user = kwargs.pop("user", None)
+        super().__init__(*args, **kwargs)
+        company = get_user_company(user) if user else None
+        if company:
+            employee_qs = models.EmployeeProfile.objects.filter(company=company)
+            self.fields["appraisee"].queryset = employee_qs
+            self.fields["appraiser"].queryset = employee_qs
+            self.fields["appraisal"].queryset = models.Appraisal.objects.filter(
+                company=company
+            )
+
     class Meta:
         model = models.AppraisalAssignment
         fields = ["appraisal", "appraisee", "appraiser"]
+
+    def clean(self):
+        cleaned_data = super().clean()
+        appraisee = cleaned_data.get("appraisee")
+        appraiser = cleaned_data.get("appraiser")
+        appraisal = cleaned_data.get("appraisal")
+        if appraisee and appraiser and appraisee.pk == appraiser.pk:
+            self.add_error(
+                "appraiser", "Appraiser and appraisee must be different employees."
+            )
+        if appraisal and appraisal.start_date and appraisal.end_date:
+            if appraisal.end_date < appraisal.start_date:
+                self.add_error("appraisal", "Selected appraisal has invalid date range.")
+        return cleaned_data
 
 
 class PayrollRunCreateForm(forms.Form):
@@ -532,6 +629,15 @@ class PayrollRunCreateForm(forms.Form):
         self.user = kwargs.pop("user", None)
         super().__init__(*args, **kwargs)
 
+    def clean(self):
+        cleaned_data = super().clean()
+        if not cleaned_data.get("is_active"):
+            self.add_error(
+                "is_active",
+                "Pay period must be marked as active before creation.",
+            )
+        return cleaned_data
+
     def save(self):
         """Create PayrollRun instance and related PayrollEntry/PayrollRunEntry entries."""
         from payroll.models import PayrollRun, PayrollEntry, PayrollRunEntry, EmployeeProfile
@@ -550,6 +656,7 @@ class PayrollRunCreateForm(forms.Form):
 
         # Get selected employee IDs
         employee_ids_str = self.cleaned_data.get("payroll_payday", "")
+        skipped_employees = []
         if employee_ids_str:
             employee_ids = [
                 int(eid.strip()) for eid in employee_ids_str.split(",") if eid.strip()
@@ -562,6 +669,14 @@ class PayrollRunCreateForm(forms.Form):
                         id=emp_id,
                         company=company,
                     )
+                    is_blocked, reason = _employee_blocked_for_payday(
+                        employee, self.cleaned_data["paydays"]
+                    )
+                    if is_blocked:
+                        full_name = f"{employee.first_name} {employee.last_name}".strip()
+                        skipped_employees.append(f"{full_name or employee.emp_id} ({reason})")
+                        continue
+
                     payvar = PayrollEntry.objects.create(
                         pays=employee,
                         company=company,
@@ -575,6 +690,7 @@ class PayrollRunCreateForm(forms.Form):
             payt.closed = True
             payt.save(update_fields=["closed"])
 
+        payt._skipped_employee_reasons = skipped_employees
         return payt
 
 
@@ -647,3 +763,81 @@ class PayrollEntryCreateForm(forms.Form):
                     continue
 
         return payvars
+
+
+class CompanyPayrollSettingForm(forms.ModelForm):
+    class Meta:
+        model = models.CompanyPayrollSetting
+        fields = [
+            "basic_percentage",
+            "housing_percentage",
+            "transport_percentage",
+            "pension_employee_percentage",
+            "pension_employer_percentage",
+            "nhf_percentage",
+            "leave_allowance_percentage",
+            "pays_thirteenth_month",
+            "thirteenth_month_percentage",
+        ]
+        widgets = {
+            "basic_percentage": forms.NumberInput(attrs={"step": "0.01"}),
+            "housing_percentage": forms.NumberInput(attrs={"step": "0.01"}),
+            "transport_percentage": forms.NumberInput(attrs={"step": "0.01"}),
+            "pension_employee_percentage": forms.NumberInput(attrs={"step": "0.01"}),
+            "pension_employer_percentage": forms.NumberInput(attrs={"step": "0.01"}),
+            "nhf_percentage": forms.NumberInput(attrs={"step": "0.01"}),
+            "leave_allowance_percentage": forms.NumberInput(attrs={"step": "0.01"}),
+            "thirteenth_month_percentage": forms.NumberInput(attrs={"step": "0.01"}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        input_classes = (
+            "w-full px-4 py-2.5 border border-secondary-300 rounded-xl "
+            "focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm"
+        )
+        for field in self.fields.values():
+            field.widget.attrs["class"] = input_classes
+
+
+class CompanyHealthInsuranceTierForm(forms.ModelForm):
+    class Meta:
+        model = models.CompanyHealthInsuranceTier
+        fields = [
+            "min_salary",
+            "max_salary",
+            "employee_percentage",
+            "employer_percentage",
+            "sort_order",
+        ]
+        widgets = {
+            "min_salary": forms.NumberInput(attrs={"step": "0.01"}),
+            "max_salary": forms.NumberInput(attrs={"step": "0.01"}),
+            "employee_percentage": forms.NumberInput(attrs={"step": "0.01"}),
+            "employer_percentage": forms.NumberInput(attrs={"step": "0.01"}),
+            "sort_order": forms.NumberInput(attrs={"min": "1"}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        input_classes = (
+            "w-full px-3 py-2 border border-secondary-300 rounded-lg "
+            "focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm"
+        )
+        for field_name, field in self.fields.items():
+            if field_name == "sort_order":
+                field.widget.attrs["class"] = (
+                    "w-24 px-3 py-2 border border-secondary-300 rounded-lg "
+                    "focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm"
+                )
+            else:
+                field.widget.attrs["class"] = input_classes
+
+
+CompanyHealthInsuranceTierFormSet = forms.inlineformset_factory(
+    models.CompanyPayrollSetting,
+    models.CompanyHealthInsuranceTier,
+    form=CompanyHealthInsuranceTierForm,
+    extra=1,
+    can_delete=True,
+)

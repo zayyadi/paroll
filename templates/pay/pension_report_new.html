@@ -43,7 +43,7 @@
                 </div>
                 <div class="ml-4">
                     <p class="text-sm font-medium text-secondary-600">Total Pension</p>
-                    <p class="text-2xl font-semibold text-secondary-900">₦{{ pension_total|intcomma }}</p>
+                    <p class="text-2xl font-semibold text-secondary-900">₦{{ total|intcomma }}</p>
                 </div>
             </div>
         </div>
@@ -90,6 +90,8 @@
                         <th class="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">
                             Employee Name</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">
+                            Pension Fund Manager</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">
                             Pension RSA</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">
                             Basic Salary</th>
@@ -103,6 +105,7 @@
                         <td class="px-6 py-4 text-sm text-secondary-900">{{ payrol.payroll_entry.pays.emp_id }}</td>
                         <td class="px-6 py-4 text-sm text-secondary-900">{{ payrol.payroll_entry.pays.first_name }} {{
                             payrol.payroll_entry.pays.last_name }}</td>
+                        <td class="px-6 py-4 text-sm text-secondary-900">{{ payrol.payroll_entry.pays.get_pension_fund_manager_display|default:"N/A" }}</td>
                         <td class="px-6 py-4 text-sm text-secondary-900">{{ payrol.payroll_entry.pays.pension_rsa|default:"N/A" }}</td>
                         <td class="px-6 py-4 text-sm text-secondary-900">₦{{ payrol.payroll_entry.pays.employee_pay.basic_salary|intcomma }}</td>
                         <td class="px-6 py-4 text-sm text-secondary-900 text-right font-medium">₦{{
@@ -110,8 +113,8 @@
                     </tr>
                     {% endfor %}
                     <tr class="bg-secondary-100 font-semibold">
-                        <td colspan="4" class="px-6 py-4 text-right text-sm text-secondary-900">Total Pension</td>
-                        <td class="px-6 py-4 text-sm text-secondary-900 text-right">₦{{ pension_total|intcomma }}</td>
+                        <td colspan="5" class="px-6 py-4 text-right text-sm text-secondary-900">Total Pension</td>
+                        <td class="px-6 py-4 text-sm text-secondary-900 text-right">₦{{ total|intcomma }}</td>
                     </tr>
                 </tbody>
             </table>
@@ -142,7 +145,7 @@
                 <div>
                     <h3 class="text-sm font-medium text-secondary-900 mb-2">Report Details</h3>
                     <ul class="text-sm text-secondary-600 space-y-1">
-                        <li>Total Pension Amount: <span class="font-medium text-secondary-900">₦{{ pension_total|intcomma }}</span></li>
+                        <li>Total Pension Amount: <span class="font-medium text-secondary-900">₦{{ total|intcomma }}</span></li>
                         <li>Number of Employees: <span class="font-medium text-secondary-900">{{ payroll|length }}</span></li>
                         <li>Pay Period: <span class="font-medium text-secondary-900">{{ dates }}</span></li>
                     </ul>

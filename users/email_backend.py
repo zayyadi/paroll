@@ -1,6 +1,5 @@
 from django.core.mail.backends.smtp import EmailBackend as SMTPEmailBackend
 from django.template.loader import render_to_string
-from django.utils.html import strip_tags
 from django.conf import settings
 
 
@@ -11,10 +10,8 @@ class EmailBackend(SMTPEmailBackend):
                 html_content = render_to_string(
                     email_message.template_name, email_message.context
                 )
-                text_content = strip_tags(html_content)
-                email_message.body = text_content
-                email_message.content_subtype = "html"  # Set content type to HTML
-                email_message.alternatives = [(html_content, "text/html")]
+                email_message.body = html_content
+                email_message.content_subtype = "html"
         return super().send_messages(email_messages)
 
 

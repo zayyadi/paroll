@@ -1,47 +1,99 @@
-{% extends 'base_tailwind.html' %}
-{% load static %}
+{% extends "base_new.html" %}
 {% load custom_tags %}
 
+{% block page_header %}Audit Log Detail{% endblock %}
+
 {% block content %}
-<div class="container mx-auto p-6">
-    <div class="flex justify-between items-center mb-6">
-        <h1 class="text-3xl font-bold">Audit Log Details</h1>
-        <a href="{% url 'payroll:audit_trail_list' %}"
-            class="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700">Back</a>
+<div class="space-y-6">
+    <div class="bg-white rounded-xl shadow-soft p-5">
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div>
+                <p class="text-xs uppercase tracking-wider text-secondary-500">Entry ID</p>
+                <h2 class="text-xl font-bold text-secondary-900">#{{ log.id }}</h2>
+            </div>
+            <div class="flex gap-2">
+                <a href="{% url 'payroll:audit_trail_list' %}"
+                   class="px-4 py-2 border border-secondary-300 text-secondary-700 rounded-lg hover:bg-secondary-50">Back to List</a>
+            </div>
+        </div>
     </div>
 
-    <div class="bg-white dark:bg-gray-800 p-6 rounded shadow">
-        <p class="mb-4"><strong>User:</strong> {{ log.user }}</p>
-        <p class="mb-4"><strong>Action:</strong> {{ log.action }}</p>
-        <p class="mb-4"><strong>Content:</strong> {{ log.content_object }}</p>
-        <p class="mb-4"><strong>Date:</strong> {{ log.timestamp|date:"Y-m-d H:i" }}</p>
-        <p class="mb-4"><strong>Object Type:</strong> {{ log.content_type }}</p>
-        <p class="mb-4"><strong>Object ID:</strong> {{ log.object_id }}</p>
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div class="lg:col-span-2 bg-white rounded-xl shadow-soft p-6">
+            <h3 class="text-lg font-semibold text-secondary-900 mb-4">Activity Summary</h3>
+            <div class="space-y-4">
+                <div class="flex items-center justify-between py-2 border-b border-secondary-100">
+                    <span class="text-secondary-500">User</span>
+                    <span class="font-medium text-secondary-900">{{ log.user|default:"System" }}</span>
+                </div>
+                <div class="flex items-center justify-between py-2 border-b border-secondary-100">
+                    <span class="text-secondary-500">Action</span>
+                    <span class="inline-flex px-2.5 py-1 text-xs font-semibold rounded-full bg-primary-100 text-primary-800">{{ log.action|default:"-"|title }}</span>
+                </div>
+                <div class="flex items-center justify-between py-2 border-b border-secondary-100">
+                    <span class="text-secondary-500">Date & Time</span>
+                    <span class="font-medium text-secondary-900">{{ log.timestamp|date:"M d, Y H:i:s" }}</span>
+                </div>
+                <div class="flex items-center justify-between py-2 border-b border-secondary-100">
+                    <span class="text-secondary-500">Object Type</span>
+                    <span class="font-medium text-secondary-900">{{ log.content_type|default:"-" }}</span>
+                </div>
+                <div class="flex items-center justify-between py-2 border-b border-secondary-100">
+                    <span class="text-secondary-500">Object ID</span>
+                    <span class="font-medium text-secondary-900">{{ log.object_id|default:"-" }}</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-soft p-6">
+            <h3 class="text-lg font-semibold text-secondary-900 mb-4">Affected Record</h3>
+            <p class="text-sm text-secondary-500 mb-1">Object Representation</p>
+            <p class="text-sm font-medium text-secondary-900 break-all">{{ log.content_object|default:"-" }}</p>
+            <div class="mt-6">
+                {% if log.changes %}
+                <span class="inline-flex px-2.5 py-1 text-xs font-semibold rounded-full bg-success-100 text-success-800">Changes Captured</span>
+                {% else %}
+                <span class="inline-flex px-2.5 py-1 text-xs font-semibold rounded-full bg-secondary-100 text-secondary-700">No Change Payload</span>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="bg-white rounded-xl shadow-soft overflow-hidden">
+        <div class="px-6 py-4 border-b border-secondary-100">
+            <h3 class="text-lg font-semibold text-secondary-900">Field-Level Changes</h3>
+        </div>
 
         {% if log.changes %}
-        <h2 class="text-xl font-semibold text-gray-900 dark:text-white mt-6 mb-4">Changes</h2>
         <div class="overflow-x-auto">
-            <table class="min-w-full bg-gray-50 dark:bg-gray-700 rounded-lg">
-                <thead>
-                    <tr class="border-b text-left">
-                        <th class="p-3">Field</th>
-                        <th class="p-3">Old Value</th>
-                        <th class="p-3">New Value</th>
+            <table class="min-w-full divide-y divide-secondary-200">
+                <thead class="bg-secondary-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-secondary-500">Field</th>
+                        <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-secondary-500">Old Value</th>
+                        <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-secondary-500">New Value</th>
                     </tr>
                 </thead>
-                <tbody>
+                <tbody class="divide-y divide-secondary-100">
                     {% for field_name, values in log.changes.items %}
-                    <tr class="border-b hover:bg-gray-100 dark:hover:bg-gray-600">
-                        <td class="p-3 font-medium">{{ field_name|format_field_name }}</td>
-                        <td class="p-3">{{ values.old }}</td>
-                        <td class="p-3">{{ values.new }}</td>
+                    <tr class="hover:bg-secondary-50/70">
+                        <td class="px-6 py-4 text-sm font-medium text-secondary-900">{{ field_name|format_field_name }}</td>
+                        <td class="px-6 py-4 text-sm text-secondary-700">
+                            {{ values.old|default:values|default:"-" }}
+                        </td>
+                        <td class="px-6 py-4 text-sm text-secondary-700">
+                            {{ values.new|default:"-" }}
+                        </td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
         {% else %}
-        <p class="mt-6 text-gray-500 dark:text-gray-400">No specific changes recorded for this action.</p>
+        <div class="px-6 py-10 text-center">
+            <p class="font-medium text-secondary-700">No specific field changes were stored for this action.</p>
+            <p class="text-sm text-secondary-500 mt-1">This is common for create/delete or non-diff events.</p>
+        </div>
         {% endif %}
     </div>
 </div>
