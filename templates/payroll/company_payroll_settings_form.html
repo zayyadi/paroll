@@ -1,0 +1,106 @@
+{% extends "base_new.html" %}
+
+{% block page_header %}Edit Payroll Settings{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto space-y-6">
+    <div class="bg-white rounded-xl shadow-soft p-6">
+        <h1 class="text-2xl font-bold text-secondary-900">Edit Payroll Settings</h1>
+        <p class="text-sm text-secondary-600 mt-1">{{ company.name }}</p>
+    </div>
+
+    <form method="post" class="space-y-6">
+        {% csrf_token %}
+
+        <div class="bg-white rounded-xl shadow-soft p-6">
+            <h2 class="text-lg font-semibold text-secondary-900 mb-4">Percentage Rates</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {% for field in form %}
+                <div>
+                    <label class="block text-sm font-medium text-secondary-700 mb-2">{{ field.label }}</label>
+                    {{ field }}
+                    {% if field.errors %}
+                    <p class="text-xs text-red-600 mt-1">{{ field.errors|striptags }}</p>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-soft p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-lg font-semibold text-secondary-900">Health Insurance Tiers</h2>
+                <p class="text-xs text-secondary-500">Delete any row by checking Delete.</p>
+            </div>
+
+            {{ formset.management_form }}
+
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead class="bg-secondary-50 text-secondary-700">
+                        <tr>
+                            <th class="px-3 py-2 text-left">Min Salary</th>
+                            <th class="px-3 py-2 text-left">Max Salary</th>
+                            <th class="px-3 py-2 text-left">Employee %</th>
+                            <th class="px-3 py-2 text-left">Employer %</th>
+                            <th class="px-3 py-2 text-left">Order</th>
+                            <th class="px-3 py-2 text-left">Delete</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-secondary-200">
+                        {% for tier_form in formset %}
+                        <tr>
+                            <td class="px-3 py-2">
+                                {{ tier_form.id }}
+                                {{ tier_form.min_salary }}
+                                {% if tier_form.min_salary.errors %}
+                                <p class="text-xs text-red-600 mt-1">{{ tier_form.min_salary.errors|striptags }}</p>
+                                {% endif %}
+                            </td>
+                            <td class="px-3 py-2">
+                                {{ tier_form.max_salary }}
+                                {% if tier_form.max_salary.errors %}
+                                <p class="text-xs text-red-600 mt-1">{{ tier_form.max_salary.errors|striptags }}</p>
+                                {% endif %}
+                            </td>
+                            <td class="px-3 py-2">
+                                {{ tier_form.employee_percentage }}
+                                {% if tier_form.employee_percentage.errors %}
+                                <p class="text-xs text-red-600 mt-1">{{ tier_form.employee_percentage.errors|striptags }}</p>
+                                {% endif %}
+                            </td>
+                            <td class="px-3 py-2">
+                                {{ tier_form.employer_percentage }}
+                                {% if tier_form.employer_percentage.errors %}
+                                <p class="text-xs text-red-600 mt-1">{{ tier_form.employer_percentage.errors|striptags }}</p>
+                                {% endif %}
+                            </td>
+                            <td class="px-3 py-2">{{ tier_form.sort_order }}</td>
+                            <td class="px-3 py-2">{{ tier_form.DELETE }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% if formset.non_form_errors %}
+            <p class="text-xs text-red-600 mt-3">{{ formset.non_form_errors|striptags }}</p>
+            {% endif %}
+        </div>
+
+        <div class="flex items-center gap-3">
+            <button
+                type="submit"
+                class="inline-flex items-center px-4 py-2.5 bg-primary-600 text-white rounded-xl text-sm font-medium hover:bg-primary-700 transition-colors"
+            >
+                Save Settings
+            </button>
+            <a
+                href="{% url 'payroll:company_payroll_settings' %}"
+                class="inline-flex items-center px-4 py-2.5 bg-secondary-100 text-secondary-700 rounded-xl text-sm font-medium hover:bg-secondary-200 transition-colors"
+            >
+                Cancel
+            </a>
+        </div>
+    </form>
+</div>
+{% endblock %}

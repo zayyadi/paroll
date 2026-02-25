@@ -2,7 +2,7 @@
 
 {# Compatibility layer for legacy auth templates still extending base_auth.html #}
 {% block page_title_in_head %}
-<title>{% block title %}PayrollCo{% endblock %}</title>
+<title>{% block title %}{{ APP_NAME }}{% endblock %}</title>
 {% endblock %}
 
 {% block auth_content %}

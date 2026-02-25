@@ -154,7 +154,13 @@
                 </div>
                 <div class="text-center">
                     <p class="text-sm text-white/70">Payroll Period</p>
-                    <p class="text-xl font-semibold">{% now "F Y" %}</p>
+                    <p class="text-xl font-semibold">
+                        {% if recent_pay_period and recent_pay_period.paydays %}
+                            {{ recent_pay_period.paydays|date:"F Y" }}
+                        {% else %}
+                            {% now "F Y" %}
+                        {% endif %}
+                    </p>
                 </div>
             </div>
         </div>
@@ -187,7 +193,7 @@
             </span>
         </div>
         <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400">Processed Payments</h3>
-        <p class="text-3xl font-bold text-gray-900 dark:text-white mt-2">{{ pay_count }}</p>
+        <p class="text-3xl font-bold text-gray-900 dark:text-white mt-2">{{ processed_payments_count }}</p>
         <div class="mt-4 flex items-center text-sm">
             <span class="text-gray-500 dark:text-gray-400">This month:</span>
             <span class="ml-2 font-medium text-gray-900 dark:text-white">₦{{ recent_month_total|floatformat:"2"|intcomma }}</span>
@@ -200,13 +206,17 @@
             <div class="bg-yellow-100 dark:bg-yellow-900/50 p-3 rounded-lg">
                 <i data-lucide="clock" class="h-6 w-6 text-yellow-500"></i>
             </div>
-            <span class="text-sm font-medium text-yellow-500 pulse-animation">3 new</span>
+            <span class="text-sm font-medium text-yellow-500 pulse-animation">
+                {{ pending_approvals_count }} open
+            </span>
         </div>
         <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400">Pending Approvals</h3>
-        <p class="text-3xl font-bold text-gray-900 dark:text-white mt-2">7</p>
+        <p class="text-3xl font-bold text-gray-900 dark:text-white mt-2">{{ pending_approvals_count }}</p>
         <div class="mt-4 flex items-center text-sm">
-            <span class="text-gray-500 dark:text-gray-400">Leave requests:</span>
-            <span class="ml-2 font-medium text-gray-900 dark:text-white">{{ leave }}</span>
+            <span class="text-gray-500 dark:text-gray-400">Leave / IOU:</span>
+            <span class="ml-2 font-medium text-gray-900 dark:text-white">
+                {{ pending_leave_requests_count }} / {{ pending_iou_requests_count }}
+            </span>
         </div>
     </div>
     
@@ -525,7 +535,7 @@
                             beginAtZero: true,
                             ticks: {
                                 callback: function(value) {
-                                    return '$' + value.toLocaleString();
+                                    return '₦' + value.toLocaleString();
                                 }
                             },
                             grid: {

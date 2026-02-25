@@ -1,0 +1,67 @@
+{% extends "employee/discipline_base.html" %}
+
+{% block accounting_content %}
+<div class="space-y-4">
+    <div class="bg-white rounded-lg shadow-soft p-5 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+        <div>
+            <h2 class="text-xl font-semibold text-secondary-900">Disciplinary Cases</h2>
+            <p class="text-sm text-secondary-600">Track investigations, decisions, sanctions, and appeals.</p>
+        </div>
+        <a href="{% url 'payroll:discipline_case_create' %}" class="inline-flex items-center px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700">
+            New Case
+        </a>
+    </div>
+
+    <form method="get" class="bg-white rounded-lg shadow-soft p-4 grid grid-cols-1 md:grid-cols-4 gap-3">
+        <input type="text" name="search" value="{{ request.GET.search }}" placeholder="Search case number, summary, respondent..." class="w-full px-3 py-2 border border-secondary-300 rounded-md">
+        <select name="status" class="w-full px-3 py-2 border border-secondary-300 rounded-md">
+            <option value="">All statuses</option>
+            {% for value, label in status_choices %}
+            <option value="{{ value }}" {% if request.GET.status == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+        </select>
+        <select name="level" class="w-full px-3 py-2 border border-secondary-300 rounded-md">
+            <option value="">All levels</option>
+            {% for value, label in level_choices %}
+            <option value="{{ value }}" {% if request.GET.level == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+        </select>
+        <button class="px-4 py-2 bg-secondary-900 text-white rounded-md hover:bg-secondary-800">Filter</button>
+    </form>
+
+    <div class="bg-white rounded-lg shadow-soft overflow-x-auto">
+        <table class="min-w-full text-sm divide-y divide-secondary-200">
+            <thead class="bg-secondary-50">
+                <tr>
+                    <th class="px-3 py-2 text-left">Case #</th>
+                    <th class="px-3 py-2 text-left">Summary</th>
+                    <th class="px-3 py-2 text-left">Respondent</th>
+                    <th class="px-3 py-2 text-left">Level</th>
+                    <th class="px-3 py-2 text-left">Status</th>
+                    <th class="px-3 py-2 text-left">Review Level</th>
+                    <th class="px-3 py-2 text-left">Created</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-secondary-200">
+                {% for case in cases %}
+                <tr>
+                    <td class="px-3 py-2">
+                        <a href="{% url 'payroll:discipline_case_detail' case.pk %}" class="text-primary-700 hover:text-primary-900 font-medium">{{ case.case_number }}</a>
+                    </td>
+                    <td class="px-3 py-2">{{ case.allegation_summary }}</td>
+                    <td class="px-3 py-2">{{ case.respondent.email|default:"-" }}</td>
+                    <td class="px-3 py-2">{{ case.get_violation_level_display }}</td>
+                    <td class="px-3 py-2">{{ case.get_status_display }}</td>
+                    <td class="px-3 py-2">{{ case.get_required_review_level_display }}</td>
+                    <td class="px-3 py-2">{{ case.created_at|date:"Y-m-d H:i" }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7" class="px-3 py-8 text-center text-secondary-500">No disciplinary cases found.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

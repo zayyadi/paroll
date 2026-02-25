@@ -1,14 +1,25 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Your Payslip from Payroll</title>
-</head>
-<body>
-    <p>Dear {{ user.username }},</p>
-    <p>Please find attached your payslip for the month of {{ month_year }}.</p>
-    <p>This document contains a detailed breakdown of your earnings and deductions for the period.</p>
-    <p>If you have any questions regarding your payslip, please do not hesitate to contact the HR department.</p>
-    <p>Best regards,</p>
-    <p>The Payroll Team</p>
-</body>
-</html>
+{% extends "email/base_email.html" %}
+
+{% block title %}Your Payslip{% endblock %}
+{% block header_subtitle %}Payslip Ready{% endblock %}
+
+{% block content %}
+<p style="margin:0 0 14px 0; font-size:15px;">
+    Hi {{ employee_name|default:user.first_name|default:user.email|default:"Employee" }},
+</p>
+<p style="margin:0 0 14px 0; font-size:14px; line-height:1.6;">
+    Your payslip for <strong>{{ month_year }}</strong> is ready and attached to this email.
+</p>
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin:14px 0 16px 0; border:1px solid #e5e7eb; border-radius:10px;">
+    <tr>
+        <td style="padding:14px 16px; background:#f8fafc; font-size:13px; color:#334155;">
+            Employee: <strong>{{ employee.first_name }} {{ employee.last_name }}</strong><br>
+            Employee ID: <strong>{{ employee.emp_id|default:"N/A" }}</strong><br>
+            Net Pay: <strong>₦{{ net_pay_amount|default:payroll.netpay|default:"N/A" }}</strong>
+        </td>
+    </tr>
+</table>
+<p style="margin:0; font-size:14px; line-height:1.6;">
+    If you have any questions, please contact your HR or payroll administrator.
+</p>
+{% endblock %}

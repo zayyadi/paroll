@@ -1,0 +1,125 @@
+{% extends "employee/discipline_base.html" %}
+
+{% block accounting_content %}
+<div class="space-y-6">
+    <section class="bg-white rounded-lg shadow-soft p-6">
+        <h2 class="text-xl font-semibold text-secondary-900 mb-3">System Overview</h2>
+        <p class="text-secondary-700">{{ framework.overview }}</p>
+    </section>
+
+    <section class="bg-white rounded-lg shadow-soft p-6">
+        <h2 class="text-xl font-semibold text-secondary-900 mb-3">Core Principles</h2>
+        <ul class="list-disc pl-5 space-y-2 text-secondary-700">
+            {% for principle in framework.core_principles %}
+            <li>{{ principle }}</li>
+            {% endfor %}
+        </ul>
+    </section>
+
+    <section class="bg-white rounded-lg shadow-soft p-6 overflow-x-auto">
+        <h2 class="text-xl font-semibold text-secondary-900 mb-3">Violation Categories Table</h2>
+        <table class="min-w-full divide-y divide-secondary-200 text-sm">
+            <thead class="bg-secondary-50">
+                <tr>
+                    <th class="px-3 py-2 text-left font-semibold text-secondary-700">Level</th>
+                    <th class="px-3 py-2 text-left font-semibold text-secondary-700">Category</th>
+                    <th class="px-3 py-2 text-left font-semibold text-secondary-700">Examples</th>
+                    <th class="px-3 py-2 text-left font-semibold text-secondary-700">Default Risk Posture</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-secondary-200">
+                {% for item in framework.violation_categories %}
+                <tr>
+                    <td class="px-3 py-2">{{ item.level }}</td>
+                    <td class="px-3 py-2">{{ item.category }}</td>
+                    <td class="px-3 py-2">{{ item.examples }}</td>
+                    <td class="px-3 py-2">{{ item.risk_posture }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+
+    <section class="bg-white rounded-lg shadow-soft p-6">
+        <h2 class="text-xl font-semibold text-secondary-900 mb-3">Investigation Workflow (Step-by-Step)</h2>
+        <ol class="list-decimal pl-5 space-y-2 text-secondary-700">
+            {% for step in framework.investigation_workflow %}
+            <li>{{ step }}</li>
+            {% endfor %}
+        </ol>
+    </section>
+
+    <section class="bg-white rounded-lg shadow-soft p-6 overflow-x-auto">
+        <h2 class="text-xl font-semibold text-secondary-900 mb-3">Sanction Matrix (Table)</h2>
+        <table class="min-w-full divide-y divide-secondary-200 text-sm">
+            <thead class="bg-secondary-50">
+                <tr>
+                    <th class="px-3 py-2 text-left font-semibold text-secondary-700">Violation Level</th>
+                    <th class="px-3 py-2 text-left font-semibold text-secondary-700">1st Incident</th>
+                    <th class="px-3 py-2 text-left font-semibold text-secondary-700">2nd Incident (24 months)</th>
+                    <th class="px-3 py-2 text-left font-semibold text-secondary-700">3rd Incident (24 months)</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-secondary-200">
+                {% for item in framework.sanction_matrix %}
+                <tr>
+                    <td class="px-3 py-2">{{ item.level }}</td>
+                    <td class="px-3 py-2">{{ item.first_incident }}</td>
+                    <td class="px-3 py-2">{{ item.second_incident }}</td>
+                    <td class="px-3 py-2">{{ item.third_incident }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+
+    <section class="bg-white rounded-lg shadow-soft p-6">
+        <h2 class="text-xl font-semibold text-secondary-900 mb-3">Appeals Process</h2>
+        <ol class="list-decimal pl-5 space-y-2 text-secondary-700">
+            {% for step in framework.appeals_process %}
+            <li>{{ step }}</li>
+            {% endfor %}
+        </ol>
+    </section>
+
+    <section class="bg-white rounded-lg shadow-soft p-6">
+        <h2 class="text-xl font-semibold text-secondary-900 mb-3">Edge Case Handling Framework (with examples)</h2>
+        <div class="space-y-4">
+            {% for edge_case in framework.edge_case_framework %}
+            <div class="border border-secondary-200 rounded-lg p-4">
+                <p class="font-semibold text-secondary-900">{{ edge_case.scenario }}</p>
+                <p class="text-secondary-700 mt-1"><span class="font-medium">Approach:</span> {{ edge_case.approach }}</p>
+                <p class="text-secondary-700 mt-1"><span class="font-medium">Example:</span> {{ edge_case.example }}</p>
+            </div>
+            {% endfor %}
+        </div>
+    </section>
+
+    <section class="bg-white rounded-lg shadow-soft p-6">
+        <h2 class="text-xl font-semibold text-secondary-900 mb-3">Prevention &amp; Training Strategy</h2>
+        <ul class="list-disc pl-5 space-y-2 text-secondary-700">
+            {% for item in framework.prevention_and_training %}
+            <li>{{ item }}</li>
+            {% endfor %}
+        </ul>
+    </section>
+
+    <section class="bg-white rounded-lg shadow-soft p-6">
+        <h2 class="text-xl font-semibold text-secondary-900 mb-3">Governance &amp; Review Mechanism</h2>
+        <ul class="list-disc pl-5 space-y-2 text-secondary-700">
+            {% for item in framework.governance_and_review %}
+            <li>{{ item }}</li>
+            {% endfor %}
+        </ul>
+    </section>
+
+    <section class="bg-white rounded-lg shadow-soft p-6">
+        <h2 class="text-xl font-semibold text-secondary-900 mb-3">Implementation Checklist</h2>
+        <ol class="list-decimal pl-5 space-y-2 text-secondary-700">
+            {% for item in framework.implementation_checklist %}
+            <li>{{ item }}</li>
+            {% endfor %}
+        </ol>
+    </section>
+</div>
+{% endblock %}

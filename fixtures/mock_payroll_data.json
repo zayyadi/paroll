@@ -1,0 +1,491 @@
+[
+  {
+    "model": "company.company",
+    "pk": 1,
+    "fields": {
+      "name": "Acme Payroll Ltd",
+      "slug": "acme-payroll-ltd",
+      "is_active": true,
+      "created_at": "2026-01-01T08:00:00Z",
+      "updated_at": "2026-01-01T08:00:00Z"
+    }
+  },
+  {
+    "model": "users.customuser",
+    "pk": 1,
+    "fields": {
+      "company": 1,
+      "active_company": 1,
+      "email": "owner@acme.test",
+      "first_name": "Ifeanyi",
+      "last_name": "Owner",
+      "password": "!",
+      "is_staff": true,
+      "is_active": true,
+      "is_manager": true,
+      "is_superuser": true,
+      "last_login": null,
+      "date_joined": "2026-01-01T08:10:00Z",
+      "groups": [],
+      "user_permissions": []
+    }
+  },
+  {
+    "model": "users.customuser",
+    "pk": 2,
+    "fields": {
+      "company": 1,
+      "active_company": 1,
+      "email": "ada.okafor@acme.test",
+      "first_name": "Ada",
+      "last_name": "Okafor",
+      "password": "!",
+      "is_staff": false,
+      "is_active": true,
+      "is_manager": false,
+      "is_superuser": false,
+      "last_login": null,
+      "date_joined": "2026-01-02T09:00:00Z",
+      "groups": [],
+      "user_permissions": []
+    }
+  },
+  {
+    "model": "users.customuser",
+    "pk": 3,
+    "fields": {
+      "company": 1,
+      "active_company": 1,
+      "email": "kunle.bello@acme.test",
+      "first_name": "Kunle",
+      "last_name": "Bello",
+      "password": "!",
+      "is_staff": false,
+      "is_active": true,
+      "is_manager": false,
+      "is_superuser": false,
+      "last_login": null,
+      "date_joined": "2026-01-03T09:00:00Z",
+      "groups": [],
+      "user_permissions": []
+    }
+  },
+  {
+    "model": "company.companymembership",
+    "pk": 1,
+    "fields": {
+      "user": 1,
+      "company": 1,
+      "role": "owner",
+      "is_default": true,
+      "created_at": "2026-01-01T08:20:00Z"
+    }
+  },
+  {
+    "model": "company.companymembership",
+    "pk": 2,
+    "fields": {
+      "user": 2,
+      "company": 1,
+      "role": "member",
+      "is_default": true,
+      "created_at": "2026-01-02T09:20:00Z"
+    }
+  },
+  {
+    "model": "company.companymembership",
+    "pk": 3,
+    "fields": {
+      "user": 3,
+      "company": 1,
+      "role": "member",
+      "is_default": true,
+      "created_at": "2026-01-03T09:20:00Z"
+    }
+  },
+  {
+    "model": "payroll.department",
+    "pk": 1,
+    "fields": {
+      "deleted_at": null,
+      "company": 1,
+      "name": "Engineering",
+      "description": "Product and engineering team"
+    }
+  },
+  {
+    "model": "payroll.department",
+    "pk": 2,
+    "fields": {
+      "deleted_at": null,
+      "company": 1,
+      "name": "Operations",
+      "description": "Ops and support team"
+    }
+  },
+  {
+    "model": "payroll.payroll",
+    "pk": 1,
+    "fields": {
+      "company": 1,
+      "basic_salary": "180000.00",
+      "basic": "864000.00",
+      "housing": "216000.00",
+      "transport": "216000.00",
+      "bht": "1296000.00",
+      "pension_employee": "172800.00",
+      "pension_employer": "216000.00",
+      "pension": "388800.00",
+      "gross_income": "1987200.00",
+      "is_housing": true,
+      "is_nhif": true,
+      "nhf": "54000.00",
+      "employee_health": "37800.00",
+      "nhif": "108000.00",
+      "emplyr_health": "70200.00",
+      "taxable_income": "1835400.00",
+      "payee": "12942.50",
+      "water_rate": "200.00",
+      "nsitf": "1800.00",
+      "timestamp": "2026-01-05T08:00:00Z",
+      "updated": "2026-01-05T08:00:00Z",
+      "status": "active"
+    }
+  },
+  {
+    "model": "payroll.payroll",
+    "pk": 2,
+    "fields": {
+      "company": 1,
+      "basic_salary": "65000.00",
+      "basic": "312000.00",
+      "housing": "78000.00",
+      "transport": "78000.00",
+      "bht": "468000.00",
+      "pension_employee": "62400.00",
+      "pension_employer": "78000.00",
+      "pension": "140400.00",
+      "gross_income": "717600.00",
+      "is_housing": false,
+      "is_nhif": false,
+      "nhf": "0.00",
+      "employee_health": "0.00",
+      "nhif": "0.00",
+      "emplyr_health": "0.00",
+      "taxable_income": "693600.00",
+      "payee": "0.00",
+      "water_rate": "150.00",
+      "nsitf": "650.00",
+      "timestamp": "2026-01-05T08:05:00Z",
+      "updated": "2026-01-05T08:05:00Z",
+      "status": "active"
+    }
+  },
+  {
+    "model": "payroll.employeeprofile",
+    "pk": 1,
+    "fields": {
+      "deleted_at": null,
+      "company": 1,
+      "emp_id": "EMP-0001",
+      "slug": "ada-okafor",
+      "department": 1,
+      "user": 2,
+      "first_name": "Ada",
+      "last_name": "Okafor",
+      "email": "ada.okafor@acme.test",
+      "employee_pay": 1,
+      "rent_paid": "300000.00",
+      "created": "2026-01-06T08:00:00Z",
+      "photo": "default.png",
+      "nin": "NIN-10000000001",
+      "tin_no": "TIN-20000000001",
+      "pension_rsa": "RSA-30000000001",
+      "date_of_birth": "1992-05-01",
+      "date_of_employment": "2022-04-01",
+      "contract_type": "P",
+      "phone": "+2348030000001",
+      "gender": "female",
+      "address": "Lekki, Lagos",
+      "emergency_contact_name": "Bola Okafor",
+      "emergency_contact_relationship": "Sibling",
+      "emergency_contact_phone": "+2348030000101",
+      "next_of_kin_name": "Uche Okafor",
+      "next_of_kin_relationship": "Parent",
+      "next_of_kin_phone": "+2348030000201",
+      "job_title": "SU",
+      "bank": "GTB",
+      "bank_account_name": "Ada Okafor",
+      "bank_account_number": "0123456789",
+      "net_pay": "114657.50",
+      "status": "active"
+    }
+  },
+  {
+    "model": "payroll.employeeprofile",
+    "pk": 2,
+    "fields": {
+      "deleted_at": null,
+      "company": 1,
+      "emp_id": "EMP-0002",
+      "slug": "kunle-bello",
+      "department": 2,
+      "user": 3,
+      "first_name": "Kunle",
+      "last_name": "Bello",
+      "email": "kunle.bello@acme.test",
+      "employee_pay": 2,
+      "rent_paid": "120000.00",
+      "created": "2026-01-06T08:05:00Z",
+      "photo": "default.png",
+      "nin": "NIN-10000000002",
+      "tin_no": "TIN-20000000002",
+      "pension_rsa": "RSA-30000000002",
+      "date_of_birth": "1995-08-01",
+      "date_of_employment": "2024-02-01",
+      "contract_type": "T",
+      "phone": "+2348030000002",
+      "gender": "male",
+      "address": "Garki, Abuja",
+      "emergency_contact_name": "Tola Bello",
+      "emergency_contact_relationship": "Spouse",
+      "emergency_contact_phone": "+2348030000102",
+      "next_of_kin_name": "Musa Bello",
+      "next_of_kin_relationship": "Parent",
+      "next_of_kin_phone": "+2348030000202",
+      "job_title": "JS",
+      "bank": "UBA",
+      "bank_account_name": "Kunle Bello",
+      "bank_account_number": "0123456790",
+      "net_pay": "59650.00",
+      "status": "active"
+    }
+  },
+  {
+    "model": "payroll.payrollentry",
+    "pk": 1,
+    "fields": {
+      "company": 1,
+      "pays": 1,
+      "status": "active",
+      "netpay": "120657.50"
+    }
+  },
+  {
+    "model": "payroll.payrollentry",
+    "pk": 2,
+    "fields": {
+      "company": 1,
+      "pays": 2,
+      "status": "active",
+      "netpay": "59650.00"
+    }
+  },
+  {
+    "model": "payroll.payrollrun",
+    "pk": 1,
+    "fields": {
+      "company": 1,
+      "name": "Payroll 2026-01",
+      "slug": "pay-period-2026-01",
+      "paydays": "2026-01-01",
+      "is_active": true,
+      "closed": false
+    }
+  },
+  {
+    "model": "payroll.payrollrun",
+    "pk": 2,
+    "fields": {
+      "company": 1,
+      "name": "Payroll 2026-02",
+      "slug": "pay-period-2026-02",
+      "paydays": "2026-02-01",
+      "is_active": false,
+      "closed": false
+    }
+  },
+  {
+    "model": "payroll.payrollrunentry",
+    "pk": 1,
+    "fields": {
+      "payroll_run": 1,
+      "payroll_entry": 1
+    }
+  },
+  {
+    "model": "payroll.payrollrunentry",
+    "pk": 2,
+    "fields": {
+      "payroll_run": 1,
+      "payroll_entry": 2
+    }
+  },
+  {
+    "model": "payroll.payrollrunentry",
+    "pk": 3,
+    "fields": {
+      "payroll_run": 2,
+      "payroll_entry": 1
+    }
+  },
+  {
+    "model": "payroll.payrollrunentry",
+    "pk": 4,
+    "fields": {
+      "payroll_run": 2,
+      "payroll_entry": 2
+    }
+  },
+  {
+    "model": "payroll.allowance",
+    "pk": 1,
+    "fields": {
+      "employee": 1,
+      "allowance_type": "LV",
+      "amount": "10000.00",
+      "created_at": "2026-01-20T10:00:00Z"
+    }
+  },
+  {
+    "model": "payroll.allowance",
+    "pk": 2,
+    "fields": {
+      "employee": 1,
+      "allowance_type": "Ovr",
+      "amount": "6000.00",
+      "created_at": "2026-02-15T10:00:00Z"
+    }
+  },
+  {
+    "model": "payroll.deduction",
+    "pk": 1,
+    "fields": {
+      "employee": 2,
+      "iou": null,
+      "deduction_type": "LT",
+      "amount": "2500.00",
+      "reason": "Late resumption",
+      "created_at": "2026-01-23T11:00:00Z"
+    }
+  },
+  {
+    "model": "payroll.iou",
+    "pk": 1,
+    "fields": {
+      "deleted_at": null,
+      "employee_id": 1,
+      "amount": "120000.00",
+      "tenor": 6,
+      "reason": "Emergency support",
+      "interest_rate": "5.00",
+      "payment_method": "SALARY_DEDUCTION",
+      "status": "APPROVED",
+      "created_at": "2026-01-10",
+      "approved_at": "2026-01-11",
+      "due_date": "2026-07-11"
+    }
+  },
+  {
+    "model": "payroll.ioudeduction",
+    "pk": 1,
+    "fields": {
+      "iou": 1,
+      "employee": 1,
+      "payday": 1,
+      "amount": "20000.00",
+      "created_at": "2026-01-31T17:00:00Z"
+    }
+  },
+  {
+    "model": "payroll.ioudeduction",
+    "pk": 2,
+    "fields": {
+      "iou": 1,
+      "employee": 1,
+      "payday": 2,
+      "amount": "20000.00",
+      "created_at": "2026-02-28T17:00:00Z"
+    }
+  },
+  {
+    "model": "payroll.publicholiday",
+    "pk": 1,
+    "fields": {
+      "company": 1,
+      "name": "New Year Day",
+      "date": "2026-01-01"
+    }
+  },
+  {
+    "model": "payroll.publicholiday",
+    "pk": 2,
+    "fields": {
+      "company": 1,
+      "name": "Democracy Day",
+      "date": "2026-06-12"
+    }
+  },
+  {
+    "model": "payroll.leavepolicy",
+    "pk": 1,
+    "fields": {
+      "company": 1,
+      "leave_type": "ANNUAL",
+      "max_days": 15
+    }
+  },
+  {
+    "model": "payroll.leavepolicy",
+    "pk": 2,
+    "fields": {
+      "company": 1,
+      "leave_type": "SICK",
+      "max_days": 8
+    }
+  },
+  {
+    "model": "payroll.leavebalance",
+    "pk": 1,
+    "fields": {
+      "employee": 1,
+      "year": 2026,
+      "annual_leave": 12,
+      "sick_leave": 5,
+      "casual_leave": 3,
+      "maternity_leave": 40,
+      "paternity_leave": 14
+    }
+  },
+  {
+    "model": "payroll.leavebalance",
+    "pk": 2,
+    "fields": {
+      "employee": 2,
+      "year": 2026,
+      "annual_leave": 10,
+      "sick_leave": 5,
+      "casual_leave": 3,
+      "maternity_leave": 40,
+      "paternity_leave": 14
+    }
+  },
+  {
+    "model": "payroll.leaverequest",
+    "pk": 1,
+    "fields": {
+      "employee": 2,
+      "leave_type": "CASUAL",
+      "start_date": "2026-02-10",
+      "end_date": "2026-02-12",
+      "is_half_day": false,
+      "reason": "Family event",
+      "status": "APPROVED",
+      "approved_by": 1,
+      "hr_override": false,
+      "override_reason": null,
+      "created_at": "2026-02-01T08:00:00Z",
+      "updated_at": "2026-02-05T09:00:00Z"
+    }
+  }
+]

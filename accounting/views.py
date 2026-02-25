@@ -25,26 +25,31 @@ from .models import (
     FiscalYear,
     AccountingPeriod,
     AccountingAuditTrail,
-    TransactionNumber,
+    DisciplinaryCase,
+    DisciplinaryEvidence,
+    DisciplinarySanction,
+    DisciplinaryAppeal,
 )
 from .forms import (
     JournalForm,
-    JournalEntryForm,
     AccountForm,
-    FiscalYearForm,
-    AccountingPeriodForm,
     JournalApprovalForm,
     JournalReversalForm,
     JournalEntryFormSet,
     JournalReversalInitiationForm,
     JournalPartialReversalForm,
     JournalCorrectionForm,
-    CorrectionEntryForm,
     CorrectionEntryFormSet,
     BatchJournalReversalForm,
     JournalReversalConfirmationForm,
     BalanceAdjustmentForm,
     OpeningBalanceImportForm,
+    DisciplinaryCaseForm,
+    DisciplinaryEvidenceForm,
+    DisciplinaryDecisionForm,
+    DisciplinarySanctionForm,
+    DisciplinaryAppealForm,
+    DisciplinaryAppealReviewForm,
 )
 from .utils import (
     get_trial_balance,
@@ -56,46 +61,150 @@ from .utils import (
     reverse_journal_with_correction,
     batch_reverse_journals,
     close_accounting_period,
-    close_fiscal_year,
 )
 from .permissions import (
     is_auditor,
     is_accountant,
     is_payroll_processor,
+    is_hr_staff,
+    can_manage_disciplinary_case,
     can_approve_journal,
     can_reverse_journal,
     can_close_period,
 )
 from .decorators import (
     auditor_required,
-    accountant_required,
-    payroll_processor_required,
     accounting_role_required,
     auditor_or_accountant_required,
+    discipline_access_required,
 )
 from .mixins import (
     AuditorRequiredMixin,
     AccountantRequiredMixin,
-    PayrollProcessorRequiredMixin,
     AccountingRoleRequiredMixin,
     AuditorOrAccountantRequiredMixin,
+    DisciplineAccessRequiredMixin,
+    DisciplineManagerRequiredMixin,
     JournalApprovalMixin,
     JournalReversalMixin,
     PeriodClosingMixin,
-    SelfModificationMixin,
 )
 
 User = get_user_model()
 
+DISCIPLINARY_SYSTEM_DATA = {
+    "overview": (
+        "A scalable disciplinary framework for SMEs that combines strict"
+        " accountability with a rehabilitation-first approach. The system is"
+        " designed for consistency, due process, and operational continuity,"
+        " while remaining aligned with Nigerian labour law expectations."
+    ),
+    "core_principles": [
+        "Legality and fair hearing in line with employment contracts and Nigerian labour law.",
+        "Proportionality: sanctions reflect severity, intent, impact, and recurrence.",
+        "Consistency and transparency through standardized criteria and records.",
+        "Due process: notice, response opportunity, impartial review, and written decisions.",
+        "Rehabilitation-first for correctable behavior, with escalation for persistent risk.",
+        "Non-retaliation and protection for complainants, witnesses, and respondents.",
+        "Bias mitigation via conflict checks, structured decision factors, and audit reviews.",
+    ],
+    "violation_categories": [
+        {
+            "level": "Level 1",
+            "category": "Minor",
+            "examples": "Isolated lateness, minor policy lapses, low-impact errors.",
+            "risk_posture": "Coaching and correction",
+        },
+        {
+            "level": "Level 2",
+            "category": "Moderate",
+            "examples": "Repeated minor issues, disrespect, moderate negligence.",
+            "risk_posture": "Formal warning and action plan",
+        },
+        {
+            "level": "Level 3",
+            "category": "Serious",
+            "examples": "Significant insubordination, data/privacy breaches, harassment allegations.",
+            "risk_posture": "Panel review and stronger sanctions",
+        },
+        {
+            "level": "Level 4",
+            "category": "Major",
+            "examples": "Retaliation, theft indicators, severe discrimination, serious confidentiality breaches.",
+            "risk_posture": "Suspension and termination review",
+        },
+        {
+            "level": "Level 5",
+            "category": "Critical",
+            "examples": "Violence, credible threats, bribery/corruption, major fraud.",
+            "risk_posture": "Immediate protective action",
+        },
+    ],
+    "investigation_workflow": [
+        "Intake and triage within 48 hours, including immediate risk assessment.",
+        "Conflict-of-interest screening and investigator recusal where necessary.",
+        "Written notice to respondent with allegation summary and process rights.",
+        "Evidence preservation and collection (documents, logs, witness accounts, records).",
+        "Structured interviews with documented statements and rebuttal opportunity.",
+        "Findings based on balance of probabilities; heightened corroboration for severe sanctions.",
+        "Decision memo documenting facts, credibility, policy mapping, and rationale.",
+        "Written outcome communication with sanction details and appeal pathway.",
+    ],
+    "sanction_matrix": [
+        {
+            "level": "Level 1",
+            "first_incident": "Coaching and documented note",
+            "second_incident": "Written warning and training",
+            "third_incident": "Final warning or short performance plan",
+        },
+        {
+            "level": "Level 2",
+            "first_incident": "Written warning and corrective plan",
+            "second_incident": "Final warning and performance plan",
+            "third_incident": "Suspension or role restriction",
+        },
+        {
+            "level": "Level 3",
+            "first_incident": "Final warning and/or suspension with remediation",
+            "second_incident": "Long suspension or demotion",
+            "third_incident": "Termination review",
+        },
+        {
+            "level": "Level 4",
+            "first_incident": "Investigatory suspension; demotion/final warning or termination",
+            "second_incident": "Termination likely",
+            "third_incident": "Termination",
+        },
+        {
+            "level": "Level 5",
+            "first_incident": "Immediate protective suspension and termination review",
+            "second_incident": "Termination",
+            "third_incident": "Termination",
+        },
+    ],
+    "appeals_process": [
+        "Appeal submission within 5 to 10 business days from decision date.",
+        "Allowed grounds: procedural unfairness, new evidence, bias/conflict, disproportionality.",
+        "Review by an independent and more senior authority.",
+        "Possible outcomes: uphold, modify, overturn, or order reinvestigation.",
+        "Final internal determination is documented with reasons.",
+    ],
+    "implementation_checklist": [
+        "Approve disciplinary policy text, SOP workflow, and sanction matrix.",
+        "Assign intake officers, investigators, panel members, and appeal authority.",
+        "Deploy standardized templates: intake, investigation log, decision memo, appeal form.",
+        "Enable secure case documentation with role-based access controls.",
+        "Train managers and investigators before go-live.",
+        "Run a 60 to 90 day pilot and calibrate thresholds and timelines.",
+        "Launch quarterly governance review cadence and annual policy audit.",
+    ],
+}
 
-# Dashboard Views
+
 @login_required
 @accounting_role_required
 def accounting_dashboard(request):
-    """
-    Main dashboard for accounting users
-    """
-    # Get counts for dashboard
+
     draft_journals_count = Journal.objects.filter(
         status=Journal.JournalStatus.DRAFT
     ).count()
@@ -106,10 +215,8 @@ def accounting_dashboard(request):
         status=Journal.JournalStatus.POSTED
     ).count()
 
-    # Get recent journals
     recent_journals = Journal.objects.all().order_by("-created_at")[:10]
 
-    # Get active periods
     active_periods = AccountingPeriod.objects.filter(is_active=True).order_by(
         "-start_date"
     )[:5]
@@ -128,7 +235,6 @@ def accounting_dashboard(request):
     return render(request, "accounting/dashboard.html", context)
 
 
-# Account Views
 class AccountListView(LoginRequiredMixin, AccountingRoleRequiredMixin, ListView):
     """
     List all accounts
@@ -162,15 +268,12 @@ class AccountDetailView(LoginRequiredMixin, AccountingRoleRequiredMixin, DetailV
         context = super().get_context_data(**kwargs)
         account = self.get_object()
 
-        # Get current balance
         context["current_balance"] = account.get_balance()
 
-        # Get recent entries
         context["recent_entries"] = account.entries.all().order_by(
             "-journal__created_at"
         )[:20]
 
-        # Get balance as of specific date if provided
         as_of_date = self.request.GET.get("as_of_date")
         if as_of_date:
             try:
@@ -216,7 +319,10 @@ class OpeningBalanceImportView(LoginRequiredMixin, AccountantRequiredMixin, Form
         return Decimal(normalized)
 
     def _get_entry_type_from_signed_balance(self, account, signed_balance):
-        debit_normal = account.type in [Account.AccountType.ASSET, Account.AccountType.EXPENSE]
+        debit_normal = account.type in [
+            Account.AccountType.ASSET,
+            Account.AccountType.EXPENSE,
+        ]
         if signed_balance >= 0:
             return "DEBIT" if debit_normal else "CREDIT"
         return "CREDIT" if debit_normal else "DEBIT"
@@ -235,7 +341,9 @@ class OpeningBalanceImportView(LoginRequiredMixin, AccountantRequiredMixin, Form
 
         reader = csv.DictReader(decoded.splitlines())
         required_columns = {"account_number", "balance"}
-        if not reader.fieldnames or not required_columns.issubset(set(reader.fieldnames)):
+        if not reader.fieldnames or not required_columns.issubset(
+            set(reader.fieldnames)
+        ):
             form.add_error(
                 "csv_file",
                 "CSV must include columns: account_number,balance (optional: memo,account_name).",
@@ -262,19 +370,25 @@ class OpeningBalanceImportView(LoginRequiredMixin, AccountantRequiredMixin, Form
             if not account and account_name:
                 account = Account.objects.filter(name=account_name).first()
             if not account:
-                row_errors.append(f"Row {index}: account not found ({account_number or account_name}).")
+                row_errors.append(
+                    f"Row {index}: account not found ({account_number or account_name})."
+                )
                 continue
 
             try:
                 signed_balance = self._parse_balance(row.get("balance"))
             except InvalidOperation:
-                row_errors.append(f"Row {index}: invalid balance value '{row.get('balance')}'.")
+                row_errors.append(
+                    f"Row {index}: invalid balance value '{row.get('balance')}'."
+                )
                 continue
 
             if signed_balance == 0:
                 continue
 
-            entry_type = self._get_entry_type_from_signed_balance(account, signed_balance)
+            entry_type = self._get_entry_type_from_signed_balance(
+                account, signed_balance
+            )
             amount = abs(signed_balance)
 
             entry_memo = memo or f"Opening balance import for {account.name}"
@@ -295,7 +409,9 @@ class OpeningBalanceImportView(LoginRequiredMixin, AccountantRequiredMixin, Form
         if row_errors:
             form.add_error("csv_file", " | ".join(row_errors[:5]))
             if len(row_errors) > 5:
-                form.add_error("csv_file", f"... and {len(row_errors) - 5} more row errors.")
+                form.add_error(
+                    "csv_file", f"... and {len(row_errors) - 5} more row errors."
+                )
             return self.form_invalid(form)
 
         if not entries:
@@ -339,7 +455,6 @@ class OpeningBalanceImportView(LoginRequiredMixin, AccountantRequiredMixin, Form
         return super().form_valid(form)
 
 
-# Journal Views
 class JournalListView(LoginRequiredMixin, AccountingRoleRequiredMixin, ListView):
     """
     List all journals with filtering
@@ -353,12 +468,10 @@ class JournalListView(LoginRequiredMixin, AccountingRoleRequiredMixin, ListView)
     def get_queryset(self):
         queryset = Journal.objects.all().order_by("-created_at")
 
-        # Filter by status
         status = self.request.GET.get("status")
         if status:
             queryset = queryset.filter(status=status)
 
-        # Filter by date range
         start_date = self.request.GET.get("start_date")
         end_date = self.request.GET.get("end_date")
         if start_date:
@@ -366,7 +479,6 @@ class JournalListView(LoginRequiredMixin, AccountingRoleRequiredMixin, ListView)
         if end_date:
             queryset = queryset.filter(date__lte=end_date)
 
-        # Search
         search = self.request.GET.get("search")
         if search:
             queryset = queryset.filter(
@@ -383,9 +495,6 @@ class JournalListView(LoginRequiredMixin, AccountingRoleRequiredMixin, ListView)
 
 
 class JournalDetailView(LoginRequiredMixin, AccountingRoleRequiredMixin, DetailView):
-    """
-    View journal details with entries
-    """
 
     model = Journal
     template_name = "accounting/journal_detail.html"
@@ -395,10 +504,8 @@ class JournalDetailView(LoginRequiredMixin, AccountingRoleRequiredMixin, DetailV
         context = super().get_context_data(**kwargs)
         journal = self.get_object()
 
-        # Get entries
         context["entries"] = journal.entries.all().order_by("account__name")
 
-        # Calculate totals
         total_debits = (
             journal.entries.filter(entry_type="DEBIT").aggregate(total=Sum("amount"))[
                 "total"
@@ -415,7 +522,6 @@ class JournalDetailView(LoginRequiredMixin, AccountingRoleRequiredMixin, DetailV
         context["total_credits"] = total_credits
         context["is_balanced"] = total_debits == total_credits
 
-        # Permission checks
         context["can_approve"] = can_approve_journal(self.request.user, journal)
         context["can_reverse"] = can_reverse_journal(self.request.user, journal)
         context["can_edit"] = (
@@ -425,7 +531,6 @@ class JournalDetailView(LoginRequiredMixin, AccountingRoleRequiredMixin, DetailV
             and journal.created_by == self.request.user
         )
 
-        # Reversal status and history
         context["is_reversed"] = journal.reversed_journal is not None
         context["is_reversal"] = (
             hasattr(journal, "reversal_of") and journal.reversal_of is not None
@@ -434,13 +539,10 @@ class JournalDetailView(LoginRequiredMixin, AccountingRoleRequiredMixin, DetailV
         context["reversal_of"] = getattr(journal, "reversal_of", None)
         context["reversal_reason"] = journal.reversal_reason
 
-        # Get audit trail entries for this journal
         audit_entries = AccountingAuditTrail.objects.filter(
             content_type=ContentType.objects.get_for_model(Journal),
             object_id=journal.pk,
-        ).order_by("-timestamp")[
-            :10
-        ]  # Get last 10 entries
+        ).order_by("-timestamp")[:10]
 
         context["audit_entries"] = audit_entries
 
@@ -489,9 +591,6 @@ class JournalCreateView(LoginRequiredMixin, AccountantRequiredMixin, CreateView)
 
 
 class JournalEditView(LoginRequiredMixin, AccountantRequiredMixin, UpdateView):
-    """
-    Edit a draft/pending journal header details.
-    """
 
     model = Journal
     form_class = JournalForm
@@ -538,13 +637,13 @@ class BalanceAdjustmentView(LoginRequiredMixin, AccountantRequiredMixin, FormVie
                 entries=entries,
                 user=self.request.user,
                 auto_post=True,
-                # Balance adjustments are authorized override entries used to
-                # set or correct balances, so they bypass operational balance gates.
                 validate_balances=False,
             )
         except ValidationError as exc:
             form.add_error(None, exc)
-            messages.error(self.request, "Balance adjustment failed. Check details and retry.")
+            messages.error(
+                self.request, "Balance adjustment failed. Check details and retry."
+            )
             return self.form_invalid(form)
 
         messages.success(
@@ -577,12 +676,11 @@ class JournalApprovalView(LoginRequiredMixin, JournalApprovalMixin, FormView):
             journal.approve(self.request.user)
             post_journal(journal, self.request.user)
             messages.success(self.request, "Journal approved and posted successfully.")
-        else:  # reject
+        else:
             journal.status = Journal.JournalStatus.CANCELLED
             journal.save()
             messages.success(self.request, "Journal rejected.")
 
-        # Log the action
         AccountingAuditTrail.log_action(
             user=self.request.user,
             action=(
@@ -600,9 +698,6 @@ class JournalApprovalView(LoginRequiredMixin, JournalApprovalMixin, FormView):
 
 
 class JournalReversalView(LoginRequiredMixin, JournalReversalMixin, FormView):
-    """
-    Reverse a posted journal (auditors only)
-    """
 
     template_name = "accounting/journal_reversal.html"
     form_class = JournalReversalForm
@@ -633,13 +728,9 @@ class JournalReversalView(LoginRequiredMixin, JournalReversalMixin, FormView):
             return self.form_invalid(form)
 
 
-# Fiscal Year Views
 class FiscalYearListView(
     LoginRequiredMixin, AuditorOrAccountantRequiredMixin, ListView
 ):
-    """
-    List all fiscal years
-    """
 
     model = FiscalYear
     template_name = "accounting/fiscal_year_list.html"
@@ -647,10 +738,9 @@ class FiscalYearListView(
     ordering = ["-year"]
 
     def get_queryset(self):
-        return (
-            FiscalYear.objects.annotate(journal_count=Count("periods__journals", distinct=True))
-            .order_by("-year")
-        )
+        return FiscalYear.objects.annotate(
+            journal_count=Count("periods__journals", distinct=True)
+        ).order_by("-year")
 
 
 class FiscalYearDetailView(
@@ -668,10 +758,8 @@ class FiscalYearDetailView(
         context = super().get_context_data(**kwargs)
         fiscal_year = self.get_object()
 
-        # Get periods
         context["periods"] = fiscal_year.periods.all().order_by("period_number")
 
-        # Get journal counts
         context["journal_count"] = Journal.objects.filter(
             period__fiscal_year=fiscal_year
         ).count()
@@ -679,7 +767,6 @@ class FiscalYearDetailView(
         return context
 
 
-# Accounting Period Views
 class AccountingPeriodListView(
     LoginRequiredMixin, AccountingRoleRequiredMixin, ListView
 ):
@@ -711,13 +798,10 @@ class AccountingPeriodDetailView(
         context = super().get_context_data(**kwargs)
         period = self.get_object()
 
-        # Get journals for this period
         context["journals"] = Journal.objects.filter(period=period).order_by("-date")
 
-        # Get trial balance
         context["trial_balance"] = get_trial_balance(period=period)
 
-        # Permission checks
         context["can_close"] = can_close_period(self.request.user, period)
 
         return context
@@ -756,7 +840,6 @@ class AccountingPeriodCloseView(LoginRequiredMixin, PeriodClosingMixin, FormView
             return redirect("accounting:period_close", pk=period.pk)
 
 
-# Audit Trail Views
 class AuditTrailListView(LoginRequiredMixin, AuditorRequiredMixin, ListView):
     """
     List all audit trail entries (auditors only)
@@ -770,17 +853,14 @@ class AuditTrailListView(LoginRequiredMixin, AuditorRequiredMixin, ListView):
     def get_queryset(self):
         queryset = AccountingAuditTrail.objects.all().order_by("-timestamp")
 
-        # Filter by user
         user_id = self.request.GET.get("user")
         if user_id:
             queryset = queryset.filter(user_id=user_id)
 
-        # Filter by action
         action = self.request.GET.get("action")
         if action:
             queryset = queryset.filter(action=action)
 
-        # Filter by date range
         start_date = self.request.GET.get("start_date")
         end_date = self.request.GET.get("end_date")
         if start_date:
@@ -807,7 +887,430 @@ class AuditTrailDetailView(LoginRequiredMixin, AuditorRequiredMixin, DetailView)
     context_object_name = "audit_log"
 
 
-# Reports Views
+@login_required
+@discipline_access_required
+def disciplinary_system_view(request):
+    context = {
+        "page_title": "Disciplinary System",
+        "breadcrumbs": [{"title": "Disciplinary System"}],
+        "framework": DISCIPLINARY_SYSTEM_DATA,
+        "is_auditor": is_auditor(request.user),
+        "is_accountant": is_accountant(request.user),
+        "is_payroll_processor": is_payroll_processor(request.user),
+        "is_hr_staff": is_hr_staff(request.user),
+    }
+    return render(request, "accounting/disciplinary_system.html", context)
+
+
+class DisciplinaryCaseListView(
+    LoginRequiredMixin, DisciplineAccessRequiredMixin, ListView
+):
+    model = DisciplinaryCase
+    template_name = "accounting/discipline/case_list.html"
+    context_object_name = "cases"
+    paginate_by = 20
+
+    def get_queryset(self):
+        queryset = (
+            DisciplinaryCase.objects.select_related(
+                "respondent", "reporter", "investigator", "decided_by"
+            )
+            .prefetch_related("sanctions", "appeals")
+            .order_by("-created_at")
+        )
+
+        search = self.request.GET.get("search")
+        status = self.request.GET.get("status")
+        level = self.request.GET.get("level")
+
+        if search:
+            queryset = queryset.filter(
+                Q(case_number__icontains=search)
+                | Q(allegation_summary__icontains=search)
+                | Q(respondent__email__icontains=search)
+            )
+        if status:
+            queryset = queryset.filter(status=status)
+        if level:
+            queryset = queryset.filter(violation_level=level)
+        return queryset
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["status_choices"] = DisciplinaryCase.Status.choices
+        context["level_choices"] = DisciplinaryCase.ViolationLevel.choices
+        context["page_title"] = "Disciplinary Cases"
+        context["breadcrumbs"] = [{"title": "Disciplinary Cases"}]
+        context["is_auditor"] = is_auditor(self.request.user)
+        context["is_accountant"] = is_accountant(self.request.user)
+        context["is_payroll_processor"] = is_payroll_processor(self.request.user)
+        context["is_hr_staff"] = is_hr_staff(self.request.user)
+        return context
+
+
+class DisciplinaryCaseDetailView(
+    LoginRequiredMixin, DisciplineAccessRequiredMixin, DetailView
+):
+    model = DisciplinaryCase
+    template_name = "accounting/discipline/case_detail.html"
+    context_object_name = "disciplinary_case"
+
+    def get_queryset(self):
+        return DisciplinaryCase.objects.select_related(
+            "respondent", "reporter", "investigator", "decided_by"
+        ).prefetch_related(
+            "evidence_items", "sanctions", "appeals", "appeals__reviewed_by"
+        )
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        disciplinary_case = self.object
+        context["page_title"] = f"Case {disciplinary_case.case_number}"
+        context["breadcrumbs"] = [
+            {
+                "title": "Disciplinary Cases",
+                "url": reverse_lazy("payroll:discipline_case_list"),
+            },
+            {"title": disciplinary_case.case_number},
+        ]
+        context["can_decide"] = can_manage_disciplinary_case(self.request.user)
+        context["is_auditor"] = is_auditor(self.request.user)
+        context["is_accountant"] = is_accountant(self.request.user)
+        context["is_payroll_processor"] = is_payroll_processor(self.request.user)
+        context["is_hr_staff"] = is_hr_staff(self.request.user)
+        return context
+
+
+class DisciplinaryCaseCreateView(
+    LoginRequiredMixin, DisciplineAccessRequiredMixin, CreateView
+):
+    model = DisciplinaryCase
+    form_class = DisciplinaryCaseForm
+    template_name = "accounting/discipline/case_form.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["page_title"] = "Report Disciplinary Case"
+        context["breadcrumbs"] = [
+            {
+                "title": "Disciplinary Cases",
+                "url": reverse_lazy("payroll:discipline_case_list"),
+            },
+            {"title": "New Case"},
+        ]
+        context["is_auditor"] = is_auditor(self.request.user)
+        context["is_accountant"] = is_accountant(self.request.user)
+        context["is_payroll_processor"] = is_payroll_processor(self.request.user)
+        context["is_hr_staff"] = is_hr_staff(self.request.user)
+        return context
+
+    def form_valid(self, form):
+        form.instance.reporter = self.request.user
+        response = super().form_valid(form)
+        self.object.mark_due_process_notice()
+        messages.success(self.request, "Disciplinary case created successfully.")
+        return response
+
+    def get_success_url(self):
+        return reverse_lazy(
+            "payroll:discipline_case_detail", kwargs={"pk": self.object.pk}
+        )
+
+
+class DisciplinaryCaseUpdateView(
+    LoginRequiredMixin, DisciplineAccessRequiredMixin, UpdateView
+):
+    model = DisciplinaryCase
+    form_class = DisciplinaryCaseForm
+    template_name = "accounting/discipline/case_form.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["page_title"] = f"Update Case {self.object.case_number}"
+        context["breadcrumbs"] = [
+            {
+                "title": "Disciplinary Cases",
+                "url": reverse_lazy("payroll:discipline_case_list"),
+            },
+            {
+                "title": self.object.case_number,
+                "url": reverse_lazy(
+                    "payroll:discipline_case_detail", kwargs={"pk": self.object.pk}
+                ),
+            },
+            {"title": "Edit"},
+        ]
+        context["is_auditor"] = is_auditor(self.request.user)
+        context["is_accountant"] = is_accountant(self.request.user)
+        context["is_payroll_processor"] = is_payroll_processor(self.request.user)
+        context["is_hr_staff"] = is_hr_staff(self.request.user)
+        return context
+
+    def form_valid(self, form):
+        messages.success(self.request, "Disciplinary case updated.")
+        return super().form_valid(form)
+
+    def get_success_url(self):
+        return reverse_lazy(
+            "payroll:discipline_case_detail", kwargs={"pk": self.object.pk}
+        )
+
+
+@login_required
+@discipline_access_required
+def disciplinary_case_start_investigation(request, pk):
+    disciplinary_case = get_object_or_404(DisciplinaryCase, pk=pk)
+    if request.method != "POST":
+        return HttpResponseForbidden("Invalid request method.")
+
+    disciplinary_case.investigator = request.user
+    disciplinary_case.move_to_investigation()
+    disciplinary_case.save(update_fields=["investigator", "updated_at"])
+    messages.success(request, "Case moved to investigation.")
+    return redirect("payroll:discipline_case_detail", pk=disciplinary_case.pk)
+
+
+class DisciplinaryEvidenceCreateView(
+    LoginRequiredMixin, DisciplineAccessRequiredMixin, CreateView
+):
+    model = DisciplinaryEvidence
+    form_class = DisciplinaryEvidenceForm
+    template_name = "accounting/discipline/evidence_form.html"
+
+    def dispatch(self, request, *args, **kwargs):
+        self.disciplinary_case = get_object_or_404(DisciplinaryCase, pk=kwargs["pk"])
+        return super().dispatch(request, *args, **kwargs)
+
+    def form_valid(self, form):
+        form.instance.case = self.disciplinary_case
+        form.instance.submitted_by = self.request.user
+        messages.success(self.request, "Evidence added to case.")
+        return super().form_valid(form)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["disciplinary_case"] = self.disciplinary_case
+        context["page_title"] = f"Add Evidence - {self.disciplinary_case.case_number}"
+        context["breadcrumbs"] = [
+            {
+                "title": "Disciplinary Cases",
+                "url": reverse_lazy("payroll:discipline_case_list"),
+            },
+            {
+                "title": self.disciplinary_case.case_number,
+                "url": reverse_lazy(
+                    "payroll:discipline_case_detail",
+                    kwargs={"pk": self.disciplinary_case.pk},
+                ),
+            },
+            {"title": "Add Evidence"},
+        ]
+        context["is_auditor"] = is_auditor(self.request.user)
+        context["is_accountant"] = is_accountant(self.request.user)
+        context["is_payroll_processor"] = is_payroll_processor(self.request.user)
+        context["is_hr_staff"] = is_hr_staff(self.request.user)
+        return context
+
+    def get_success_url(self):
+        return reverse_lazy(
+            "payroll:discipline_case_detail",
+            kwargs={"pk": self.disciplinary_case.pk},
+        )
+
+
+class DisciplinaryDecisionUpdateView(
+    LoginRequiredMixin, DisciplineManagerRequiredMixin, UpdateView
+):
+    model = DisciplinaryCase
+    form_class = DisciplinaryDecisionForm
+    template_name = "accounting/discipline/decision_form.html"
+
+    def form_valid(self, form):
+        disciplinary_case = form.save(commit=False)
+        disciplinary_case.decide(
+            finding=form.cleaned_data["finding"],
+            decided_by=self.request.user,
+            rationale=form.cleaned_data["decision_rationale"],
+        )
+        disciplinary_case.findings_summary = form.cleaned_data["findings_summary"]
+        disciplinary_case.save(update_fields=["findings_summary", "updated_at"])
+        messages.success(self.request, "Case decision recorded.")
+        return redirect("payroll:discipline_case_detail", pk=disciplinary_case.pk)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["page_title"] = f"Decision - {self.object.case_number}"
+        context["breadcrumbs"] = [
+            {
+                "title": "Disciplinary Cases",
+                "url": reverse_lazy("payroll:discipline_case_list"),
+            },
+            {
+                "title": self.object.case_number,
+                "url": reverse_lazy(
+                    "payroll:discipline_case_detail", kwargs={"pk": self.object.pk}
+                ),
+            },
+            {"title": "Decision"},
+        ]
+        context["is_auditor"] = is_auditor(self.request.user)
+        context["is_accountant"] = is_accountant(self.request.user)
+        context["is_payroll_processor"] = is_payroll_processor(self.request.user)
+        context["is_hr_staff"] = is_hr_staff(self.request.user)
+        return context
+
+
+class DisciplinarySanctionCreateView(
+    LoginRequiredMixin, DisciplineManagerRequiredMixin, CreateView
+):
+    model = DisciplinarySanction
+    form_class = DisciplinarySanctionForm
+    template_name = "accounting/discipline/sanction_form.html"
+
+    def dispatch(self, request, *args, **kwargs):
+        self.disciplinary_case = get_object_or_404(DisciplinaryCase, pk=kwargs["pk"])
+        return super().dispatch(request, *args, **kwargs)
+
+    def form_valid(self, form):
+        form.instance.case = self.disciplinary_case
+        form.instance.created_by = self.request.user
+        messages.success(self.request, "Sanction recorded.")
+        return super().form_valid(form)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["disciplinary_case"] = self.disciplinary_case
+        context["page_title"] = f"Add Sanction - {self.disciplinary_case.case_number}"
+        context["breadcrumbs"] = [
+            {
+                "title": "Disciplinary Cases",
+                "url": reverse_lazy("payroll:discipline_case_list"),
+            },
+            {
+                "title": self.disciplinary_case.case_number,
+                "url": reverse_lazy(
+                    "payroll:discipline_case_detail",
+                    kwargs={"pk": self.disciplinary_case.pk},
+                ),
+            },
+            {"title": "Add Sanction"},
+        ]
+        context["is_auditor"] = is_auditor(self.request.user)
+        context["is_accountant"] = is_accountant(self.request.user)
+        context["is_payroll_processor"] = is_payroll_processor(self.request.user)
+        context["is_hr_staff"] = is_hr_staff(self.request.user)
+        return context
+
+    def get_success_url(self):
+        return reverse_lazy(
+            "payroll:discipline_case_detail",
+            kwargs={"pk": self.disciplinary_case.pk},
+        )
+
+
+class DisciplinaryAppealCreateView(
+    LoginRequiredMixin, DisciplineAccessRequiredMixin, CreateView
+):
+    model = DisciplinaryAppeal
+    form_class = DisciplinaryAppealForm
+    template_name = "accounting/discipline/appeal_form.html"
+
+    def dispatch(self, request, *args, **kwargs):
+        self.disciplinary_case = get_object_or_404(DisciplinaryCase, pk=kwargs["pk"])
+        return super().dispatch(request, *args, **kwargs)
+
+    def form_valid(self, form):
+        form.instance.case = self.disciplinary_case
+        form.instance.appellant = self.request.user
+        self.disciplinary_case.status = DisciplinaryCase.Status.APPEALED
+        self.disciplinary_case.save(update_fields=["status", "updated_at"])
+        messages.success(self.request, "Appeal submitted.")
+        return super().form_valid(form)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["disciplinary_case"] = self.disciplinary_case
+        context["page_title"] = f"Submit Appeal - {self.disciplinary_case.case_number}"
+        context["breadcrumbs"] = [
+            {
+                "title": "Disciplinary Cases",
+                "url": reverse_lazy("payroll:discipline_case_list"),
+            },
+            {
+                "title": self.disciplinary_case.case_number,
+                "url": reverse_lazy(
+                    "payroll:discipline_case_detail",
+                    kwargs={"pk": self.disciplinary_case.pk},
+                ),
+            },
+            {"title": "Submit Appeal"},
+        ]
+        context["is_auditor"] = is_auditor(self.request.user)
+        context["is_accountant"] = is_accountant(self.request.user)
+        context["is_payroll_processor"] = is_payroll_processor(self.request.user)
+        context["is_hr_staff"] = is_hr_staff(self.request.user)
+        return context
+
+    def get_success_url(self):
+        return reverse_lazy(
+            "payroll:discipline_case_detail",
+            kwargs={"pk": self.disciplinary_case.pk},
+        )
+
+
+class DisciplinaryAppealReviewView(
+    LoginRequiredMixin, DisciplineManagerRequiredMixin, UpdateView
+):
+    model = DisciplinaryAppeal
+    form_class = DisciplinaryAppealReviewForm
+    template_name = "accounting/discipline/appeal_review_form.html"
+    context_object_name = "appeal"
+
+    def form_valid(self, form):
+        appeal = form.save(commit=False)
+        appeal.reviewed_by = self.request.user
+        appeal.reviewed_at = timezone.now()
+        appeal.save()
+
+        if appeal.status in [
+            DisciplinaryAppeal.Status.UPHELD,
+            DisciplinaryAppeal.Status.MODIFIED,
+            DisciplinaryAppeal.Status.OVERTURNED,
+            DisciplinaryAppeal.Status.REJECTED,
+        ]:
+            appeal.case.close_case()
+        elif appeal.status == DisciplinaryAppeal.Status.REINVESTIGATION_ORDERED:
+            appeal.case.status = DisciplinaryCase.Status.UNDER_INVESTIGATION
+            appeal.case.save(update_fields=["status", "updated_at"])
+
+        messages.success(self.request, "Appeal review recorded.")
+        return redirect("payroll:discipline_case_detail", pk=appeal.case.pk)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["disciplinary_case"] = self.object.case
+        context["page_title"] = f"Review Appeal - {self.object.case.case_number}"
+        context["breadcrumbs"] = [
+            {
+                "title": "Disciplinary Cases",
+                "url": reverse_lazy("payroll:discipline_case_list"),
+            },
+            {
+                "title": self.object.case.case_number,
+                "url": reverse_lazy(
+                    "payroll:discipline_case_detail",
+                    kwargs={"pk": self.object.case.pk},
+                ),
+            },
+            {"title": "Review Appeal"},
+        ]
+        context["is_auditor"] = is_auditor(self.request.user)
+        context["is_accountant"] = is_accountant(self.request.user)
+        context["is_payroll_processor"] = is_payroll_processor(self.request.user)
+        context["is_hr_staff"] = is_hr_staff(self.request.user)
+        return context
+
+
 @login_required
 @auditor_or_accountant_required
 def trial_balance_report(request):
@@ -840,7 +1343,7 @@ def trial_balance_report(request):
             messages.error(request, "Invalid date format")
             return redirect("accounting:reports")
     else:
-        # Default to current date
+
         trial_balance = get_trial_balance()
         context = {
             "trial_balance": trial_balance,
@@ -863,7 +1366,6 @@ def account_activity_report(request):
 
     account = get_object_or_404(Account, pk=account_id)
 
-    # Get date range
     start_date = request.GET.get("start_date")
     end_date = request.GET.get("end_date")
 
@@ -915,7 +1417,7 @@ def reports_index(request):
     """
     Index page for accounting reports (auditors only)
     """
-    # Get available periods for report generation
+
     periods = AccountingPeriod.objects.filter(is_closed=True).order_by(
         "-fiscal_year", "-period_number"
     )
@@ -958,15 +1460,21 @@ def unposted_financial_events_report(request):
         ).values_list("object_id", flat=True)
     )
 
-    unposted_closed_payroll = PayrollRun.objects.filter(closed=True).exclude(
-        pk__in=posted_payroll_ids
-    ).order_by("-paydays")
-    unposted_iou_approved = IOU.objects.filter(status="APPROVED").exclude(
-        pk__in=posted_iou_approval_ids
-    ).order_by("-approved_at", "-created_at")
-    unposted_iou_direct_paid = IOU.objects.filter(
-        status="PAID", payment_method="DIRECT_PAYMENT"
-    ).exclude(pk__in=posted_iou_direct_paid_ids).order_by("-due_date", "-created_at")
+    unposted_closed_payroll = (
+        PayrollRun.objects.filter(closed=True)
+        .exclude(pk__in=posted_payroll_ids)
+        .order_by("-paydays")
+    )
+    unposted_iou_approved = (
+        IOU.objects.filter(status="APPROVED")
+        .exclude(pk__in=posted_iou_approval_ids)
+        .order_by("-approved_at", "-created_at")
+    )
+    unposted_iou_direct_paid = (
+        IOU.objects.filter(status="PAID", payment_method="DIRECT_PAYMENT")
+        .exclude(pk__in=posted_iou_direct_paid_ids)
+        .order_by("-due_date", "-created_at")
+    )
 
     context = {
         "unposted_closed_payroll": unposted_closed_payroll,
@@ -1061,7 +1569,12 @@ def export_reports(request):
                     messages.error(request, "Invalid date format")
                     return redirect("accounting:reports")
             writer.writerow(
-                [account.account_number, account.name, account.get_type_display(), balance]
+                [
+                    account.account_number,
+                    account.name,
+                    account.get_type_display(),
+                    balance,
+                ]
             )
         return response
 
@@ -1069,7 +1582,6 @@ def export_reports(request):
     return redirect("accounting:reports")
 
 
-# PDF Export Views
 @login_required
 @auditor_or_accountant_required
 def trial_balance_pdf(request):
@@ -1108,7 +1620,6 @@ def trial_balance_pdf(request):
             "report_title": "Trial Balance - Current",
         }
 
-    # Generate PDF
     html_string = render_to_string(
         "accounting/reports/pdf/trial_balance_pdf.html", context
     )
@@ -1117,21 +1628,21 @@ def trial_balance_pdf(request):
         string="""
         @page { size: A4 landscape; margin: 1cm; }
         table { border-collapse: collapse; width: 100%; }
-        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-        th { background-color: #f2f2f2; font-weight: bold; }
+        th, td { border: 1px solid 
+        th { background-color: 
         .text-right { text-align: right; }
         .text-center { text-align: center; }
         .font-bold { font-weight: bold; }
-        .text-danger { color: #dc2626; }
-        .text-success { color: #059669; }
+        .text-danger { color: 
+        .text-success { color: 
     """
     )
 
     pdf = html.write_pdf()
     response = HttpResponse(pdf, content_type="application/pdf")
-    response[
-        "Content-Disposition"
-    ] = f'attachment; filename="trial_balance_{timezone.now().date()}.pdf"'
+    response["Content-Disposition"] = (
+        f'attachment; filename="trial_balance_{timezone.now().date()}.pdf"'
+    )
     return response
 
 
@@ -1189,7 +1700,6 @@ def account_activity_pdf(request):
         "total_credits": total_credits,
     }
 
-    # Generate PDF
     html_string = render_to_string(
         "accounting/reports/pdf/account_activity_pdf.html", context
     )
@@ -1198,25 +1708,24 @@ def account_activity_pdf(request):
         string="""
         @page { size: A4 landscape; margin: 1cm; }
         table { border-collapse: collapse; width: 100%; }
-        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-        th { background-color: #f2f2f2; font-weight: bold; }
+        th, td { border: 1px solid 
+        th { background-color: 
         .text-right { text-align: right; }
         .text-center { text-align: center; }
         .font-bold { font-weight: bold; }
-        .text-danger { color: #dc2626; }
-        .text-success { color: #059669; }
+        .text-danger { color: 
+        .text-success { color: 
     """
     )
 
     pdf = html.write_pdf()
     response = HttpResponse(pdf, content_type="application/pdf")
-    response[
-        "Content-Disposition"
-    ] = f'attachment; filename="account_activity_{account.name}_{timezone.now().date()}.pdf"'
+    response["Content-Disposition"] = (
+        f'attachment; filename="account_activity_{account.name}_{timezone.now().date()}.pdf"'
+    )
     return response
 
 
-# Additional Report Views
 @login_required
 @auditor_or_accountant_required
 def general_ledger_report(request):
@@ -1252,7 +1761,6 @@ def general_ledger_report(request):
 
     entries = entries.order_by("journal__date", "account__name")
 
-    # Group entries by account
     ledger_data = {}
     for entry in entries:
         if entry.account_id not in ledger_data:
@@ -1300,7 +1808,6 @@ def balance_sheet_report(request):
             "report_title": "Balance Sheet - Current",
         }
 
-    # Organize accounts by type
     assets = []
     liabilities = []
     equity = []
@@ -1356,7 +1863,6 @@ def income_statement_report(request):
             "report_title": "Income Statement - Current",
         }
 
-    # Organize revenue and expense accounts
     revenue = []
     expenses = []
 
@@ -1378,7 +1884,6 @@ def income_statement_report(request):
     return render(request, "accounting/reports/income_statement.html", context)
 
 
-# Transaction Reversal Views
 class JournalReversalInitiationView(LoginRequiredMixin, JournalReversalMixin, FormView):
     """
     View to initiate a journal reversal
@@ -1399,14 +1904,12 @@ class JournalReversalInitiationView(LoginRequiredMixin, JournalReversalMixin, Fo
         reversal_type = form.cleaned_data["reversal_type"]
         reason = form.cleaned_data["reason"]
 
-        # Store form data in session for next step
         self.request.session["reversal_data"] = {
             "journal_id": journal.pk,
             "reversal_type": reversal_type,
             "reason": reason,
         }
 
-        # Redirect to appropriate reversal form
         if reversal_type == "full":
             return redirect("accounting:journal_reversal_confirm", pk=journal.pk)
         elif reversal_type == "partial":
@@ -1438,7 +1941,6 @@ class JournalPartialReversalView(LoginRequiredMixin, JournalReversalMixin, FormV
         context["journal"] = journal
         context["entries"] = journal.entries.all().order_by("account__name")
 
-        # Get reversal data from session
         reversal_data = self.request.session.get("reversal_data", {})
         context["reason"] = reversal_data.get("reason", "")
 
@@ -1449,7 +1951,6 @@ class JournalPartialReversalView(LoginRequiredMixin, JournalReversalMixin, FormV
         reversal_data = self.request.session.get("reversal_data", {})
         reason = reversal_data.get("reason", "")
 
-        # Prepare entry data for partial reversal
         entry_ids = []
         amounts = {}
 
@@ -1474,7 +1975,6 @@ class JournalPartialReversalView(LoginRequiredMixin, JournalReversalMixin, FormV
                 user_agent=self.request.META.get("HTTP_USER_AGENT"),
             )
 
-            # Clear session data
             if "reversal_data" in self.request.session:
                 del self.request.session["reversal_data"]
 
@@ -1501,11 +2001,9 @@ class JournalReversalWithCorrectionView(
         context["journal"] = journal
         context["entries"] = journal.entries.all().order_by("account__name")
 
-        # Get reversal data from session
         reversal_data = self.request.session.get("reversal_data", {})
         context["reason"] = reversal_data.get("reason", "")
 
-        # Add correction entry formset
         if self.request.POST:
             context["correction_formset"] = CorrectionEntryFormSet(self.request.POST)
         else:
@@ -1522,7 +2020,7 @@ class JournalReversalWithCorrectionView(
         correction_formset = context["correction_formset"]
 
         if correction_formset.is_valid():
-            # Prepare correction entries
+
             correction_entries = []
             for correction_form in correction_formset:
                 if (
@@ -1548,7 +2046,6 @@ class JournalReversalWithCorrectionView(
                     user_agent=self.request.META.get("HTTP_USER_AGENT"),
                 )
 
-                # Clear session data
                 if "reversal_data" in self.request.session:
                     del self.request.session["reversal_data"]
 
@@ -1581,7 +2078,6 @@ class JournalReversalConfirmationView(
         context["journal"] = journal
         context["entries"] = journal.entries.all().order_by("account__name")
 
-        # Get reversal data from session
         reversal_data = self.request.session.get("reversal_data", {})
         context["reason"] = reversal_data.get("reason", "")
 
@@ -1602,7 +2098,6 @@ class JournalReversalConfirmationView(
                 user_agent=self.request.META.get("HTTP_USER_AGENT"),
             )
 
-            # Clear session data
             if "reversal_data" in self.request.session:
                 del self.request.session["reversal_data"]
 
@@ -1623,7 +2118,7 @@ class BatchJournalReversalView(LoginRequiredMixin, JournalReversalMixin, FormVie
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        # Add additional context for batch reversal
+
         context["total_journals"] = Journal.objects.filter(
             status=Journal.JournalStatus.POSTED, reversed_journal__isnull=True
         ).count()
@@ -1667,10 +2162,8 @@ class JournalReversalHistoryView(
         context = super().get_context_data(**kwargs)
         journal = self.get_object()
 
-        # Get reversal history
         reversal_history = []
 
-        # Check if this journal has been reversed
         if journal.reversed_journal:
             reversal_history.append(
                 {
@@ -1682,7 +2175,6 @@ class JournalReversalHistoryView(
                 }
             )
 
-        # Check if this journal is a reversal of another journal
         if hasattr(journal, "reversal_of") and journal.reversal_of:
             reversal_history.append(
                 {
@@ -1694,7 +2186,6 @@ class JournalReversalHistoryView(
                 }
             )
 
-        # Get audit trail entries for this journal
         audit_entries = AccountingAuditTrail.objects.filter(
             content_type=ContentType.objects.get_for_model(Journal),
             object_id=journal.pk,

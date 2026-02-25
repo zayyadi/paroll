@@ -49,9 +49,38 @@ BANK = (
     ("UBA", "UBA"),
 )
 
+HMO_PROVIDERS = (
+    ("AXA", "AXA Mansard Health"),
+    ("AVON", "Avon HMO"),
+    ("CLEARLINE", "Clearline HMO"),
+    ("HYGEIA", "Hygeia HMO"),
+    ("INTEGRATED", "Integrated Healthcare Limited"),
+    ("RELIANCE", "Reliance HMO"),
+    ("TOTALHEALTH", "Total Health Trust"),
+    ("WELLNESS", "Wellness Healthcare"),
+)
+
+PENSION_FUND_MANAGERS = (
+    ("AIICO", "AIICO Pension Managers"),
+    ("APT", "APT Pension Funds Managers"),
+    ("ARM", "ARM Pension Managers"),
+    ("FCMB", "FCMB Pensions"),
+    ("FIDELITY", "Fidelity Pension Managers"),
+    ("IEI", "IEI-Anchor Pensions"),
+    ("OAK", "OAK Pensions"),
+    ("PAL", "PAL Pensions"),
+    ("PENCOM", "Pension Alliance Limited"),
+    ("SIGMA", "Sigma Pensions"),
+    ("STANBIC", "Stanbic IBTC Pension Managers"),
+    ("TRUSTFUND", "Trustfund Pensions"),
+    ("VERITAS", "Veritas Glanvills Pensions"),
+)
+
 STATUS = (
     ("active", "ACTIVE"),
     ("pending", "PENDING"),
+    ("suspended", "SUSPENDED"),
+    ("terminated", "TERMINATED"),
 )
 
 

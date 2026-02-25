@@ -31,6 +31,10 @@ User = get_user_model()
 logger = logging.getLogger(__name__)
 
 
+def _deduction_debug_print(message: str) -> None:
+    logger.debug("[DEDUCTION_DEBUG] %s", message)
+
+
 # Helper function to get or create payroll accounts
 def get_payroll_account(name, account_type, account_number):
     """Get or create a payroll account with the specified details."""
@@ -183,6 +187,10 @@ def handle_payroll_period_closure(sender, instance, **kwargs):
                     if deduction.deduction_type != "IOU":
                         amount = Decimal(deduction.amount or 0)
                         other_deduction += amount
+                        _deduction_debug_print(
+                            f"Payroll closure deduction: employee={employee_name}, "
+                            f"deduction_id={deduction.id}, type={deduction.deduction_type}, amount={amount}."
+                        )
                         add_entry(
                             "deductions_payable",
                             "CREDIT",
@@ -197,6 +205,10 @@ def handle_payroll_period_closure(sender, instance, **kwargs):
                 ):
                     amount = Decimal(iou_deduction.amount or 0)
                     iou_repayment += amount
+                    _deduction_debug_print(
+                        f"Payroll closure IOU recovery: employee={employee_name}, "
+                        f"iou_deduction_id={iou_deduction.id}, amount={amount}."
+                    )
                     add_entry(
                         "employee_advances",
                         "CREDIT",
@@ -226,6 +238,12 @@ def handle_payroll_period_closure(sender, instance, **kwargs):
                     + employee_health
                     + other_deduction
                     + iou_repayment
+                )
+                _deduction_debug_print(
+                    f"Payroll closure liability rollup: employee={employee_name}, "
+                    f"payee={payee}, pension_employee={pension_employee}, nhf={nhf}, "
+                    f"employee_health={employee_health}, other_deduction={other_deduction}, "
+                    f"iou_repayment={iou_repayment}, total={employee_liability_total}."
                 )
 
                 net_pay = Decimal(pay_var.netpay or 0)
@@ -474,6 +492,16 @@ def handle_iou_repayment(sender, instance, created, **kwargs):
     IOU repayment posting is recognized at payroll period closure for proper
     salary-period matching and to avoid duplicate postings.
     """
+    if created:
+        _deduction_debug_print(
+            f"IOU deduction created: id={instance.id}, employee_id={instance.employee_id}, "
+            f"iou_id={instance.iou_id}, amount={instance.amount}, payday={instance.payday_id}."
+        )
+    else:
+        _deduction_debug_print(
+            f"IOU deduction updated: id={instance.id}, employee_id={instance.employee_id}, "
+            f"iou_id={instance.iou_id}, amount={instance.amount}, payday={instance.payday_id}."
+        )
     return
 
 
@@ -492,4 +520,9 @@ def handle_deduction_creation(sender, instance, created, **kwargs):
     Deduction posting is recognized at payroll period closure for proper
     salary-period matching and to avoid duplicate postings.
     """
+    action = "created" if created else "updated"
+    _deduction_debug_print(
+        f"Deduction {action}: id={instance.id}, employee_id={instance.employee_id}, "
+        f"type={instance.deduction_type}, amount={instance.amount}, reason={instance.reason or ''}."
+    )
     return

@@ -1,13 +1,25 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>IOU Request Update</title>
-</head>
-<body>
-    <p>Hi {{ employee_name }},</p>
-    <p>Your IOU request has been <strong>{{ status|lower }}</strong>.</p>
-    <p>Amount: ₦{{ amount }}</p>
-    <p>Tenor: {{ tenor }} month{{ tenor|pluralize }}</p>
-    <p>Please log in to your payroll account for more details.</p>
-</body>
-</html>
+{% extends "email/base_email.html" %}
+
+{% block title %}IOU Request Update{% endblock %}
+{% block header_subtitle %}IOU Status Notification{% endblock %}
+
+{% block content %}
+<p style="margin:0 0 12px 0; font-size:15px;">Hi {{ employee_name }},</p>
+<p style="margin:0 0 14px 0; font-size:14px; line-height:1.6;">
+    Your IOU request has been
+    <strong style="text-transform:capitalize;">{{ status|lower }}</strong>.
+</p>
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border:1px solid #e5e7eb; border-radius:10px; overflow:hidden;">
+    <tr>
+        <td style="padding:12px 14px; background:#f8fafc; font-size:13px; color:#475569;">Amount</td>
+        <td style="padding:12px 14px; font-size:13px; color:#0f172a; text-align:right;">₦{{ amount }}</td>
+    </tr>
+    <tr>
+        <td style="padding:12px 14px; background:#f8fafc; font-size:13px; color:#475569;">Tenor</td>
+        <td style="padding:12px 14px; font-size:13px; color:#0f172a; text-align:right;">{{ tenor }} month{{ tenor|pluralize }}</td>
+    </tr>
+</table>
+<p style="margin:16px 0 0 0; font-size:14px; line-height:1.6;">
+    Please log in to your payroll account for full details.
+</p>
+{% endblock %}

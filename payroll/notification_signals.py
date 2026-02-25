@@ -10,6 +10,7 @@ from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
 from django.contrib.auth import get_user_model
 from django.urls import reverse
+from django.urls.exceptions import NoReverseMatch
 from django.conf import settings
 
 from payroll.models import (
@@ -39,6 +40,18 @@ User = get_user_model()
 event_dispatcher = EventDispatcher()
 
 
+def _notification_signals_enabled():
+    return getattr(settings, "NOTIFICATION_SIGNALS_ENABLED", True)
+
+
+def _safe_reverse(view_name, *, args=None, kwargs=None, default="#"):
+    try:
+        return reverse(view_name, args=args, kwargs=kwargs)
+    except NoReverseMatch:
+        logger.debug("Missing URL name for notification action_url: %s", view_name)
+        return default
+
+
 @receiver(post_save, sender=LeaveRequest)
 def handle_leave_request_signal(sender, instance, created, **kwargs):
     """
@@ -47,6 +60,8 @@ def handle_leave_request_signal(sender, instance, created, **kwargs):
     Dispatches LeaveRequestEvent based on whether it's a new request
     or a status change.
     """
+    if not _notification_signals_enabled():
+        return
     try:
         if created:
             # New leave request - notify HR/Managers
@@ -104,7 +119,7 @@ def _dispatch_leave_request_created_event(leave_request):
                 title="New Leave Request",
                 message=message,
                 leave_request=leave_request,
-                action_url=reverse("payroll:manage_leave_requests"),
+                action_url=_safe_reverse("payroll:manage_leave_requests"),
                 priority="MEDIUM",
             )
         except EmployeeProfile.DoesNotExist:
@@ -137,7 +152,7 @@ def _dispatch_leave_request_approved_event(leave_request):
             f"{leave_request.start_date} to {leave_request.end_date} has been approved."
         ),
         leave_request=leave_request,
-        action_url=reverse("payroll:leave_requests"),
+        action_url=_safe_reverse("payroll:leave_requests"),
         priority="HIGH",
     )
     _send_leave_status_email(leave_request)
@@ -169,7 +184,7 @@ def _dispatch_leave_request_rejected_event(leave_request):
             f"{leave_request.start_date} to {leave_request.end_date} has been rejected."
         ),
         leave_request=leave_request,
-        action_url=reverse("payroll:leave_requests"),
+        action_url=_safe_reverse("payroll:leave_requests"),
         priority="HIGH",
     )
     _send_leave_status_email(leave_request)
@@ -183,6 +198,8 @@ def handle_iou_signal(sender, instance, created, **kwargs):
     Dispatches IOUEvent based on whether it's a new request
     or a status change.
     """
+    if not _notification_signals_enabled():
+        return
     try:
         if created:
             # New IOU request - notify HR/Managers
@@ -241,7 +258,7 @@ def _dispatch_iou_created_event(iou):
                 title="New IOU Request",
                 message=message,
                 iou=iou,
-                action_url=reverse("payroll:manage_iou_requests"),
+                action_url=_safe_reverse("payroll:iou_list"),
                 priority="MEDIUM",
             )
         except EmployeeProfile.DoesNotExist:
@@ -274,7 +291,7 @@ def _dispatch_iou_approved_event(iou):
             f"Repayment will be deducted over {iou.tenor} months."
         ),
         iou=iou,
-        action_url=reverse("payroll:iou_list"),
+        action_url=_safe_reverse("payroll:iou_list"),
         priority="HIGH",
     )
     _send_iou_status_email(iou)
@@ -303,7 +320,7 @@ def _dispatch_iou_rejected_event(iou):
         title="IOU Request Rejected",
         message=f"Your IOU request for ₦{iou.amount} has been rejected.",
         iou=iou,
-        action_url=reverse("payroll:iou_list"),
+        action_url=_safe_reverse("payroll:iou_list"),
         priority="HIGH",
     )
     _send_iou_status_email(iou)
@@ -332,7 +349,7 @@ def _dispatch_iou_paid_event(iou):
         title="IOU Fully Paid",
         message=f"Your IOU of ₦{iou.amount} has been fully repaid.",
         iou=iou,
-        action_url=reverse("payroll:iou_list"),
+        action_url=_safe_reverse("payroll:iou_list"),
         priority="MEDIUM",
     )
 
@@ -344,6 +361,8 @@ def handle_payroll_signal(sender, instance, created, **kwargs):
 
     Dispatches PayrollEvent when payroll becomes active (processed).
     """
+    if not _notification_signals_enabled():
+        return
     try:
         previous_is_active = getattr(instance, "_previous_is_active", False)
         became_active = instance.is_active and (created or not previous_is_active)
@@ -393,7 +412,7 @@ def _dispatch_payroll_processed_event(payroll):
                 f"Net pay: ₦{payday.payroll_entry.netpay:,.2f}"
             ),
             payroll=payroll,
-            action_url=reverse("payroll:pay_period_detail", args=[payroll.slug]),
+            action_url=_safe_reverse("payroll:pay_period_detail", args=[payroll.slug]),
             priority="HIGH",
         )
         _send_salary_created_email(payroll, payday)
@@ -415,7 +434,7 @@ def _dispatch_payroll_processed_event(payroll):
                     f"for {payday_records.count()} employees."
                 ),
                 payroll=payroll,
-                action_url=reverse("payroll:pay_period_detail", args=[payroll.slug]),
+                action_url=_safe_reverse("payroll:pay_period_detail", args=[payroll.slug]),
                 priority="MEDIUM",
             )
         except EmployeeProfile.DoesNotExist:
@@ -429,6 +448,8 @@ def handle_appraisal_signal(sender, instance, created, **kwargs):
 
     Dispatches AppraisalEvent when an appraisal is assigned.
     """
+    if not _notification_signals_enabled():
+        return
     try:
         if created:
             _dispatch_appraisal_assigned_event(instance)
@@ -469,33 +490,31 @@ def _dispatch_appraisal_assigned_event(appraisal_assignment):
             f"Please complete your self-assessment."
         ),
         appraisal=appraisal_assignment.appraisal,
-        action_url=reverse(
+        action_url=_safe_reverse(
             "payroll:appraisal_detail", args=[appraisal_assignment.appraisal.pk]
         ),
         priority="HIGH",
     )
 
     # Notify the appraiser (person doing the review)
-    try:
-        appraiser_profile = appraisal_assignment.appraiser.employee_user
-        service.send_notification(
-            recipient=appraiser_profile,
-            notification_type="APPRAISAL_ASSIGNED",
-            title="Review Assignment",
-            message=(
-                f"You have been assigned to review "
-                f"{appraisal_assignment.appraisee.first_name} "
-                f"{appraisal_assignment.appraisee.last_name} for the "
-                f"{appraisal_assignment.appraisal.name} appraisal."
-            ),
-            appraisal=appraisal_assignment.appraisal,
-            action_url=reverse(
-                "payroll:appraisal_detail", args=[appraisal_assignment.appraisal.pk]
-            ),
-            priority="HIGH",
-        )
-    except EmployeeProfile.DoesNotExist:
-        pass
+    service.send_notification(
+        recipient=appraisal_assignment.appraiser,
+        notification_type="APPRAISAL_ASSIGNED",
+        title="Review Assignment",
+        message=(
+            f"You have been assigned to review "
+            f"{appraisal_assignment.appraisee.first_name} "
+            f"{appraisal_assignment.appraisee.last_name} for the "
+            f"{appraisal_assignment.appraisal.name} appraisal."
+        ),
+        appraisal=appraisal_assignment.appraisal,
+        action_url=_safe_reverse(
+            "payroll:appraisal_detail", args=[appraisal_assignment.appraisal.pk]
+        ),
+        priority="HIGH",
+    )
+
+    _send_appraisal_assignment_emails(appraisal_assignment)
 
 
 # ==================== HELPER FUNCTIONS ====================
@@ -682,3 +701,71 @@ def _send_salary_created_email(payroll, payday):
         )
     except Exception as exc:
         logger.error("Failed to send monthly salary email: %s", exc)
+
+
+def _send_appraisal_assignment_emails(appraisal_assignment):
+    appraisee_email = _get_employee_email(appraisal_assignment.appraisee)
+    appraiser_email = _get_employee_email(appraisal_assignment.appraiser)
+
+    review_path = _safe_reverse(
+        "payroll:review_create",
+        args=[appraisal_assignment.appraisal.pk, appraisal_assignment.appraisee.pk],
+    )
+    appraisal_path = _safe_reverse(
+        "payroll:appraisal_detail", args=[appraisal_assignment.appraisal.pk]
+    )
+    app_base_url = getattr(settings, "APP_BASE_URL", "").rstrip("/")
+    review_url = f"{app_base_url}{review_path}" if app_base_url else review_path
+    appraisal_url = (
+        f"{app_base_url}{appraisal_path}" if app_base_url else appraisal_path
+    )
+
+    appraisee_name = _get_employee_name(appraisal_assignment.appraisee)
+    appraiser_name = _get_employee_name(appraisal_assignment.appraiser)
+    appraisal_name = appraisal_assignment.appraisal.name
+    appraisal_period = (
+        f"{appraisal_assignment.appraisal.start_date} - "
+        f"{appraisal_assignment.appraisal.end_date}"
+    )
+
+    if appraisee_email:
+        try:
+            custom_send_mail(
+                subject=f"Performance Review Assigned: {appraisal_name}",
+                template_name="email/appraisal_assignment_email.html",
+                context={
+                    "recipient_name": appraisee_name,
+                    "recipient_role": "appraisee",
+                    "appraisal_name": appraisal_name,
+                    "appraisal_period": appraisal_period,
+                    "appraisee_name": appraisee_name,
+                    "appraiser_name": appraiser_name,
+                    "action_url": appraisal_url,
+                },
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[appraisee_email],
+                fail_silently=False,
+            )
+        except Exception as exc:
+            logger.error("Failed to send appraisal assignment email to appraisee: %s", exc)
+
+    if appraiser_email:
+        try:
+            custom_send_mail(
+                subject=f"Appraisal Review Task: {appraisal_name}",
+                template_name="email/appraisal_assignment_email.html",
+                context={
+                    "recipient_name": appraiser_name,
+                    "recipient_role": "appraiser",
+                    "appraisal_name": appraisal_name,
+                    "appraisal_period": appraisal_period,
+                    "appraisee_name": appraisee_name,
+                    "appraiser_name": appraiser_name,
+                    "action_url": review_url,
+                },
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[appraiser_email],
+                fail_silently=False,
+            )
+        except Exception as exc:
+            logger.error("Failed to send appraisal assignment email to appraiser: %s", exc)

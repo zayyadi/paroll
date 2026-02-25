@@ -253,6 +253,35 @@ def is_payroll_processor(user):
     return user.is_superuser or user.groups.filter(name="Payroll Processor").exists()
 
 
+def is_hr_staff(user):
+    """
+    Check if user has HR-facing access based on payroll employee management permission.
+    """
+    return user.is_superuser or user.has_perm("payroll.view_employeeprofile")
+
+
+def can_access_disciplinary(user):
+    """
+    Check if user can access disciplinary pages.
+    """
+    return (
+        user.is_superuser
+        or is_auditor(user)
+        or is_accountant(user)
+        or is_payroll_processor(user)
+        or is_hr_staff(user)
+    )
+
+
+def can_manage_disciplinary_case(user):
+    """
+    Check if user can decide, sanction, or review appeals for disciplinary cases.
+    """
+    return user.is_superuser or is_auditor(user) or is_accountant(user) or is_hr_staff(
+        user
+    )
+
+
 def can_approve_journal(user, journal):
     """
     Check if user can approve a journal

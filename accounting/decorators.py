@@ -6,6 +6,8 @@ from .permissions import (
     is_auditor,
     is_accountant,
     is_payroll_processor,
+    can_access_disciplinary,
+    can_manage_disciplinary_case,
     can_reverse_journal,
     can_partial_reverse_journal,
     can_reverse_with_correction,
@@ -201,6 +203,44 @@ def auditor_or_accountant_required(view_func):
         if not (is_auditor(request.user) or is_accountant(request.user)):
             return HttpResponseForbidden(
                 "Access denied. Auditor or Accountant role required."
+            )
+
+        return view_func(request, *args, **kwargs)
+
+    return _wrapped_view
+
+
+def discipline_access_required(view_func):
+    """
+    Decorator to ensure user can access disciplinary pages.
+    """
+
+    def _wrapped_view(request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return redirect("login")
+
+        if not can_access_disciplinary(request.user):
+            return HttpResponseForbidden(
+                "Access denied. Disciplinary access role required."
+            )
+
+        return view_func(request, *args, **kwargs)
+
+    return _wrapped_view
+
+
+def discipline_manager_required(view_func):
+    """
+    Decorator to ensure user can manage disciplinary decisions/sanctions/appeals.
+    """
+
+    def _wrapped_view(request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return redirect("login")
+
+        if not can_manage_disciplinary_case(request.user):
+            return HttpResponseForbidden(
+                "Access denied. Disciplinary manager role required."
             )
 
         return view_func(request, *args, **kwargs)

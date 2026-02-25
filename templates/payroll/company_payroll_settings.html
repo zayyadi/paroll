@@ -1,0 +1,96 @@
+{% extends "base_new.html" %}
+{% load humanize %}
+
+{% block page_header %}Payroll Settings{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto space-y-6">
+    <div class="bg-white rounded-xl shadow-soft p-6 flex flex-col sm:flex-row sm:items-center sm:justify-between">
+        <div>
+            <h1 class="text-2xl font-bold text-secondary-900">Company Payroll Settings</h1>
+            <p class="text-sm text-secondary-600 mt-1">{{ company.name }}</p>
+        </div>
+        <a
+            href="{% url 'payroll:company_payroll_settings_edit' %}"
+            class="mt-4 sm:mt-0 inline-flex items-center px-4 py-2.5 bg-primary-600 text-white rounded-xl text-sm font-medium hover:bg-primary-700 transition-colors"
+        >
+            Edit Settings
+        </a>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div class="bg-white rounded-xl shadow-soft p-4">
+            <p class="text-xs text-secondary-500">Basic Salary %</p>
+            <p class="text-xl font-semibold text-secondary-900 mt-1">{{ settings_obj.basic_percentage }}%</p>
+        </div>
+        <div class="bg-white rounded-xl shadow-soft p-4">
+            <p class="text-xs text-secondary-500">Housing %</p>
+            <p class="text-xl font-semibold text-secondary-900 mt-1">{{ settings_obj.housing_percentage }}%</p>
+        </div>
+        <div class="bg-white rounded-xl shadow-soft p-4">
+            <p class="text-xs text-secondary-500">Transport %</p>
+            <p class="text-xl font-semibold text-secondary-900 mt-1">{{ settings_obj.transport_percentage }}%</p>
+        </div>
+        <div class="bg-white rounded-xl shadow-soft p-4">
+            <p class="text-xs text-secondary-500">Pension Employee %</p>
+            <p class="text-xl font-semibold text-secondary-900 mt-1">{{ settings_obj.pension_employee_percentage }}%</p>
+        </div>
+        <div class="bg-white rounded-xl shadow-soft p-4">
+            <p class="text-xs text-secondary-500">Pension Employer %</p>
+            <p class="text-xl font-semibold text-secondary-900 mt-1">{{ settings_obj.pension_employer_percentage }}%</p>
+        </div>
+        <div class="bg-white rounded-xl shadow-soft p-4">
+            <p class="text-xs text-secondary-500">NHF %</p>
+            <p class="text-xl font-semibold text-secondary-900 mt-1">{{ settings_obj.nhf_percentage }}%</p>
+        </div>
+        <div class="bg-white rounded-xl shadow-soft p-4">
+            <p class="text-xs text-secondary-500">Leave Allowance %</p>
+            <p class="text-xl font-semibold text-secondary-900 mt-1">{{ settings_obj.leave_allowance_percentage }}%</p>
+        </div>
+        <div class="bg-white rounded-xl shadow-soft p-4">
+            <p class="text-xs text-secondary-500">13th Month Rule</p>
+            <p class="text-xl font-semibold text-secondary-900 mt-1">
+                {% if settings_obj.pays_thirteenth_month %}
+                Enabled ({{ settings_obj.thirteenth_month_percentage }}% of annual salary)
+                {% else %}
+                Disabled
+                {% endif %}
+            </p>
+        </div>
+    </div>
+
+    <div class="bg-white rounded-xl shadow-soft overflow-hidden">
+        <div class="px-6 py-4 border-b border-secondary-200">
+            <h2 class="text-lg font-semibold text-secondary-900">Health Insurance Salary Tiers</h2>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead class="bg-secondary-50 text-secondary-700">
+                    <tr>
+                        <th class="px-4 py-3 text-left">Min Salary</th>
+                        <th class="px-4 py-3 text-left">Max Salary</th>
+                        <th class="px-4 py-3 text-left">Employee %</th>
+                        <th class="px-4 py-3 text-left">Employer %</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-secondary-200">
+                    {% for tier in tiers %}
+                    <tr>
+                        <td class="px-4 py-3">₦{{ tier.min_salary|floatformat:2|intcomma }}</td>
+                        <td class="px-4 py-3">
+                            {% if tier.max_salary %}₦{{ tier.max_salary|floatformat:2|intcomma }}{% else %}No upper limit{% endif %}
+                        </td>
+                        <td class="px-4 py-3">{{ tier.employee_percentage }}%</td>
+                        <td class="px-4 py-3">{{ tier.employer_percentage }}%</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4" class="px-4 py-6 text-center text-secondary-500">No tiers configured.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

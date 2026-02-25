@@ -73,6 +73,44 @@
         </div>
     </div>
 
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div class="bg-white rounded-xl shadow-soft p-6">
+            <div class="flex items-center">
+                <div class="flex-shrink-0 bg-success-100 rounded-lg p-3">
+                    <i data-lucide="user-check" class="h-6 w-6 text-success-700"></i>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-secondary-600">Active Staff</p>
+                    <p class="text-2xl font-semibold text-secondary-900">{{ active_employees_count|default:0 }}</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-soft p-6">
+            <div class="flex items-center">
+                <div class="flex-shrink-0 bg-warning-100 rounded-lg p-3">
+                    <i data-lucide="user-minus" class="h-6 w-6 text-warning-700"></i>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-secondary-600">Suspended Staff</p>
+                    <p class="text-2xl font-semibold text-secondary-900">{{ suspended_employees_count|default:0 }}</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-soft p-6">
+            <div class="flex items-center">
+                <div class="flex-shrink-0 bg-danger-100 rounded-lg p-3">
+                    <i data-lucide="user-x" class="h-6 w-6 text-danger-700"></i>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-secondary-600">Terminated Staff</p>
+                    <p class="text-2xl font-semibold text-secondary-900">{{ terminated_employees_count|default:0 }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Quick Actions -->
     <div class="bg-white rounded-xl shadow-soft p-6">
         <h2 class="text-lg font-semibold text-secondary-900 mb-4">Quick Actions</h2>
@@ -105,6 +143,18 @@
                 </span>
             </a>
 
+            <a href="{% url 'payroll:disciplinary_system' %}"
+                class="group flex flex-col items-center p-4 border border-secondary-200 rounded-lg hover:border-danger-300 hover:bg-danger-50 transition-all">
+                <i data-lucide="scale-3d" class="h-8 w-8 text-secondary-600 group-hover:text-danger-600 mb-2"></i>
+                <span class="text-sm font-medium text-secondary-700 group-hover:text-danger-700">Disciplinary Policy</span>
+            </a>
+
+            <a href="{% url 'payroll:discipline_case_list' %}"
+                class="group flex flex-col items-center p-4 border border-secondary-200 rounded-lg hover:border-danger-300 hover:bg-danger-50 transition-all">
+                <i data-lucide="shield-alert" class="h-8 w-8 text-secondary-600 group-hover:text-danger-600 mb-2"></i>
+                <span class="text-sm font-medium text-secondary-700 group-hover:text-danger-700">Disciplinary Cases</span>
+            </a>
+
             <a href="{% url 'payroll:payday' %}"
                 class="group flex flex-col items-center p-4 border border-secondary-200 rounded-lg hover:border-primary-300 hover:bg-primary-50 transition-all">
                 <i data-lucide="calendar-plus-2" class="h-8 w-8 text-secondary-600 group-hover:text-primary-600 mb-2"></i>
@@ -115,6 +165,12 @@
                 class="group flex flex-col items-center p-4 border border-secondary-200 rounded-lg hover:border-primary-300 hover:bg-primary-50 transition-all">
                 <i data-lucide="clipboard-list" class="h-8 w-8 text-secondary-600 group-hover:text-primary-600 mb-2"></i>
                 <span class="text-sm font-medium text-secondary-700 group-hover:text-primary-700">Payroll Periods</span>
+            </a>
+
+            <a href="{% url 'payroll:company_payroll_settings' %}"
+                class="group flex flex-col items-center p-4 border border-secondary-200 rounded-lg hover:border-primary-300 hover:bg-primary-50 transition-all">
+                <i data-lucide="settings-2" class="h-8 w-8 text-secondary-600 group-hover:text-primary-600 mb-2"></i>
+                <span class="text-sm font-medium text-secondary-700 group-hover:text-primary-700">Payroll Settings</span>
             </a>
 
             <a href="{% url 'payroll:add-allowance' %}"
@@ -133,6 +189,22 @@
                 class="group flex flex-col items-center p-4 border border-secondary-200 rounded-lg hover:border-primary-300 hover:bg-primary-50 transition-all">
                 <i data-lucide="user-check" class="h-8 w-8 text-secondary-600 group-hover:text-primary-600 mb-2"></i>
                 <span class="text-sm font-medium text-secondary-700 group-hover:text-primary-700">Assign Appraisal</span>
+            </a>
+
+            <a href="{% url 'payroll:appraisal_list' %}"
+                class="group flex flex-col items-center p-4 border border-secondary-200 rounded-lg hover:border-primary-300 hover:bg-primary-50 transition-all">
+                <i data-lucide="star" class="h-8 w-8 text-secondary-600 group-hover:text-primary-600 mb-2"></i>
+                <span class="text-sm font-medium text-secondary-700 group-hover:text-primary-700">
+                    Appraisal Cycles ({{ appraisal_count|default:0 }})
+                </span>
+            </a>
+
+            <a href="{% url 'payroll:appraisal_list' %}"
+                class="group flex flex-col items-center p-4 border border-secondary-200 rounded-lg hover:border-warning-300 hover:bg-warning-50 transition-all">
+                <i data-lucide="clipboard-check" class="h-8 w-8 text-secondary-600 group-hover:text-warning-600 mb-2"></i>
+                <span class="text-sm font-medium text-secondary-700 group-hover:text-warning-700">
+                    Pending Reviews ({{ pending_appraisal_reviews|default:0 }})
+                </span>
             </a>
 
             <a href="{% url 'payroll:audit_trail_list' %}"

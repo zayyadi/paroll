@@ -284,7 +284,7 @@ class NotificationCacheService:
                     )
                     return True
 
-            except ImportError:
+            except Exception:
                 # Fallback to simple key deletion
                 patterns = [
                     self._get_cache_key(recipient_id, "unread_count"),
@@ -1049,10 +1049,15 @@ class EventDispatcher:
             bool - True if dispatched successfully, False otherwise
         """
         try:
+            if event_type not in self.handlers:
+                logger.warning(f"No handler registered for event: {event_type}")
+                return False
             handler_class = self.handlers.get(event_type)
 
-            if not handler_class:
-                logger.warning(f"No handler registered for event: {event_type}")
+            # Event type exists but no concrete handler implementation yet.
+            # Keep this silent at warning level to avoid noisy logs.
+            if handler_class is None:
+                logger.debug("No concrete handler implemented yet for event: %s", event_type)
                 return False
 
             # Instantiate handler and handle event

@@ -21,6 +21,8 @@ from payroll.models import (
     Review,
     Rating,
     AppraisalAssignment,
+    CompanyPayrollSetting,
+    CompanyHealthInsuranceTier,
 )
 
 
@@ -106,6 +108,11 @@ class PayrollInline(admin.StackedInline):
     model = PayrollRunEntry
     extra = 1
     raw_id_fields = ("payroll_entry",)
+
+
+class CompanyHealthInsuranceTierInline(admin.TabularInline):
+    model = CompanyHealthInsuranceTier
+    extra = 1
 
 
 @admin.register(PayrollRun)
@@ -223,11 +230,14 @@ class EmployeeProfileAdmin(ImportExportModelAdmin):
             {
                 "fields": (
                     "employee_pay",
+                    "hmo_provider",
+                    "pension_fund_manager",
                     "pension_rsa",
                     "bank",
                     "bank_account_name",
                     "bank_account_number",
                     "rent_paid",
+                    # "rent_relief",
                 )
             },
         ),
@@ -243,6 +253,23 @@ class PayrollAdmin(ImportExportModelAdmin):
     search_fields = ("basic_salary",)
     readonly_fields = ("timestamp", "updated")
     date_hierarchy = "timestamp"
+
+
+@admin.register(CompanyPayrollSetting)
+class CompanyPayrollSettingAdmin(admin.ModelAdmin):
+    list_display = (
+        "company",
+        "basic_percentage",
+        "housing_percentage",
+        "transport_percentage",
+        "nhf_percentage",
+        "leave_allowance_percentage",
+        "pays_thirteenth_month",
+        "thirteenth_month_percentage",
+        "updated_at",
+    )
+    search_fields = ("company__name",)
+    inlines = (CompanyHealthInsuranceTierInline,)
 
 
 @admin.register(IOU)

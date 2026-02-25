@@ -1,251 +1,318 @@
-{% load static %}
-{% load mathfilters %}
 {% load humanize %}
+{% load mathfilters %}
 {% load custom_tags %}
 
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-    <title>Payslip</title>
-    <style>
-      /* Basic Reset & Body Styles */
-      body {
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
-        line-height: 1.5;
-        color: #1f2937; /* gray-800 */
-        margin: 0;
-        padding: 0;
-        background-color: #f9fafb; /* gray-50 */
-      }
+<head>
+  <meta charset="utf-8">
+  <title>Payslip</title>
+  <style>
+    @page {
+      size: A4;
+      margin: 18mm 14mm 16mm;
+    }
 
-      .container {
-        max-width: 768px; /* md:max-w-2xl */
-        margin-left: auto;
-        margin-right: auto;
-        padding: 1.5rem; /* p-6 */
-        background-color: #ffffff; /* bg-white */
-        border-radius: 0.75rem; /* rounded-xl */
-        box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06); /* shadow-sm */
-      }
+    body {
+      font-family: "Helvetica", "Arial", sans-serif;
+      font-size: 11px;
+      color: #1f2937;
+      margin: 0;
+    }
 
-      /* Headings & Text */
-      h2 {
-        font-size: 1.5rem; /* text-2xl */
-        line-height: 2rem;
-        font-weight: 600; /* font-semibold */
-        color: #1f2937; /* text-gray-800 */
-        margin-bottom: 0.5rem;
-      }
+    .header {
+      border-bottom: 2px solid #0f172a;
+      padding-bottom: 10px;
+      margin-bottom: 14px;
+    }
 
-      h3 {
-        font-size: 1.125rem; /* text-lg */
-        line-height: 1.75rem;
-        font-weight: 600; /* font-semibold */
-        color: #374151; /* text-gray-700 */
-        margin-bottom: 0.75rem; /* mb-3 */
-        padding-bottom: 0.5rem; /* pb-2 */
-        border-bottom: 1px solid #e5e7eb; /* border-b border-gray-200 */
-      }
+    .title {
+      font-size: 21px;
+      font-weight: 700;
+      color: #0f172a;
+      margin: 0;
+      line-height: 1.2;
+    }
 
-      p {
-        font-size: 0.875rem; /* text-sm */
-        line-height: 1.25rem;
-        color: #6b7280; /* text-gray-500 */
-        margin-bottom: 0;
-      }
+    .subtitle {
+      font-size: 11px;
+      color: #475569;
+      margin: 2px 0 0;
+    }
 
-      span {
-        font-size: 0.875rem; /* text-sm */
-        line-height: 1.25rem;
-      }
+    .meta {
+      margin-top: 8px;
+      font-size: 10px;
+      color: #475569;
+    }
 
-      .font-medium { font-weight: 500; }
-      .font-semibold { font-weight: 600; }
-      .font-bold { font-weight: 700; }
-      .text-gray-700 { color: #374151; }
-      .text-gray-800 { color: #1f2937; }
-      .text-blue-600 { color: #2563eb; }
-      .text-center { text-align: center; }
-      .text-right { text-align: right; }
-      .text-left { text-align: left; }
+    .meta span {
+      margin-right: 12px;
+    }
 
-      /* Spacing */
-      .mb-8 { margin-bottom: 2rem; }
-      .mb-6 { margin-bottom: 1.5rem; }
-      .mb-3 { margin-bottom: 0.75rem; }
-      .mb-1 { margin-bottom: 0.25rem; }
-      .mt-8 { margin-top: 2rem; }
-      .pt-8 { padding-top: 2rem; }
-      .p-4 { padding: 1rem; }
-      .ml-2 { margin-left: 0.5rem; }
+    .section-title {
+      font-size: 11px;
+      font-weight: 700;
+      color: #0f172a;
+      margin: 12px 0 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.05;
+    }
 
-      /* Employee Details Grid */
-      .grid {
-        display: grid;
-        grid-template-columns: repeat(1, minmax(0, 1fr));
-        gap: 0.5rem; /* gap-y-2 */
-        column-gap: 2rem; /* gap-x-8 */
-      }
-      @media (min-width: 768px) {
-        .grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-      }
-      .float-right { float: right; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 10px;
+    }
 
-      /* Table Styling */
-      table {
-        width: 100%;
-        border-collapse: collapse;
-        margin-bottom: 1.5rem; /* mb-6 */
-        border: 1px solid #e5e7eb; /* border border-gray-200 */
-        border-radius: 0.75rem; /* rounded-xl */
-        overflow: hidden;
-      }
+    .info-table td {
+      border: 1px solid #cbd5e1;
+      padding: 6px 8px;
+      vertical-align: top;
+    }
 
-      thead {
-        background-color: #f9fafb; /* bg-gray-50 */
-      }
+    .label {
+      color: #64748b;
+      width: 34%;
+    }
 
-      th, td {
-        padding: 0.75rem; /* p-3 */
-        font-size: 0.875rem; /* text-sm */
-        line-height: 1.25rem;
-        border-bottom: 1px solid #e5e7eb; /* divide-y divide-gray-200 */
-      }
+    .value {
+      color: #0f172a;
+      text-align: right;
+      font-weight: 600;
+    }
 
-      th {
-        font-weight: 600; /* font-semibold */
-        color: #374151; /* text-gray-700 */
-        text-align: left;
-      }
+    .grid {
+      width: 100%;
+    }
 
-      td {
-        color: #1f2937; /* text-gray-800 */
-      }
+    .col {
+      width: 49%;
+      display: inline-block;
+      vertical-align: top;
+    }
 
-      tbody tr:last-child td { border-bottom: none; }
+    .col.right {
+      margin-left: 1%;
+    }
 
-      .bg-gray-100 { background-color: #f3f4f6; }
+    .money-table th,
+    .money-table td {
+      border: 1px solid #cbd5e1;
+      padding: 6px 8px;
+    }
 
-      /* Net Pay Section */
-      .items-center {
-        display: flex;
-        align-items: center;
-      }
+    .money-table th {
+      text-align: left;
+      background: #f1f5f9;
+      color: #0f172a;
+      font-weight: 700;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.03;
+    }
 
-      .net-pay-amount {
-        font-size: 1.5rem; /* text-2xl */
-        font-weight: 700; /* font-bold */
-        color: #2563eb; /* text-blue-600 */
-      }
+    .money {
+      text-align: right;
+      font-weight: 600;
+      color: #0f172a;
+      white-space: nowrap;
+    }
 
-      .in-words-box {
-        background-color: #f9fafb; /* bg-gray-50 */
-        padding: 1rem; /* p-4 */
-        border-radius: 0.5rem; /* rounded-lg */
-      }
+    .total-row td {
+      background: #f8fafc;
+      font-weight: 700;
+    }
 
-      /* Signature Section */
-      .border-t { border-top: 1px solid #e5e7eb; }
+    .net-block {
+      margin-top: 8px;
+      border: 2px solid #0f172a;
+    }
 
-    </style>
-  </head>
-  <body>
-    <div class="container">
-        <div class="text-center mb-8">
-            <h2>Payslip</h2>
-            <p>Payment slip for the month of {{ dates }}</p>
-        </div>
+    .net-block td {
+      padding: 8px 10px;
+      border: 1px solid #0f172a;
+    }
 
-        <div class="mb-8">
-            <h3>Employee Details</h3>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2">
-                <div><span class="font-medium text-gray-700">Employee Code:</span> <span class="text-gray-800 float-right">{{ payroll.pays.emp_id|default:"N/A" }}</span></div>
-                <div><span class="font-medium text-gray-700">Employee Name:</span> <span class="text-gray-800 float-right">{{ payroll.pays.first_name }} {{ payroll.pays.last_name }}</span></div>
-                <div><span class="font-medium text-gray-700">Tax No.:</span> <span class="text-gray-800 float-right">{{ payroll.pays.tin_no|default:"N/A" }}</span></div>
-                <div><span class="font-medium text-gray-700">Job Title:</span> <span class="text-gray-800 float-right">{{ payroll.pays.get_job_title_display|default:"N/A" }}</span></div>
-                <div><span class="font-medium text-gray-700">Bank Name:</span> <span class="text-gray-800 float-right">{{ payroll.pays.get_bank_display|default:"N/A" }}</span></div>
-                <div><span class="font-medium text-gray-700">Bank Account No.:</span> <span class="text-gray-800 float-right">{{ payroll.pays.bank_account_number|mask_account_number|default:"N/A" }}</span></div>
-            </div>
-        </div>
+    .net-label {
+      font-size: 12px;
+      font-weight: 700;
+      color: #0f172a;
+    }
 
-        <div class="border border-gray-200 rounded-xl overflow-hidden mb-6">
-            <table>
-                <thead>
-                    <tr>
-                        <th class="p-3 text-left font-semibold text-gray-700">Description</th>
-                        <th class="p-3 text-right font-semibold text-gray-700">Amount (₦)</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td class="p-3 text-gray-800">Basic Pay</td>
-                        <td class="p-3 text-gray-800 text-right">{{ payroll.pays.employee_pay.basic_salary }}</td>
-                    </tr>
-                    <tr>
-                        <td class="p-3 text-gray-800">Gross Pay</td>
-                        <td class="p-3 text-gray-800 text-right">{{ payroll.pays.employee_pay.gross_income|div:12|stringformat:".2f"|intcomma }}</td>
-                    </tr>
-                    <tr>
-                        <td class="p-3 text-gray-800">Employee Pension contribution</td>
-                        <td class="p-3 text-gray-800 text-right">{{ payroll.pays.employee_pay.pension_employee|div:12|stringformat:".2f"|intcomma }}</td>
-                    </tr>
-                    <tr>
-                        <td class="p-3 text-gray-800">Taxable Income</td>
-                        <td class="p-3 text-gray-800 text-right">{{ payroll.pays.employee_pay.taxable_income|div:12|stringformat:".2f"|intcomma }}</td>
-                    </tr>
-                    <tr>
-                        <td class="p-3 text-gray-800">Health Insurance Fund deduction</td>
-                        <td class="p-3 text-gray-800 text-right">{{ payroll.nhif|stringformat:".2f"|intcomma }}</td>
-                    </tr>
-                    <tr>
-                        <td class="p-3 text-gray-800">National Housing Fund Deduction</td>
-                        <td class="p-3 text-gray-800 text-right">{{ payroll.nhf|stringformat:".2f"|intcomma }}</td>
-                    </tr>
-                    <tr>
-                        <td class="p-3 text-gray-800">Income Tax</td>
-                        <td class="p-3 text-gray-800 text-right">{{ payroll.pays.employee_pay.payee|stringformat:".2f"|intcomma }}</td>
-                    </tr>
-                    <tr>
-                        <td class="p-3 text-gray-800">Consolidated Relief</td>
-                        <td class="p-3 text-gray-800 text-right">{{ payroll.pays.employee_pay.consolidated_relief|div:12|stringformat:".2f"|intcomma }}</td>
-                    </tr>
-                    <tr>
-                        <td class="p-3 text-gray-800">Allowances</td>
-                        <td class="p-3 text-gray-800 text-right">{{ payroll.calc_allowance|stringformat:".2f"|intcomma }}</td>
-                    </tr>
-                    <tr>
-                        <td class="p-3 text-gray-800">Disciplinary Deductions</td>
-                        <td class="p-3 text-gray-800 text-right">{{ payroll.calc_deduction|stringformat:".2f"|intcomma }}</td>
-                    </tr>
-                    <tr class="bg-gray-100">
-                        <td class="p-3 font-semibold text-gray-700">Net Pay</td>
-                        <td class="p-3 font-semibold text-gray-800 text-right">{{ payroll.netpay|stringformat:".2f"|intcomma }}</td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
+    .net-value {
+      text-align: right;
+      font-size: 16px;
+      font-weight: 700;
+      color: #0f172a;
+    }
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-center mb-8">
-            {% if num2words %}
-            <div class="in-words-box">
-                <span class="font-medium text-gray-700">In Words:</span>
-                <span class="text-gray-800">{{ num2words }} naira only.</span>
-            </div>
-            {% endif %}
-        </div>
+    .words {
+      margin-top: 8px;
+      background: #f8fafc;
+      border: 1px solid #cbd5e1;
+      padding: 8px 10px;
+      font-size: 10px;
+      color: #334155;
+    }
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-8 pt-8 border-t">
-            <div class="text-center md:text-left">
-                <p class="text-gray-700 mb-1">_________________________</p>
-                <p class="text-gray-700">Employee Signature</p>
-            </div>
-            <div class="text-center md:text-right">
-                <p class="text-gray-700 mb-1">_________________________</p>
-                <p class="text-gray-700">Authorised Signatory</p>
-            </div>
-        </div>
+    .signatures {
+      margin-top: 26px;
+    }
+
+    .signature {
+      width: 48%;
+      display: inline-block;
+      text-align: center;
+      color: #334155;
+      font-size: 10px;
+    }
+
+    .line {
+      border-top: 1px solid #334155;
+      margin: 0 auto 5px;
+      width: 85%;
+      height: 1px;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1 class="title">Payslip</h1>
+    <p class="subtitle">Professional Payroll Statement</p>
+    <div class="meta">
+      <span><strong>Reference:</strong> PSL-{{ payroll.id }}</span>
+      <span><strong>Period:</strong>
+        {% with run=payroll.payroll_run_entries.first %}
+          {% if run %}{{ run.payroll_run.paydays|date:"F Y" }}{% else %}N/A{% endif %}
+        {% endwith %}
+      </span>
     </div>
-  </body>
+  </div>
+
+  <p class="section-title">Employee Information</p>
+  <table class="info-table">
+    <tr>
+      <td class="label">Employee ID</td>
+      <td class="value">{{ payroll.pays.emp_id|default:"N/A" }}</td>
+      <td class="label">Employee Name</td>
+      <td class="value">{{ payroll.pays.first_name }} {{ payroll.pays.last_name }}</td>
+    </tr>
+    <tr>
+      <td class="label">Tax ID (TIN)</td>
+      <td class="value">{{ payroll.pays.tin_no|default:"N/A" }}</td>
+      <td class="label">Designation</td>
+      <td class="value">{{ payroll.pays.get_job_title_display|default:"N/A" }}</td>
+    </tr>
+    <tr>
+      <td class="label">Bank</td>
+      <td class="value">{{ payroll.pays.get_bank_display|default:"N/A" }}</td>
+      <td class="label">Account Number</td>
+      <td class="value">{{ payroll.pays.bank_account_number|mask_account_number|default:"N/A" }}</td>
+    </tr>
+  </table>
+
+  <div class="grid">
+    <div class="col">
+      <p class="section-title">Earnings</p>
+      <table class="money-table">
+        <thead>
+          <tr>
+            <th>Description</th>
+            <th class="money">Amount (NGN)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Basic Salary</td>
+            <td class="money">{{ payroll.pays.employee_pay.basic|div:12|floatformat:2|intcomma }}</td>
+          </tr>
+          <tr>
+            <td>Transport</td>
+            <td class="money">{{ payroll.pays.employee_pay.transport|div:12|floatformat:2|intcomma }}</td>
+          </tr>
+          <tr>
+            <td>Housing</td>
+            <td class="money">{{ payroll.pays.employee_pay.housing|div:12|floatformat:2|intcomma }}</td>
+          </tr>
+          <tr>
+            <td>Other Allowances</td>
+            <td class="money">{{ payroll.calc_allowance|floatformat:2|intcomma }}</td>
+          </tr>
+          <tr class="total-row">
+            <td>Gross for Period</td>
+            <td class="money">{{ payroll.pays.employee_pay.gross_income|div:12|floatformat:2|intcomma }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="col right">
+      <p class="section-title">Deductions</p>
+      <table class="money-table">
+        <thead>
+          <tr>
+            <th>Description</th>
+            <th class="money">Amount (NGN)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Employee Pension</td>
+            <td class="money">{{ payroll.pays.employee_pay.pension_employee|div:12|floatformat:2|intcomma }}</td>
+          </tr>
+          <tr>
+            <td>NHF</td>
+            <td class="money">{{ payroll.pays.employee_pay.nhf|div:12|floatformat:2|intcomma }}</td>
+          </tr>
+          <tr>
+            <td>Health Insurance</td>
+            <td class="money">{{ payroll.pays.employee_pay.employee_health|div:12|floatformat:2|intcomma }}</td>
+          </tr>
+          <tr>
+            <td>PAYE Tax</td>
+            <td class="money">{{ payroll.pays.employee_pay.payee|floatformat:2|intcomma }}</td>
+          </tr>
+          <tr>
+            <td>Water Rate</td>
+            <td class="money">{{ payroll.pays.employee_pay.water_rate|floatformat:2|intcomma }}</td>
+          </tr>
+          <tr>
+            <td>Other Deductions</td>
+            <td class="money">{{ payroll.calc_deduction|floatformat:2|intcomma }}</td>
+          </tr>
+          <tr class="total-row">
+            <td>Total Deductions</td>
+            {% with pension_monthly=payroll.pays.employee_pay.pension_employee|div:12 nhf_monthly=payroll.pays.employee_pay.nhf|div:12 health_monthly=payroll.pays.employee_pay.employee_health|div:12 %}
+            <td class="money">{{ pension_monthly|add:nhf_monthly|add:health_monthly|add:payroll.pays.employee_pay.payee|add:payroll.pays.employee_pay.water_rate|add:payroll.calc_deduction|floatformat:2|intcomma }}</td>
+            {% endwith %}
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <table class="net-block">
+    <tr>
+      <td class="net-label">Net Pay</td>
+      <td class="net-value">₦{{ payroll.netpay|floatformat:2|intcomma }}</td>
+    </tr>
+  </table>
+
+  {% if num2words %}
+  <div class="words">
+    <strong>Amount in words:</strong> {{ num2words }}.
+  </div>
+  {% endif %}
+
+  <div class="signatures">
+    <div class="signature">
+      <div class="line"></div>
+      Employee Signature
+    </div>
+    <div class="signature">
+      <div class="line"></div>
+      Authorized Signatory
+    </div>
+  </div>
+</body>
 </html>

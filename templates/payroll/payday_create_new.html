@@ -239,11 +239,15 @@
                                 id="{{ form.is_active.id_for_label }}"
                                 name="{{ form.is_active.name }}"
                                 class="h-4 w-4 text-primary-600 border-secondary-300 rounded focus:ring-primary-500"
+                                {% if form.is_active.value %}checked{% endif %}
                             >
                             <label for="{{ form.is_active.id_for_label }}" class="ml-2 text-sm text-secondary-700">
                                 Mark as Active
                             </label>
                         </div>
+                        {% if form.is_active.errors %}
+                        <p class="mt-1 text-sm text-danger-600">{{ form.is_active.errors|striptags }}</p>
+                        {% endif %}
 
                         <!-- Closed -->
                         <div class="flex items-center">
@@ -292,6 +296,7 @@
                     <div class="space-y-3">
                         <button 
                             type="submit"
+                            id="createPayPeriodBtn"
                             class="w-full btn-primary text-white py-3 px-6 rounded-xl text-sm font-medium flex items-center justify-center"
                         >
                             <i data-lucide="save" class="h-4 w-4 mr-2"></i>
@@ -310,9 +315,44 @@
     </form>
 </div>
 
+<div id="inactiveWarningModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/40 px-4">
+    <div class="w-full max-w-md rounded-xl bg-white p-6 shadow-2xl">
+        <h3 class="text-lg font-semibold text-secondary-900">Pay Period Not Active</h3>
+        <p class="mt-2 text-sm text-secondary-600">
+            You must check <strong>Mark as Active</strong> before creating a pay period.
+        </p>
+        <div class="mt-5 flex justify-end">
+            <button type="button" id="closeInactiveWarningModal" class="px-4 py-2 rounded-lg bg-primary-600 text-white hover:bg-primary-700">
+                Okay
+            </button>
+        </div>
+    </div>
+</div>
+
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     lucide.createIcons();
+
+    const form = document.getElementById('paydayForm');
+    const isActiveCheckbox = document.getElementById('{{ form.is_active.id_for_label }}');
+    const modal = document.getElementById('inactiveWarningModal');
+    const closeModalBtn = document.getElementById('closeInactiveWarningModal');
+
+    if (form && isActiveCheckbox && modal && closeModalBtn) {
+        form.addEventListener('submit', function(event) {
+            if (!isActiveCheckbox.checked) {
+                event.preventDefault();
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+            }
+        });
+
+        closeModalBtn.addEventListener('click', function() {
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            isActiveCheckbox.focus();
+        });
+    }
 });
 
 // Alpine.js component for employee selection

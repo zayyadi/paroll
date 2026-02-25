@@ -362,18 +362,26 @@ class Command(BaseCommand):
             ("PATERNITY", 10),
         ]
 
-        for leave_type, max_days in leave_policies:
-            policy, created = LeavePolicy.objects.get_or_create(
-                leave_type=leave_type,
-                defaults={"max_days": max_days},
-            )
+        companies = (
+            EmployeeProfile.objects.exclude(company__isnull=True)
+            .values_list("company_id", flat=True)
+            .distinct()
+        )
 
-            if created:
-                self.stdout.write(
-                    self.style.SUCCESS(
-                        f"Created {leave_type} leave policy: {max_days} days"
-                    )
+        for company_id in companies:
+            for leave_type, max_days in leave_policies:
+                policy, created = LeavePolicy.objects.get_or_create(
+                    company_id=company_id,
+                    leave_type=leave_type,
+                    defaults={"max_days": max_days},
                 )
+
+                if created:
+                    self.stdout.write(
+                        self.style.SUCCESS(
+                            f"Created {leave_type} leave policy: {max_days} days (company={company_id})"
+                        )
+                    )
 
     def _create_leave_requests(self, employees):
         """Create leave requests for employees"""

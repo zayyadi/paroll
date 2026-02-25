@@ -6,7 +6,7 @@
             <div class="navbar-header">
                 <div class="navbar-brand">
                     <a href="{% url 'payroll:index' %}">
-                        <img src="{% static 'media/full-logo-light.png' %}" alt="StackTips"
+                        <img src="{{ APP_LOGO_URL }}" alt="{{ APP_NAME }} logo"
                              width="auto" height="34" class="d-inline-block align-text-top navbar-brand-logo">
                     </a>
                 </div>
@@ -93,4 +93,3 @@
     </nav>
 
 {% endspaceless %}
-

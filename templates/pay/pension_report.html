@@ -21,6 +21,7 @@
                     <th class="py-2 px-4">EmpNo</th>
                     <th class="py-2 px-4">Employee First Name</th>
                     <th class="py-2 px-4">Employee Last Name</th>
+                    <th class="py-2 px-4">Pension Fund Manager</th>
                     <th class="py-2 px-4">Employee Pension RSA</th>
                     <th class="py-2 px-4">Basic Salary</th>
                     <th class="py-2 px-4">Payable Pension</th>
@@ -32,14 +33,15 @@
                     <td class="py-2 px-4">{{ payrol.payroll_entry.pays.emp_id }}</td>
                     <td class="py-2 px-4">{{ payrol.payroll_entry.pays.first_name }}</td>
                     <td class="py-2 px-4">{{ payrol.payroll_entry.pays.last_name }}</td>
+                    <td class="py-2 px-4">{{ payrol.payroll_entry.pays.get_pension_fund_manager_display|default:"N/A" }}</td>
                     <td class="py-2 px-4">{{ payrol.payroll_entry.pays.pension_rsa }}</td>
                     <td class="py-2 px-4">{{ payrol.payroll_entry.pays.employee_pay.basic_salary }}</td>
                     <td class="py-2 px-4">{{ payrol.payroll_entry.pays.employee_pay.pension|intcomma }}</td>
                 </tr>
                 {% endfor %}
                 <tr>
-                    <td colspan="5" class="py-2 px-4 font-bold text-right">Total</td>
-                    <td class="py-2 px-4 font-bold">{{ pension_total|intcomma }}</td>
+                    <td colspan="6" class="py-2 px-4 font-bold text-right">Total</td>
+                    <td class="py-2 px-4 font-bold">{{ total|intcomma }}</td>
                 </tr>
             </tbody>
         </table>

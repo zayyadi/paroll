@@ -10,6 +10,8 @@ from .employee_profile import (
 )
 from .payroll import (
     Payroll,
+    CompanyPayrollSetting,
+    CompanyHealthInsuranceTier,
     LeaveRequest,
     Allowance,
     PayrollRunEntry,

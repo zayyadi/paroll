@@ -115,7 +115,7 @@
                                                 <!-- Actions -->
                                                 <div class="flex items-center space-x-2 ml-4">
                                                     {% if not notification.is_read %}
-                                                        <button onclick="event.stopPropagation(); markAsRead({{ notification.id }})" 
+                                                        <button onclick="event.stopPropagation(); markAsRead('{{ notification.id }}')" 
                                                                 class="p-1 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400" 
                                                                 title="Mark as read">
                                                             <i data-lucide="check" class="h-4 w-4"></i>

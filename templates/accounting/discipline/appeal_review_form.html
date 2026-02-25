@@ -1,0 +1,16 @@
+{% extends "employee/discipline_base.html" %}
+
+{% block accounting_content %}
+<div class="bg-white rounded-lg shadow-soft p-6">
+    <h2 class="text-xl font-semibold text-secondary-900 mb-1">{{ page_title }}</h2>
+    <p class="text-sm text-secondary-600 mb-4">Case: {{ disciplinary_case.case_number }}</p>
+    <form method="post" class="space-y-4">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <div class="flex items-center gap-2">
+            <button class="px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700">Record Appeal Outcome</button>
+            <a href="{% url 'payroll:discipline_case_detail' disciplinary_case.pk %}" class="px-4 py-2 border border-secondary-300 rounded-md text-secondary-700 hover:bg-secondary-50">Back</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

@@ -98,6 +98,22 @@
                 <i data-lucide="file-text" class="h-8 w-8 text-secondary-600 group-hover:text-primary-600 mb-2"></i>
                 <span class="text-sm font-medium text-secondary-700 group-hover:text-primary-700">View Payslips</span>
             </a>
+
+            <a href="{% url 'payroll:appraisal_list' %}"
+                class="group flex flex-col items-center p-4 border border-secondary-200 rounded-lg hover:border-warning-300 hover:bg-warning-50 transition-all">
+                <i data-lucide="star" class="h-8 w-8 text-secondary-600 group-hover:text-warning-600 mb-2"></i>
+                <span class="text-sm font-medium text-secondary-700 group-hover:text-warning-700">
+                    My Appraisals ({{ pending_assignment_count|default:0 }} pending)
+                </span>
+            </a>
+
+            {% if next_assignment %}
+            <a href="{% url 'payroll:review_create' next_assignment.appraisal.pk next_assignment.appraisee.pk %}"
+                class="group flex flex-col items-center p-4 border border-secondary-200 rounded-lg hover:border-success-300 hover:bg-success-50 transition-all">
+                <i data-lucide="clipboard-check" class="h-8 w-8 text-secondary-600 group-hover:text-success-600 mb-2"></i>
+                <span class="text-sm font-medium text-secondary-700 group-hover:text-success-700">Start Next Review</span>
+            </a>
+            {% endif %}
         </div>
     </div>
 
@@ -207,9 +223,9 @@
                         <td class="px-6 py-4 text-sm text-secondary-900">
                             <div class="flex items-center">
                                 <div class="flex-shrink-0 h-8 w-8">
-                                    {% if assignment.appraisee.employee_user.photo %}
+                                    {% if assignment.appraisee.photo %}
                                     <img class="h-8 w-8 rounded-full object-cover"
-                                        src="{{ assignment.appraisee.employee_user.photo.url }}"
+                                        src="{{ assignment.appraisee.photo.url }}"
                                         alt="{{ assignment.appraisee.first_name }}">
                                     {% else %}
                                     <div class="h-8 w-8 rounded-full bg-primary-200 flex items-center justify-center">
@@ -228,14 +244,27 @@
                                 </div>
                             </div>
                         </td>
-                        <td class="px-6 py-4 text-sm text-secondary-900">{{ assignment.appraisal.name }}</td>
-                        <td class="px-6 py-4 text-sm text-secondary-900">{{ assignment.due_date|date:"d M
-                            Y"|default:"N/A" }}</td>
+                        <td class="px-6 py-4 text-sm text-secondary-900">
+                            {{ assignment.appraisal.name }}
+                            {% if assignment.has_review %}
+                            <span class="ml-2 inline-flex px-2 py-0.5 text-xs rounded-full bg-success-100 text-success-800">Completed</span>
+                            {% else %}
+                            <span class="ml-2 inline-flex px-2 py-0.5 text-xs rounded-full bg-warning-100 text-warning-800">Pending</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4 text-sm text-secondary-900">{{ assignment.appraisal.end_date|date:"d M Y"|default:"N/A" }}</td>
                         <td class="px-6 py-4 text-sm text-secondary-900 text-right">
+                            {% if assignment.has_review %}
+                            <a href="{% url 'payroll:appraisal_detail' assignment.appraisal.pk %}"
+                                class="px-3 py-1.5 text-secondary-700 border border-secondary-300 text-xs font-medium rounded-lg hover:bg-secondary-50">
+                                View Appraisal
+                            </a>
+                            {% else %}
                             <a href="{% url 'payroll:review_create' assignment.appraisal.pk assignment.appraisee.pk %}"
                                 class="btn-primary py-1.5 px-3 text-white text-xs font-medium rounded-lg">
                                 Start Appraisal
                             </a>
+                            {% endif %}
                         </td>
                     </tr>
                     {% empty %}

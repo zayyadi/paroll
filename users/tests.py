@@ -6,6 +6,7 @@ from django.utils.encoding import force_bytes
 from django.utils.http import urlsafe_base64_encode
 from django.urls import reverse
 from django.test import override_settings
+from company.models import Company
 
 
 class UsersManagersTests(TestCase):
@@ -94,7 +95,8 @@ class AccountActivationTests(TestCase):
         response = self.client.get(
             reverse("users:verify_registration_otp", kwargs={"email": "missing@x.com"})
         )
-        self.assertRedirects(response, reverse("users:register"))
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "registration/verify_registration_otp.html")
 
     def test_resend_registration_activation_for_inactive_user(self):
         response = self.client.post(
@@ -137,4 +139,49 @@ class AccountActivationTests(TestCase):
                 kwargs={"email": self.user.email},
             )
         )
-        self.assertRedirects(response, reverse("users:login"))
+        self.assertEqual(response.status_code, 200)
+
+
+@override_settings(
+    CACHES={"default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"}},
+    MULTI_COMPANY_MEMBERSHIP_ENABLED=False,
+)
+class LoginSecurityTests(TestCase):
+    def setUp(self):
+        self.User = get_user_model()
+        self.company = Company.objects.create(name="Acme Security")
+        self.user = self.User.objects.create_user(
+            email="secure-login@example.com",
+            first_name="Secure",
+            last_name="User",
+            password="StrongPass123!",
+            is_active=True,
+            company=self.company,
+            active_company=self.company,
+        )
+
+    def test_login_rejects_external_next_redirect(self):
+        response = self.client.post(
+            reverse("users:login") + "?next=https://evil.example/steal",
+            {"username": self.user.email, "password": "StrongPass123!"},
+        )
+        self.assertRedirects(response, reverse("payroll:index"))
+
+
+@override_settings(
+    CACHES={"default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"}},
+    OTP_MAX_ATTEMPTS=2,
+    OTP_ATTEMPT_WINDOW_SECONDS=60,
+    OTP_LOCKOUT_SECONDS=60,
+)
+class OtpHardeningTests(TestCase):
+    def test_registration_otp_locks_after_retries(self):
+        email = "missing@example.com"
+        url = reverse("users:verify_registration_otp", kwargs={"email": email})
+
+        self.client.post(url, {"otp": "111111"})
+        self.client.post(url, {"otp": "222222"})
+        response = self.client.post(url, {"otp": "333333"})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Too many attempts")

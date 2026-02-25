@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Payroll Notification{% endblock %}</title>
+</head>
+<body style="margin:0; padding:0; background-color:#f3f6fb; font-family:Arial, sans-serif; color:#1f2937;">
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color:#f3f6fb; padding:24px 12px;">
+        <tr>
+            <td align="center">
+                <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="620" style="max-width:620px; width:100%; background:#ffffff; border-radius:12px; overflow:hidden;">
+                    <tr>
+                        <td style="padding:24px; background:#0f172a;">
+                            <h1 style="margin:0; font-size:22px; color:#ffffff; font-weight:700;">Payroll</h1>
+                            <p style="margin:8px 0 0 0; font-size:14px; color:#cbd5e1;">{% block header_subtitle %}Account Update{% endblock %}</p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding:28px 24px;">
+                            {% block content %}{% endblock %}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding:18px 24px; border-top:1px solid #e5e7eb; background:#f8fafc;">
+                            <p style="margin:0; font-size:12px; color:#64748b;">
+                                This is an automated message from Payroll. Please do not reply directly.
+                            </p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>

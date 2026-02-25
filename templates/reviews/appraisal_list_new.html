@@ -123,20 +123,17 @@
                             {{ appraisal.start_date|date:"d M Y" }} - {{ appraisal.end_date|date:"d M Y" }}
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap">
-                            <span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full
-                                {% if appraisal.status == 'COMPLETED' %}bg-success-100 text-success-800{% endif %}
-                                {% if appraisal.status == 'IN_PROGRESS' %}bg-warning-100 text-warning-800{% endif %}
-                                {% if appraisal.status == 'PENDING' %}bg-secondary-100 text-secondary-800{% endif %}">
-                                {{ appraisal.get_status_display }}
+                            <span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full {{ appraisal.status_css }}">
+                                {{ appraisal.status_label }}
                             </span>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-secondary-900">
                             {% if appraisal.overall_avg %}
                             <div class="flex items-center">
                                 <div class="w-16 bg-gray-200 rounded-full h-2 mr-2">
-                                    <div class="bg-primary-600 h-2 rounded-full" style="width: {{ appraisal.overall_avg }}%"></div>
+                                    <div class="bg-primary-600 h-2 rounded-full" style="width: {{ appraisal.overall_avg_percentage|floatformat:'0' }}%"></div>
                                 </div>
-                                <span>{{ appraisal.overall_avg|floatformat:"0" }}%</span>
+                                <span>{{ appraisal.overall_avg|floatformat:"1" }}/5</span>
                             </div>
                             {% else %}
                             <span class="text-secondary-500">Not available</span>
@@ -190,7 +187,7 @@
                 </div>
                 <div>
                     <h3 class="text-sm font-medium text-secondary-900 mb-2">Scoring System</h3>
-                    <p class="text-sm text-secondary-600">Performance is scored on a scale of 1-100 across various metrics relevant to the role.</p>
+                    <p class="text-sm text-secondary-600">Performance is scored on a scale of 1-5 across appraisal metrics, with dashboard percentage summaries derived from those ratings.</p>
                 </div>
                 <div>
                     <h3 class="text-sm font-medium text-secondary-900 mb-2">Development Plans</h3>

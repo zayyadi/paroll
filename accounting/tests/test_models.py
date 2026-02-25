@@ -406,6 +406,26 @@ class TransactionNumberModelTest(TestCase):
         )
         self.assertEqual(inv_txn.current_number, 2)
 
+    def test_get_next_number_skips_existing_journal_transaction_number(self):
+        """Ensure generated number does not collide with existing journals."""
+        other_fiscal_year = FiscalYearFactory.create_previous_fiscal_year(2022)
+        other_period = AccountingPeriod.objects.get(
+            fiscal_year=other_fiscal_year, period_number=1
+        )
+        Journal.objects.create(
+            transaction_number="TXN000001",
+            description="Existing transaction number in another fiscal year",
+            date=date(2022, 1, 15),
+            period=other_period,
+            status=Journal.JournalStatus.DRAFT,
+        )
+
+        next_number = TransactionNumber.get_next_number(self.fiscal_year, "TXN")
+        self.assertEqual(next_number, "TXN000002")
+
+        self.txn_number.refresh_from_db()
+        self.assertEqual(self.txn_number.current_number, 3)
+
     def test_transaction_number_unique_constraint(self):
         """Test transaction number uniqueness constraint"""
         with self.assertRaises(Exception):

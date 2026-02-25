@@ -51,6 +51,9 @@ class EmployeeManager(models.Manager):
 
 
 class EmployeeProfile(SoftDeleteModel):
+    RENT_RELIEF_PERCENT = Decimal("20")
+    RENT_RELIEF_CAP = Decimal("500000")
+
     company = models.ForeignKey(
         "company.Company",
         on_delete=models.CASCADE,
@@ -145,6 +148,18 @@ class EmployeeProfile(SoftDeleteModel):
     pension_rsa = models.CharField(
         # unique=True,
         max_length=50,
+        null=True,
+        blank=True,
+    )
+    hmo_provider = models.CharField(
+        max_length=30,
+        choices=choices.HMO_PROVIDERS,
+        null=True,
+        blank=True,
+    )
+    pension_fund_manager = models.CharField(
+        max_length=30,
+        choices=choices.PENSION_FUND_MANAGERS,
         null=True,
         blank=True,
     )
@@ -303,6 +318,16 @@ class EmployeeProfile(SoftDeleteModel):
     def get_first_name(self):
         return self.first_name
 
+    @property
+    def rent_relief_amount(self) -> Decimal:
+        """
+        Annual rent relief value derived from employee's declared annual rent.
+        Capped to align with tax policy rules.
+        """
+        rent_paid = self.rent_paid or Decimal("0.00")
+        relief = (rent_paid * self.RENT_RELIEF_PERCENT) / Decimal("100")
+        return min(relief, self.RENT_RELIEF_CAP)
+
     def get_email(self):
         if self.user and self.user.email:
             return self.user.email
@@ -343,6 +368,9 @@ class EmployeeProfile(SoftDeleteModel):
 
 @receiver(post_save, sender=CustomUser)
 def create_employee_profile(sender, instance, created, **kwargs):
+    if kwargs.get("raw", False):
+        return
+
     if created:
         company = instance.active_company or instance.company
         if company is None:
@@ -358,10 +386,43 @@ def create_employee_profile(sender, instance, created, **kwargs):
         )
 
 
+@receiver(post_save, sender=EmployeeProfile)
+def sync_payroll_values_from_employee(sender, instance, **kwargs):
+    """
+    Ensure payroll tax figures include employee-side reliefs (e.g. rent relief)
+    after employee/payroll linkage or employee rent updates are persisted.
+    """
+    payroll = instance.employee_pay
+    if not payroll:
+        return
+
+    payroll.save()
+
+    net_pay = utils.get_net_pay(instance)
+    if instance.net_pay != net_pay:
+        EmployeeProfile.objects.filter(pk=instance.pk).update(net_pay=net_pay)
+
+
 class Appraisal(models.Model):
+    company = models.ForeignKey(
+        "company.Company",
+        on_delete=models.CASCADE,
+        related_name="appraisals",
+        null=True,
+        blank=True,
+        db_index=True,
+    )
     name = models.CharField(max_length=100)
     start_date = models.DateField()
     end_date = models.DateField()
+
+    class Meta:
+        ordering = ("-start_date", "-id")
+
+    def clean(self):
+        super().clean()
+        if self.start_date and self.end_date and self.end_date < self.start_date:
+            raise ValidationError({"end_date": "End date cannot be before start date."})
 
     def __str__(self):
         return self.name
@@ -378,6 +439,23 @@ class AppraisalAssignment(models.Model):
 
     class Meta:
         unique_together = ("appraisal", "appraisee", "appraiser")
+
+    def clean(self):
+        super().clean()
+        if self.appraisee_id and self.appraiser_id and self.appraisee_id == self.appraiser_id:
+            raise ValidationError(
+                {"appraiser": "Appraiser and appraisee must be different employees."}
+            )
+        appraisal_company = getattr(self.appraisal, "company_id", None)
+        if appraisal_company:
+            if self.appraisee and self.appraisee.company_id != appraisal_company:
+                raise ValidationError(
+                    {"appraisee": "Appraisee must belong to the same company as appraisal."}
+                )
+            if self.appraiser and self.appraiser.company_id != appraisal_company:
+                raise ValidationError(
+                    {"appraiser": "Appraiser must belong to the same company as appraisal."}
+                )
 
     def __str__(self):
         return f"{self.appraiser} to appraise {self.appraisee} for {self.appraisal}"
@@ -401,6 +479,39 @@ class Review(models.Model):
     )
     self_assessment = models.TextField(blank=True, null=True)
 
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["appraisal", "employee", "reviewer"],
+                name="unique_review_per_assignment",
+            )
+        ]
+
+    def clean(self):
+        super().clean()
+        if self.employee_id and self.reviewer_id and self.employee_id == self.reviewer_id:
+            raise ValidationError({"reviewer": "Reviewer cannot review themselves."})
+
+        appraisal_company = getattr(self.appraisal, "company_id", None)
+        if appraisal_company:
+            if self.employee and self.employee.company_id != appraisal_company:
+                raise ValidationError(
+                    {"employee": "Employee must belong to the same company as appraisal."}
+                )
+            if self.reviewer and self.reviewer.company_id != appraisal_company:
+                raise ValidationError(
+                    {"reviewer": "Reviewer must belong to the same company as appraisal."}
+                )
+
+        if self.appraisal_id and self.employee_id and self.reviewer_id:
+            is_assigned = AppraisalAssignment.objects.filter(
+                appraisal_id=self.appraisal_id,
+                appraisee_id=self.employee_id,
+                appraiser_id=self.reviewer_id,
+            ).exists()
+            if not is_assigned:
+                raise ValidationError("No appraisal assignment found for this review.")
+
     def __str__(self):
         return f"Review of {self.employee} by {self.reviewer} for {self.appraisal}"
 
@@ -410,6 +521,14 @@ class Rating(models.Model):
     metric = models.ForeignKey(Metric, on_delete=models.CASCADE)
     rating = models.IntegerField(choices=[(i, i) for i in range(1, 6)])
     comments = models.TextField(blank=True, null=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["review", "metric"],
+                name="unique_metric_rating_per_review",
+            )
+        ]
 
     def __str__(self):
         return f"{self.metric}: {self.rating}"
