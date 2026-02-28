@@ -3,229 +3,54 @@
 {% block page_header %}Apply for Leave{% endblock %}
 
 {% block content %}
-<div class="space-y-6">
-    <!-- Header Section -->
-    <div class="bg-gradient-to-r from-primary-500 to-primary-600 rounded-2xl p-6 text-white shadow-medium">
-        <div class="flex flex-col md:flex-row md:items-center md:justify-between">
+<div class="max-w-4xl mx-auto space-y-6">
+    <div class="bg-white rounded-xl shadow-soft p-6 border border-secondary-100">
+        <h2 class="text-lg font-semibold text-secondary-900">New Leave Request</h2>
+        <p class="mt-1 text-sm text-secondary-600">Submit leave details for review and approval.</p>
+    </div>
+
+    <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
+        <div class="bg-white rounded-xl shadow-soft p-4"><p class="text-xs text-secondary-500 uppercase">Annual</p><p class="text-xl font-semibold">{{ leave_balances.annual|default:0 }}</p></div>
+        <div class="bg-white rounded-xl shadow-soft p-4"><p class="text-xs text-secondary-500 uppercase">Sick</p><p class="text-xl font-semibold">{{ leave_balances.sick|default:0 }}</p></div>
+        <div class="bg-white rounded-xl shadow-soft p-4"><p class="text-xs text-secondary-500 uppercase">Casual</p><p class="text-xl font-semibold">{{ leave_balances.casual|default:0 }}</p></div>
+        <div class="bg-white rounded-xl shadow-soft p-4"><p class="text-xs text-secondary-500 uppercase">Maternity</p><p class="text-xl font-semibold">{{ leave_balances.maternity|default:0 }}</p></div>
+        <div class="bg-white rounded-xl shadow-soft p-4"><p class="text-xs text-secondary-500 uppercase">Paternity</p><p class="text-xl font-semibold">{{ leave_balances.paternity|default:0 }}</p></div>
+    </div>
+
+    <form method="post" class="bg-white rounded-xl shadow-soft p-6 border border-secondary-100 space-y-5">
+        {% csrf_token %}
+        {% if form.non_field_errors %}
+        <div class="rounded-xl border border-danger-200 bg-danger-50 p-4 text-sm text-danger-800">{{ form.non_field_errors }}</div>
+        {% endif %}
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
             <div>
-                <h1 class="text-2xl font-bold mb-2">Apply for Leave</h1>
-                <p class="text-primary-100">Submit a new leave request for manager approval</p>
+                <label for="{{ form.leave_type.id_for_label }}" class="block text-sm font-medium text-secondary-700 mb-1">Leave Type</label>
+                {{ form.leave_type }}
+                {% for error in form.leave_type.errors %}<p class="text-xs text-danger-600 mt-1">{{ error }}</p>{% endfor %}
             </div>
-            <div class="mt-4 md:mt-0">
-                <a href="{% url 'payroll:leave_requests' %}" class="bg-white bg-opacity-20 hover:bg-opacity-30 text-white font-medium py-2 px-4 rounded-lg transition-all inline-flex items-center">
-                    <i data-lucide="arrow-left" class="h-4 w-4 mr-2"></i>
-                    Back to Leave Requests
-                </a>
-            </div>
-        </div>
-    </div>
-
-    <!-- Leave Balance Cards -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div class="bg-white rounded-xl shadow-soft p-6">
-            <div class="flex items-center">
-                <div class="flex-shrink-0 bg-success-100 rounded-lg p-3">
-                    <i data-lucide="sun" class="h-6 w-6 text-success-600"></i>
-                </div>
-                <div class="ml-4">
-                    <p class="text-sm font-medium text-secondary-600">Annual Leave</p>
-                    <p class="text-2xl font-semibold text-secondary-900">{{ leave_balances.annual|default:10 }} days</p>
-                </div>
-            </div>
-        </div>
-        
-        <div class="bg-white rounded-xl shadow-soft p-6">
-            <div class="flex items-center">
-                <div class="flex-shrink-0 bg-danger-100 rounded-lg p-3">
-                    <i data-lucide="heart" class="h-6 w-6 text-danger-600"></i>
-                </div>
-                <div class="ml-4">
-                    <p class="text-sm font-medium text-secondary-600">Sick Leave</p>
-                    <p class="text-2xl font-semibold text-secondary-900">{{ leave_balances.sick|default:5 }} days</p>
-                </div>
-            </div>
-        </div>
-        
-        <div class="bg-white rounded-xl shadow-soft p-6">
-            <div class="flex items-center">
-                <div class="flex-shrink-0 bg-primary-100 rounded-lg p-3">
-                    <i data-lucide="briefcase" class="h-6 w-6 text-primary-600"></i>
-                </div>
-                <div class="ml-4">
-                    <p class="text-sm font-medium text-secondary-600">Personal Leave</p>
-                    <p class="text-2xl font-semibold text-secondary-900">{{ leave_balances.personal|default:3 }} days</p>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Leave Application Form -->
-    <div class="bg-white rounded-xl shadow-soft p-6">
-        <h2 class="text-lg font-semibold text-secondary-900 mb-6 flex items-center">
-            <i data-lucide="file-text" class="h-5 w-5 mr-2 text-primary-600"></i>
-            Leave Request Details
-        </h2>
-        
-        <form method="post" class="space-y-6">
-            {% csrf_token %}
-            
-            {% if form.non_field_errors %}
-            <div class="p-4 rounded-lg bg-danger-50 text-danger-800 border border-danger-200 text-sm">
-                {% for error in form.non_field_errors %}
-                <p>{{ error }}</p>
-                {% endfor %}
-            </div>
-            {% endif %}
-            
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                    <label for="{{ form.leave_type.id_for_label }}" class="block text-sm font-medium text-secondary-700 mb-2">
-                        Leave Type <span class="text-danger-500">*</span>
-                    </label>
-                    <div class="relative">
-                        <select name="{{ form.leave_type.html_name }}" id="{{ form.leave_type.id_for_label }}" required
-                            class="form-input w-full px-3 py-2.5 border border-secondary-300 rounded-xl focus:ring-primary-500 focus:border-primary-500 text-sm {% if form.leave_type.errors %}border-danger-500{% endif %}">
-                            <option value="">Select leave type</option>
-                            {% for choice in form.leave_type.field.choices %}
-                            <option value="{{ choice.0 }}">{{ choice.1 }}</option>
-                            {% endfor %}
-                        </select>
-                        {% if form.leave_type.errors %}
-                        {% for error in form.leave_type.errors %}
-                        <p class="mt-1 text-xs text-danger-500">{{ error }}</p>
-                        {% endfor %}
-                        {% endif %}
-                    </div>
-                </div>
-                
-                <div>
-                    <label for="{{ form.days_requested.id_for_label }}" class="block text-sm font-medium text-secondary-700 mb-2">
-                        Number of Days <span class="text-danger-500">*</span>
-                    </label>
-                    <div class="relative">
-                        <input type="number" name="{{ form.days_requested.html_name }}" id="{{ form.days_requested.id_for_label }}" 
-                            value="{{ form.days_requested.value|default:'' }}" min="1" max="30" required
-                            class="form-input w-full px-3 py-2.5 border border-secondary-300 rounded-xl focus:ring-primary-500 focus:border-primary-500 text-sm {% if form.days_requested.errors %}border-danger-500{% endif %}">
-                        {% if form.days_requested.errors %}
-                        {% for error in form.days_requested.errors %}
-                        <p class="mt-1 text-xs text-danger-500">{{ error }}</p>
-                        {% endfor %}
-                        {% endif %}
-                    </div>
-                </div>
-            </div>
-            
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                    <label for="{{ form.start_date.id_for_label }}" class="block text-sm font-medium text-secondary-700 mb-2">
-                        Start Date <span class="text-danger-500">*</span>
-                    </label>
-                    <div class="relative">
-                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            <i data-lucide="calendar" class="h-5 w-5 text-secondary-400"></i>
-                        </div>
-                        <input type="date" name="{{ form.start_date.html_name }}" id="{{ form.start_date.id_for_label }}" 
-                            value="{{ form.start_date.value|default:'' }}" required
-                            class="form-input w-full pl-10 pr-3 py-2.5 border border-secondary-300 rounded-xl focus:ring-primary-500 focus:border-primary-500 text-sm {% if form.start_date.errors %}border-danger-500{% endif %}">
-                        {% if form.start_date.errors %}
-                        {% for error in form.start_date.errors %}
-                        <p class="mt-1 text-xs text-danger-500">{{ error }}</p>
-                        {% endfor %}
-                        {% endif %}
-                    </div>
-                </div>
-                
-                <div>
-                    <label for="{{ form.end_date.id_for_label }}" class="block text-sm font-medium text-secondary-700 mb-2">
-                        End Date <span class="text-danger-500">*</span>
-                    </label>
-                    <div class="relative">
-                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            <i data-lucide="calendar" class="h-5 w-5 text-secondary-400"></i>
-                        </div>
-                        <input type="date" name="{{ form.end_date.html_name }}" id="{{ form.end_date.id_for_label }}" 
-                            value="{{ form.end_date.value|default:'' }}" required
-                            class="form-input w-full pl-10 pr-3 py-2.5 border border-secondary-300 rounded-xl focus:ring-primary-500 focus:border-primary-500 text-sm {% if form.end_date.errors %}border-danger-500{% endif %}">
-                        {% if form.end_date.errors %}
-                        {% for error in form.end_date.errors %}
-                        <p class="mt-1 text-xs text-danger-500">{{ error }}</p>
-                        {% endfor %}
-                        {% endif %}
-                    </div>
-                </div>
-            </div>
-            
+            <div></div>
             <div>
-                <label for="{{ form.reason.id_for_label }}" class="block text-sm font-medium text-secondary-700 mb-2">
-                    Reason for Leave <span class="text-danger-500">*</span>
-                </label>
-                <div class="relative">
-                    <textarea name="{{ form.reason.html_name }}" id="{{ form.reason.id_for_label }}" rows="4" required
-                        class="form-input w-full px-3 py-2.5 border border-secondary-300 rounded-xl focus:ring-primary-500 focus:border-primary-500 text-sm {% if form.reason.errors %}border-danger-500{% endif %}"
-                        placeholder="Please provide a brief reason for your leave request...">{{ form.reason.value|default:'' }}</textarea>
-                    {% if form.reason.errors %}
-                    {% for error in form.reason.errors %}
-                    <p class="mt-1 text-xs text-danger-500">{{ error }}</p>
-                    {% endfor %}
-                    {% endif %}
-                </div>
+                <label for="{{ form.start_date.id_for_label }}" class="block text-sm font-medium text-secondary-700 mb-1">Start Date</label>
+                {{ form.start_date }}
+                {% for error in form.start_date.errors %}<p class="text-xs text-danger-600 mt-1">{{ error }}</p>{% endfor %}
             </div>
-            
-            <div class="flex items-center justify-between">
-                <div class="text-sm text-secondary-500">
-                    <p>By submitting this request, you confirm that the information provided is accurate.</p>
-                </div>
-                <div class="flex space-x-3">
-                    <a href="{% url 'payroll:leave_requests' %}" class="px-4 py-2.5 border border-secondary-300 rounded-lg text-sm font-medium text-secondary-700 hover:bg-secondary-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
-                        Cancel
-                    </a>
-                    <button type="submit" class="btn-primary py-2.5 px-4 text-white font-medium rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
-                        Submit Request
-                    </button>
-                </div>
+            <div>
+                <label for="{{ form.end_date.id_for_label }}" class="block text-sm font-medium text-secondary-700 mb-1">End Date</label>
+                {{ form.end_date }}
+                {% for error in form.end_date.errors %}<p class="text-xs text-danger-600 mt-1">{{ error }}</p>{% endfor %}
             </div>
-        </form>
-    </div>
-
-    <!-- Leave Policy Information -->
-    <div class="bg-white rounded-xl shadow-soft p-6">
-        <h2 class="text-lg font-semibold text-secondary-900 mb-4 flex items-center">
-            <i data-lucide="info" class="h-5 w-5 mr-2 text-primary-600"></i>
-            Important Information
-        </h2>
-        <div class="space-y-4">
-            <div class="p-4 bg-blue-50 rounded-lg">
-                <p class="text-sm text-blue-800">
-                    <strong>Notice Period:</strong> Please submit leave requests at least 2 weeks in advance for proper planning and approval.
-                </p>
-            </div>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                    <h3 class="text-sm font-medium text-secondary-900 mb-2">Leave Approval Process</h3>
-                    <p class="text-sm text-secondary-600">Your leave request will be reviewed by your manager. You'll receive an email notification once a decision is made.</p>
-                </div>
-                <div>
-                    <h3 class="text-sm font-medium text-secondary-900 mb-2">Emergency Leave</h3>
-                    <p class="text-sm text-secondary-600">For emergency situations, please contact your manager directly in addition to submitting this form.</p>
-                </div>
+            <div class="md:col-span-2">
+                <label for="{{ form.reason.id_for_label }}" class="block text-sm font-medium text-secondary-700 mb-1">Reason</label>
+                {{ form.reason }}
+                {% for error in form.reason.errors %}<p class="text-xs text-danger-600 mt-1">{{ error }}</p>{% endfor %}
             </div>
         </div>
-    </div>
+
+        <div class="flex justify-end gap-3">
+            <a href="{% url 'payroll:leave_requests' %}" class="px-4 py-2.5 rounded-xl border border-secondary-300 text-secondary-700 hover:bg-secondary-50 text-sm font-medium">Cancel</a>
+            <button type="submit" class="btn-primary px-6 py-2.5 rounded-xl text-white text-sm font-medium">Submit Request</button>
+        </div>
+    </form>
 </div>
-
-<script>
-    document.addEventListener('DOMContentLoaded', function() {
-        lucide.createIcons();
-        
-        // Set minimum date to today
-        const today = new Date().toISOString().split('T')[0];
-        document.getElementById('{{ form.start_date.id_for_label }}').setAttribute('min', today);
-        document.getElementById('{{ form.end_date.id_for_label }}').setAttribute('min', today);
-        
-        // Ensure end date is after start date
-        document.getElementById('{{ form.start_date.id_for_label }}').addEventListener('change', function() {
-            document.getElementById('{{ form.end_date.id_for_label }}').setAttribute('min', this.value);
-        });
-    });
-</script>
 {% endblock %}

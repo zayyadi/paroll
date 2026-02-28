@@ -24,6 +24,14 @@ from payroll.models import (
     PayrollRun,
     PayrollRunEntry,
 )
+from standup.models import (
+    StandupAnswer,
+    StandupCheckin,
+    StandupFollow,
+    StandupQuestion,
+    StandupTeam,
+    StandupTeamMember,
+)
 
 
 User = get_user_model()
@@ -290,6 +298,11 @@ class LeaveRequestSerializer(serializers.ModelSerializer):
 
 class IOUSerializer(serializers.ModelSerializer):
     employee_name = serializers.CharField(source="employee_id.__str__", read_only=True)
+    total_amount = serializers.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        read_only=True,
+    )
 
     class Meta:
         model = IOU
@@ -326,6 +339,12 @@ class IOUSerializer(serializers.ModelSerializer):
 
 
 class AccountSerializer(serializers.ModelSerializer):
+    balance = serializers.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        read_only=True,
+    )
+
     class Meta:
         model = Account
         fields = [
@@ -434,3 +453,131 @@ class JournalSerializer(serializers.ModelSerializer):
             "updated_at",
             "entries",
         ]
+
+
+class StandupTeamSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = StandupTeam
+        fields = [
+            "id",
+            "company",
+            "name",
+            "slug",
+            "description",
+            "cadence",
+            "timezone_name",
+            "reminder_time",
+            "deadline_time",
+            "is_active",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "company", "created_at", "updated_at"]
+
+
+class StandupTeamMemberSerializer(serializers.ModelSerializer):
+    employee_name = serializers.CharField(source="employee.__str__", read_only=True)
+
+    class Meta:
+        model = StandupTeamMember
+        fields = [
+            "id",
+            "team",
+            "employee",
+            "employee_name",
+            "role",
+            "is_active",
+            "joined_at",
+        ]
+        read_only_fields = ["id", "employee_name", "joined_at"]
+
+    def validate(self, attrs):
+        team = attrs.get("team")
+        employee = attrs.get("employee")
+        if team and employee and team.company_id != employee.company_id:
+            raise serializers.ValidationError("Team and employee must belong to the same company.")
+        return attrs
+
+
+class StandupQuestionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = StandupQuestion
+        fields = [
+            "id",
+            "team",
+            "prompt",
+            "help_text",
+            "answer_type",
+            "order",
+            "is_required",
+            "is_active",
+            "created_at",
+        ]
+        read_only_fields = ["id", "created_at"]
+
+
+class StandupAnswerSerializer(serializers.ModelSerializer):
+    question_prompt = serializers.CharField(source="question.prompt", read_only=True)
+
+    class Meta:
+        model = StandupAnswer
+        fields = [
+            "id",
+            "question",
+            "question_prompt",
+            "body",
+            "is_blocker",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "question_prompt", "created_at", "updated_at"]
+
+
+class StandupCheckinSerializer(serializers.ModelSerializer):
+    member_name = serializers.CharField(source="member.__str__", read_only=True)
+    answers = StandupAnswerSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = StandupCheckin
+        fields = [
+            "id",
+            "company",
+            "team",
+            "member",
+            "member_name",
+            "work_date",
+            "status",
+            "submitted_at",
+            "blocker_count",
+            "created_at",
+            "updated_at",
+            "answers",
+        ]
+        read_only_fields = [
+            "id",
+            "company",
+            "member",
+            "member_name",
+            "status",
+            "submitted_at",
+            "blocker_count",
+            "created_at",
+            "updated_at",
+            "answers",
+        ]
+
+    def validate_team(self, value):
+        request = self.context.get("request")
+        company = get_user_company(request.user if request else None)
+        if company and value.company_id != company.id:
+            raise serializers.ValidationError("Team must belong to your company.")
+        return value
+
+
+class StandupFollowSerializer(serializers.ModelSerializer):
+    follower_email = serializers.CharField(source="follower.email", read_only=True)
+
+    class Meta:
+        model = StandupFollow
+        fields = ["id", "team", "follower", "follower_email", "created_at"]
+        read_only_fields = ["id", "follower", "follower_email", "created_at"]

@@ -83,6 +83,19 @@ app.conf.task_routes = {
         "queue": "notifications_low",
         "routing_key": "notifications.low",
     },
+    # Standup automation
+    "standup.send_reminders": {
+        "queue": "notifications_normal",
+        "routing_key": "notifications.normal",
+    },
+    "standup.mark_missed": {
+        "queue": "notifications_high",
+        "routing_key": "notifications.high",
+    },
+    "standup.send_daily_digest": {
+        "queue": "notifications_low",
+        "routing_key": "notifications.low",
+    },
 }
 
 # ============================================================================
@@ -189,6 +202,21 @@ app.conf.beat_schedule = {
     "cleanup-cache": {
         "task": "payroll.tasks.notification_tasks.cleanup_cache_task",
         "schedule": crontab(minute=0, hour="*/6"),
+    },
+    # Standup reminders every minute (task enforces per-team local-time matching)
+    "standup-send-reminders": {
+        "task": "standup.send_reminders",
+        "schedule": crontab(minute="*"),
+    },
+    # Mark missed check-ins every minute at team-local deadline
+    "standup-mark-missed": {
+        "task": "standup.mark_missed",
+        "schedule": crontab(minute="*"),
+    },
+    # Daily digest summary every 5 minutes after team-local deadline
+    "standup-daily-digest": {
+        "task": "standup.send_daily_digest",
+        "schedule": crontab(minute="*/5"),
     },
 }
 

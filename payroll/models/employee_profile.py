@@ -50,6 +50,12 @@ class EmployeeManager(models.Manager):
     #     return self.get_queryset().search(query=query)
 
 
+PHONE_VALIDATOR = RegexValidator(
+    regex=r"^(?:\+?[1-9]\d{7,14}|0\d{10})$",
+    message="Enter a valid phone number (e.g. +2348012345678 or 08012345678).",
+)
+
+
 class EmployeeProfile(SoftDeleteModel):
     RENT_RELIEF_PERCENT = Decimal("20")
     RENT_RELIEF_CAP = Decimal("500000")
@@ -143,7 +149,7 @@ class EmployeeProfile(SoftDeleteModel):
         default=tin_no,
         unique=True,
         max_length=255,
-        editable=False,
+        editable=True,
     )
     pension_rsa = models.CharField(
         # unique=True,
@@ -180,12 +186,7 @@ class EmployeeProfile(SoftDeleteModel):
         null=True,
     )
     phone = models.CharField(
-        validators=[
-            RegexValidator(
-                regex=r"^(?:\+\d{1,3}\s?)?(\d{3}[-\.\s]??\d{3}[-\.\s]??\d{4}|\(\d{3}\)\s*\d{3}[-\.\s]??\d{4}|\d{3}[-\.\s]??\d{3}[-\.\s]??\d{4})$",
-                message="Phone number must be entered in a valid format.",
-            )
-        ],
+        validators=[PHONE_VALIDATOR],
         max_length=17,
         blank=True,
         # unique=True,
@@ -219,12 +220,7 @@ class EmployeeProfile(SoftDeleteModel):
         verbose_name="Emergency Contact Relationship",
     )
     emergency_contact_phone = models.CharField(
-        validators=[
-            RegexValidator(
-                regex=r"^(?:\+\d{1,3}\s?)?(\d{3}[-\.\s]??\d{3}[-\.\s]??\d{4}|\(\d{3}\)\s*\d{3}[-\.\s]??\d{4}|\d{3}[-\.\s]??\d{3}[-\.\s]??\d{4})$",
-                message="Phone number must be entered in a valid format.",
-            )
-        ],
+        validators=[PHONE_VALIDATOR],
         max_length=17,
         blank=True,
         null=True,
@@ -245,12 +241,7 @@ class EmployeeProfile(SoftDeleteModel):
         verbose_name="Next of Kin Relationship",
     )
     next_of_kin_phone = models.CharField(
-        validators=[
-            RegexValidator(
-                regex=r"^(?:\+\d{1,3}\s?)?(\d{3}[-\.\s]??\d{3}[-\.\s]??\d{4}|\(\d{3}\)\s*\d{3}[-\.\s]??\d{4}|\d{3}[-\.\s]??\d{3}[-\.\s]??\d{4})$",
-                message="Phone number must be entered in a valid format.",
-            )
-        ],
+        validators=[PHONE_VALIDATOR],
         max_length=17,
         blank=True,
         null=True,

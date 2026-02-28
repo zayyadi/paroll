@@ -1,6 +1,6 @@
 from django.contrib.auth.mixins import AccessMixin, UserPassesTestMixin
 from django.http import HttpResponseForbidden
-from django.shortcuts import redirect
+from django.shortcuts import get_object_or_404, redirect
 from .permissions import (
     is_auditor,
     is_accountant,
@@ -99,8 +99,21 @@ class JournalApprovalMixin(UserPassesTestMixin):
     Mixin to check if user can approve a journal
     """
 
+    permission_object_model = None
+
+    def get_permission_object(self):
+        if hasattr(self, "get_object"):
+            return self.get_object()
+
+        if self.permission_object_model and "pk" in self.kwargs:
+            return get_object_or_404(self.permission_object_model, pk=self.kwargs["pk"])
+
+        raise AttributeError(
+            f"{self.__class__.__name__} must define get_object() or permission_object_model."
+        )
+
     def test_func(self):
-        journal = self.get_object()
+        journal = self.get_permission_object()
         return can_approve_journal(self.request.user, journal)
 
     def handle_no_permission(self):
@@ -116,8 +129,21 @@ class JournalReversalMixin(UserPassesTestMixin):
     Mixin to check if user can reverse a journal
     """
 
+    permission_object_model = None
+
+    def get_permission_object(self):
+        if hasattr(self, "get_object"):
+            return self.get_object()
+
+        if self.permission_object_model and "pk" in self.kwargs:
+            return get_object_or_404(self.permission_object_model, pk=self.kwargs["pk"])
+
+        raise AttributeError(
+            f"{self.__class__.__name__} must define get_object() or permission_object_model."
+        )
+
     def test_func(self):
-        journal = self.get_object()
+        journal = self.get_permission_object()
         return can_reverse_journal(self.request.user, journal)
 
     def handle_no_permission(self):
@@ -133,8 +159,21 @@ class PeriodClosingMixin(UserPassesTestMixin):
     Mixin to check if user can close an accounting period
     """
 
+    permission_object_model = None
+
+    def get_permission_object(self):
+        if hasattr(self, "get_object"):
+            return self.get_object()
+
+        if self.permission_object_model and "pk" in self.kwargs:
+            return get_object_or_404(self.permission_object_model, pk=self.kwargs["pk"])
+
+        raise AttributeError(
+            f"{self.__class__.__name__} must define get_object() or permission_object_model."
+        )
+
     def test_func(self):
-        period = self.get_object()
+        period = self.get_permission_object()
         return can_close_period(self.request.user, period)
 
     def handle_no_permission(self):

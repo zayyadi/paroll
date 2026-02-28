@@ -1,67 +1,169 @@
-{% extends 'base.html' %}
+{% extends "base_new.html" %}
 {% load static %}
-{% load tailwind_filters %}
-{% block title %} Payroll Report {% endblock %}
+{% load humanize %}
+{% block page_header %}Payroll Variable Report for {{ dates }}{% endblock %}
 
 {% block content %}
-<div class="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50">
-  <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-    <div class="space-y-8">
-      <!-- Heading Section -->
-      <div class="text-center space-y-2">
-        <h1 class="text-5xl font-bold text-gray-900">Payroll Report for {{ dates }}</h1>
-        <p class="text-lg text-gray-600">Detailed breakdown of payroll variables for the selected period</p>
-      </div>
-
-      <!-- Content Section -->
-      <div class="bg-white rounded-2xl shadow-xl p-8 sm:p-12 transition-all duration-300 hover:shadow-2xl">
-        {% if pay_var %}
-          <div class="flex items-center justify-between mb-6">
-            <h2 class="text-2xl font-bold text-gray-800">Employee Payroll Details</h2>
-            <a href="download/" class="px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-semibold rounded-lg shadow-md transition-all duration-200 transform hover:scale-[1.02] flex items-center justify-center space-x-2">
-              <span>Generate Report</span>
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
-              </svg>
-            </a>
-          </div>
-
-          <div class="overflow-x-auto">
-            <table class="min-w-full bg-white border border-gray-200 rounded-lg overflow-hidden">
-              <thead class="bg-gray-100">
-                <tr>
-                    <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider">ID</th>
-                    <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider">Employee Name</th>
-                    <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider">Gross Amount</th>
-                    <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider">Payee</th>
-                    <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider">Net Pay</th>
-                </tr>
-              </thead>
-              <tbody class="divide-y divide-gray-200">
-                {% for pays in pay_var %}
-                <tr class="hover:bg-gray-50">
-                    <td class="py-3 px-4 text-sm text-gray-800">{{ pays.id }}</td>
-                    <td class="py-3 px-4 text-sm text-gray-800">{{ pays.payroll_entry.pays.first_name }} {{ pays.payroll_entry.pays.last_name }}</td>
-                    <td class="py-3 px-4 text-sm text-gray-800">{{ pays.payroll_entry.pays.employee_pay.basic_salary }}</td>
-                    <td class="py-3 px-4 text-sm text-gray-800">{{ pays.payroll_entry.pays.employee_pay.payee }}</td>
-                    <td class="py-3 px-4 text-sm text-gray-800">{{ pays.payroll_entry.netpay }}</td>
-                </tr>
-                {% endfor %}
-                <tr class="bg-gray-100 font-bold">
-                    <td colspan="4" class="py-3 px-4 text-right text-gray-800">Total Net Pay</td>
-                    <td class="py-3 px-4 text-gray-800">{{ total }}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        {% else %}
-          <div class="text-center py-10">
-            <p class="text-lg text-gray-600 mb-4">No payroll data available for this report.</p>
-            <p class="text-sm text-gray-500">Please ensure a pay period is selected and employees have assigned payroll variables.</p>
-          </div>
-        {% endif %}
-      </div>
+<div class="max-w-7xl mx-auto space-y-6">
+    <!-- Report Header -->
+    <div class="bg-gradient-to-r from-primary-500 to-primary-600 rounded-2xl p-6 text-white shadow-medium">
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between">
+            <div>
+                <h1 class="text-2xl font-bold mb-1">Payroll Variable Report</h1>
+                <p class="text-primary-100">Detailed payroll variable breakdown for {{ dates }}</p>
+            </div>
+            <div class="mt-4 md:mt-0">
+                <a href="download/"
+                    class="bg-white bg-opacity-20 hover:bg-opacity-30 text-white font-medium py-2 px-4 rounded-lg transition-all inline-flex items-center">
+                    <i data-lucide="download" class="h-4 w-4 mr-2"></i>
+                    Generate Report
+                </a>
+            </div>
+        </div>
     </div>
-  </div>
+
+    <!-- Report Summary -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div class="bg-white rounded-xl shadow-soft p-6">
+            <div class="flex items-center">
+                <div class="flex-shrink-0 bg-primary-100 rounded-lg p-3">
+                    <i data-lucide="users" class="h-6 w-6 text-primary-600"></i>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-secondary-600">Total Employees</p>
+                    <p class="text-2xl font-semibold text-secondary-900">{{ pay_var|length }}</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-soft p-6">
+            <div class="flex items-center">
+                <div class="flex-shrink-0 bg-success-100 rounded-lg p-3">
+                    <i data-lucide="dollar-sign" class="h-6 w-6 text-success-600"></i>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-secondary-600">Total Net Pay</p>
+                    <p class="text-2xl font-semibold text-secondary-900">₦{{ total|default:0|intcomma }}</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-soft p-6">
+            <div class="flex items-center">
+                <div class="flex-shrink-0 bg-warning-100 rounded-lg p-3">
+                    <i data-lucide="calendar" class="h-6 w-6 text-warning-600"></i>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-secondary-600">Pay Period</p>
+                    <p class="text-2xl font-semibold text-secondary-900">{{ dates }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Payroll Variable Table -->
+    <div class="bg-white rounded-xl shadow-soft overflow-hidden">
+        <div class="px-6 py-4 border-b border-secondary-200 flex items-center justify-between">
+            <h2 class="text-lg font-semibold text-secondary-900 flex items-center">
+                <i data-lucide="calculator" class="h-5 w-5 mr-2 text-primary-600"></i>
+                Employee Payroll Details
+            </h2>
+            <div class="flex items-center space-x-2">
+                <button class="p-2 text-secondary-500 hover:text-secondary-700 rounded-lg hover:bg-secondary-100"
+                    title="Print">
+                    <i data-lucide="printer" class="h-5 w-5"></i>
+                </button>
+                <button class="p-2 text-secondary-500 hover:text-secondary-700 rounded-lg hover:bg-secondary-100"
+                    title="Export">
+                    <i data-lucide="file-text" class="h-5 w-5"></i>
+                </button>
+            </div>
+        </div>
+
+        {% if pay_var %}
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-secondary-200">
+                <thead class="bg-secondary-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">
+                            EmpNo</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">
+                            Employee Name</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">
+                            Gross Amount</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">
+                            PAYE</th>
+                        <th class="px-6 py-3 text-right text-xs font-medium text-secondary-500 uppercase tracking-wider">
+                            Net Pay</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-secondary-200">
+                    {% for pays in pay_var %}
+                    <tr class="hover:bg-secondary-50">
+                        <td class="px-6 py-4 text-sm text-secondary-900">{{ pays.payroll_entry.pays.emp_id }}</td>
+                        <td class="px-6 py-4 text-sm text-secondary-900">{{ pays.payroll_entry.pays.first_name }} {{ pays.payroll_entry.pays.last_name }}</td>
+                        <td class="px-6 py-4 text-sm text-secondary-900">₦{{ pays.payroll_entry.pays.employee_pay.basic_salary|default:0|intcomma }}</td>
+                        <td class="px-6 py-4 text-sm text-secondary-900">₦{{ pays.payroll_entry.pays.employee_pay.payee|default:0|intcomma }}</td>
+                        <td class="px-6 py-4 text-sm text-secondary-900 text-right font-medium">₦{{ pays.payroll_entry.netpay|default:0|intcomma }}</td>
+                    </tr>
+                    {% endfor %}
+                    <tr class="bg-secondary-100 font-semibold">
+                        <td colspan="4" class="px-6 py-4 text-right text-sm text-secondary-900">Total Net Pay</td>
+                        <td class="px-6 py-4 text-sm text-secondary-900 text-right">₦{{ total|default:0|intcomma }}</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center py-12">
+            <i data-lucide="calculator" class="h-12 w-12 mx-auto text-secondary-400 mb-3"></i>
+            <p class="text-lg text-secondary-600 mb-2">No payroll data available</p>
+            <p class="text-sm text-secondary-500">Please ensure a pay period is selected and employees have been
+                assigned payroll.</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Report Guidance -->
+    {% if pay_var %}
+    <div class="bg-white rounded-xl shadow-soft p-6">
+        <h2 class="text-lg font-semibold text-secondary-900 mb-4 flex items-center">
+            <i data-lucide="info" class="h-5 w-5 mr-2 text-primary-600"></i>
+            Payroll Variable Information
+        </h2>
+        <div class="space-y-4">
+            <div class="p-4 bg-blue-50 rounded-lg">
+                <p class="text-sm text-blue-800">
+                    <strong>Important:</strong> Review salary and deduction variables carefully before finalizing payroll processing for this period.
+                </p>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <h3 class="text-sm font-medium text-secondary-900 mb-2">Report Details</h3>
+                    <ul class="text-sm text-secondary-600 space-y-1">
+                        <li>Total Net Pay: <span class="font-medium text-secondary-900">₦{{ total|default:0|intcomma }}</span></li>
+                        <li>Number of Employees: <span class="font-medium text-secondary-900">{{ pay_var|length }}</span></li>
+                        <li>Pay Period: <span class="font-medium text-secondary-900">{{ dates }}</span></li>
+                    </ul>
+                </div>
+                <div>
+                    <h3 class="text-sm font-medium text-secondary-900 mb-2">Next Steps</h3>
+                    <ol class="text-sm text-secondary-600 space-y-1 list-decimal list-inside">
+                        <li>Download the variable report</li>
+                        <li>Verify salary and tax values</li>
+                        <li>Approve payroll for processing</li>
+                        <li>Archive report for compliance records</li>
+                    </ol>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
 </div>
-{% endblock content %}
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        lucide.createIcons();
+    });
+</script>
+{% endblock %}

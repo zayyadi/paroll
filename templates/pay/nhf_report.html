@@ -35,13 +35,13 @@
                             <td class="py-2 px-4">{{ payrol.payroll_entry.pays.first_name }}</td>
                             <td class="py-2 px-4">{{ payrol.payroll_entry.pays.last_name }}</td>
                             <td class="py-2 px-4">{{ payrol.payroll_entry.pays.bank }}</td>
-                            <td class="py-2 px-4">{{ payrol.payroll_entry.housing|intcomma }}</td>
+                            <td class="py-2 px-4">{{ payrol.payroll_entry.pays.employee_pay.nhf|intcomma }}</td>
                         </tr>
                     {% endfor %}
 
                     <tr class="bg-gray-200">
-                        <td colspan="5" class="py-2 px-4 font-bold text-right">Total National Housinf Fund deduction</td>
-                        <td class="py-2 px-4 font-bold">{{ total }}</td>
+                        <td colspan="4" class="py-2 px-4 font-bold text-right">Total National Housing Fund deduction</td>
+                        <td class="py-2 px-4 font-bold">{{ total|default:0|intcomma }}</td>
                       </tr>
                 </tbody>
             </table>

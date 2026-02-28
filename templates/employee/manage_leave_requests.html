@@ -1,91 +1,45 @@
-{% extends 'base_tailwind.html' %}
-{% load static %} {# Keep for potential future static assets if any #}
+{% extends "base_new.html" %}
 
 {% block page_header %}Manage Leave Requests{% endblock %}
 
 {% block content %}
-<div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12"> {# Changed to max-w-6xl #}
-  <div class="bg-white rounded-xl shadow-sm p-6 md:p-8">
-
-    {# Messages are handled by base_tailwind.html #}
-
-    <div class="bg-white shadow-sm rounded-xl overflow-hidden border border-gray-200">
-      <table class="min-w-full table-auto">
-        <thead class="bg-gray-50">
-          <tr>
-            <th class="p-3 text-left text-sm font-semibold text-gray-700">Employee</th>
-            <th class="p-3 text-left text-sm font-semibold text-gray-700">Leave Type</th>
-            <th class="p-3 text-left text-sm font-semibold text-gray-700">Start Date</th>
-            <th class="p-3 text-left text-sm font-semibold text-gray-700">End Date</th>
-            <th class="p-3 text-left text-sm font-semibold text-gray-700">Reason</th>
-            <th class="p-3 text-left text-sm font-semibold text-gray-700">Status</th>
-            <th class="p-3 text-left text-sm font-semibold text-gray-700">Submitted</th>
-            <th class="p-3 text-left text-sm font-semibold text-gray-700">Actions</th>
-          </tr>
-        </thead>
-        <tbody class="divide-y divide-gray-200">
-          {% for req in requests %}
-          <tr>
-            <td class="p-3 text-sm text-gray-800">{{ req.employee.first_name }} {{ req.employee.last_name }}</td>
-            <td class="p-3 text-sm text-gray-800">{{ req.leave_type }}</td>
-            <td class="p-3 text-sm text-gray-800">{{ req.start_date|date:"d M Y" }}</td>
-            <td class="p-3 text-sm text-gray-800">{{ req.end_date|date:"d M Y" }}</td>
-            <td class="p-3 text-sm text-gray-800 truncate max-w-xs">{{ req.reason|truncatewords:10 }}</td>
-            <td class="p-3 text-sm">
-                <span class="px-2 py-1 text-xs font-semibold rounded-full
-                    {% if req.status == 'APPROVED' %}bg-green-100 text-green-700
-                    {% elif req.status == 'REJECTED' %}bg-red-100 text-red-700
-                    {% elif req.status == 'PENDING' %}bg-yellow-100 text-yellow-700
-                    {% else %}bg-gray-100 text-gray-700{% endif %}">
-                    {{ req.get_status_display }}
-                </span>
-            </td>
-            <td class="p-3 text-sm text-gray-500">{{ req.created_at|date:"d M Y" }}</td>
-            <td class="p-3 text-sm text-gray-800 whitespace-nowrap space-x-2">
-              {% if req.status == 'PENDING' %}
-              <button onclick="openConfirmationModal('{% url 'payroll:approve_leave' req.id %}', 'Are you sure you want to approve this leave request?', 'Approve', 'bg-emerald-600 hover:bg-emerald-700')" class="px-3 py-1.5 bg-emerald-500 text-white font-semibold rounded-lg hover:bg-emerald-600 text-xs">Approve</button>
-              <button onclick="openConfirmationModal('{% url 'payroll:reject_leave' req.id %}', 'Are you sure you want to reject this leave request?', 'Reject', 'bg-red-600 hover:bg-red-700')" class="px-3 py-1.5 bg-red-500 text-white font-semibold rounded-lg hover:bg-red-600 text-xs">Reject</button>
-              {% endif %}
-              <a href="{% url 'payroll:view_leave_request' req.id %}" class="text-blue-600 hover:underline text-xs">View</a>
-            </td>
-          </tr>
-          {% empty %}
-          <tr>
-            <td colspan="8" class="p-4 text-sm text-gray-500 text-center">No pending leave requests found.</td> {# Increased padding for empty state #}
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
+<div class="space-y-6">
+    <div class="bg-white rounded-xl shadow-soft p-6 border border-secondary-100">
+        <h2 class="text-lg font-semibold text-secondary-900">Pending Approvals</h2>
+        <p class="mt-1 text-sm text-secondary-600">Review and process pending leave applications.</p>
     </div>
-  </div>
-</div>
 
-<!-- Confirmation Modal -->
-<div id="confirmationModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50 p-4">
-  <div class="bg-white p-6 rounded-2xl shadow-lg max-w-sm w-full m-auto">
-    <h3 class="text-xl font-semibold text-gray-800 mb-4">Confirm Action</h3>
-    <p id="confirmationMessage" class="text-sm text-gray-600">Are you sure?</p> {# Default message #}
-    <div class="flex justify-end space-x-3 mt-6">
-      <button onclick="closeConfirmationModal()" class="px-4 py-2 border border-gray-300 text-gray-700 font-medium rounded-xl hover:bg-gray-50 text-sm">No</button>
-      <a id="confirmationAction" href="#" class="px-4 py-2 text-white font-semibold rounded-xl text-sm">Yes</a> {# Base classes, specific bg/hover set by JS #}
+    <div class="bg-white rounded-xl shadow-soft overflow-hidden border border-secondary-100">
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-secondary-200">
+                <thead class="bg-secondary-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase">Employee</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase">Type</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase">Dates</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase">Reason</th>
+                        <th class="px-6 py-3 text-right text-xs font-medium text-secondary-500 uppercase">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-secondary-200">
+                    {% for req in requests %}
+                    <tr class="hover:bg-secondary-50">
+                        <td class="px-6 py-4 text-sm text-secondary-900">{{ req.employee.first_name }} {{ req.employee.last_name }}</td>
+                        <td class="px-6 py-4 text-sm text-secondary-700">{{ req.get_leave_type_display }}</td>
+                        <td class="px-6 py-4 text-sm text-secondary-700">{{ req.start_date|date:"d M Y" }} - {{ req.end_date|date:"d M Y" }}</td>
+                        <td class="px-6 py-4 text-sm text-secondary-700 max-w-sm truncate">{{ req.reason|default:"N/A" }}</td>
+                        <td class="px-6 py-4 text-right text-sm font-medium">
+                            <a href="{% url 'payroll:view_leave_request' req.id %}" class="text-primary-600 hover:text-primary-900 mr-3">View</a>
+                            <a href="{% url 'payroll:approve_leave' req.id %}" class="text-success-700 hover:text-success-900 mr-3">Approve</a>
+                            <a href="{% url 'payroll:reject_leave' req.id %}" class="text-danger-700 hover:text-danger-900">Reject</a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="5" class="px-6 py-10 text-center text-secondary-500">No pending leave requests.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
     </div>
-  </div>
 </div>
-
-<!-- JavaScript for Modal -->
-<script>
-  function openConfirmationModal(url, message, actionButtonText = 'Yes', actionButtonClass = 'bg-blue-600 hover:bg-blue-700') {
-    document.getElementById('confirmationMessage').textContent = message;
-    const actionLink = document.getElementById('confirmationAction');
-    actionLink.href = url;
-    actionLink.textContent = actionButtonText;
-    // Reset classes then add new ones - ensure base classes are always present
-    actionLink.className = 'px-4 py-2 text-white font-semibold rounded-xl text-sm ' + actionButtonClass;
-    document.getElementById('confirmationModal').classList.remove('hidden');
-  }
-
-  function closeConfirmationModal() {
-    document.getElementById('confirmationModal').classList.add('hidden');
-  }
-</script>
 {% endblock %}

@@ -1,39 +1,23 @@
-{% extends 'base_tailwind.html' %}
-{% load static %}
+{% extends "base_new.html" %}
 
-{% block page_header %}Confirm Deletion of IOU Request{% endblock %}
+{% block page_header %}Delete IOU Request{% endblock %}
 
 {% block content %}
-<div class="max-w-lg mx-auto bg-white rounded-xl shadow-sm p-6 md:p-8">
-    <h2 class="text-xl font-semibold text-gray-800 mb-4">Delete IOU Request</h2>
-    
-    <p class="text-gray-600 mb-6">
-        Are you sure you want to delete the IOU request for 
-        <strong>{{ iou.employee_id.first_name }} {{ iou.employee_id.last_name }}</strong> 
-        amounting to <strong>₦{{ iou.amount|floatformat:2 }}</strong>, requested on 
-        {{ iou.requested_at|date:"d M Y" }}?
-    </p>
-    
-    {% if iou.reason %}
-    <div class="mb-6 p-3 bg-gray-50 rounded-lg border border-gray-200">
-        <p class="text-sm"><span class="font-medium text-gray-700">Reason for IOU:</span> {{ iou.reason }}</p>
+<div class="max-w-2xl mx-auto">
+    <div class="bg-white rounded-xl shadow-soft p-6 border border-danger-100">
+        <h2 class="text-lg font-semibold text-secondary-900 mb-3">Confirm Deletion</h2>
+        <p class="text-sm text-secondary-700">
+            Delete IOU request for <strong>{{ iou.employee_id.first_name }} {{ iou.employee_id.last_name }}</strong>
+            (₦{{ iou.amount }}, {{ iou.created_at|date:"d M Y" }})?
+        </p>
+        {% if iou.reason %}
+        <p class="mt-3 text-sm text-secondary-600"><span class="font-medium">Reason:</span> {{ iou.reason }}</p>
+        {% endif %}
+        <form method="post" class="mt-6 flex justify-end gap-3">
+            {% csrf_token %}
+            <a href="{% url 'payroll:iou_list' %}" class="px-4 py-2.5 rounded-xl border border-secondary-300 text-secondary-700 hover:bg-secondary-50 text-sm font-medium">Cancel</a>
+            <button type="submit" class="px-5 py-2.5 rounded-xl bg-danger-600 hover:bg-danger-700 text-white text-sm font-medium">Delete</button>
+        </form>
     </div>
-    {% endif %}
-
-    <form method="post">
-        {% csrf_token %}
-        <div class="pt-2 flex flex-col sm:flex-row sm:items-center sm:justify-end space-y-3 sm:space-y-0 sm:space-x-3">
-            <a href="{% if iou.get_absolute_url %}{{ iou.get_absolute_url }}{% else %}{% url 'payroll:iou_list' %}{% endif %}" class="w-full sm:w-auto flex items-center justify-center px-6 py-2.5 border border-gray-300 bg-white hover:bg-gray-50 text-gray-700 font-semibold rounded-xl shadow-sm text-sm">
-                Cancel
-            </a>
-            <button type="submit" class="w-full sm:w-auto flex items-center justify-center px-6 py-2.5 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 text-sm">
-                <i data-lucide="trash-2" class="w-4 h-4 mr-2"></i>
-                Yes, Delete
-            </button>
-        </div>
-    </form>
 </div>
-
-{# Ensure Lucide icons are initialized if you're using them, e.g., in your base_tailwind.html #}
-{# <script>lucide.createIcons();</script> #}
 {% endblock %}

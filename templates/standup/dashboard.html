@@ -1,0 +1,29 @@
+{% extends "base_new.html" %}
+
+{% block page_header %}Standup{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <div class="bg-white rounded-xl shadow-soft p-6">
+        <h2 class="text-lg font-semibold text-secondary-900">Daily Standup</h2>
+        <p class="mt-2 text-sm text-secondary-600">
+            Standup features are now enabled in the API and background scheduler.
+            Use the links below to submit updates and review summaries.
+        </p>
+        <div class="mt-4 flex flex-wrap gap-3">
+            <a href="{% url 'api:v1:standup-checkin-list' %}"
+               class="inline-flex items-center px-4 py-2 rounded-lg bg-primary-600 text-white text-sm font-medium hover:bg-primary-700">
+                Check-ins API
+            </a>
+            <a href="{% url 'api:v1:standup-team-list' %}"
+               class="inline-flex items-center px-4 py-2 rounded-lg border border-secondary-300 text-secondary-700 text-sm font-medium hover:bg-secondary-50">
+                Teams API
+            </a>
+            <a href="{% url 'api:v1:swagger-ui' %}"
+               class="inline-flex items-center px-4 py-2 rounded-lg border border-secondary-300 text-secondary-700 text-sm font-medium hover:bg-secondary-50">
+                API Docs
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

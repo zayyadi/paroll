@@ -107,6 +107,56 @@ class CompanyPayrollSetting(models.Model):
     def __str__(self):
         return f"{self.company} payroll settings"
 
+    def clean(self):
+        super().clean()
+
+        total = (
+            (self.basic_percentage or Decimal("0"))
+            + (self.housing_percentage or Decimal("0"))
+            + (self.transport_percentage or Decimal("0"))
+        )
+        if total <= Decimal("0"):
+            raise ValidationError(
+                "Basic, housing, and transport percentages must sum to more than 0."
+            )
+        if total > Decimal("100"):
+            raise ValidationError(
+                "Basic, housing, and transport percentages cannot exceed 100% in total."
+            )
+
+        # Nigeria-focused statutory guardrails (PRA/NHF baseline).
+        if self.pension_employee_percentage < Decimal("8.00"):
+            raise ValidationError(
+                {
+                    "pension_employee_percentage": (
+                        "Employee pension contribution must be at least 8% "
+                        "for Nigeria payroll baseline."
+                    )
+                }
+            )
+        if self.pension_employer_percentage < Decimal("10.00"):
+            raise ValidationError(
+                {
+                    "pension_employer_percentage": (
+                        "Employer pension contribution must be at least 10% "
+                        "for Nigeria payroll baseline."
+                    )
+                }
+            )
+        if self.nhf_percentage < Decimal("2.50"):
+            raise ValidationError(
+                {
+                    "nhf_percentage": (
+                        "NHF contribution must be at least 2.5% for Nigeria payroll baseline."
+                    )
+                }
+            )
+
+        if not self.pays_thirteenth_month and self.thirteenth_month_percentage != Decimal(
+            "0"
+        ):
+            self.thirteenth_month_percentage = Decimal("0")
+
     def get_health_tier_for_salary(self, basic_salary: Decimal):
         salary = Decimal(basic_salary or Decimal("0"))
         for tier in self.health_insurance_tiers.all().order_by(
@@ -587,7 +637,7 @@ class PayrollEntry(models.Model):
         return (annual_basic_salary * thirteenth_month_percentage) / Decimal("100")
 
     @property
-    def calc_deduction(self):
+    def calc_standard_deduction(self):
         if not self.pk:
             _deduction_debug_print(
                 f"PayrollEntry has no PK yet for employee={getattr(self.pays, 'id', None)}; returning 0."
@@ -624,6 +674,22 @@ class PayrollEntry(models.Model):
                 f"Standard deduction included: id={deduction.id}, type={deduction.deduction_type}, amount={deduction.amount}."
             )
             total_deduction += deduction.amount
+        return total_deduction
+
+    @property
+    def calc_iou_deduction(self):
+        if not self.pk:
+            return Decimal(0)
+
+        payroll_run_entry = self.payroll_run_entries.select_related(
+            "payroll_run"
+        ).first()
+        if not payroll_run_entry:
+            return Decimal(0)
+
+        payroll_month = payroll_run_entry.payroll_run.paydays.month
+        payroll_year = payroll_run_entry.payroll_run.paydays.year
+        total_iou_deduction = Decimal(0)
 
         for iou_deduction in self.pays.iou_deductions.filter(
             payday__paydays__month=payroll_month, payday__paydays__year=payroll_year
@@ -631,7 +697,12 @@ class PayrollEntry(models.Model):
             _deduction_debug_print(
                 f"IOU deduction included: id={iou_deduction.id}, iou_id={iou_deduction.iou_id}, amount={iou_deduction.amount}."
             )
-            total_deduction += iou_deduction.amount
+            total_iou_deduction += iou_deduction.amount
+        return total_iou_deduction
+
+    @property
+    def calc_deduction(self):
+        total_deduction = self.calc_standard_deduction + self.calc_iou_deduction
         _deduction_debug_print(
             f"Total calculated deductions for payroll_entry_id={self.pk}: {total_deduction}."
         )
@@ -797,6 +868,13 @@ class IOU(SoftDeleteModel):
         help_text="Tenor of the IOU (in months)",
         validators=[MinValueValidator(1)],  # Ensure tenor is at least 1 month
     )
+    repayment_deduction_percentage = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=Decimal("30.00"),
+        validators=[MinValueValidator(Decimal("1.00")), MaxValueValidator(Decimal("100.00"))],
+        help_text="Percentage of monthly salary to deduct for IOU repayment.",
+    )
     reason = models.TextField(
         help_text="Reason for the IOU request",
         blank=True,
@@ -839,6 +917,15 @@ class IOU(SoftDeleteModel):
     @property
     def total_amount(self):
         return self.amount + (self.amount * self.interest_rate / 100)
+
+    @property
+    def repaid_amount(self):
+        paid = self.deductions.aggregate(total=models.Sum("amount")).get("total")
+        return paid or Decimal("0.00")
+
+    @property
+    def outstanding_amount(self):
+        return max(self.total_amount - self.repaid_amount, Decimal("0.00"))
 
     @property
     def get_due_date(self):
@@ -1039,6 +1126,19 @@ class LeaveRequest(models.Model):
                 raise ValidationError(
                     f"Insufficient {self.leave_type.lower()} leave balance."
                 )
+
+        overlap_qs = LeaveRequest.objects.filter(
+            employee=self.employee,
+            status__in=["PENDING", "APPROVED"],
+            start_date__lte=self.end_date,
+            end_date__gte=self.start_date,
+        )
+        if self.pk:
+            overlap_qs = overlap_qs.exclude(pk=self.pk)
+        if overlap_qs.exists():
+            raise ValidationError(
+                "Leave dates overlap with an existing pending/approved leave request."
+            )
 
     def save(self, *args, **kwargs):
         user = kwargs.pop("user", None)

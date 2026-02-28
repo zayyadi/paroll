@@ -1,102 +1,75 @@
-{% extends 'base.html' %}
+{% extends "base_new.html" %}
+
+{% block page_header %}Update My Profile{% endblock %}
 
 {% block content %}
-<div class="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
-    <div class="sm:mx-auto sm:w-full sm:max-w-2xl">
-        <h2 class="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            Update Your Profile
-        </h2>
-        <p class="mt-2 text-center text-sm text-gray-600">
-            Keep your personal and contact information up to date.
+<div class="max-w-3xl mx-auto space-y-6">
+    <div class="bg-white rounded-xl shadow-soft p-6 border border-secondary-100">
+        <h2 class="text-lg font-semibold text-secondary-900">Personal Information</h2>
+        <p class="mt-1 text-sm text-secondary-600">
+            Keep your contact and identity records up to date.
         </p>
     </div>
 
-    <div class="mt-8 sm:mx-auto sm:w-full sm:max-w-2xl">
-        <div class="bg-white py-8 px-4 shadow-lg sm:rounded-lg sm:px-10">
-            <form method="post" enctype="multipart/form-data" class="space-y-8">
-                {% csrf_token %}
+    <form method="post" enctype="multipart/form-data"
+          class="bg-white rounded-xl shadow-soft p-6 border border-secondary-100 space-y-5">
+        {% csrf_token %}
 
-                <div class="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-2">
-                    <div>
-                        <label for="{{ form.first_name.id_for_label }}" class="block text-sm font-medium text-gray-700">First Name</label>
-                        <div class="mt-1">
-                            {{ form.first_name }}
-                        </div>
-                    </div>
+        {% if form.non_field_errors %}
+            <div class="rounded-xl border border-danger-200 bg-danger-50 p-4 text-sm text-danger-800">
+                {{ form.non_field_errors }}
+            </div>
+        {% endif %}
 
-                    <div>
-                        <label for="{{ form.last_name.id_for_label }}" class="block text-sm font-medium text-gray-700">Last Name</label>
-                        <div class="mt-1">
-                            {{ form.last_name }}
-                        </div>
-                    </div>
-
-                    <div class="sm:col-span-2">
-                        <label for="{{ form.email.id_for_label }}" class="block text-sm font-medium text-gray-700">Email Address</label>
-                        <div class="mt-1">
-                             {{ form.email }}
-                        </div>
-                    </div>
-
-                    <div>
-                        <label for="{{ form.date_of_birth.id_for_label }}" class="block text-sm font-medium text-gray-700">Date of Birth</label>
-                        <div class="mt-1">
-                            {{ form.date_of_birth }}
-                        </div>
-                    </div>
-
-                    <div>
-                        <label for="{{ form.gender.id_for_label }}" class="block text-sm font-medium text-gray-700">Gender</label>
-                        <div class="mt-1">
-                            {{ form.gender }}
-                        </div>
-                    </div>
-
-                    <div class="sm:col-span-2">
-                        <label for="{{ form.phone.id_for_label }}" class="block text-sm font-medium text-gray-700">Phone Number</label>
-                        <div class="mt-1">
-                            {{ form.phone }}
-                        </div>
-                    </div>
-
-                    <div class="sm:col-span-2">
-                        <label for="{{ form.address.id_for_label }}" class="block text-sm font-medium text-gray-700">Address</label>
-                        <div class="mt-1">
-                            {{ form.address }}
-                        </div>
-                    </div>
-
-                    <div class="sm:col-span-2">
-                        <label for="{{ form.photo.id_for_label }}" class="block text-sm font-medium text-gray-700">Profile Photo</label>
-                        <div class="mt-2 flex items-center">
-                            <span class="inline-block h-12 w-12 rounded-full overflow-hidden bg-gray-100">
-                                {% if user.employee_user.photo and user.employee_user.photo.url %}
-                                    <img class="h-full w-full object-cover" src="{{ user.employee_user.photo.url }}" alt="Current profile photo">
-                                {% else %}
-                                    <svg class="h-full w-full text-gray-300" fill="currentColor" viewBox="0 0 24 24">
-                                        <path d="M24 20.993V24H0v-2.997A14.977 14.977 0 0112.004 15c4.904 0 9.26 2.354 11.996 5.993zM16.002 8.999a4 4 0 11-8 0 4 4 0 018 0z" />
-                                    </svg>
-                                {% endif %}
-                            </span>
-                            <div class="ml-5">
-                                {{ form.photo }}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="pt-5">
-                    <div class="flex justify-end">
-                        <a href="{% url 'payroll:profile' user.id %}" class="bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
-                            Cancel
-                        </a>
-                        <button type="submit" class="ml-3 inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
-                            Save Changes
-                        </button>
-                    </div>
-                </div>
-            </form>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div>
+                <label for="{{ form.first_name.id_for_label }}" class="block text-sm font-medium text-secondary-700 mb-1">First Name</label>
+                {{ form.first_name }}
+            </div>
+            <div>
+                <label for="{{ form.last_name.id_for_label }}" class="block text-sm font-medium text-secondary-700 mb-1">Last Name</label>
+                {{ form.last_name }}
+            </div>
+            <div class="md:col-span-2">
+                <label for="{{ form.email.id_for_label }}" class="block text-sm font-medium text-secondary-700 mb-1">Email Address</label>
+                {{ form.email }}
+            </div>
+            <div>
+                <label for="{{ form.date_of_birth.id_for_label }}" class="block text-sm font-medium text-secondary-700 mb-1">Date of Birth</label>
+                {{ form.date_of_birth }}
+            </div>
+            <div>
+                <label for="{{ form.gender.id_for_label }}" class="block text-sm font-medium text-secondary-700 mb-1">Gender</label>
+                {{ form.gender }}
+            </div>
+            <div>
+                <label for="{{ form.phone.id_for_label }}" class="block text-sm font-medium text-secondary-700 mb-1">Phone Number</label>
+                {{ form.phone }}
+            </div>
+            <div>
+                <label for="{{ form.tin_no.id_for_label }}" class="block text-sm font-medium text-secondary-700 mb-1">TIN Number</label>
+                {{ form.tin_no }}
+            </div>
+            <div class="md:col-span-2">
+                <label for="{{ form.address.id_for_label }}" class="block text-sm font-medium text-secondary-700 mb-1">Address</label>
+                {{ form.address }}
+            </div>
+            <div class="md:col-span-2">
+                <label for="{{ form.photo.id_for_label }}" class="block text-sm font-medium text-secondary-700 mb-1">Profile Photo</label>
+                {{ form.photo }}
+            </div>
         </div>
-    </div>
+
+        <div class="flex items-center justify-end gap-3 pt-2">
+            <a href="{% url 'payroll:profile' user.id %}"
+               class="px-4 py-2.5 rounded-xl border border-secondary-300 text-secondary-700 hover:bg-secondary-50 text-sm font-medium">
+                Cancel
+            </a>
+            <button type="submit"
+                    class="btn-primary py-2.5 px-6 text-white font-medium rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+                Save Changes
+            </button>
+        </div>
+    </form>
 </div>
 {% endblock %}

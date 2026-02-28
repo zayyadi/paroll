@@ -1,67 +1,29 @@
-{% extends 'base_tailwind.html' %}
-{% load static %} {# Keep for potential future static assets if any #}
+{% extends "base_new.html" %}
 
 {% block page_header %}Leave Request Details{% endblock %}
 
 {% block content %}
-<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12"> {# Kept this wrapper #}
-  <div class="bg-white rounded-xl shadow-sm p-6 md:p-8">
-
-    {# Header section with title and "Add New" button is removed, title handled by page_header #}
-
-    <div class="space-y-4">
-        <div>
-            <p class="text-sm font-medium text-gray-500">Employee</p>
-            <p class="text-base text-gray-900">{{ leave_request.employee.first_name }} {{ leave_request.employee.last_name }}</p>
-        </div>
-        <div>
-            <p class="text-sm font-medium text-gray-500">Leave Type</p>
-            <p class="text-base text-gray-900">{{ leave_request.leave_type.leave_type }}</p>
-        </div>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+<div class="max-w-3xl mx-auto space-y-6">
+    <div class="bg-white rounded-xl shadow-soft p-6 border border-secondary-100">
+        <h2 class="text-lg font-semibold text-secondary-900">Leave Request</h2>
+        <div class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+            <div><p class="text-secondary-500">Employee</p><p class="text-secondary-900">{{ leave_request.employee.first_name }} {{ leave_request.employee.last_name }}</p></div>
+            <div><p class="text-secondary-500">Type</p><p class="text-secondary-900">{{ leave_request.get_leave_type_display }}</p></div>
+            <div><p class="text-secondary-500">Start Date</p><p class="text-secondary-900">{{ leave_request.start_date|date:"d M Y" }}</p></div>
+            <div><p class="text-secondary-500">End Date</p><p class="text-secondary-900">{{ leave_request.end_date|date:"d M Y" }}</p></div>
+            <div><p class="text-secondary-500">Duration</p><p class="text-secondary-900">{{ leave_request.duration }} day(s)</p></div>
             <div>
-                <p class="text-sm font-medium text-gray-500">Start Date</p>
-                <p class="text-base text-gray-900">{{ leave_request.start_date|date:"D, d M Y" }}</p>
+                <p class="text-secondary-500">Status</p>
+                <span class="px-2 py-1 inline-flex text-xs font-semibold rounded-full {% if leave_request.status == 'APPROVED' %}bg-success-100 text-success-800{% elif leave_request.status == 'REJECTED' %}bg-danger-100 text-danger-800{% else %}bg-warning-100 text-warning-800{% endif %}">{{ leave_request.get_status_display }}</span>
             </div>
-            <div>
-                <p class="text-sm font-medium text-gray-500">End Date</p>
-                <p class="text-base text-gray-900">{{ leave_request.end_date|date:"D, d M Y" }}</p>
-            </div>
+            <div class="md:col-span-2"><p class="text-secondary-500">Reason</p><p class="text-secondary-900 whitespace-pre-line">{{ leave_request.reason|default:"N/A" }}</p></div>
         </div>
-        <div>
-            <p class="text-sm font-medium text-gray-500">Reason</p>
-            <p class="text-base text-gray-900 whitespace-pre-wrap">{{ leave_request.reason }}</p>
-        </div>
-        <div>
-            <p class="text-sm font-medium text-gray-500">Status</p>
-            <p class="text-base font-semibold">
-                <span class="px-2.5 py-1 text-xs rounded-full
-                    {% if leave_request.status == 'APPROVED' %}bg-green-100 text-green-700
-                    {% elif leave_request.status == 'REJECTED' %}bg-red-100 text-red-700
-                    {% elif leave_request.status == 'PENDING' %}bg-yellow-100 text-yellow-700
-                    {% else %}bg-gray-100 text-gray-700{% endif %}">
-                    {{ leave_request.get_status_display }}
-                </span>
-            </p>
-        </div>
-         <div>
-            <p class="text-sm font-medium text-gray-500">Submitted On</p>
-            <p class="text-base text-gray-900">{{ leave_request.created_at|date:"D, d M Y H:i" }}</p>
+        <div class="flex justify-end gap-3 mt-6">
+            <a href="{% url 'payroll:leave_requests' %}" class="px-4 py-2.5 rounded-xl border border-secondary-300 text-secondary-700 hover:bg-secondary-50 text-sm font-medium">Back</a>
+            {% if leave_request.status == 'PENDING' and request.user == leave_request.employee.user %}
+            <a href="{% url 'payroll:edit_leave_request' leave_request.id %}" class="btn-primary px-4 py-2.5 rounded-xl text-white text-sm font-medium">Edit</a>
+            {% endif %}
         </div>
     </div>
-
-    <div class="mt-8 pt-6 border-t border-gray-200 flex items-center space-x-3">
-        <a href="{% url 'payroll:leave_requests' %}" class="inline-flex items-center px-4 py-2 border border-gray-300 text-gray-700 font-medium rounded-xl hover:bg-gray-50 text-sm focus:outline-none focus:ring-2 focus:ring-gray-300 focus:ring-offset-2">
-            <i data-lucide="arrow-left" class="w-4 h-4 mr-2"></i>
-            Back to My Requests
-        </a>
-        {% if leave_request.status == 'PENDING' and request.user == leave_request.employee.user %} {# Only show edit if pending and owner #}
-        <a href="{% url 'payroll:edit_leave_request' leave_request.id %}" class="inline-flex items-center px-4 py-2 bg-indigo-600 text-white font-semibold rounded-xl hover:bg-indigo-700 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
-            <i data-lucide="edit-3" class="w-4 h-4 mr-2"></i>
-            Edit Request
-        </a>
-        {% endif %}
-    </div>
-  </div>
 </div>
 {% endblock %}

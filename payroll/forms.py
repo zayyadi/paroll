@@ -1,6 +1,5 @@
-from datetime import timedelta
-import math
 from calendar import monthrange
+from decimal import Decimal
 
 from django import forms
 from django.utils import timezone
@@ -67,6 +66,26 @@ class EmployeeProfileForm(forms.ModelForm):
             self.fields["employee_pay"].queryset = models.Payroll.objects.filter(
                 company=company
             )
+        input_class = (
+            "w-full px-4 py-2.5 border border-secondary-300 rounded-xl "
+            "focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm bg-white"
+        )
+        select_class = (
+            "w-full px-4 py-2.5 border border-secondary-300 rounded-xl "
+            "focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm bg-white"
+        )
+        for field_name, field in self.fields.items():
+            if isinstance(field.widget, forms.Select):
+                field.widget.attrs["class"] = select_class
+            elif isinstance(field.widget, forms.FileInput):
+                field.widget.attrs["class"] = (
+                    "block w-full text-sm text-secondary-700 file:mr-4 file:py-2 "
+                    "file:px-4 file:rounded-lg file:border-0 file:text-sm "
+                    "file:font-semibold file:bg-primary-50 file:text-primary-700 "
+                    "hover:file:bg-primary-100"
+                )
+            else:
+                field.widget.attrs["class"] = input_class
 
     class Meta:
         model = models.EmployeeProfile
@@ -87,7 +106,7 @@ class EmployeeProfileForm(forms.ModelForm):
             "pension_fund_manager",
             "pension_rsa",
             # "nin",
-            # "tin_no",
+            "tin_no",
             "rent_paid",
             "emergency_contact_name",
             "emergency_contact_relationship",
@@ -135,6 +154,12 @@ class EmployeeProfileForm(forms.ModelForm):
                     "class": "h-10 border mt-1 rounded px-4 w-full bg-gray-50",
                 }
             ),
+            "tin_no": forms.TextInput(
+                attrs={
+                    "label": "block text-white text-sm font-bold mb-2",
+                    "class": "h-10 border mt-1 rounded px-4 w-full bg-gray-50",
+                }
+            ),
             "rent_paid": forms.TextInput(
                 attrs={
                     "label": "block text-white text-sm font-bold mb-2",
@@ -172,6 +197,23 @@ class EmployeeProfileForm(forms.ModelForm):
 
 
 class EmployeeProfileUpdateForm(forms.ModelForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        shared_class = (
+            "w-full px-4 py-2.5 border border-secondary-300 rounded-xl "
+            "focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm bg-white"
+        )
+        for field in self.fields.values():
+            if isinstance(field.widget, forms.FileInput):
+                field.widget.attrs["class"] = (
+                    "block w-full text-sm text-secondary-700 file:mr-4 file:py-2 "
+                    "file:px-4 file:rounded-lg file:border-0 file:text-sm "
+                    "file:font-semibold file:bg-primary-50 file:text-primary-700 "
+                    "hover:file:bg-primary-100"
+                )
+            else:
+                field.widget.attrs["class"] = shared_class
+
     class Meta:
         model = models.EmployeeProfile
         fields = [
@@ -182,6 +224,7 @@ class EmployeeProfileUpdateForm(forms.ModelForm):
             "gender",
             "phone",
             "address",
+            "tin_no",
             "photo",
         ]
         widgets = {
@@ -217,6 +260,11 @@ class EmployeeProfileUpdateForm(forms.ModelForm):
                 }
             ),
             "address": forms.TextInput(
+                attrs={
+                    "class": "appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                }
+            ),
+            "tin_no": forms.TextInput(
                 attrs={
                     "class": "appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                 }
@@ -393,6 +441,23 @@ class IOUForm(forms.ModelForm):
 
 
 class LeaveRequestForm(forms.ModelForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        input_class = (
+            "w-full px-4 py-2.5 border border-secondary-300 rounded-xl "
+            "focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm bg-white"
+        )
+        textarea_class = (
+            "w-full px-4 py-2.5 border border-secondary-300 rounded-xl "
+            "focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm bg-white"
+        )
+        for field in self.fields.values():
+            if isinstance(field.widget, forms.Textarea):
+                field.widget.attrs["class"] = textarea_class
+                field.widget.attrs.setdefault("rows", 4)
+            else:
+                field.widget.attrs["class"] = input_class
+
     class Meta:
         model = models.LeaveRequest
         fields = ["leave_type", "start_date", "end_date", "reason"]
@@ -409,9 +474,33 @@ class LeavePolicyForm(forms.ModelForm):
 
 
 class IOURequestForm(forms.ModelForm):
+    @staticmethod
+    def _add_months(base_date, months):
+        if months <= 0:
+            return base_date
+        year = base_date.year + (base_date.month - 1 + months) // 12
+        month = (base_date.month - 1 + months) % 12 + 1
+        day = min(base_date.day, monthrange(year, month)[1])
+        return base_date.replace(year=year, month=month, day=day)
+
     def __init__(self, *args, **kwargs):
         self.max_iou_amount = kwargs.pop("max_iou_amount", None)
         super().__init__(*args, **kwargs)
+        input_class = (
+            "w-full px-4 py-2.5 border border-secondary-300 rounded-xl "
+            "focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm bg-white"
+        )
+        textarea_class = (
+            "w-full px-4 py-2.5 border border-secondary-300 rounded-xl "
+            "focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm bg-white"
+        )
+        for field in self.fields.values():
+            if isinstance(field.widget, forms.Textarea):
+                field.widget.attrs["class"] = textarea_class
+                field.widget.attrs.setdefault("rows", 4)
+            else:
+                field.widget.attrs["class"] = input_class
+        self.fields["due_date"].required = False
 
     def clean_amount(self):
         amount = self.cleaned_data.get("amount")
@@ -424,29 +513,30 @@ class IOURequestForm(forms.ModelForm):
             )
         return amount
 
-    def clean_due_date(self):
-        due_date = self.cleaned_data.get("due_date")
-        if due_date is None:
-            return due_date
-
-        today = timezone.localdate()
-        if due_date <= today:
-            raise forms.ValidationError("Due date must be after today.")
-        if due_date > today + timedelta(days=90):
-            raise forms.ValidationError("Due date cannot be more than 90 days ahead.")
-        return due_date
+    def clean_tenor(self):
+        tenor = self.cleaned_data.get("tenor")
+        if tenor is None:
+            return tenor
+        if tenor < 1:
+            raise forms.ValidationError("Tenor must be at least 1 month.")
+        if tenor > 60:
+            raise forms.ValidationError("Tenor cannot exceed 60 months.")
+        return tenor
 
     def clean(self):
         cleaned_data = super().clean()
-        due_date = cleaned_data.get("due_date")
+        tenor = cleaned_data.get("tenor")
         today = timezone.localdate()
 
-        # Set tenor before model validation runs in ModelForm._post_clean().
-        if due_date:
-            days_until_due = max((due_date - today).days, 1)
-            self.instance.tenor = max(math.ceil(days_until_due / 30), 1)
+        # Always derive due date from today's date and preferred tenor.
+        if tenor:
+            self.instance.tenor = tenor
         else:
             self.instance.tenor = 1
+
+        computed_due_date = self._add_months(today, self.instance.tenor)
+        cleaned_data["due_date"] = computed_due_date
+        self.instance.due_date = computed_due_date
 
         return cleaned_data
 
@@ -459,7 +549,10 @@ class IOURequestForm(forms.ModelForm):
 
     class Meta:
         model = models.IOU
-        fields = ["amount", "reason", "due_date"]
+        fields = ["amount", "tenor", "reason", "due_date"]
+        widgets = {
+            "tenor": forms.NumberInput(attrs={"min": 1, "max": 60, "step": 1}),
+        }
 
 
 class IOUUpdateForm(forms.ModelForm):
@@ -505,9 +598,73 @@ class IOUUpdateForm(forms.ModelForm):
 
 
 class IOUApprovalForm(forms.ModelForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        input_class = (
+            "w-full px-4 py-2.5 border border-secondary-300 rounded-xl "
+            "focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm bg-white"
+        )
+        for field in self.fields.values():
+            field.widget.attrs["class"] = input_class
+
     class Meta:
         model = models.IOU
-        fields = ["status", "approved_at"]
+        fields = ["status", "approved_at", "tenor", "repayment_deduction_percentage"]
+        widgets = {
+            "approved_at": forms.DateInput(attrs={"type": "date"}),
+            "tenor": forms.NumberInput(attrs={"min": 1, "max": 60, "step": 1}),
+            "repayment_deduction_percentage": forms.NumberInput(
+                attrs={"min": 1, "max": 100, "step": "0.01"}
+            ),
+        }
+
+    def clean(self):
+        cleaned_data = super().clean()
+        status = cleaned_data.get("status")
+        tenor = cleaned_data.get("tenor")
+        deduction_pct = cleaned_data.get("repayment_deduction_percentage")
+
+        if status == "APPROVED":
+            if not tenor:
+                self.add_error("tenor", "Set the approved tenor for repayment.")
+            if not deduction_pct:
+                self.add_error(
+                    "repayment_deduction_percentage",
+                    "Set the salary deduction percentage for repayment.",
+                )
+
+            employee_profile = getattr(self.instance, "employee_id", None)
+            monthly_salary = Decimal("0.00")
+            if employee_profile is not None:
+                monthly_salary = Decimal(employee_profile.net_pay or Decimal("0.00"))
+                if monthly_salary <= 0 and employee_profile.employee_pay:
+                    monthly_salary = Decimal(
+                        employee_profile.employee_pay.basic_salary or Decimal("0.00")
+                    )
+
+            if tenor and deduction_pct and monthly_salary > 0:
+                monthly_deduction = (monthly_salary * Decimal(deduction_pct)) / Decimal(
+                    "100"
+                )
+                max_repayable = monthly_deduction * Decimal(tenor)
+                if max_repayable < Decimal(self.instance.total_amount):
+                    self.add_error(
+                        "repayment_deduction_percentage",
+                        (
+                            "Selected deduction percentage and tenor cannot repay this IOU "
+                            "within the approved period."
+                        ),
+                    )
+
+        return cleaned_data
+
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+        if instance.status == "APPROVED" and not instance.approved_at:
+            instance.approved_at = timezone.localdate()
+        if commit:
+            instance.save()
+        return instance
 
 
 class AuditTrailForm(forms.ModelForm):

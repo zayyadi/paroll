@@ -1,15 +1,15 @@
 {% extends "employee/discipline_base.html" %}
 
 {% block accounting_content %}
-<div class="bg-white rounded-lg shadow-soft p-6">
+<div class="bg-white rounded-xl shadow-soft p-6 border border-secondary-100">
     <h2 class="text-xl font-semibold text-secondary-900 mb-1">{{ page_title }}</h2>
     <p class="text-sm text-secondary-600 mb-4">Case: {{ disciplinary_case.case_number }}</p>
-    <form method="post" enctype="multipart/form-data" class="space-y-4">
+    <form method="post" enctype="multipart/form-data" class="discipline-form">
         {% csrf_token %}
         {{ form.as_p }}
-        <div class="flex items-center gap-2">
-            <button class="px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700">Add Evidence</button>
-            <a href="{% url 'payroll:discipline_case_detail' disciplinary_case.pk %}" class="px-4 py-2 border border-secondary-300 rounded-md text-secondary-700 hover:bg-secondary-50">Back</a>
+        <div class="flex items-center justify-end gap-2 mt-6">
+            <a href="{% url 'payroll:discipline_case_detail' disciplinary_case.pk %}" class="px-4 py-2 border border-secondary-300 rounded-xl text-secondary-700 hover:bg-secondary-50">Back</a>
+            <button class="btn-primary px-4 py-2 text-white rounded-xl">Add Evidence</button>
         </div>
     </form>
 </div>

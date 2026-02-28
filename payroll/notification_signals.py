@@ -305,7 +305,7 @@ def _dispatch_iou_rejected_event(iou):
     """
     event = IOUEvent(
         iou=iou,
-        event_type=EventType.IOU_APPROVED,  # Using same type for rejection
+        event_type=EventType.IOU_REJECTED,
     )
 
     # Dispatch event

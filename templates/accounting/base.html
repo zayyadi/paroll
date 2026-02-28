@@ -140,19 +140,25 @@
 
 {% block extra_js %}
 <script>
-    // Initialize Lucide icons for dynamically loaded content
-    document.addEventListener('DOMContentLoaded', function() {
-        lucide.createIcons();
-        
-        // Re-initialize icons after any AJAX content loads
-        const observer = new MutationObserver(function(mutations) {
-            lucide.createIcons();
-        });
-        
-        observer.observe(document.body, {
-            childList: true,
-            subtree: true
-        });
-    });
+    (function () {
+        'use strict';
+
+        function initializeIcons() {
+            if (typeof lucide === 'undefined') {
+                return;
+            }
+            try {
+                lucide.createIcons();
+            } catch (error) {
+                console.error('Error initializing Lucide icons:', error);
+            }
+        }
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initializeIcons);
+        } else {
+            initializeIcons();
+        }
+    })();
 </script>
 {% endblock %}

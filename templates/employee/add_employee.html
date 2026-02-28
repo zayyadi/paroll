@@ -1,55 +1,45 @@
-{% extends 'base_tailwind.html' %}
+{% extends "base_new.html" %}
 {% load crispy_forms_tags %}
-{% load tailwind_filters %}
-
-{% block page_title_in_head %}
-<title>New Employee Onboarding - Payroll System</title>
-{% endblock %}
 
 {% block page_header %}New Employee Onboarding{% endblock %}
 
 {% block content %}
-<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-  <div class="space-y-8">
-    <div class="w-full bg-gray-200 rounded-full h-2.5 mb-8">
-      <div class="bg-blue-600 h-2.5 rounded-full" style="width: 50%;"></div>
+<div class="max-w-6xl mx-auto space-y-6">
+    <div class="bg-white rounded-xl shadow-soft p-6 border border-secondary-100">
+        <h2 class="text-lg font-semibold text-secondary-900">Create Employee Record</h2>
+        <p class="mt-1 text-sm text-secondary-600">
+            Complete account credentials and HR profile details in one step.
+        </p>
     </div>
 
-    <div class="bg-white rounded-2xl shadow-sm p-8 sm:p-12">
-      <form method="post" enctype="multipart/form-data" class="space-y-8">
+    <form method="post" enctype="multipart/form-data" class="space-y-6">
         {% csrf_token %}
 
-        {% if user_form.errors or employee_form.errors %}
-        {{ employee_form|crispy }}
+        {% if user_form.non_field_errors or employee_form.non_field_errors %}
+            <div class="rounded-xl border border-danger-200 bg-danger-50 p-4 text-sm text-danger-800">
+                {{ user_form.non_field_errors }}
+                {{ employee_form.non_field_errors }}
+            </div>
         {% endif %}
-        <div class="flex justify-end">
-          <button type="submit"
-            class="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl shadow-sm focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 flex items-center justify-center space-x-2 text-sm">
-            <span>Create Profile</span>
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"></path>
-            </svg>
-          </button>
+
+        <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
+            <section class="bg-white rounded-xl shadow-soft p-6 border border-secondary-100">
+                <h3 class="text-base font-semibold text-secondary-900 mb-4">Account Setup</h3>
+                {{ user_form|crispy }}
+            </section>
+
+            <section class="bg-white rounded-xl shadow-soft p-6 border border-secondary-100">
+                <h3 class="text-base font-semibold text-secondary-900 mb-4">Employee Profile</h3>
+                {{ employee_form|crispy }}
+            </section>
         </div>
 
-      </form>
-    </div>
-  </div>
+        <div class="flex justify-end">
+            <button type="submit"
+                class="btn-primary py-2.5 px-6 text-white font-medium rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+                Create Employee
+            </button>
+        </div>
+    </form>
 </div>
-
-<style>
-  .form-group label {
-    @apply block text-sm font-semibold text-gray-600 mb-1;
-  }
-
-  .form-group input,
-  .form-group select,
-  .form-group textarea {
-    @apply w-full border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary text-sm p-3 bg-gray-50;
-  }
-
-  .form-group input[type="file"] {
-    @apply block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-primary hover:file:bg-indigo-100;
-  }
-</style>
 {% endblock %}

@@ -19,6 +19,7 @@ from accounting.utils import (
 )
 from .models import (
     PayrollRun,
+    PayrollRunEntry,
     IOU,
     Allowance,
     Deduction,
@@ -176,8 +177,8 @@ def handle_payroll_period_closure(sender, instance, **kwargs):
                 # Employee liabilities (monthly equivalents where base figures are annualized)
                 payee = Decimal(employee_payroll.payee or 0)
                 pension_employee = Decimal(employee_payroll.pension_employee or 0) / Decimal("12")
-                nhf = Decimal(employee_payroll.nhf or 0)
-                employee_health = Decimal(employee_payroll.employee_health or 0)
+                nhf = Decimal(employee_payroll.nhf or 0) / Decimal("12")
+                employee_health = Decimal(employee_payroll.employee_health or 0) / Decimal("12")
 
                 other_deduction = Decimal("0.00")
                 for deduction in employee.deductions.filter(
@@ -257,7 +258,7 @@ def handle_payroll_period_closure(sender, instance, **kwargs):
 
                 # Employer-side statutory contributions
                 pension_employer = Decimal(employee_payroll.pension_employer or 0) / Decimal("12")
-                employer_health = Decimal(employee_payroll.emplyr_health or 0)
+                employer_health = Decimal(employee_payroll.emplyr_health or 0) / Decimal("12")
                 nsitf = Decimal(employee_payroll.nsitf or 0) / Decimal("12")
 
                 add_entry(
@@ -503,6 +504,80 @@ def handle_iou_repayment(sender, instance, created, **kwargs):
             f"iou_id={instance.iou_id}, amount={instance.amount}, payday={instance.payday_id}."
         )
     return
+
+
+@receiver(post_save, sender=PayrollRunEntry)
+def create_iou_deduction_for_payroll_entry(sender, instance, created, **kwargs):
+    """
+    For each payroll run entry, create the month's IOU deduction from net pay using
+    the approved repayment percentage for approved salary-deduction IOUs.
+    """
+    if not created:
+        return
+
+    payroll_run = instance.payroll_run
+    payroll_entry = instance.payroll_entry
+    employee = payroll_entry.pays
+    if not employee:
+        return
+
+    month_anchor = getattr(payroll_run, "paydays", None)
+    if not month_anchor:
+        return
+
+    month_start = month_anchor.replace(day=1)
+
+    ious = (
+        IOU.objects.filter(
+            employee_id=employee,
+            status="APPROVED",
+            payment_method="SALARY_DEDUCTION",
+            approved_at__isnull=False,
+            approved_at__lte=month_start,
+        )
+        .order_by("approved_at", "id")
+    )
+
+    # Base repayment from employee monthly net pay. Fallback to entry netpay/basic.
+    monthly_netpay = Decimal(employee.net_pay or Decimal("0.00"))
+    if monthly_netpay <= 0:
+        monthly_netpay = Decimal(payroll_entry.netpay or Decimal("0.00"))
+    if monthly_netpay <= 0 and employee.employee_pay:
+        monthly_netpay = Decimal(employee.employee_pay.basic_salary or Decimal("0.00"))
+
+    for iou in ious:
+        if IOUDeduction.objects.filter(iou=iou, payday=payroll_run).exists():
+            continue
+
+        outstanding = iou.outstanding_amount
+        if outstanding <= 0:
+            if iou.status != "PAID":
+                iou.status = "PAID"
+                iou.save(update_fields=["status"])
+            continue
+
+        repayment_percent = Decimal(iou.repayment_deduction_percentage or Decimal("0.00"))
+        if repayment_percent <= 0 or monthly_netpay <= 0:
+            continue
+
+        monthly_cap = (monthly_netpay * repayment_percent) / Decimal("100")
+        deduction_amount = min(outstanding, monthly_cap)
+        if deduction_amount <= 0:
+            continue
+
+        IOUDeduction.objects.create(
+            iou=iou,
+            employee=employee,
+            payday=payroll_run,
+            amount=deduction_amount,
+        )
+
+        if deduction_amount >= outstanding:
+            iou.status = "PAID"
+            iou.save(update_fields=["status"])
+
+    # Recompute netpay to include newly generated IOU deductions for the period.
+    payroll_entry.save()
 
 
 @receiver(post_save, sender=Allowance)

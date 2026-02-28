@@ -1,51 +1,162 @@
-{% extends 'base.html' %}
+{% extends "base_new.html" %}
 {% load static %}
-{% load tailwind_filters %}
-{% load mathfilters %}
 {% load humanize %}
 
-{% block content %}
+{% block page_header %}NHIS Report for {{ dates }}{% endblock %}
 
-<div class="container mx-auto my-5 p-5 bg-white rounded shadow">
-    {% if payroll %}
-        <div class="flex items-center justify-between mb-6">
-            <h1 class="text-2xl font-semibold text-gray-800">NHIS Report for {{ dates }}</h1>
-            <a href="download/" class="btn btn-info flex items-center shadow-sm">
-                <i class="fas fa-download fa-sm text-white-50 mr-2"></i> Generate Report
-            </a>
+{% block content %}
+<div class="max-w-7xl mx-auto space-y-6">
+    <!-- Report Header -->
+    <div class="bg-gradient-to-r from-primary-500 to-primary-600 rounded-2xl p-6 text-white shadow-medium">
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between">
+            <div>
+                <h1 class="text-2xl font-bold mb-1">NHIS Report</h1>
+                <p class="text-primary-100">National Health Insurance contribution report for {{ dates }}</p>
+            </div>
+            <div class="mt-4 md:mt-0">
+                <a href="download/"
+                   class="bg-white bg-opacity-20 hover:bg-opacity-30 text-white font-medium py-2 px-4 rounded-lg transition-all inline-flex items-center">
+                    <i data-lucide="download" class="h-4 w-4 mr-2"></i>
+                    Generate Report
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Report Summary -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div class="bg-white rounded-xl shadow-soft p-6">
+            <div class="flex items-center">
+                <div class="flex-shrink-0 bg-primary-100 rounded-lg p-3">
+                    <i data-lucide="users" class="h-6 w-6 text-primary-600"></i>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-secondary-600">Total Employees</p>
+                    <p class="text-2xl font-semibold text-secondary-900">{{ payroll|length }}</p>
+                </div>
+            </div>
         </div>
 
-        <table class="min-w-full bg-white shadow-md rounded-lg">
-            <thead class="bg-gray-800 text-white">
-                <tr>
-                    <th class="py-2 px-4">EmpNo</th>
-                    <th class="py-2 px-4">Employee First Name</th>
-                    <th class="py-2 px-4">Employee Last Name</th>
-                    <th class="py-2 px-4">HMO Provider</th>
-                    <th class="py-2 px-4">Bank Account</th>
-                    <th class="py-2 px-4">NHIS Contribution Amount</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for payrol in payroll %}
-                <tr class="border-b">
-                    <td class="py-2 px-4">{{ payrol.payroll_entry.pays.emp_id }}</td>
-                    <td class="py-2 px-4">{{ payrol.payroll_entry.pays.first_name }}</td>
-                    <td class="py-2 px-4">{{ payrol.payroll_entry.pays.last_name }}</td>
-                    <td class="py-2 px-4">{{ payrol.payroll_entry.pays.get_hmo_provider_display|default:"N/A" }}</td>
-                    <td class="py-2 px-4">{{ payrol.payroll_entry.pays.bank }}</td>
-                    <td class="py-2 px-4">{{ payrol.payroll_entry.nhf|intcomma }}</td>
-                </tr>
-                {% endfor %}
+        <div class="bg-white rounded-xl shadow-soft p-6">
+            <div class="flex items-center">
+                <div class="flex-shrink-0 bg-success-100 rounded-lg p-3">
+                    <i data-lucide="dollar-sign" class="h-6 w-6 text-success-600"></i>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-secondary-600">Total NHIS</p>
+                    <p class="text-2xl font-semibold text-secondary-900">₦{{ total|default:0|intcomma }}</p>
+                </div>
+            </div>
+        </div>
 
-                <tr class="bg-gray-200">
-                    <td colspan="6" class="py-2 px-4 font-bold text-right">Total National Health Insurance Fund deductions</td>
-                    <td class="py-2 px-4 font-bold">{{ total }}</td>
-                </tr>
-            </tbody>
-        </table>
-    {% else %}
-        <p class="text-gray-600">No payroll data available.</p>
+        <div class="bg-white rounded-xl shadow-soft p-6">
+            <div class="flex items-center">
+                <div class="flex-shrink-0 bg-warning-100 rounded-lg p-3">
+                    <i data-lucide="calendar" class="h-6 w-6 text-warning-600"></i>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-secondary-600">Pay Period</p>
+                    <p class="text-2xl font-semibold text-secondary-900">{{ dates }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- NHIS Details Table -->
+    <div class="bg-white rounded-xl shadow-soft overflow-hidden">
+        <div class="px-6 py-4 border-b border-secondary-200 flex items-center justify-between">
+            <h2 class="text-lg font-semibold text-secondary-900 flex items-center">
+                <i data-lucide="heart-pulse" class="h-5 w-5 mr-2 text-primary-600"></i>
+                NHIS Details
+            </h2>
+            <div class="flex items-center space-x-2">
+                <button class="p-2 text-secondary-500 hover:text-secondary-700 rounded-lg hover:bg-secondary-100" title="Print">
+                    <i data-lucide="printer" class="h-5 w-5"></i>
+                </button>
+                <button class="p-2 text-secondary-500 hover:text-secondary-700 rounded-lg hover:bg-secondary-100" title="Export">
+                    <i data-lucide="file-text" class="h-5 w-5"></i>
+                </button>
+            </div>
+        </div>
+
+        {% if payroll %}
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-secondary-200">
+                <thead class="bg-secondary-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">EmpNo</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">Employee Name</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">HMO Provider</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">Bank Account</th>
+                        <th class="px-6 py-3 text-right text-xs font-medium text-secondary-500 uppercase tracking-wider">NHIS Contribution</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-secondary-200">
+                    {% for payrol in payroll %}
+                    <tr class="hover:bg-secondary-50">
+                        <td class="px-6 py-4 text-sm text-secondary-900">{{ payrol.payroll_entry.pays.emp_id }}</td>
+                        <td class="px-6 py-4 text-sm text-secondary-900">{{ payrol.payroll_entry.pays.first_name }} {{ payrol.payroll_entry.pays.last_name }}</td>
+                        <td class="px-6 py-4 text-sm text-secondary-900">{{ payrol.payroll_entry.pays.get_hmo_provider_display|default:"N/A" }}</td>
+                        <td class="px-6 py-4 text-sm text-secondary-900">{{ payrol.payroll_entry.pays.bank_account_number|default:"N/A" }}</td>
+                        <td class="px-6 py-4 text-sm text-secondary-900 text-right font-medium">₦{{ payrol.payroll_entry.pays.employee_pay.nhif|default:0|intcomma }}</td>
+                    </tr>
+                    {% endfor %}
+                    <tr class="bg-secondary-100 font-semibold">
+                        <td colspan="4" class="px-6 py-4 text-right text-sm text-secondary-900">Total NHIS</td>
+                        <td class="px-6 py-4 text-sm text-secondary-900 text-right">₦{{ total|default:0|intcomma }}</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center py-12">
+            <i data-lucide="heart-pulse" class="h-12 w-12 mx-auto text-secondary-400 mb-3"></i>
+            <p class="text-lg text-secondary-600 mb-2">No payroll data available</p>
+            <p class="text-sm text-secondary-500">Please ensure a pay period is selected and employees have been assigned payroll.</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- NHIS Information -->
+    {% if payroll %}
+    <div class="bg-white rounded-xl shadow-soft p-6">
+        <h2 class="text-lg font-semibold text-secondary-900 mb-4 flex items-center">
+            <i data-lucide="info" class="h-5 w-5 mr-2 text-primary-600"></i>
+            NHIS Contribution Information
+        </h2>
+        <div class="space-y-4">
+            <div class="p-4 bg-blue-50 rounded-lg">
+                <p class="text-sm text-blue-800">
+                    <strong>Important:</strong> This NHIS report should be submitted to the designated health insurance authority as required by policy. Please verify all employee HMO details before submission.
+                </p>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <h3 class="text-sm font-medium text-secondary-900 mb-2">Report Details</h3>
+                    <ul class="text-sm text-secondary-600 space-y-1">
+                        <li>Total NHIS Amount: <span class="font-medium text-secondary-900">₦{{ total|default:0|intcomma }}</span></li>
+                        <li>Number of Employees: <span class="font-medium text-secondary-900">{{ payroll|length }}</span></li>
+                        <li>Pay Period: <span class="font-medium text-secondary-900">{{ dates }}</span></li>
+                    </ul>
+                </div>
+                <div>
+                    <h3 class="text-sm font-medium text-secondary-900 mb-2">Next Steps</h3>
+                    <ol class="text-sm text-secondary-600 space-y-1 list-decimal list-inside">
+                        <li>Download the NHIS report</li>
+                        <li>Verify all employee HMO information</li>
+                        <li>Submit report to the health insurance provider</li>
+                        <li>Update payroll records with submission confirmation</li>
+                    </ol>
+                </div>
+            </div>
+        </div>
+    </div>
     {% endif %}
 </div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        lucide.createIcons();
+    });
+</script>
 {% endblock %}
