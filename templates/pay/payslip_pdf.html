@@ -277,8 +277,12 @@
             <td class="money">{{ payroll.pays.employee_pay.water_rate|floatformat:2|intcomma }}</td>
           </tr>
           <tr>
+            <td>IOU Deductions</td>
+            <td class="money">{{ payroll.calc_iou_deduction|floatformat:2|intcomma }}</td>
+          </tr>
+          <tr>
             <td>Other Deductions</td>
-            <td class="money">{{ payroll.calc_deduction|floatformat:2|intcomma }}</td>
+            <td class="money">{{ payroll.calc_standard_deduction|floatformat:2|intcomma }}</td>
           </tr>
           <tr class="total-row">
             <td>Total Deductions</td>

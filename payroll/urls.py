@@ -14,11 +14,13 @@ urlpatterns = [
     path("hr-dashboard/", views.hr_dashboard, name="hr_dashboard"),
     path("employees/", views.employee_list, name="employee_list"),
     path("add_employee", views.add_employee, name="add_employee"),  # Changed name
-    path("delete_employee", views.delete_employee, name="delete_employee"),
+    path("delete_employee/<int:id>/", views.delete_employee, name="delete_employee"),
+    path("delete_employee", views.delete_employee),
     path("profile/<int:user_id>/", views.employee, name="profile"),
     path("employees/<int:id>/update/", views.update_employee, name="update_employee"),
     path("add_pay", views.add_pay, name="add_pay"),
     path("dashboard", views.dashboard, name="dashboard"),
+    path("standup/", views.standup_dashboard, name="standup_dashboard"),
     path(
         "settings/payroll/",
         views.company_payroll_settings,
@@ -160,6 +162,11 @@ urlpatterns = [
         "iou/<int:pk>/",
         views.iou_detail,
         name="iou_detail",
+    ),
+    path(
+        "iou/<int:pk>/payment-slip/",
+        views.iou_payment_slip,
+        name="iou_payment_slip",
     ),
     path(
         "audit-trail/",
@@ -305,6 +312,11 @@ urlpatterns = [
         "notifications/mark-all-read/",
         notification_view.mark_all_read,
         name="mark_all_read",
+    ),
+    path(
+        "notifications/delete-all-read/",
+        notification_view.delete_all_read,
+        name="delete_all_read",
     ),
     path(
         "notifications/count/",

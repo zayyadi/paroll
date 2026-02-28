@@ -48,6 +48,7 @@ INSTALLED_APPS = [
     "social_django",
     "accounting",
     "company",
+    "standup",
     # Channels for real-time notifications
     "channels",
     "channels_redis",
@@ -553,6 +554,38 @@ SPECTACULAR_SETTINGS = {
     "DESCRIPTION": "Multi-tenant payroll and employee management API",
     "VERSION": "1.0.0",
     "SERVE_INCLUDE_SCHEMA": False,
+    "ENUM_NAME_OVERRIDES": {
+        "PayrollLifecycleStatusEnum": (
+            ("active", "ACTIVE"),
+            ("pending", "PENDING"),
+            ("suspended", "SUSPENDED"),
+            ("terminated", "TERMINATED"),
+        ),
+        "LeaveRequestStatusEnum": (
+            ("PENDING", "Pending"),
+            ("APPROVED", "Approved"),
+            ("REJECTED", "Rejected"),
+        ),
+        "IouStatusEnum": (
+            ("PENDING", "Pending"),
+            ("APPROVED", "Approved"),
+            ("REJECTED", "Rejected"),
+            ("PAID", "Paid"),
+        ),
+        "StandupCheckinStatusEnum": (
+            ("DRAFT", "Draft"),
+            ("SUBMITTED", "Submitted"),
+            ("MISSED", "Missed"),
+        ),
+        "JournalStatusEnum": (
+            ("DRAFT", "Draft"),
+            ("PENDING_APPROVAL", "Pending Approval"),
+            ("APPROVED", "Approved"),
+            ("POSTED", "Posted"),
+            ("CANCELLED", "Cancelled"),
+            ("REVERSED", "Reversed"),
+        ),
+    },
 }
 
 SIMPLE_JWT = {

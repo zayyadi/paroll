@@ -1,6 +1,39 @@
 {% extends "base_new.html" %}
 
 {% block page_header %}{{ page_title|default:"HR Disciplinary Management" }}{% endblock %}
+{% block extra_head %}
+<style>
+    .discipline-form p {
+        margin-bottom: 1rem;
+    }
+    .discipline-form label {
+        display: block;
+        font-size: 0.875rem;
+        font-weight: 600;
+        color: #334155;
+        margin-bottom: 0.35rem;
+    }
+    .discipline-form input,
+    .discipline-form select,
+    .discipline-form textarea {
+        width: 100%;
+        padding: 0.625rem 0.85rem;
+        border: 1px solid #cbd5e1;
+        border-radius: 0.75rem;
+        font-size: 0.875rem;
+    }
+    .discipline-form textarea {
+        min-height: 110px;
+    }
+    .discipline-form input:focus,
+    .discipline-form select:focus,
+    .discipline-form textarea:focus {
+        outline: none;
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+    }
+</style>
+{% endblock %}
 
 {% block breadcrumbs %}
 <nav class="flex" aria-label="Breadcrumb">

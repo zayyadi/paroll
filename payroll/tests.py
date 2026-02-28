@@ -4,12 +4,14 @@ from decimal import Decimal
 from django.test import TestCase
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Permission
+from django.core.exceptions import ValidationError
 from django.urls import reverse
+from django.utils import timezone
 from unittest.mock import patch
 
 from company.models import Company
 from accounting.models import DisciplinaryCase, DisciplinarySanction
-from payroll.forms import PayrollRunCreateForm
+from payroll.forms import PayrollRunCreateForm, IOURequestForm, IOUApprovalForm
 from payroll.models import (
     CompanyPayrollSetting,
     EmployeeProfile,
@@ -25,6 +27,8 @@ from payroll.models import (
     Metric,
 )
 from payroll.views.payroll_view import _send_payslips_for_payroll_run
+from payroll.notification_signals import _dispatch_iou_rejected_event
+from payroll.models import IOU
 
 User = get_user_model()
 
@@ -442,3 +446,391 @@ class PayrollRunPayslipEmailTests(TestCase):
         self.assertEqual(kwargs["recipient_list"], [user.email])
         self.assertEqual(kwargs["template_name"], "email/payslip_email.html")
         self.assertTrue(kwargs["attachments"])
+
+
+class HRComplianceRulesTests(TestCase):
+    def setUp(self):
+        self.company = Company.objects.create(name="Compliance Co")
+        self.user = User.objects.create_user(
+            email="compliance@example.com",
+            password="testpass123",
+            first_name="Comp",
+            last_name="User",
+            company=self.company,
+            active_company=self.company,
+        )
+        self.employee = EmployeeProfile.objects.get(user=self.user)
+        self.employee.company = self.company
+        self.employee.status = "active"
+        self.employee.save(update_fields=["company", "status"])
+
+    def test_company_payroll_setting_enforces_nigeria_baseline(self):
+        setting = CompanyPayrollSetting(company=self.company)
+        setting.pension_employee_percentage = Decimal("6.00")
+        with self.assertRaises(ValidationError):
+            setting.full_clean()
+
+    def test_leave_request_cannot_overlap_existing_pending_or_approved_request(self):
+        LeaveRequest.objects.create(
+            employee=self.employee,
+            leave_type="ANNUAL",
+            start_date=date(2026, 4, 10),
+            end_date=date(2026, 4, 12),
+            reason="Vacation",
+            status="PENDING",
+        )
+        overlapping = LeaveRequest(
+            employee=self.employee,
+            leave_type="ANNUAL",
+            start_date=date(2026, 4, 11),
+            end_date=date(2026, 4, 15),
+            reason="Overlap request",
+            status="PENDING",
+        )
+        with self.assertRaises(ValidationError):
+            overlapping.full_clean()
+
+    @patch("payroll.notification_signals.event_dispatcher.dispatch")
+    @patch("payroll.notification_signals.NotificationService.send_notification")
+    def test_iou_rejected_event_uses_rejected_event_type(
+        self, mocked_send_notification, mocked_dispatch
+    ):
+        iou = IOU.objects.create(
+            employee_id=self.employee,
+            amount=Decimal("20000.00"),
+            tenor=2,
+            status="REJECTED",
+        )
+
+        _dispatch_iou_rejected_event(iou)
+
+        kwargs = mocked_dispatch.call_args.kwargs
+        self.assertEqual(kwargs["event_type"], "iou.rejected")
+        self.assertEqual(kwargs["event_data"]["event_type"], "iou.rejected")
+
+
+class IOUTenorApprovalWorkflowTests(TestCase):
+    def setUp(self):
+        self.company = Company.objects.create(name="IOU Workflow Co")
+        self.user = User.objects.create_user(
+            email="iou-workflow@example.com",
+            password="testpass123",
+            first_name="Iou",
+            last_name="Employee",
+            company=self.company,
+            active_company=self.company,
+        )
+        self.employee = EmployeeProfile.objects.get(user=self.user)
+        self.employee.company = self.company
+        self.employee.status = "active"
+        self.employee.employee_pay = Payroll.objects.create(
+            company=self.company,
+            basic_salary=Decimal("200000.00"),
+        )
+        self.employee.net_pay = Decimal("200000.00")
+        self.employee.save(update_fields=["company", "status", "employee_pay", "net_pay"])
+
+    def test_request_form_accepts_user_selected_tenor(self):
+        form = IOURequestForm(
+            data={
+                "amount": "50000.00",
+                "tenor": "4",
+                "reason": "Medical support",
+            },
+            max_iou_amount=Decimal("150000.00"),
+        )
+        self.assertTrue(form.is_valid(), form.errors)
+        iou = form.save(commit=False)
+        iou.employee_id = self.employee
+        iou.save()
+        self.assertEqual(iou.tenor, 4)
+        expected_due_date = IOURequestForm._add_months(timezone.localdate(), 4)
+        self.assertEqual(iou.due_date, expected_due_date)
+
+    def test_approval_form_can_override_tenor_and_set_repayment_percentage(self):
+        iou = IOU.objects.create(
+            employee_id=self.employee,
+            amount=Decimal("120000.00"),
+            tenor=3,
+            reason="Urgent support",
+            status="PENDING",
+        )
+        form = IOUApprovalForm(
+            data={
+                "status": "APPROVED",
+                "approved_at": "2026-03-01",
+                "tenor": "6",
+                "repayment_deduction_percentage": "20.00",
+            },
+            instance=iou,
+        )
+        self.assertTrue(form.is_valid(), form.errors)
+        approved_iou = form.save()
+        self.assertEqual(approved_iou.status, "APPROVED")
+        self.assertEqual(approved_iou.tenor, 6)
+        self.assertEqual(
+            approved_iou.repayment_deduction_percentage, Decimal("20.00")
+        )
+
+    def test_salary_deduction_is_created_from_netpay_percentage(self):
+        iou = IOU.objects.create(
+            employee_id=self.employee,
+            amount=Decimal("100000.00"),
+            tenor=3,
+            repayment_deduction_percentage=Decimal("25.00"),
+            reason="Urgent support",
+            status="APPROVED",
+            approved_at=date(2026, 7, 1),
+        )
+        payroll_entry = PayrollEntry.objects.create(
+            company=self.company,
+            pays=self.employee,
+            status="active",
+        )
+        payroll_run = PayrollRun.objects.create(
+            company=self.company,
+            name="July Payroll",
+            paydays=date(2026, 7, 1),
+            is_active=True,
+        )
+
+        PayrollRunEntry.objects.create(
+            payroll_run=payroll_run,
+            payroll_entry=payroll_entry,
+        )
+
+        expected_deduction = (
+            Decimal(self.employee.net_pay) * Decimal("25.00") / Decimal("100")
+        )
+        deduction = iou.deductions.get(payday=payroll_run)
+        self.assertEqual(deduction.amount, expected_deduction)
+        payroll_entry.refresh_from_db()
+        self.assertEqual(payroll_entry.netpay, Decimal(self.employee.net_pay) - expected_deduction)
+
+    def test_iou_payment_slip_page_renders(self):
+        iou = IOU.objects.create(
+            employee_id=self.employee,
+            amount=Decimal("120000.00"),
+            tenor=6,
+            repayment_deduction_percentage=Decimal("20.00"),
+            reason="Urgent support",
+            status="APPROVED",
+            approved_at=date(2026, 3, 1),
+        )
+        self.client.login(email=self.user.email, password="testpass123")
+        response = self.client.get(
+            reverse("payroll:iou_payment_slip", kwargs={"pk": iou.pk})
+        )
+        self.assertEqual(response.status_code, 200)
+
+
+class EmployeeLeaveIOUTemplateSmokeTests(TestCase):
+    def setUp(self):
+        self.company = Company.objects.create(name="Smoke Co")
+        self.user = User.objects.create_user(
+            email="smoke-admin@example.com",
+            password="testpass123",
+            first_name="Smoke",
+            last_name="Admin",
+            company=self.company,
+            active_company=self.company,
+            is_staff=True,
+            is_superuser=True,
+        )
+        self.employee = EmployeeProfile.objects.get(user=self.user)
+        self.employee.company = self.company
+        self.employee.status = "active"
+        self.employee.save(update_fields=["company", "status"])
+
+        self.leave = LeaveRequest.objects.create(
+            employee=self.employee,
+            leave_type="ANNUAL",
+            start_date=date(2026, 5, 10),
+            end_date=date(2026, 5, 12),
+            reason="Template smoke leave",
+            status="PENDING",
+        )
+        self.iou = IOU.objects.create(
+            employee_id=self.employee,
+            amount=Decimal("25000.00"),
+            tenor=2,
+            reason="Template smoke iou",
+            status="PENDING",
+            due_date=date(2026, 6, 30),
+        )
+        self.client.login(email=self.user.email, password="testpass123")
+
+    def test_leave_and_iou_pages_render_without_server_error(self):
+        targets = [
+            ("payroll:apply_leave", {}),
+            ("payroll:leave_requests", {}),
+            ("payroll:manage_leave_requests", {}),
+            ("payroll:edit_leave_request", {"pk": self.leave.pk}),
+            ("payroll:view_leave_request", {"pk": self.leave.pk}),
+            ("payroll:request_iou", {}),
+            ("payroll:approve_iou", {"iou_id": self.iou.pk}),
+            ("payroll:iou_update", {"pk": self.iou.pk}),
+            ("payroll:iou_delete", {"pk": self.iou.pk}),
+            ("payroll:iou_history", {}),
+            ("payroll:my_iou_tracker", {}),
+            ("payroll:iou_list", {}),
+            ("payroll:iou_detail", {"pk": self.iou.pk}),
+        ]
+
+        for route_name, kwargs in targets:
+            with self.subTest(route=route_name):
+                response = self.client.get(reverse(route_name, kwargs=kwargs))
+                self.assertIn(
+                    response.status_code,
+                    (200, 302),
+                    f"{route_name} returned {response.status_code}",
+                )
+
+
+class EmployeeLeaveIOUUrlWalkSmokeTests(TestCase):
+    def setUp(self):
+        self.company = Company.objects.create(name="URL Walk Co")
+        self.user = User.objects.create_user(
+            email="url-walk-admin@example.com",
+            password="testpass123",
+            first_name="Url",
+            last_name="Walker",
+            company=self.company,
+            active_company=self.company,
+            is_staff=True,
+            is_superuser=True,
+        )
+        self.employee = EmployeeProfile.objects.get(user=self.user)
+        self.employee.company = self.company
+        self.employee.status = "active"
+        self.employee.save(update_fields=["company", "status"])
+
+        self.target_user = User.objects.create_user(
+            email="url-walk-target@example.com",
+            password="testpass123",
+            first_name="Target",
+            last_name="Employee",
+            company=self.company,
+            active_company=self.company,
+        )
+        self.target_employee = EmployeeProfile.objects.get(user=self.target_user)
+        self.target_employee.company = self.company
+        self.target_employee.status = "active"
+        self.target_employee.save(update_fields=["company", "status"])
+
+        self.leave = LeaveRequest.objects.create(
+            employee=self.employee,
+            leave_type="ANNUAL",
+            start_date=date(2026, 7, 1),
+            end_date=date(2026, 7, 3),
+            reason="URL walk leave",
+            status="PENDING",
+        )
+        self.leave_to_delete = LeaveRequest.objects.create(
+            employee=self.employee,
+            leave_type="CASUAL",
+            start_date=date(2026, 7, 10),
+            end_date=date(2026, 7, 10),
+            reason="URL walk leave delete",
+            status="PENDING",
+        )
+        self.iou = IOU.objects.create(
+            employee_id=self.employee,
+            amount=Decimal("10000.00"),
+            tenor=2,
+            reason="URL walk iou",
+            status="PENDING",
+            due_date=date(2026, 8, 31),
+        )
+
+        self.client.login(email=self.user.email, password="testpass123")
+
+    def test_every_employee_leave_iou_route_responds_without_server_error(self):
+        targets = [
+            ("payroll:employee_profile", {}),
+            ("payroll:hr_dashboard", {}),
+            ("payroll:employee_list", {}),
+            ("payroll:add_employee", {}),
+            ("payroll:profile", {"user_id": self.employee.user_id}),
+            ("payroll:update_employee", {"id": self.employee.id}),
+            ("payroll:apply_leave", {}),
+            ("payroll:leave_requests", {}),
+            ("payroll:manage_leave_requests", {}),
+            ("payroll:approve_leave", {"pk": self.leave.pk}),
+            ("payroll:reject_leave", {"pk": self.leave.pk}),
+            ("payroll:leave_policies", {}),
+            ("payroll:edit_leave_request", {"pk": self.leave.pk}),
+            ("payroll:view_leave_request", {"pk": self.leave.pk}),
+            ("payroll:request_iou", {}),
+            ("payroll:approve_iou", {"iou_id": self.iou.pk}),
+            ("payroll:iou_update", {"pk": self.iou.pk}),
+            ("payroll:iou_delete", {"pk": self.iou.pk}),
+            ("payroll:iou_history", {}),
+            ("payroll:my_iou_tracker", {}),
+            ("payroll:iou_list", {}),
+            ("payroll:iou_detail", {"pk": self.iou.pk}),
+            ("payroll:delete_leave_request", {"pk": self.leave_to_delete.pk}),
+            ("payroll:delete_employee", {"id": self.target_employee.id}),
+        ]
+
+        for route_name, kwargs in targets:
+            with self.subTest(route=route_name):
+                response = self.client.get(reverse(route_name, kwargs=kwargs))
+                self.assertLess(
+                    response.status_code,
+                    500,
+                    f"{route_name} returned server error {response.status_code}",
+                )
+
+
+class PayrollReportSmokeTests(TestCase):
+    def setUp(self):
+        self.company = Company.objects.create(name="Report Co")
+        self.user = User.objects.create_user(
+            email="report-admin@example.com",
+            password="testpass123",
+            first_name="Report",
+            last_name="Admin",
+            company=self.company,
+            active_company=self.company,
+            is_staff=True,
+            is_superuser=True,
+        )
+        self.employee = EmployeeProfile.objects.get(user=self.user)
+        self.employee.company = self.company
+        self.employee.status = "active"
+        self.employee.save(update_fields=["company", "status"])
+
+        payroll_config = Payroll.objects.create(
+            company=self.company,
+            basic_salary=Decimal("120000.00"),
+        )
+        self.employee.employee_pay = payroll_config
+        self.employee.save(update_fields=["employee_pay"])
+
+        self.payroll_run = PayrollRun.objects.create(
+            company=self.company,
+            name="June 2026 Payroll",
+            paydays=date(2026, 6, 1),
+            is_active=True,
+        )
+        payroll_entry = PayrollEntry.objects.create(
+            company=self.company,
+            pays=self.employee,
+            status="active",
+        )
+        PayrollRunEntry.objects.create(
+            payroll_run=self.payroll_run,
+            payroll_entry=payroll_entry,
+        )
+        self.client.login(email=self.user.email, password="testpass123")
+
+    def test_nhis_and_nhf_report_pages_render(self):
+        nhis_response = self.client.get(
+            reverse("payroll:nhisreport", kwargs={"pay_id": self.payroll_run.id})
+        )
+        nhf_response = self.client.get(
+            reverse("payroll:nhfReport", kwargs={"pay_id": self.payroll_run.id})
+        )
+        self.assertEqual(nhis_response.status_code, 200)
+        self.assertEqual(nhf_response.status_code, 200)

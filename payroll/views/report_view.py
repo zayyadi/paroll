@@ -260,13 +260,13 @@ def nhis_report(request, pay_id):
         payroll_entry__company=company,
     )
     dates = utils.convert_month_to_word(str(pay_period_obj.paydays))
-    nhis_total = payroll_data.aggregate(Sum("payroll_entry__nhif"))
+    nhis_total = payroll_data.aggregate(Sum("payroll_entry__pays__employee_pay__nhif"))
     return render(
         request,
         "pay/nhis_report.html",
         {
             "payroll": payroll_data,
-            "total": nhis_total["payroll_entry__nhif__sum"],
+            "total": nhis_total["payroll_entry__pays__employee_pay__nhif__sum"],
             "dates": dates,
         },
     )
@@ -295,7 +295,7 @@ def nhis_report_download(request, pay_id):
         "payroll_entry__pays__hmo_provider",
         "payroll_entry__pays__bank",
         "payroll_entry__pays__bank_account_number",
-        "payroll_entry__nhif",
+        "payroll_entry__pays__employee_pay__nhif",
     )
     return generate_excel_report(
         "health_insurance_report",
@@ -327,13 +327,13 @@ def nhf_report(request, pay_id):
         payroll_entry__company=company,
     )
     dates = utils.convert_month_to_word(str(pay_period_obj.paydays))
-    nhf_total = payroll_data.aggregate(Sum("payroll_entry__nhf"))
+    nhf_total = payroll_data.aggregate(Sum("payroll_entry__pays__employee_pay__nhf"))
     return render(
         request,
         "pay/nhf_report.html",
         {
             "payroll": payroll_data,
-            "total": nhf_total["payroll_entry__nhf__sum"],
+            "total": nhf_total["payroll_entry__pays__employee_pay__nhf__sum"],
             "dates": dates,
         },
     )
@@ -360,7 +360,7 @@ def nhf_report_download(request, pay_id):
         "payroll_entry__pays__last_name",
         "payroll_entry__pays__bank",
         "payroll_entry__pays__bank_account_number",
-        "payroll_entry__nhf",
+        "payroll_entry__pays__employee_pay__nhf",
     )
     return generate_excel_report(
         "nhf_report",

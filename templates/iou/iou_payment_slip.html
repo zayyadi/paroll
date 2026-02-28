@@ -1,0 +1,67 @@
+{% extends "base_new.html" %}
+{% load humanize %}
+
+{% block page_header %}IOU Payment Slip{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto space-y-6">
+    <div class="bg-white rounded-xl shadow-soft p-6 border border-secondary-100">
+        <div class="flex items-start justify-between">
+            <div>
+                <h2 class="text-xl font-semibold text-secondary-900">IOU Payment Slip</h2>
+                <p class="text-sm text-secondary-600 mt-1">Repayment statement for IOU #{{ iou.id }}</p>
+            </div>
+            <a href="{% url 'payroll:iou_detail' iou.id %}" class="px-4 py-2 rounded-lg border border-secondary-300 text-secondary-700 hover:bg-secondary-50 text-sm">Back to IOU</a>
+        </div>
+
+        <div class="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+            <div><span class="text-secondary-500">Employee:</span> <span class="font-medium text-secondary-900">{{ iou.employee_id.first_name }} {{ iou.employee_id.last_name }}</span></div>
+            <div><span class="text-secondary-500">Status:</span> <span class="font-medium text-secondary-900">{{ iou.get_status_display }}</span></div>
+            <div><span class="text-secondary-500">Principal:</span> <span class="font-medium text-secondary-900">₦{{ iou.amount|floatformat:2|intcomma }}</span></div>
+            <div><span class="text-secondary-500">Total with interest:</span> <span class="font-medium text-secondary-900">₦{{ iou.total_amount|floatformat:2|intcomma }}</span></div>
+            <div><span class="text-secondary-500">Approved tenor:</span> <span class="font-medium text-secondary-900">{{ iou.tenor }} month(s)</span></div>
+            <div><span class="text-secondary-500">Approved deduction rate:</span> <span class="font-medium text-secondary-900">{{ iou.repayment_deduction_percentage }}%</span></div>
+            <div><span class="text-secondary-500">Expected monthly deduction:</span> <span class="font-medium text-secondary-900">₦{{ monthly_expected|floatformat:2|intcomma }}</span></div>
+            <div><span class="text-secondary-500">Outstanding balance:</span> <span class="font-semibold text-secondary-900">₦{{ outstanding_amount|floatformat:2|intcomma }}</span></div>
+        </div>
+    </div>
+
+    <div class="bg-white rounded-xl shadow-soft overflow-hidden border border-secondary-100">
+        <div class="px-6 py-4 border-b border-secondary-200">
+            <h3 class="text-lg font-semibold text-secondary-900">Repayment History</h3>
+        </div>
+
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-secondary-200">
+                <thead class="bg-secondary-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">Pay Period</th>
+                        <th class="px-6 py-3 text-right text-xs font-medium text-secondary-500 uppercase tracking-wider">Deduction Amount</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">Recorded At</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-secondary-200">
+                    {% for deduction in deductions %}
+                    <tr class="hover:bg-secondary-50">
+                        <td class="px-6 py-4 text-sm text-secondary-900">{{ deduction.payday.save_month_str }}</td>
+                        <td class="px-6 py-4 text-sm text-secondary-900 text-right font-medium">₦{{ deduction.amount|floatformat:2|intcomma }}</td>
+                        <td class="px-6 py-4 text-sm text-secondary-700">{{ deduction.created_at|date:"d M Y H:i" }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="3" class="px-6 py-10 text-center text-secondary-500">No repayment deductions posted yet.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot class="bg-secondary-50">
+                    <tr>
+                        <td class="px-6 py-3 text-sm font-semibold text-secondary-900">Total Repaid</td>
+                        <td class="px-6 py-3 text-sm font-semibold text-secondary-900 text-right">₦{{ repaid_amount|floatformat:2|intcomma }}</td>
+                        <td></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

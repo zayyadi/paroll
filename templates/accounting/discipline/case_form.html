@@ -1,14 +1,14 @@
 {% extends "employee/discipline_base.html" %}
 
 {% block accounting_content %}
-<div class="bg-white rounded-lg shadow-soft p-6">
+<div class="bg-white rounded-xl shadow-soft p-6 border border-secondary-100">
     <h2 class="text-xl font-semibold text-secondary-900 mb-4">{{ page_title }}</h2>
-    <form method="post" class="space-y-4">
+    <form method="post" class="discipline-form">
         {% csrf_token %}
         {{ form.as_p }}
-        <div class="flex items-center gap-2">
-            <button class="px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700">Save Case</button>
-            <a href="{% url 'payroll:discipline_case_list' %}" class="px-4 py-2 border border-secondary-300 rounded-md text-secondary-700 hover:bg-secondary-50">Cancel</a>
+        <div class="flex items-center justify-end gap-2 mt-6">
+            <a href="{% url 'payroll:discipline_case_list' %}" class="px-4 py-2 border border-secondary-300 rounded-xl text-secondary-700 hover:bg-secondary-50">Cancel</a>
+            <button class="btn-primary px-4 py-2 text-white rounded-xl">Save Case</button>
         </div>
     </form>
 </div>

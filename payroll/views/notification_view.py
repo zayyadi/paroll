@@ -118,20 +118,14 @@ def mark_notification_read(request, notification_id):
     except models.EmployeeProfile.DoesNotExist:
         return JsonResponse({"error": "Employee profile not found"}, status=404)
 
-    # Initialize service
+    notification = get_object_or_404(
+        Notification, id=notification_id, recipient=employee_profile, is_deleted=False
+    )
+    notification.mark_as_read()
+
     service = NotificationService()
-
-    # Mark as read using service
-    success = service.mark_as_read(str(notification_id), employee_profile)
-
-    if success:
-        # Get updated unread count
-        unread_count = service.get_unread_count(employee_profile)
-        return JsonResponse({"success": True, "unread_count": unread_count})
-    else:
-        return JsonResponse(
-            {"error": "Notification not found or already read"}, status=404
-        )
+    unread_count = service.get_unread_count(employee_profile)
+    return JsonResponse({"success": True, "unread_count": unread_count})
 
 
 @login_required
@@ -200,18 +194,38 @@ def delete_notification(request, notification_id):
     except models.EmployeeProfile.DoesNotExist:
         return JsonResponse({"error": "Employee profile not found"}, status=404)
 
-    # Initialize service
+    notification = get_object_or_404(
+        Notification, id=notification_id, recipient=employee_profile, is_deleted=False
+    )
+    notification.soft_delete()
+
     service = NotificationService()
+    unread_count = service.get_unread_count(employee_profile)
+    return JsonResponse({"success": True, "unread_count": unread_count})
 
-    # Delete notification using service
-    success = service.delete_notification(str(notification_id), employee_profile)
 
-    if success:
-        # Get updated unread count
-        unread_count = service.get_unread_count(employee_profile)
-        return JsonResponse({"success": True, "unread_count": unread_count})
-    else:
-        return JsonResponse({"error": "Notification not found"}, status=404)
+@login_required
+@require_POST
+def delete_all_read(request):
+    """
+    Delete all read notifications for the current user.
+    """
+    try:
+        employee_profile = request.user.employee_user
+    except models.EmployeeProfile.DoesNotExist:
+        return JsonResponse({"error": "Employee profile not found"}, status=404)
+
+    updated = Notification.objects.filter(
+        recipient=employee_profile,
+        is_read=True,
+        is_deleted=False,
+    ).update(is_deleted=True, deleted_at=timezone.now())
+
+    service = NotificationService()
+    unread_count = service.get_unread_count(employee_profile)
+    return JsonResponse(
+        {"success": True, "updated_count": updated, "unread_count": unread_count}
+    )
 
 
 @login_required
@@ -255,6 +269,7 @@ def notification_detail(request, notification_id):
     # Mark as read when viewing details using service
     service = NotificationService()
     service.mark_as_read(str(notification_id), employee_profile)
+    notification.refresh_from_db()
 
     context = {
         "notification": notification,

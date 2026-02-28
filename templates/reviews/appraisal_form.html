@@ -1,16 +1,25 @@
 {% extends "base_new.html" %}
 {% load crispy_forms_tags %}
 
-{% block page_header %}Create Appraisal{% endblock %}
+{% block page_header %}{% if form.instance.pk %}Update Appraisal{% else %}Create Appraisal{% endif %}{% endblock %}
 
 {% block content %}
-<div class="bg-white shadow-md rounded-lg p-6">
-  <form method="post" class="space-y-6">
-    {% csrf_token %}
-    {{ form|crispy }}
-    <div class="flex justify-end">
-      <button type="submit" class="bg-secondary text-green px-6 py-2 rounded-lg hover:bg-opacity-90">Save</button>
+<div class="max-w-3xl mx-auto space-y-6">
+    <div class="bg-white rounded-xl shadow-soft p-6 border border-secondary-100">
+        <h2 class="text-lg font-semibold text-secondary-900">
+            {% if form.instance.pk %}Edit Appraisal Cycle{% else %}New Appraisal Cycle{% endif %}
+        </h2>
+        <p class="mt-1 text-sm text-secondary-600">Define the appraisal period and title for your review cycle.</p>
     </div>
-  </form>
+
+    <form method="post" class="bg-white rounded-xl shadow-soft p-6 border border-secondary-100">
+        {% csrf_token %}
+        {{ form|crispy }}
+        <div class="flex justify-end mt-6">
+            <button type="submit" class="btn-primary px-6 py-2.5 text-white rounded-xl font-medium">
+                {% if form.instance.pk %}Save Changes{% else %}Create Appraisal{% endif %}
+            </button>
+        </div>
+    </form>
 </div>
 {% endblock %}

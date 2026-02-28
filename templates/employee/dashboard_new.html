@@ -227,6 +227,96 @@
         </div>
     </div>
 
+    <!-- Reports Center -->
+    <div class="bg-white rounded-xl shadow-soft p-6">
+        <h2 class="text-lg font-semibold text-secondary-900 mb-4">Reports Center</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <a href="{% url 'payroll:varview' %}"
+                class="group flex flex-col items-center p-4 border border-secondary-200 rounded-lg hover:border-primary-300 hover:bg-primary-50 transition-all">
+                <i data-lucide="table" class="h-8 w-8 text-secondary-600 group-hover:text-primary-600 mb-2"></i>
+                <span class="text-sm font-medium text-secondary-700 group-hover:text-primary-700">Payroll Variable Report</span>
+            </a>
+
+            <a href="{% url 'payroll:bank' %}"
+                class="group flex flex-col items-center p-4 border border-secondary-200 rounded-lg hover:border-primary-300 hover:bg-primary-50 transition-all">
+                <i data-lucide="landmark" class="h-8 w-8 text-secondary-600 group-hover:text-primary-600 mb-2"></i>
+                <span class="text-sm font-medium text-secondary-700 group-hover:text-primary-700">Bank Report</span>
+            </a>
+
+            <a href="{% url 'payroll:nhis' %}"
+                class="group flex flex-col items-center p-4 border border-secondary-200 rounded-lg hover:border-primary-300 hover:bg-primary-50 transition-all">
+                <i data-lucide="heart-pulse" class="h-8 w-8 text-secondary-600 group-hover:text-primary-600 mb-2"></i>
+                <span class="text-sm font-medium text-secondary-700 group-hover:text-primary-700">NHIS Report</span>
+            </a>
+
+            <a href="{% url 'payroll:nhf' %}"
+                class="group flex flex-col items-center p-4 border border-secondary-200 rounded-lg hover:border-primary-300 hover:bg-primary-50 transition-all">
+                <i data-lucide="home" class="h-8 w-8 text-secondary-600 group-hover:text-primary-600 mb-2"></i>
+                <span class="text-sm font-medium text-secondary-700 group-hover:text-primary-700">NHF Report</span>
+            </a>
+
+            <a href="{% url 'payroll:payee' %}"
+                class="group flex flex-col items-center p-4 border border-secondary-200 rounded-lg hover:border-primary-300 hover:bg-primary-50 transition-all">
+                <i data-lucide="receipt" class="h-8 w-8 text-secondary-600 group-hover:text-primary-600 mb-2"></i>
+                <span class="text-sm font-medium text-secondary-700 group-hover:text-primary-700">PAYE Report</span>
+            </a>
+
+            <a href="{% url 'payroll:pension' %}"
+                class="group flex flex-col items-center p-4 border border-secondary-200 rounded-lg hover:border-primary-300 hover:bg-primary-50 transition-all">
+                <i data-lucide="piggy-bank" class="h-8 w-8 text-secondary-600 group-hover:text-primary-600 mb-2"></i>
+                <span class="text-sm font-medium text-secondary-700 group-hover:text-primary-700">Pension Report</span>
+            </a>
+
+            <a href="{% url 'accounting:reports' %}"
+                class="group flex flex-col items-center p-4 border border-secondary-200 rounded-lg hover:border-success-300 hover:bg-success-50 transition-all">
+                <i data-lucide="book-open-text" class="h-8 w-8 text-secondary-600 group-hover:text-success-600 mb-2"></i>
+                <span class="text-sm font-medium text-secondary-700 group-hover:text-success-700">Accounting Reports Home</span>
+            </a>
+
+            <a href="{% url 'accounting:trial_balance' %}"
+                class="group flex flex-col items-center p-4 border border-secondary-200 rounded-lg hover:border-success-300 hover:bg-success-50 transition-all">
+                <i data-lucide="scale" class="h-8 w-8 text-secondary-600 group-hover:text-success-600 mb-2"></i>
+                <span class="text-sm font-medium text-secondary-700 group-hover:text-success-700">Trial Balance</span>
+            </a>
+
+            <a href="{% url 'accounting:account_activity' %}"
+                class="group flex flex-col items-center p-4 border border-secondary-200 rounded-lg hover:border-success-300 hover:bg-success-50 transition-all">
+                <i data-lucide="activity" class="h-8 w-8 text-secondary-600 group-hover:text-success-600 mb-2"></i>
+                <span class="text-sm font-medium text-secondary-700 group-hover:text-success-700">Account Activity</span>
+            </a>
+
+            <a href="{% url 'accounting:general_ledger' %}"
+                class="group flex flex-col items-center p-4 border border-secondary-200 rounded-lg hover:border-success-300 hover:bg-success-50 transition-all">
+                <i data-lucide="book-text" class="h-8 w-8 text-secondary-600 group-hover:text-success-600 mb-2"></i>
+                <span class="text-sm font-medium text-secondary-700 group-hover:text-success-700">General Ledger</span>
+            </a>
+
+            <a href="{% url 'accounting:balance_sheet' %}"
+                class="group flex flex-col items-center p-4 border border-secondary-200 rounded-lg hover:border-success-300 hover:bg-success-50 transition-all">
+                <i data-lucide="file-bar-chart-2" class="h-8 w-8 text-secondary-600 group-hover:text-success-600 mb-2"></i>
+                <span class="text-sm font-medium text-secondary-700 group-hover:text-success-700">Balance Sheet</span>
+            </a>
+
+            <a href="{% url 'accounting:income_statement' %}"
+                class="group flex flex-col items-center p-4 border border-secondary-200 rounded-lg hover:border-success-300 hover:bg-success-50 transition-all">
+                <i data-lucide="line-chart" class="h-8 w-8 text-secondary-600 group-hover:text-success-600 mb-2"></i>
+                <span class="text-sm font-medium text-secondary-700 group-hover:text-success-700">Income Statement</span>
+            </a>
+
+            <a href="{% url 'accounting:account_balance' %}"
+                class="group flex flex-col items-center p-4 border border-secondary-200 rounded-lg hover:border-success-300 hover:bg-success-50 transition-all">
+                <i data-lucide="wallet" class="h-8 w-8 text-secondary-600 group-hover:text-success-600 mb-2"></i>
+                <span class="text-sm font-medium text-secondary-700 group-hover:text-success-700">Account Balance</span>
+            </a>
+
+            <a href="{% url 'accounting:unposted_events' %}"
+                class="group flex flex-col items-center p-4 border border-secondary-200 rounded-lg hover:border-success-300 hover:bg-success-50 transition-all">
+                <i data-lucide="alert-circle" class="h-8 w-8 text-secondary-600 group-hover:text-success-600 mb-2"></i>
+                <span class="text-sm font-medium text-secondary-700 group-hover:text-success-700">Unposted Events</span>
+            </a>
+        </div>
+    </div>
+
     <!-- Recent Activity -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <!-- Recent Payslips -->

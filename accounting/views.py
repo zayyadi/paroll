@@ -659,6 +659,7 @@ class JournalApprovalView(LoginRequiredMixin, JournalApprovalMixin, FormView):
 
     template_name = "accounting/journal_approval.html"
     form_class = JournalApprovalForm
+    permission_object_model = Journal
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -672,14 +673,27 @@ class JournalApprovalView(LoginRequiredMixin, JournalApprovalMixin, FormView):
         action = form.cleaned_data["action"]
         reason = form.cleaned_data["reason"]
 
-        if action == "approve":
-            journal.approve(self.request.user)
-            post_journal(journal, self.request.user)
-            messages.success(self.request, "Journal approved and posted successfully.")
-        else:
-            journal.status = Journal.JournalStatus.CANCELLED
-            journal.save()
-            messages.success(self.request, "Journal rejected.")
+        if journal.status != Journal.JournalStatus.PENDING_APPROVAL:
+            messages.error(
+                self.request,
+                f"Only pending journals can be reviewed. Current status: {journal.get_status_display()}.",
+            )
+            return redirect("accounting:journal_detail", pk=journal.pk)
+
+        try:
+            if action == "approve":
+                journal.approve(self.request.user)
+                post_journal(journal, self.request.user)
+                messages.success(
+                    self.request, "Journal approved and posted successfully."
+                )
+            else:
+                journal.status = Journal.JournalStatus.CANCELLED
+                journal.save()
+                messages.success(self.request, "Journal rejected.")
+        except ValidationError as exc:
+            messages.error(self.request, ", ".join(exc.messages))
+            return redirect("accounting:journal_detail", pk=journal.pk)
 
         AccountingAuditTrail.log_action(
             user=self.request.user,
@@ -701,6 +715,7 @@ class JournalReversalView(LoginRequiredMixin, JournalReversalMixin, FormView):
 
     template_name = "accounting/journal_reversal.html"
     form_class = JournalReversalForm
+    permission_object_model = Journal
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -813,6 +828,7 @@ class AccountingPeriodCloseView(LoginRequiredMixin, PeriodClosingMixin, FormView
     """
 
     template_name = "accounting/period_close.html"
+    permission_object_model = AccountingPeriod
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -1891,6 +1907,7 @@ class JournalReversalInitiationView(LoginRequiredMixin, JournalReversalMixin, Fo
 
     template_name = "accounting/journal_reversal_initiation.html"
     form_class = JournalReversalInitiationForm
+    permission_object_model = Journal
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -1928,6 +1945,7 @@ class JournalPartialReversalView(LoginRequiredMixin, JournalReversalMixin, FormV
     """
 
     template_name = "accounting/journal_partial_reversal.html"
+    permission_object_model = Journal
 
     def get_form_class(self):
         journal = get_object_or_404(Journal, pk=self.kwargs["pk"])
@@ -1994,6 +2012,7 @@ class JournalReversalWithCorrectionView(
 
     template_name = "accounting/journal_reversal_with_correction.html"
     form_class = JournalCorrectionForm
+    permission_object_model = Journal
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -2071,6 +2090,7 @@ class JournalReversalConfirmationView(
 
     template_name = "accounting/journal_reversal_confirmation.html"
     form_class = JournalReversalConfirmationForm
+    permission_object_model = Journal
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)

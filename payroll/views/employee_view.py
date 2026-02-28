@@ -475,6 +475,11 @@ def dashboard(request):
         return render(request, "dashboard_user_new.html", context)
 
 
+@login_required
+def standup_dashboard(request):
+    return render(request, "standup/dashboard.html")
+
+
 @permission_required(
     "payroll.view_employeeprofile", raise_exception=True
 )  # Example permission for HR dashboard
@@ -693,8 +698,17 @@ def update_employee(request, id):
 
 
 @permission_required("payroll.delete_employeeprofile", raise_exception=True)
-def delete_employee(request, id):  # FBV for delete
+def delete_employee(request, id=None):  # FBV for delete
     company = get_user_company(request.user)
+    if id is None:
+        raw_id = request.POST.get("id") or request.GET.get("id")
+        try:
+            id = int(raw_id) if raw_id is not None else None
+        except (TypeError, ValueError):
+            id = None
+    if id is None:
+        messages.error(request, "No employee selected for deletion.")
+        return redirect("payroll:employee_list")
     employee_profile = get_object_or_404(models.EmployeeProfile, id=id, company=company)
     employee_profile.delete()
     messages.success(request, "Employee deleted Successfully!!")
@@ -721,7 +735,11 @@ def employee(request, user_id: int):
         payroll_entry__pays__user_id=employee_profile_to_display.user.id,
         payroll_entry__company=company,
     )
-    context = {"emp": employee_profile_to_display, "pay": pay}
+    iou_slips = models.IOU.objects.filter(
+        employee_id=employee_profile_to_display,
+        employee_id__company=company,
+    ).order_by("-created_at")
+    context = {"emp": employee_profile_to_display, "pay": pay, "iou_slips": iou_slips}
     return render(request, "employee/profile_new.html", context)
 
 

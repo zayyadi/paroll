@@ -378,6 +378,12 @@
                             class="mr-4 h-6 w-6 text-secondary-400 group-hover:text-secondary-500"></i>
                         Performance Reviews
                     </a>
+                    <a href="{% url 'payroll:standup_dashboard' %}"
+                        class="sidebar-link group flex items-center px-2 py-2 text-base font-medium rounded-md">
+                        <i data-lucide="message-square"
+                            class="mr-4 h-6 w-6 text-secondary-400 group-hover:text-secondary-500"></i>
+                        Standup
+                    </a>
                     <a href="{% url 'payroll:leave_requests' %}"
                         class="sidebar-link group flex items-center px-2 py-2 text-base font-medium rounded-md">
                         <i data-lucide="calendar"
@@ -486,6 +492,12 @@
                         <i data-lucide="star"
                             class="mr-3 h-5 w-5 text-secondary-400 group-hover:text-secondary-500"></i>
                         Performance Reviews
+                    </a>
+                    <a href="{% url 'payroll:standup_dashboard' %}"
+                        class="sidebar-link group flex items-center px-2 py-2 text-sm font-medium rounded-md">
+                        <i data-lucide="message-square"
+                            class="mr-3 h-5 w-5 text-secondary-400 group-hover:text-secondary-500"></i>
+                        Standup
                     </a>
                     <a href="{% url 'payroll:leave_requests' %}"
                         class="sidebar-link group flex items-center px-2 py-2 text-sm font-medium rounded-md">
@@ -694,9 +706,15 @@
                 .catch(error => console.error('Error loading notifications:', error));
         }
 
-        function markAsRead(notificationId) {
-            fetch(`/payroll/notifications/${notificationId}/mark-read/`, {
+        function markAsRead(notificationId, redirectUrl = null, event = null) {
+            if (event) {
+                event.preventDefault();
+            }
+
+            const request = fetch(`/payroll/notifications/${notificationId}/mark-read/`, {
                 method: 'POST',
+                keepalive: true,
+                credentials: 'same-origin',
                 headers: {
                     'X-CSRFToken': getCookie('csrftoken'),
                     'Content-Type': 'application/json',
@@ -707,8 +725,19 @@
                     if (data.success) {
                         updateNotificationBadge(data.unread_count);
                     }
-                })
-                .catch(error => console.error('Error marking notification as read:', error));
+                    return data;
+                });
+
+            if (redirectUrl) {
+                Promise.race([request, new Promise(resolve => setTimeout(resolve, 150))])
+                    .finally(() => {
+                        window.location.href = redirectUrl;
+                    });
+                return false;
+            }
+
+            request.catch(error => console.error('Error marking notification as read:', error));
+            return true;
         }
 
         function markAllAsRead() {

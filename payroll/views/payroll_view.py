@@ -466,7 +466,7 @@ def payslips(request):
             request,
             "Your user account is not linked to an employee profile. Please contact HR.",
         )
-        return redirect("payroll:dashboard_hr")
+        return redirect("payroll:hr_dashboard")
 
 
 @login_required
@@ -528,6 +528,12 @@ def payslip_detail(request, id):
         else Decimal("0.00")
     )
     pay_id_water = payroll_record.water_rate if payroll_record else Decimal("0.00")
+    iou_deductions = (
+        pay_id.payroll_entry.pays.iou_deductions.filter(payday=pay_id.payroll_run)
+        .select_related("iou")
+        .order_by("iou_id")
+    )
+    iou_deduction_total = sum((item.amount for item in iou_deductions), Decimal("0.00"))
     # pay_id_
     context = {
         "pay": pay_id,
@@ -546,6 +552,8 @@ def payslip_detail(request, id):
         "pay_id_transport": pay_id_transport,
         "pay_id_taxable": pay_id_taxable,
         "pay_id_water_rate": pay_id_water,
+        "iou_deductions": iou_deductions,
+        "iou_deduction_total": iou_deduction_total,
         "is_auditor": is_auditor(request.user),  # Add auditor flag for template
     }
     return render(request, "pay/payslip_new.html", context)
@@ -612,7 +620,7 @@ class AddDeduction(PermissionRequiredMixin, CreateView):
     form_class = DeductionForm
     template_name = "pay/add_deduction.html"  # New template for deductions
     success_url = reverse_lazy(
-        "payroll:dashboard_hr"
+        "payroll:hr_dashboard"
     )  # Redirect to HR dashboard or a list of deductions
     permission_required = "payroll.add_deduction"
 
@@ -778,7 +786,7 @@ def apply_leave(request):
             "Your user account is not linked to an employee profile. Please contact HR.",
         )
         # Redirect to a relevant page, perhaps the main dashboard or a profile creation page
-        return redirect("payroll:dashboard_hr")
+        return redirect("payroll:hr_dashboard")
     if request.method == "POST":
         form = LeaveRequestForm(request.POST)
         if form.is_valid():
@@ -996,7 +1004,7 @@ def request_iou(request):
             "Your user account is not linked to an employee profile. Please contact HR.",
         )
         # Redirect to a relevant page, perhaps the main dashboard or a profile creation page
-        return redirect("payroll:dashboard_hr")  # Or any other appropriate URL
+        return redirect("payroll:hr_dashboard")  # Or any other appropriate URL
 
     monthly_salary = employee_profile.net_pay or Decimal("0.00")
     if monthly_salary <= 0 and employee_profile.employee_pay:
@@ -1134,8 +1142,23 @@ def iou_history(request):
         messages.info(
             request, "Your user account is not linked to an employee profile."
         )
+
+    pending_count = ious.filter(status="PENDING").count()
+    approved_amount = (
+        ious.filter(status="APPROVED").aggregate(total=Sum("amount")).get("total") or 0
+    )
+    outstanding_balance = (
+        ious.exclude(status__in=["REJECTED", "PAID"])
+        .aggregate(total=Sum("amount"))
+        .get("total")
+        or 0
+    )
+
     context = {
         "ious": ious,
+        "pending_count": pending_count,
+        "approved_amount": approved_amount,
+        "outstanding_balance": outstanding_balance,
         "is_auditor": is_auditor(request.user),  # Add auditor flag for template
     }
     return render(request, "iou/iou_history_new.html", context)
@@ -1304,6 +1327,40 @@ def iou_detail(request, pk):
     ):
         raise HttpResponseForbidden("You are not authorized to view this IOU.")
     return render(request, "iou/iou_detail.html", {"iou": iou})
+
+
+@login_required
+def iou_payment_slip(request, pk):
+    company = get_user_company(request.user)
+    iou = get_object_or_404(IOU, pk=pk, employee_id__company=company)
+    if not (
+        request.user == iou.employee_id.user
+        or request.user.has_perm("payroll.view_iou")
+        or request.user.has_perm("payroll.change_iou")
+    ):
+        raise HttpResponseForbidden(
+            "You are not authorized to view this IOU payment slip."
+        )
+
+    deductions = iou.deductions.select_related("payday").order_by("payday__paydays")
+    repaid_amount = iou.repaid_amount
+    outstanding_amount = iou.outstanding_amount
+    monthly_expected = Decimal("0.00")
+    if iou.employee_id:
+        monthly_netpay = Decimal(iou.employee_id.net_pay or Decimal("0.00"))
+        if monthly_netpay > 0:
+            monthly_expected = (
+                monthly_netpay * Decimal(iou.repayment_deduction_percentage or 0)
+            ) / Decimal("100")
+
+    context = {
+        "iou": iou,
+        "deductions": deductions,
+        "repaid_amount": repaid_amount,
+        "outstanding_amount": outstanding_amount,
+        "monthly_expected": monthly_expected,
+    }
+    return render(request, "iou/iou_payment_slip.html", context)
 
 
 # New Views for Enhanced PayrollRunEntry and PayrollEntry Creation

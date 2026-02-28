@@ -1,64 +1,69 @@
-{% extends "base_tailwind.html" %}
+{% extends "base_new.html" %}
 
 {% block page_header %}{{ object.name }}{% endblock %}
 
 {% block content %}
-<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-  <div class="md:col-span-2 bg-white shadow-md rounded-lg p-6">
-    <div class="mb-6">
-      <h3 class="text-lg font-semibold text-gray-800 mb-2">Details</h3>
-      <p class="text-gray-600"><span class="font-semibold">Start Date:</span> {{ object.start_date }}</p>
-      <p class="text-gray-600"><span class="font-semibold">End Date:</span> {{ object.end_date }}</p>
+<div class="space-y-6">
+  <div class="bg-white rounded-xl shadow-soft p-6 border border-secondary-100 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+    <div>
+      <h2 class="text-xl font-semibold text-secondary-900">{{ object.name }}</h2>
+      <p class="text-sm text-secondary-600 mt-1">
+        {{ object.start_date|date:"d M Y" }} - {{ object.end_date|date:"d M Y" }}
+      </p>
     </div>
-
-    <div class="mb-6">
-      <h3 class="text-lg font-semibold text-gray-800 mb-2">Employees to be Appraised</h3>
-      <ul class="divide-y divide-gray-200">
-        {% for assignment in object.appraisalassignment_set.all %}
-          <li class="py-3 flex justify-between items-center">
-            <span class="text-gray-700">{{ assignment.appraisee.first_name }} {{ assignment.appraisee.last_name }}</span>
-            <a href="{% url 'payroll:review_create' object.pk assignment.appraisee.pk %}" class="text-sm bg-primary text-white px-3 py-1 rounded-md hover:bg-opacity-90">Add Review</a>
-          </li>
-        {% empty %}
-          <li class="py-3 text-center text-gray-500">No employees assigned to this appraisal.</li>
-        {% endfor %}
-      </ul>
+    <div class="flex flex-wrap gap-2">
+      <a href="{% url 'payroll:appraisal_update' object.pk %}" class="px-4 py-2 rounded-xl border border-secondary-300 text-secondary-700 hover:bg-secondary-50">Edit</a>
+      <a href="{% url 'payroll:appraisal_delete' object.pk %}" class="px-4 py-2 rounded-xl border border-danger-300 text-danger-700 hover:bg-danger-50">Delete</a>
+      <a href="{% url 'payroll:assign_appraisal' %}" class="btn-primary px-4 py-2 rounded-xl text-white">Assign</a>
     </div>
   </div>
 
-  <div class="bg-white shadow-md rounded-lg p-6">
-    <h3 class="text-lg font-semibold text-gray-800 mb-4">Submitted Reviews</h3>
-    <ul class="divide-y divide-gray-200">
-      {% for review in object.review_set.all %}
-        <li class="py-3">
-          <a href="{% url 'payroll:review_detail' review.pk %}" class="text-primary hover:underline">
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <section class="lg:col-span-2 bg-white rounded-xl shadow-soft p-6 border border-secondary-100">
+      <h3 class="text-lg font-semibold text-secondary-900 mb-4">Employees to be Appraised</h3>
+      <div class="space-y-3">
+        {% for assignment in object.appraisalassignment_set.all %}
+          <div class="flex flex-wrap items-center justify-between gap-3 border border-secondary-200 rounded-xl p-3">
+            <p class="text-sm text-secondary-800">{{ assignment.appraisee.first_name }} {{ assignment.appraisee.last_name }}</p>
+            <a href="{% url 'payroll:review_create' object.pk assignment.appraisee.pk %}" class="btn-primary px-3 py-1.5 rounded-lg text-sm text-white">Add Review</a>
+          </div>
+        {% empty %}
+          <p class="text-sm text-secondary-500">No employees assigned to this appraisal.</p>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="bg-white rounded-xl shadow-soft p-6 border border-secondary-100">
+      <h3 class="text-lg font-semibold text-secondary-900 mb-4">Submitted Reviews</h3>
+      <div class="space-y-3">
+        {% for review in object.review_set.all %}
+          <a href="{% url 'payroll:review_detail' review.pk %}" class="block border border-secondary-200 rounded-xl p-3 text-sm text-primary-700 hover:bg-primary-50">
             Review of {{ review.employee }} by {{ review.reviewer }}
           </a>
-        </li>
-      {% empty %}
-        <li class="py-3 text-center text-gray-500">No reviews submitted yet.</li>
-      {% endfor %}
-    </ul>
+        {% empty %}
+          <p class="text-sm text-secondary-500">No reviews submitted yet.</p>
+        {% endfor %}
+      </div>
+    </section>
   </div>
 
-  <div class="md:col-span-3 bg-white shadow-md rounded-lg p-6">
-    <h3 class="text-lg font-semibold text-gray-800 mb-4">Analytics</h3>
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-      <div class="bg-gray-100 p-4 rounded-lg">
-        <h4 class="text-gray-600 font-semibold">Reviews</h4>
-        <p class="text-2xl font-bold">{{ completed_reviews }} / {{ pending_reviews|add:completed_reviews }}</p>
-        <p class="text-sm text-gray-500">Completed</p>
+  <section class="bg-white rounded-xl shadow-soft p-6 border border-secondary-100">
+    <h3 class="text-lg font-semibold text-secondary-900 mb-4">Analytics</h3>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div class="rounded-xl bg-secondary-50 p-4">
+        <p class="text-sm text-secondary-600">Completed Reviews</p>
+        <p class="text-2xl font-semibold text-secondary-900">{{ completed_reviews }} / {{ pending_reviews|add:completed_reviews }}</p>
       </div>
-      <div class="bg-gray-100 p-4 rounded-lg">
-        <h4 class="text-gray-600 font-semibold">Overall Average Rating</h4>
-        <p class="text-2xl font-bold">{{ overall_avg|floatformat:2 }}</p>
+      <div class="rounded-xl bg-secondary-50 p-4">
+        <p class="text-sm text-secondary-600">Overall Average Rating</p>
+        <p class="text-2xl font-semibold text-secondary-900">{{ overall_avg|floatformat:2 }}</p>
       </div>
     </div>
     <div class="mt-6">
-      <h4 class="text-gray-600 font-semibold mb-2">Average Rating per Metric</h4>
+      <h4 class="text-sm font-semibold text-secondary-900 mb-2">Average Rating per Metric</h4>
       <canvas id="metricChart"></canvas>
     </div>
-  </div>
+  </section>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -70,18 +75,13 @@
       datasets: [{
         label: 'Average Rating',
         data: [{% for metric_name, data in metric_ratings.items %}{{ data.avg }},{% endfor %}],
-        backgroundColor: 'rgba(99, 102, 241, 0.2)',
-        borderColor: 'rgba(99, 102, 241, 1)',
+        backgroundColor: 'rgba(59, 130, 246, 0.2)',
+        borderColor: 'rgba(59, 130, 246, 1)',
         borderWidth: 1
       }]
     },
     options: {
-      scales: {
-        y: {
-          beginAtZero: true,
-          max: 5
-        }
-      }
+      scales: { y: { beginAtZero: true, max: 5 } }
     }
   });
 </script>

@@ -148,8 +148,12 @@
                                 <td class="px-4 py-2 text-right font-medium text-slate-900">{{ pay_id_water_rate|floatformat:2|intcomma }}</td>
                             </tr>
                             <tr>
+                                <td class="px-4 py-2 text-slate-700">IOU Deductions</td>
+                                <td class="px-4 py-2 text-right font-medium text-slate-900">{{ pay.payroll_entry.calc_iou_deduction|floatformat:2|intcomma }}</td>
+                            </tr>
+                            <tr>
                                 <td class="px-4 py-2 text-slate-700">Other Deductions</td>
-                                <td class="px-4 py-2 text-right font-medium text-slate-900">{{ pay.payroll_entry.calc_deduction|floatformat:2|intcomma }}</td>
+                                <td class="px-4 py-2 text-right font-medium text-slate-900">{{ pay.payroll_entry.calc_standard_deduction|floatformat:2|intcomma }}</td>
                             </tr>
                             <tr class="bg-rose-50">
                                 <td class="px-4 py-2 font-semibold text-rose-900">Total Deductions</td>
@@ -159,6 +163,20 @@
                     </table>
                 </div>
             </div>
+
+            {% if iou_deductions %}
+            <div class="mt-6 rounded-xl border border-amber-200 bg-amber-50 p-4">
+                <p class="text-sm font-semibold text-amber-900 mb-2">IOU Repayment Breakdown</p>
+                <ul class="space-y-1 text-sm text-amber-900">
+                    {% for repayment in iou_deductions %}
+                    <li>
+                        IOU #{{ repayment.iou_id }} ({{ repayment.payday.save_month_str }}):
+                        <span class="font-semibold">₦{{ repayment.amount|floatformat:2|intcomma }}</span>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
 
             <div class="mt-6 rounded-xl border border-slate-200 overflow-hidden">
                 <table class="w-full text-sm">

@@ -164,8 +164,8 @@ class PayrollClosePostingTests(TestCase):
             Decimal(entry.netpay)
             + Decimal(employee.employee_pay.payee or 0)
             + (Decimal(employee.employee_pay.pension_employee or 0) / Decimal("12"))
-            + Decimal(employee.employee_pay.nhf or 0)
-            + Decimal(employee.employee_pay.employee_health or 0)
+            + (Decimal(employee.employee_pay.nhf or 0) / Decimal("12"))
+            + (Decimal(employee.employee_pay.employee_health or 0) / Decimal("12"))
         )
         self.assertEqual(self._q(salary_debit), self._q(expected_salary_debit))
 

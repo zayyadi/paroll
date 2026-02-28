@@ -19,6 +19,11 @@ from api.v1.viewsets import (
     PayrollRunEntryViewSet,
     PayrollRunViewSet,
     PayrollViewSet,
+    StandupCheckinViewSet,
+    StandupFollowViewSet,
+    StandupQuestionViewSet,
+    StandupTeamMemberViewSet,
+    StandupTeamViewSet,
     SwitchCompanyView,
 )
 
@@ -37,6 +42,11 @@ router.register(
 router.register(r"leave-policies", LeavePolicyViewSet, basename="leave-policy")
 router.register(r"leave-requests", LeaveRequestViewSet, basename="leave-request")
 router.register(r"ious", IOUViewSet, basename="iou")
+router.register(r"standup-teams", StandupTeamViewSet, basename="standup-team")
+router.register(r"standup-team-members", StandupTeamMemberViewSet, basename="standup-team-member")
+router.register(r"standup-questions", StandupQuestionViewSet, basename="standup-question")
+router.register(r"standup-checkins", StandupCheckinViewSet, basename="standup-checkin")
+router.register(r"standup-follows", StandupFollowViewSet, basename="standup-follow")
 
 router.register(r"accounts", AccountViewSet, basename="account")
 router.register(r"fiscal-years", FiscalYearViewSet, basename="fiscal-year")

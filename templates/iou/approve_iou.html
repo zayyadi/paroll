@@ -1,65 +1,37 @@
-{% extends 'base_tailwind.html' %}
-{% load static %} {# Keep for potential future static assets if any #}
-{% load widget_tweaks %}
+{% extends "base_new.html" %}
 
 {% block page_header %}Approve IOU Request{% endblock %}
 
 {% block content %}
-<div class="max-w-xl mx-auto bg-white rounded-xl shadow-sm p-6 md:p-8"> {# Updated container styling #}
-
-    {# Displaying some IOU details for context #}
-    {% if iou %} {# Assuming the 'iou' object is passed in context from the view #}
-    <div class="mb-6 border-b border-gray-200 pb-4">
-        <h3 class="text-lg font-semibold text-gray-800 mb-2">Reviewing IOU Request:</h3>
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1 text-sm">
-            <p><span class="font-medium text-gray-600">Employee:</span> {{ iou.employee_id.first_name }} {{ iou.employee_id.last_name }}</p>
-            <p><span class="font-medium text-gray-600">Emp ID:</span> {{ iou.employee_id.emp_id }}</p>
-            <p><span class="font-medium text-gray-600">Amount:</span> ₦{{ iou.amount|floatformat:2 }}</p>
-            <p><span class="font-medium text-gray-600">Requested:</span> {{ iou.created_at|date:"d M Y" }}</p>
+<div class="max-w-3xl mx-auto space-y-6">
+    <div class="bg-white rounded-xl shadow-soft p-6 border border-secondary-100">
+        <h2 class="text-lg font-semibold text-secondary-900">Review IOU Request</h2>
+        <div class="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3 text-sm text-secondary-700">
+            <p><span class="font-semibold">Employee:</span> {{ iou.employee_id.first_name }} {{ iou.employee_id.last_name }}</p>
+            <p><span class="font-semibold">Employee ID:</span> {{ iou.employee_id.emp_id }}</p>
+            <p><span class="font-semibold">Amount:</span> ₦{{ iou.amount }}</p>
+            <p><span class="font-semibold">Requested Tenor:</span> {{ iou.tenor }} month(s)</p>
+            <p><span class="font-semibold">Requested:</span> {{ iou.created_at|date:"d M Y" }}</p>
+            <p><span class="font-semibold">Current Deduction %:</span> {{ iou.repayment_deduction_percentage }}%</p>
+            <p class="md:col-span-2"><span class="font-semibold">Reason:</span> {{ iou.reason|default:"N/A" }}</p>
         </div>
-        <p class="mt-2 text-sm"><span class="font-medium text-gray-600">Reason:</span> {{ iou.reason }}</p>
     </div>
-    {% endif %}
 
-    <form method="post" class="space-y-6">
+    <form method="post" class="bg-white rounded-xl shadow-soft p-6 border border-secondary-100 space-y-4">
         {% csrf_token %}
-
         {% if form.non_field_errors %}
-        <div class="p-3 mb-4 rounded-lg bg-red-50 text-red-700 border border-red-200 text-sm">
-            {% for error in form.non_field_errors %}
-            <p>{{ error }}</p>
-            {% endfor %}
-        </div>
+        <div class="rounded-xl border border-danger-200 bg-danger-50 p-4 text-sm text-danger-800">{{ form.non_field_errors }}</div>
         {% endif %}
-
         {% for field in form %}
         <div>
-            <label for="{{ field.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">{{ field.label }}</label>
-            {% if field.widget_type == 'select' %}
-                 {{ field|add_class:'w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-gray-50' }}
-            {% elif field.widget_type == 'checkbox' %}
-                <div class="mt-1">
-                    {{ field|add_class:'h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500' }}
-                </div>
-            {% else %}
-                 {{ field|add_class:'w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm' }}
-            {% endif %}
-            {% if field.help_text %}
-            <p class="mt-1 text-xs text-gray-500">{{ field.help_text|safe }}</p>
-            {% endif %}
-            {% if field.errors %}
-                {% for error in field.errors %}
-                <p class="mt-1 text-xs text-red-500">{{ error }}</p>
-                {% endfor %}
-            {% endif %}
+            <label for="{{ field.id_for_label }}" class="block text-sm font-medium text-secondary-700 mb-1">{{ field.label }}</label>
+            {{ field }}
+            {% for error in field.errors %}<p class="text-xs text-danger-600 mt-1">{{ error }}</p>{% endfor %}
         </div>
         {% endfor %}
-
-        <div class="pt-2">
-          <button type="submit" class="w-full sm:w-auto flex items-center justify-center px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 text-sm">
-            <i data-lucide="check-square" class="w-4 h-4 mr-2"></i>
-            Save Changes
-          </button>
+        <div class="flex justify-end gap-3 pt-2">
+            <a href="{% url 'payroll:iou_list' %}" class="px-4 py-2.5 rounded-xl border border-secondary-300 text-secondary-700 hover:bg-secondary-50 text-sm font-medium">Cancel</a>
+            <button type="submit" class="btn-primary px-6 py-2.5 rounded-xl text-white text-sm font-medium">Save Decision</button>
         </div>
     </form>
 </div>
