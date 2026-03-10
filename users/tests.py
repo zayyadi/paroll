@@ -167,6 +167,14 @@ class LoginSecurityTests(TestCase):
         )
         self.assertRedirects(response, reverse("payroll:index"))
 
+    def test_login_default_redirect_is_not_public_landing_page(self):
+        response = self.client.post(
+            reverse("users:login"),
+            {"username": self.user.email, "password": "StrongPass123!"},
+        )
+        self.assertRedirects(response, reverse("payroll:index"))
+        self.assertNotEqual(reverse("payroll:index"), "/")
+
 
 @override_settings(
     CACHES={"default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"}},

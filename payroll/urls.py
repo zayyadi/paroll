@@ -9,7 +9,7 @@ from accounting import views as accounting_views
 app_name = "payroll"
 
 urlpatterns = [
-    path("", views.index, name="index"),
+    path("app/", views.index, name="index"),
     path("employee-profile/", views.update_employee_profile, name="employee_profile"),
     path("hr-dashboard/", views.hr_dashboard, name="hr_dashboard"),
     path("employees/", views.employee_list, name="employee_list"),

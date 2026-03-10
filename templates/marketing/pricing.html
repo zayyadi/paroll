@@ -1,0 +1,11 @@
+{% extends "marketing/base.html" %}
+{% block title %}Pricing | PayNest{% endblock %}
+{% block content %}
+<h1>Pricing</h1>
+<div class="grid">
+    <div class="card"><h3>Starter</h3><p>For small teams getting started.</p></div>
+    <div class="card"><h3>Growth</h3><p>For scaling companies with approvals and reports.</p></div>
+    <div class="card"><h3>Enterprise</h3><p>Advanced controls, onboarding support, and priority response.</p></div>
+</div>
+<p><a class="button primary" href="{% url 'marketing:contact' %}">Talk to sales</a></p>
+{% endblock %}

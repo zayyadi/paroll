@@ -1,0 +1,18 @@
+{% extends "marketing/base.html" %}
+{% block title %}Payroll SaaS for Growing Teams | PayNest{% endblock %}
+{% block meta_description %}Run compliant payroll, automate statutory deductions, and onboard employees faster with PayNest.{% endblock %}
+{% block content %}
+<section class="hero">
+    <h1>Run compliant payroll in minutes, not days.</h1>
+    <p>PayNest helps African businesses automate payroll, taxes, and employee workflows from one platform.</p>
+    <p>
+        <a class="button primary" href="{% url 'users:register' %}">Start free trial</a>
+        <a class="button secondary" href="{% url 'marketing:contact' %}">Book demo</a>
+    </p>
+</section>
+<section class="grid">
+    <div class="card"><h3>Fast onboarding</h3><p>Set up your company and import employees quickly.</p></div>
+    <div class="card"><h3>Payroll accuracy</h3><p>Automated statutory deductions and auditable workflows.</p></div>
+    <div class="card"><h3>Support that responds</h3><p>Dedicated team with clear escalation process.</p></div>
+</section>
+{% endblock %}

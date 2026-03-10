@@ -1,0 +1,36 @@
+{% extends "marketing/base.html" %}
+{% block title %}Contact | PayNest{% endblock %}
+{% block content %}
+<h1>Contact Sales and Support</h1>
+<div class="card">
+    <form method="post">
+        {% csrf_token %}
+        <div class="field">
+            <label for="id_full_name">Full name</label>
+            {{ form.full_name }}
+            {{ form.full_name.errors }}
+        </div>
+        <div class="field">
+            <label for="id_work_email">Work email</label>
+            {{ form.work_email }}
+            {{ form.work_email.errors }}
+        </div>
+        <div class="field">
+            <label for="id_company_name">Company name</label>
+            {{ form.company_name }}
+            {{ form.company_name.errors }}
+        </div>
+        <div class="field">
+            <label for="id_company_size">Company size</label>
+            {{ form.company_size }}
+            {{ form.company_size.errors }}
+        </div>
+        <div class="field">
+            <label for="id_message">How can we help?</label>
+            {{ form.message }}
+            {{ form.message.errors }}
+        </div>
+        <button class="button primary" type="submit">Submit inquiry</button>
+    </form>
+</div>
+{% endblock %}
