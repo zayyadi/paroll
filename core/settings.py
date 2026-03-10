@@ -49,6 +49,7 @@ INSTALLED_APPS = [
     "accounting",
     "company",
     "standup",
+    "marketing",
     # Channels for real-time notifications
     "channels",
     "channels_redis",

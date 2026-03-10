@@ -12,6 +12,7 @@ handler500 = "django.views.defaults.server_error"
 
 urlpatterns = [
     path("admin/", admin.site.urls),
+    path("", include("marketing.urls", namespace="marketing")),
     path("users/", include("users.urls", namespace="users")),
     # path("account/", include("django.contrib.auth.urls")),
     path("", include("payroll.urls", namespace="payroll")),
