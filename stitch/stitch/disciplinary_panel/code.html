@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Disciplinary Panel | Pulse HR</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Manrope:wght@700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "on-primary-fixed": "#001f28",
+                        "tertiary-fixed-dim": "#feb77d",
+                        "inverse-surface": "#2e3132",
+                        "secondary": "#536167",
+                        "surface-variant": "#e2e2e3",
+                        "surface-container-low": "#f3f4f4",
+                        "on-surface-variant": "#40484c",
+                        "outline-variant": "#bfc8cc",
+                        "on-secondary-container": "#58676d",
+                        "on-surface": "#1a1c1d",
+                        "tertiary": "#5f3201",
+                        "on-secondary-fixed-variant": "#3b494f",
+                        "outline": "#70787d",
+                        "on-tertiary-fixed-variant": "#6b3b09",
+                        "on-primary-container": "#8fd2ed",
+                        "on-error-container": "#93000a",
+                        "on-tertiary": "#ffffff",
+                        "surface-container-highest": "#e2e2e3",
+                        "inverse-on-surface": "#f0f1f2",
+                        "secondary-fixed": "#d6e5ec",
+                        "on-secondary-fixed": "#101d23",
+                        "secondary-fixed-dim": "#bac9d0",
+                        "on-primary-fixed-variant": "#004d61",
+                        "surface-container-high": "#e7e8e9",
+                        "secondary-container": "#d6e5ec",
+                        "on-background": "#1a1c1d",
+                        "primary-container": "#005c73",
+                        "surface-container-lowest": "#ffffff",
+                        "on-tertiary-fixed": "#2e1500",
+                        "error-container": "#ffdad6",
+                        "on-primary": "#ffffff",
+                        "on-tertiary-container": "#ffbb83",
+                        "primary-fixed-dim": "#8dd0ea",
+                        "background": "#f9f9fa",
+                        "surface-container": "#edeeef",
+                        "error": "#ba1a1a",
+                        "inverse-primary": "#8dd0ea",
+                        "surface-dim": "#d9dadb",
+                        "tertiary-container": "#7b4817",
+                        "surface": "#f9f9fa",
+                        "surface-tint": "#18667e",
+                        "tertiary-fixed": "#ffdcc2",
+                        "on-secondary": "#ffffff",
+                        "on-error": "#ffffff",
+                        "primary-fixed": "#b8eaff",
+                        "primary": "#004355",
+                        "surface-bright": "#f9f9fa"
+                    },
+                    fontFamily: {
+                        "headline": ["Manrope"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        body { font-family: 'Inter', sans-serif; }
+        h1, h2, h3 { font-family: 'Manrope', sans-serif; }
+    </style>
+</head>
+<body class="bg-background text-on-surface antialiased">
+<!-- SideNavBar (Authority: JSON) -->
+<aside class="fixed left-0 top-0 h-full w-64 bg-slate-50 dark:bg-slate-950 flex flex-col p-4 space-y-2 z-50">
+<div class="mb-8 px-2">
+<h1 class="font-['Manrope'] font-black text-2xl text-teal-900 dark:text-teal-50">Pulse HR</h1>
+<p class="text-xs text-slate-500 font-['Inter'] uppercase tracking-widest mt-1">Editorial Command</p>
+</div>
+<nav class="flex-1 space-y-1">
+<a class="flex items-center space-x-3 p-3 text-slate-600 dark:text-slate-400 hover:bg-slate-200/50 dark:hover:bg-slate-800/50 hover:translate-x-1 transition-transform duration-200 cursor-pointer rounded-lg font-['Inter'] text-sm" href="#">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+<span>Dashboard</span>
+</a>
+<a class="flex items-center space-x-3 p-3 text-slate-600 dark:text-slate-400 hover:bg-slate-200/50 dark:hover:bg-slate-800/50 hover:translate-x-1 transition-transform duration-200 cursor-pointer rounded-lg font-['Inter'] text-sm" href="#">
+<span class="material-symbols-outlined" data-icon="groups">groups</span>
+<span>Staff Directory</span>
+</a>
+<a class="flex items-center space-x-3 p-3 text-slate-600 dark:text-slate-400 hover:bg-slate-200/50 dark:hover:bg-slate-800/50 hover:translate-x-1 transition-transform duration-200 cursor-pointer rounded-lg font-['Inter'] text-sm" href="#">
+<span class="material-symbols-outlined" data-icon="payments">payments</span>
+<span>Payroll Hub</span>
+</a>
+<!-- Active Tab: Disciplinary -->
+<a class="flex items-center space-x-3 p-3 bg-white dark:bg-slate-800 text-teal-900 dark:text-teal-100 font-bold shadow-sm rounded-lg hover:translate-x-1 transition-transform duration-200 cursor-pointer font-['Inter'] text-sm" href="#">
+<span class="material-symbols-outlined" data-icon="gavel" style="font-variation-settings: 'FILL' 1;">gavel</span>
+<span>Disciplinary</span>
+</a>
+<a class="flex items-center space-x-3 p-3 text-slate-600 dark:text-slate-400 hover:bg-slate-200/50 dark:hover:bg-slate-800/50 hover:translate-x-1 transition-transform duration-200 cursor-pointer rounded-lg font-['Inter'] text-sm" href="#">
+<span class="material-symbols-outlined" data-icon="shield_person">shield_person</span>
+<span>Admin Panel</span>
+</a>
+<a class="flex items-center space-x-3 p-3 text-slate-600 dark:text-slate-400 hover:bg-slate-200/50 dark:hover:bg-slate-800/50 hover:translate-x-1 transition-transform duration-200 cursor-pointer rounded-lg font-['Inter'] text-sm" href="#">
+<span class="material-symbols-outlined" data-icon="account_circle">account_circle</span>
+<span>My Profile</span>
+</a>
+</nav>
+<div class="pt-4 border-t border-slate-200 dark:border-slate-800 space-y-1">
+<button class="w-full flex items-center space-x-3 p-3 text-slate-600 dark:text-slate-400 hover:bg-slate-200/50 dark:hover:bg-slate-800/50 rounded-lg text-sm transition-all">
+<span class="material-symbols-outlined" data-icon="help_outline">help_outline</span>
+<span>Support</span>
+</button>
+<button class="w-full flex items-center space-x-3 p-3 text-error hover:bg-error/5 rounded-lg text-sm transition-all">
+<span class="material-symbols-outlined" data-icon="logout">logout</span>
+<span>Sign Out</span>
+</button>
+</div>
+</aside>
+<!-- Main Content Canvas -->
+<main class="ml-64 min-h-screen">
+<!-- TopAppBar (Authority: JSON) -->
+<header class="fixed top-0 right-0 left-64 h-16 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md z-40 flex justify-between items-center px-8">
+<div class="flex items-center space-x-4">
+<div class="relative">
+<span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 material-symbols-outlined" data-icon="search">search</span>
+<input class="pl-10 pr-4 py-2 bg-slate-50 border-none rounded-lg text-sm w-64 focus:ring-2 focus:ring-teal-900/20 transition-all" placeholder="Search cases or staff..." type="text"/>
+</div>
+</div>
+<div class="flex items-center space-x-6">
+<button class="text-slate-500 hover:text-teal-900 transition-colors relative">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+<span class="absolute top-0 right-0 w-2 h-2 bg-error rounded-full border-2 border-white"></span>
+</button>
+<button class="text-slate-500 hover:text-teal-900 transition-colors">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+</button>
+<div class="flex items-center space-x-3 pl-4 border-l border-slate-200">
+<div class="text-right">
+<p class="text-xs font-bold text-teal-900">Julian Voss</p>
+<p class="text-[10px] text-slate-500 uppercase tracking-tighter">ER Manager</p>
+</div>
+<img alt="Executive Profile" class="w-8 h-8 rounded-full object-cover" data-alt="close-up portrait of a professional man in a tailored suit with a confident expression in a bright modern office" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCS36bEwUWioEPcOhDm_aes31HKzuEPuELteApDEGAU9YUe0qcx5xThaNOObiH4JKJ3-nofUkuiEkaOGWdfm_XFJF2sVCiwxl4-hhw0lQe1EQxQI1iMSKjJB7Yx7lPhUPpOsN35X0-XxU9PtHbCX5T8UCh8K-VFoDDlN0CHyODVRn46fJScb2qEpv4TirRhYidhGALkUTQWdrf51ll6WgRmtsl2ozsHbmdW494FkCpK4q4v6IbGQUYFKWRtLBy82xJZKsJnK9eaW9k"/>
+</div>
+</div>
+</header>
+<!-- Editorial Content Stage -->
+<div class="pt-24 px-12 pb-12">
+<!-- Page Header -->
+<div class="flex justify-between items-end mb-12">
+<div>
+<h2 class="text-4xl font-extrabold text-teal-900 tracking-tight mb-2">Disciplinary Review</h2>
+<p class="text-on-surface-variant max-w-xl font-['Inter']">Confidential tracking and resolution management for internal employee relations cases. Maintain compliance with editorial standards and legal frameworks.</p>
+</div>
+<button class="bg-gradient-to-br from-primary to-primary-container text-white px-6 py-3 rounded-lg flex items-center space-x-2 shadow-lg hover:shadow-primary/20 transition-all">
+<span class="material-symbols-outlined" data-icon="add">add</span>
+<span class="font-semibold">New Case Entry</span>
+</button>
+</div>
+<!-- Dashboard Bento Grid -->
+<div class="grid grid-cols-12 gap-8 mb-12">
+<!-- Live Pulse Widget -->
+<div class="col-span-12 md:col-span-4 bg-surface-container-lowest p-6 rounded-xl relative overflow-hidden group">
+<div class="absolute left-0 top-0 bottom-0 w-1 bg-tertiary-fixed"></div>
+<div class="flex justify-between items-start mb-4">
+<span class="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Active Investigations</span>
+<span class="material-symbols-outlined text-tertiary" data-icon="pending_actions">pending_actions</span>
+</div>
+<div class="text-5xl font-extrabold text-teal-900 mb-2">14</div>
+<p class="text-sm text-on-surface-variant flex items-center space-x-1">
+<span class="text-error font-bold">+2</span>
+<span>since last week</span>
+</p>
+</div>
+<div class="col-span-12 md:col-span-4 bg-surface-container-lowest p-6 rounded-xl">
+<div class="flex justify-between items-start mb-4">
+<span class="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Avg. Resolution Time</span>
+<span class="material-symbols-outlined text-primary" data-icon="timer">timer</span>
+</div>
+<div class="text-5xl font-extrabold text-teal-900 mb-2">18.5</div>
+<p class="text-sm text-on-surface-variant">Days per case</p>
+</div>
+<div class="col-span-12 md:col-span-4 bg-surface-container-lowest p-6 rounded-xl">
+<div class="flex justify-between items-start mb-4">
+<span class="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Compliance Health</span>
+<span class="material-symbols-outlined text-teal-600" data-icon="verified_user">verified_user</span>
+</div>
+<div class="text-5xl font-extrabold text-teal-900 mb-2">98%</div>
+<p class="text-sm text-on-surface-variant">Documentation complete</p>
+</div>
+</div>
+<div class="grid grid-cols-12 gap-10">
+<!-- Case List (The List) -->
+<div class="col-span-12 lg:col-span-8">
+<div class="bg-surface-container-lowest rounded-xl overflow-hidden">
+<div class="px-8 py-6 flex justify-between items-center bg-slate-50/50">
+<h3 class="text-lg font-bold text-teal-900">Case Directory</h3>
+<div class="flex space-x-2">
+<button class="px-3 py-1.5 text-xs font-bold rounded-lg border border-slate-200 text-on-surface-variant hover:bg-white transition-colors">All Statuses</button>
+<button class="px-3 py-1.5 text-xs font-bold rounded-lg bg-white border border-slate-200 text-teal-900 shadow-sm">Recent</button>
+</div>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left">
+<thead class="bg-slate-50/30">
+<tr>
+<th class="px-8 py-4 text-[10px] font-bold uppercase tracking-widest text-slate-500">Employee</th>
+<th class="px-8 py-4 text-[10px] font-bold uppercase tracking-widest text-slate-500">Case ID</th>
+<th class="px-8 py-4 text-[10px] font-bold uppercase tracking-widest text-slate-500">Subject</th>
+<th class="px-8 py-4 text-[10px] font-bold uppercase tracking-widest text-slate-500">Priority</th>
+<th class="px-8 py-4 text-[10px] font-bold uppercase tracking-widest text-slate-500">Status</th>
+<th class="px-8 py-4"></th>
+</tr>
+</thead>
+<tbody class="divide-y divide-slate-100">
+<!-- Row 1 -->
+<tr class="hover:bg-slate-50/80 transition-colors cursor-pointer group">
+<td class="px-8 py-6">
+<div class="flex items-center space-x-3">
+<img alt="Employee" class="w-10 h-10 rounded-lg object-cover" data-alt="professional headshot of a young man with a slight smile wearing a crisp white shirt in a minimalist studio" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAUHKEXWlR9ewQTn7YN4ByxcO4M3kHcLePU_H7vtJw6tdo3gjLuxbwHGcpYBKyn6hW7PsgUI4Qz5PMJ9fyl_4T14Nab6VeWdD6xN-Xt8Y5-rCkVLYu0dqnJ_sAi7UYeFJv8swvAdgwENd0QARYsxex9_hglXuLBGMlc8muyfM0DnHnUh94UIsvqb1NQOQgx2o35tivd27JEOzfQC4M-LK6d7h4ZZy6v4O3RDE1DgOFwKhaOh0RnyDe3nShCp-QkcC6c-ThlBso8-zk"/>
+<div>
+<p class="text-sm font-bold text-teal-900">Marcus Thorne</p>
+<p class="text-xs text-on-surface-variant">Senior Copywriter</p>
+</div>
+</div>
+</td>
+<td class="px-8 py-6 text-sm font-mono text-on-surface-variant">DISC-2024-089</td>
+<td class="px-8 py-6">
+<p class="text-sm font-medium">Conduct Unbecoming</p>
+</td>
+<td class="px-8 py-6">
+<span class="px-2 py-1 text-[10px] font-bold bg-error-container text-on-error-container rounded uppercase tracking-tighter">High</span>
+</td>
+<td class="px-8 py-6">
+<div class="flex items-center space-x-2 text-sm text-on-surface-variant">
+<span class="w-2 h-2 rounded-full bg-primary animate-pulse"></span>
+<span>Under Investigation</span>
+</div>
+</td>
+<td class="px-8 py-6 text-right">
+<span class="material-symbols-outlined text-slate-300 group-hover:text-teal-900 transition-colors" data-icon="chevron_right">chevron_right</span>
+</td>
+</tr>
+<!-- Row 2 -->
+<tr class="hover:bg-slate-50/80 transition-colors cursor-pointer group">
+<td class="px-8 py-6">
+<div class="flex items-center space-x-3">
+<img alt="Employee" class="w-10 h-10 rounded-lg object-cover" data-alt="portrait of a confident woman in business casual attire with soft natural lighting in a bright office environment" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCpe4ouPiYY351K2I5aYMdD_vSfJfC0x3UTRWwonHvzhFINGxun-4jY0rxHm6mB1DMO9EnSUTkiCFIoE-cZoHMaTje9HVNbMP-zQcRsL8OxuF1ciOjMtGSqCWGqenGDljN7pK7WyMQQtKBnMHrDhadGWedmmy2-cWYj0y9m5vm1Ob6oQrIF4JxL4XRDZ1N-TG8mwBKirgyh74H_aelFScyRY-D18fA3JsVVo-L5Tg9H_1VflZIpYsv3SjCJUKcyGOlfQ6dmWqm6qnk"/>
+<div>
+<p class="text-sm font-bold text-teal-900">Sarah Jenkins</p>
+<p class="text-xs text-on-surface-variant">Design Lead</p>
+</div>
+</div>
+</td>
+<td class="px-8 py-6 text-sm font-mono text-on-surface-variant">DISC-2024-074</td>
+<td class="px-8 py-6">
+<p class="text-sm font-medium">Performance Gap</p>
+</td>
+<td class="px-8 py-6">
+<span class="px-2 py-1 text-[10px] font-bold bg-secondary-container text-on-secondary-container rounded uppercase tracking-tighter">Medium</span>
+</td>
+<td class="px-8 py-6">
+<div class="flex items-center space-x-2 text-sm text-on-surface-variant">
+<span class="w-2 h-2 rounded-full bg-slate-300"></span>
+<span>Hearing Scheduled</span>
+</div>
+</td>
+<td class="px-8 py-6 text-right">
+<span class="material-symbols-outlined text-slate-300 group-hover:text-teal-900 transition-colors" data-icon="chevron_right">chevron_right</span>
+</td>
+</tr>
+<!-- Row 3 -->
+<tr class="hover:bg-slate-50/80 transition-colors cursor-pointer group bg-slate-50/20">
+<td class="px-8 py-6">
+<div class="flex items-center space-x-3">
+<img alt="Employee" class="w-10 h-10 rounded-lg object-cover" data-alt="close-up of a smiling man with a beard in professional attire in a softly lit corporate setting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDX_h7Dnfl1HRAY3aU41OyjwOUHLS_NibafToE3Q9TMFRowAWXeBIPDib3WNcszG5vnT4zYjf_sq3Sv8pU5md2eKILlmnKQwjPhVRiBeIhFJFS4S0-kyEJZfVEs-N46LWsIedPSVShjQdEl7SpjxxuzUjBw32lVUyx_HTbHUeWt6VHBVjjIWuG6gBnMmfWAkD0_SM3gS8tYUWZeTBEkSSw0rQ0s_rhbntp_9x2R_TGPBCu2BG0bDDaQkPVrQGFmcz7zpqFvoLub-kw"/>
+<div>
+<p class="text-sm font-bold text-teal-900">David Chen</p>
+<p class="text-xs text-on-surface-variant">Fullstack Engineer</p>
+</div>
+</div>
+</td>
+<td class="px-8 py-6 text-sm font-mono text-on-surface-variant">DISC-2024-092</td>
+<td class="px-8 py-6">
+<p class="text-sm font-medium">Attendance Policy</p>
+</td>
+<td class="px-8 py-6">
+<span class="px-2 py-1 text-[10px] font-bold bg-surface-container-high text-on-surface-variant rounded uppercase tracking-tighter">Low</span>
+</td>
+<td class="px-8 py-6">
+<div class="flex items-center space-x-2 text-sm text-on-surface-variant">
+<span class="w-2 h-2 rounded-full bg-teal-500"></span>
+<span>Outcome Issued</span>
+</div>
+</td>
+<td class="px-8 py-6 text-right">
+<span class="material-symbols-outlined text-slate-300 group-hover:text-teal-900 transition-colors" data-icon="chevron_right">chevron_right</span>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+<!-- Case Details & Tracking (The Focus Area) -->
+<aside class="col-span-12 lg:col-span-4 space-y-8">
+<div class="bg-surface-container-low border-2 border-dashed border-outline-variant/30 rounded-xl p-8 flex flex-col items-center text-center">
+<span class="material-symbols-outlined text-4xl text-slate-300 mb-4" data-icon="manage_search">manage_search</span>
+<h4 class="text-lg font-bold text-teal-900 mb-2">Select a Case</h4>
+<p class="text-sm text-on-surface-variant leading-relaxed">Select an entry from the directory to view complete documentation, evidence logs, and outcome timeline.</p>
+</div>
+<!-- Example of an Active Detail View (Static for Demo) -->
+<div class="bg-surface-container-lowest rounded-xl p-8 shadow-sm">
+<div class="flex items-center space-x-2 mb-6">
+<span class="w-2 h-2 rounded-full bg-error animate-pulse"></span>
+<span class="text-[10px] font-bold uppercase tracking-widest text-error">Current Focus: DISC-2024-089</span>
+</div>
+<div class="mb-8">
+<h3 class="text-xl font-bold text-teal-900 mb-1">Marcus Thorne</h3>
+<p class="text-sm text-on-surface-variant">Allegation: Misuse of Corporate Digital Assets</p>
+</div>
+<div class="space-y-6 mb-8">
+<div>
+<label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-2">Outcome Status</label>
+<div class="bg-surface-container-low p-3 rounded-lg flex items-center justify-between">
+<span class="text-sm font-medium text-teal-950">Drafting Final Warning</span>
+<span class="material-symbols-outlined text-sm text-teal-600" data-icon="edit_note">edit_note</span>
+</div>
+</div>
+<div>
+<label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-2">Documentation Progress</label>
+<div class="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+<div class="bg-primary h-full w-[75%]"></div>
+</div>
+<div class="flex justify-between mt-2 text-[10px] font-bold text-on-surface-variant">
+<span>3/4 MODULES COMPLETE</span>
+<span>75%</span>
+</div>
+</div>
+</div>
+<div class="space-y-3">
+<button class="w-full py-3 px-4 bg-slate-50 hover:bg-slate-100 text-teal-900 text-xs font-bold rounded-lg transition-colors flex items-center justify-center space-x-2">
+<span class="material-symbols-outlined text-base" data-icon="description">description</span>
+<span>View Evidence Logs</span>
+</button>
+<button class="w-full py-3 px-4 bg-slate-50 hover:bg-slate-100 text-teal-900 text-xs font-bold rounded-lg transition-colors flex items-center justify-center space-x-2">
+<span class="material-symbols-outlined text-base" data-icon="gavel">gavel</span>
+<span>Schedule Hearing</span>
+</button>
+<button class="w-full py-3 px-4 bg-primary text-white text-xs font-bold rounded-lg shadow-md flex items-center justify-center space-x-2">
+<span class="material-symbols-outlined text-base" data-icon="assignment_turned_in">assignment_turned_in</span>
+<span>Issue Resolution</span>
+</button>
+</div>
+</div>
+</aside>
+</div>
+</div>
+<!-- Footer (Authority: JSON) -->
+<footer class="w-full py-8 mt-auto border-t border-slate-100 dark:border-slate-800 flex flex-col md:flex-row justify-between items-center px-12 bg-white dark:bg-slate-950 font-['Inter'] text-xs uppercase tracking-widest">
+<div class="flex items-center space-x-2 opacity-80 hover:opacity-100 transition-all">
+<span class="font-bold text-teal-950 dark:text-white">Pulse HR</span>
+<span class="text-slate-400">© 2024 Pulse HR. Professional Editorial Management.</span>
+</div>
+<div class="flex space-x-8 mt-4 md:mt-0">
+<a class="text-slate-400 hover:text-teal-600 transition-colors" href="#">Privacy Policy</a>
+<a class="text-slate-400 hover:text-teal-600 transition-colors" href="#">Service Terms</a>
+<a class="text-slate-400 hover:text-teal-600 transition-colors" href="#">Cookie Settings</a>
+</div>
+</footer>
+</main>
+<!-- Contextual FAB (Hidden for specific focus as per rules, but showing here for dashboard context) -->
+<div class="fixed bottom-8 right-8 z-50">
+<button class="w-14 h-14 rounded-full bg-teal-900 text-white shadow-2xl flex items-center justify-center hover:scale-110 active:scale-95 transition-all">
+<span class="material-symbols-outlined text-2xl" data-icon="contact_support">contact_support</span>
+</button>
+</div>
+</body></html>

@@ -59,6 +59,14 @@ class NotificationCacheService:
         """
         return f"{self.prefix}:{':'.join(str(p) for p in parts)}"
 
+    @staticmethod
+    def _normalize_read_status(
+        unread_only: bool = False, read_status: Optional[str] = None
+    ) -> str:
+        if read_status in {"read", "unread"}:
+            return read_status
+        return "unread" if unread_only else "all"
+
     def get_notifications(
         self,
         recipient_id: str,
@@ -67,6 +75,7 @@ class NotificationCacheService:
         priority: Optional[str] = None,
         limit: int = 50,
         offset: int = 0,
+        read_status: Optional[str] = None,
     ) -> Optional[List[Notification]]:
         """
         Get cached notifications for a recipient.
@@ -78,6 +87,7 @@ class NotificationCacheService:
             priority: Filter by priority
             limit: Maximum number of notifications to return
             offset: Pagination offset
+            read_status: Read status filter: "all", "read", or "unread"
 
         Returns:
             List of Notification objects or None if not cached
@@ -85,7 +95,7 @@ class NotificationCacheService:
         try:
             cache_key = self._get_cache_key(
                 recipient_id,
-                "unread" if unread_only else "all",
+                self._normalize_read_status(unread_only, read_status),
                 notification_type or "all",
                 priority or "all",
                 str(limit),
@@ -114,6 +124,7 @@ class NotificationCacheService:
         limit: int = 50,
         offset: int = 0,
         timeout: Optional[int] = None,
+        read_status: Optional[str] = None,
     ) -> bool:
         """
         Cache notifications for a recipient.
@@ -127,6 +138,7 @@ class NotificationCacheService:
             limit: Maximum number cached
             offset: Pagination offset
             timeout: Cache timeout in seconds (uses DEFAULT_TIMEOUT if None)
+            read_status: Read status filter: "all", "read", or "unread"
 
         Returns:
             bool - True if cached successfully, False otherwise
@@ -134,7 +146,7 @@ class NotificationCacheService:
         try:
             cache_key = self._get_cache_key(
                 recipient_id,
-                "unread" if unread_only else "all",
+                self._normalize_read_status(unread_only, read_status),
                 notification_type or "all",
                 priority or "all",
                 str(limit),
@@ -1345,8 +1357,10 @@ class NotificationService:
                 is_deleted=False,
             ).update(is_read=True, read_at=timezone.now())
 
-            # Invalidate cache
+            # Invalidate notification lists and force the badge count to the
+            # post-update value. Pattern deletion can miss prefixed Redis keys.
             self.cache_service.invalidate_user_cache(str(recipient.id))
+            self.cache_service.set_unread_count(str(recipient.id), 0)
 
             logger.info(f"Marked {updated} notifications as read for {recipient.id}")
 
@@ -1396,6 +1410,7 @@ class NotificationService:
         priority: Optional[str] = None,
         limit: int = 50,
         offset: int = 0,
+        read_status: Optional[str] = None,
     ) -> List[Notification]:
         """
         Get notifications for a recipient with filtering and caching.
@@ -1407,6 +1422,7 @@ class NotificationService:
             priority: str filter by priority
             limit: int max results
             offset: int pagination offset
+            read_status: str filter by read status: "all", "read", or "unread"
 
         Returns:
             List of Notification instances
@@ -1420,6 +1436,7 @@ class NotificationService:
                 priority,
                 limit,
                 offset,
+                read_status,
             )
 
             if cached is not None:
@@ -1430,7 +1447,12 @@ class NotificationService:
                 recipient=recipient, is_deleted=False
             )
 
-            if unread_only:
+            status_filter = NotificationCacheService._normalize_read_status(
+                unread_only, read_status
+            )
+            if status_filter == "read":
+                queryset = queryset.filter(is_read=True)
+            elif status_filter == "unread":
                 queryset = queryset.filter(is_read=False)
 
             if notification_type:
@@ -1456,6 +1478,7 @@ class NotificationService:
                 priority,
                 limit,
                 offset,
+                read_status=read_status,
             )
 
             return notifications

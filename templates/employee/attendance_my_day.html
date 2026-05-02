@@ -1,0 +1,68 @@
+{% extends "base_new.html" %}
+
+{% block page_header %}My Attendance{% endblock %}
+
+{% block content %}
+<div class="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
+    <section class="rounded-[1.5rem] bg-white p-6 ghost-border">
+        <p class="text-[10px] font-bold uppercase tracking-[0.24em] text-secondary-500">Today</p>
+        <h2 class="mt-2 font-headline text-3xl font-extrabold text-primary-800">{{ today_record.work_date|default_if_none:""|default:today|date:"F j, Y" }}</h2>
+        <p class="mt-3 text-sm text-secondary-600">Use this page to clock in, clock out, and review your recent attendance history.</p>
+
+        <div class="mt-8 grid gap-4 sm:grid-cols-3">
+            <div class="rounded-2xl bg-surface-container-low p-4">
+                <p class="text-xs font-bold uppercase tracking-[0.2em] text-secondary-500">Status</p>
+                <p class="mt-2 font-headline text-2xl font-extrabold text-primary-800">
+                    {{ today_record.get_status_display|default:"Not started" }}
+                </p>
+            </div>
+            <div class="rounded-2xl bg-surface-container-low p-4">
+                <p class="text-xs font-bold uppercase tracking-[0.2em] text-secondary-500">Clock In</p>
+                <p class="mt-2 text-base font-semibold text-secondary-800">{{ today_record.clock_in|date:"g:i A"|default:"-" }}</p>
+            </div>
+            <div class="rounded-2xl bg-surface-container-low p-4">
+                <p class="text-xs font-bold uppercase tracking-[0.2em] text-secondary-500">Clock Out</p>
+                <p class="mt-2 text-base font-semibold text-secondary-800">{{ today_record.clock_out|date:"g:i A"|default:"-" }}</p>
+            </div>
+        </div>
+
+        <div class="mt-8 flex flex-wrap gap-3">
+            <form method="post" action="{% url 'payroll:attendance_clock' %}">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="clock_in">
+                <input type="hidden" name="next" value="{% url 'payroll:attendance_my_day' %}">
+                <button type="submit" class="btn-primary editorial-action rounded-2xl px-5 py-3 text-sm font-bold text-white">Clock In</button>
+            </form>
+            <form method="post" action="{% url 'payroll:attendance_clock' %}">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="clock_out">
+                <input type="hidden" name="next" value="{% url 'payroll:attendance_my_day' %}">
+                <button type="submit" class="editorial-secondary editorial-action rounded-2xl px-5 py-3 text-sm font-bold">Clock Out</button>
+            </form>
+        </div>
+    </section>
+
+    <section class="rounded-[1.5rem] bg-white p-6 ghost-border">
+        <p class="text-[10px] font-bold uppercase tracking-[0.24em] text-secondary-500">Recent Records</p>
+        <h3 class="mt-2 font-headline text-2xl font-extrabold text-primary-800">Attendance History</h3>
+        <div class="mt-6 space-y-3">
+            {% for record in recent_records %}
+            <div class="rounded-2xl bg-surface-container-low p-4">
+                <div class="flex items-center justify-between gap-3">
+                    <p class="font-semibold text-secondary-900">{{ record.work_date|date:"M j, Y" }}</p>
+                    <span class="rounded-full bg-white px-3 py-1 text-xs font-bold uppercase tracking-[0.18em] text-secondary-700">{{ record.get_status_display }}</span>
+                </div>
+                <p class="mt-2 text-sm text-secondary-600">
+                    {{ record.clock_in|date:"g:i A"|default:"-" }} to {{ record.clock_out|date:"g:i A"|default:"-" }}
+                    {% if record.hours_worked %} · {{ record.hours_worked }} hrs{% endif %}
+                </p>
+            </div>
+            {% empty %}
+            <div class="rounded-2xl bg-surface-container-low p-5 text-sm text-secondary-600">
+                No attendance records yet.
+            </div>
+            {% endfor %}
+        </div>
+    </section>
+</div>
+{% endblock %}

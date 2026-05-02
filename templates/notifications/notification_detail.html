@@ -63,17 +63,31 @@
                 <!-- Actions -->
                 <div class="flex items-center space-x-2">
                     {% if not notification.is_read %}
-                        <button onclick="markAsRead('{{ notification.id }}')" class="inline-flex items-center px-3 py-1.5 border border-gray-300 dark:border-gray-600 text-sm font-medium rounded-md text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
+                        <button type="button"
+                                data-notification-action="mark-read"
+                                data-notification-id="{{ notification.id }}"
+                                data-notification-url="{% url 'payroll:mark_notification_read' notification.id %}"
+                                class="inline-flex items-center px-3 py-1.5 border border-gray-300 dark:border-gray-600 text-sm font-medium rounded-md text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
                             <i data-lucide="check" class="h-4 w-4 mr-1.5"></i>
                             Mark as Read
                         </button>
                     {% else %}
-                        <button onclick="markAsUnread('{{ notification.id }}')" class="inline-flex items-center px-3 py-1.5 border border-gray-300 dark:border-gray-600 text-sm font-medium rounded-md text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
+                        <button type="button"
+                                data-notification-action="mark-unread"
+                                data-notification-id="{{ notification.id }}"
+                                data-notification-url="{% url 'payroll:mark_notification_unread' notification.id %}"
+                                class="inline-flex items-center px-3 py-1.5 border border-gray-300 dark:border-gray-600 text-sm font-medium rounded-md text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
                             <i data-lucide="mail" class="h-4 w-4 mr-1.5"></i>
                             Mark as Unread
                         </button>
                     {% endif %}
-                    <button onclick="deleteNotification('{{ notification.id }}')" class="inline-flex items-center px-3 py-1.5 border border-red-300 dark:border-red-600 text-sm font-medium rounded-md text-red-700 dark:text-red-300 bg-white dark:bg-gray-700 hover:bg-red-50 dark:hover:bg-red-900/20">
+                    <button type="button"
+                            data-notification-action="delete"
+                            data-notification-id="{{ notification.id }}"
+                            data-notification-url="{% url 'payroll:delete_notification' notification.id %}"
+                            data-notification-confirm="Delete this notification?"
+                            data-notification-redirect="{% url 'payroll:notifications' %}"
+                            class="inline-flex items-center px-3 py-1.5 border border-red-300 dark:border-red-600 text-sm font-medium rounded-md text-red-700 dark:text-red-300 bg-white dark:bg-gray-700 hover:bg-red-50 dark:hover:bg-red-900/20">
                         <i data-lucide="trash-2" class="h-4 w-4 mr-1.5"></i>
                         Delete
                     </button>
@@ -283,78 +297,4 @@
     </div>
 </div>
 
-<script>
-function markAsRead(notificationId) {
-    fetch(`/payroll/notifications/${notificationId}/mark-read/`, {
-        method: 'POST',
-        headers: {
-            'X-CSRFToken': getCookie('csrftoken'),
-            'Content-Type': 'application/json',
-        },
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            location.reload();
-        }
-    })
-    .catch(error => console.error('Error marking notification as read:', error));
-}
-
-function markAsUnread(notificationId) {
-    fetch(`/payroll/notifications/${notificationId}/mark-unread/`, {
-        method: 'POST',
-        headers: {
-            'X-CSRFToken': getCookie('csrftoken'),
-            'Content-Type': 'application/json',
-        },
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            location.reload();
-        }
-    })
-    .catch(error => console.error('Error marking notification as unread:', error));
-}
-
-function deleteNotification(notificationId) {
-    if (!confirm('Delete this notification?')) return;
-    
-    fetch(`/payroll/notifications/${notificationId}/delete/`, {
-        method: 'POST',
-        headers: {
-            'X-CSRFToken': getCookie('csrftoken'),
-            'Content-Type': 'application/json',
-        },
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            window.location.href = '{% url "payroll:notifications" %}';
-        }
-    })
-    .catch(error => console.error('Error deleting notification:', error));
-}
-
-function getCookie(name) {
-    let cookieValue = null;
-    if (document.cookie && document.cookie !== '') {
-        const cookies = document.cookie.split(';');
-        for (let i = 0; i < cookies.length; i++) {
-            const cookie = cookies[i].trim();
-            if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                break;
-            }
-        }
-    }
-    return cookieValue;
-}
-
-// Initialize Lucide icons
-if (typeof lucide !== 'undefined') {
-    lucide.createIcons();
-}
-</script>
 {% endblock %}

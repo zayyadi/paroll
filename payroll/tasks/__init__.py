@@ -15,6 +15,7 @@ from payroll.tasks.notification_tasks import (
     send_daily_digest_task,
     send_weekly_digest_task,
 )
+from payroll.tasks.payslip_tasks import send_payslips_for_payroll_run_task
 
 __all__ = [
     "deliver_notification_task",
@@ -25,4 +26,5 @@ __all__ = [
     "archive_old_notifications_task",
     "send_daily_digest_task",
     "send_weekly_digest_task",
+    "send_payslips_for_payroll_run_task",
 ]

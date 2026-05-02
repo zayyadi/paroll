@@ -220,7 +220,7 @@
                                        class="p-1.5 text-secondary-500 hover:text-primary-600" title="View Payslip">
                                         <i data-lucide="eye" class="h-4 w-4"></i>
                                     </a>
-                                    <a href="{% url 'payroll:payslip_pdf' payslip_item.payroll_entry.pays.id %}"
+                                    <a href="{% url 'payroll:payslip_pdf' payslip_item.id %}"
                                        class="p-1.5 text-secondary-500 hover:text-success-600" title="Download PDF">
                                         <i data-lucide="download" class="h-4 w-4"></i>
                                     </a>

@@ -1,0 +1,88 @@
+{% extends "base_new.html" %}
+
+{% block page_header %}Workflow Operations{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <section class="grid gap-4 md:grid-cols-3">
+        <div class="rounded-[1.5rem] bg-white p-6 ghost-border">
+            <p class="text-[10px] font-bold uppercase tracking-[0.24em] text-secondary-500">Executions</p>
+            <p class="mt-3 font-headline text-4xl font-extrabold text-primary-800">{{ execution_count }}</p>
+        </div>
+        <div class="rounded-[1.5rem] bg-white p-6 ghost-border">
+            <p class="text-[10px] font-bold uppercase tracking-[0.24em] text-secondary-500">Pending</p>
+            <p class="mt-3 font-headline text-4xl font-extrabold text-primary-800">{{ pending_count }}</p>
+        </div>
+        <div class="rounded-[1.5rem] bg-white p-6 ghost-border">
+            <p class="text-[10px] font-bold uppercase tracking-[0.24em] text-secondary-500">Completed</p>
+            <p class="mt-3 font-headline text-4xl font-extrabold text-primary-800">{{ completed_count }}</p>
+        </div>
+    </section>
+
+    <section class="rounded-[1.5rem] bg-white p-6 ghost-border">
+        <p class="text-[10px] font-bold uppercase tracking-[0.24em] text-secondary-500">Templates</p>
+        <h2 class="mt-2 font-headline text-2xl font-extrabold text-primary-800">Active Workflow Templates</h2>
+        <div class="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {% for template in active_templates %}
+            <article class="rounded-2xl bg-surface-container-low p-5">
+                <p class="text-xs font-bold uppercase tracking-[0.2em] text-secondary-500">{{ template.get_workflow_type_display }}</p>
+                <h3 class="mt-2 font-headline text-xl font-extrabold text-secondary-900">{{ template.name }}</h3>
+                <p class="mt-2 text-sm text-secondary-600">
+                    Trigger:
+                    {% if template.trigger_event %}
+                        {{ template.trigger_event }}
+                    {% else %}
+                        Manual or default lifecycle trigger
+                    {% endif %}
+                </p>
+            </article>
+            {% empty %}
+            <div class="rounded-2xl bg-surface-container-low p-5 text-sm text-secondary-600 md:col-span-2 xl:col-span-3">
+                No active workflow templates yet.
+            </div>
+            {% endfor %}
+        </div>
+    </section>
+
+    <section class="rounded-[1.5rem] bg-white p-6 ghost-border">
+        <p class="text-[10px] font-bold uppercase tracking-[0.24em] text-secondary-500">Recent Activity</p>
+        <h2 class="mt-2 font-headline text-2xl font-extrabold text-primary-800">Recent Executions</h2>
+        <div class="mt-6 overflow-x-auto">
+            <table class="min-w-full">
+                <thead>
+                    <tr>
+                        <th class="px-4 py-3 text-left">Template</th>
+                        <th class="px-4 py-3 text-left">Employee</th>
+                        <th class="px-4 py-3 text-left">Status</th>
+                        <th class="px-4 py-3 text-left">Started By</th>
+                        <th class="px-4 py-3 text-left">Started</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for execution in recent_executions %}
+                    <tr>
+                        <td class="px-4 py-4 text-sm font-semibold text-secondary-900">{{ execution.template.name }}</td>
+                        <td class="px-4 py-4 text-sm text-secondary-700">
+                            {% firstof execution.context.employee_name execution.employee.first_name execution.employee.email "Unknown employee" %}
+                        </td>
+                        <td class="px-4 py-4 text-sm text-secondary-700">{{ execution.get_status_display }}</td>
+                        <td class="px-4 py-4 text-sm text-secondary-700">
+                            {% if execution.started_by %}
+                                {{ execution.started_by.get_full_name|default:execution.started_by.email }}
+                            {% else %}
+                                System
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-4 text-sm text-secondary-700">{{ execution.started_at|date:"M j, Y g:i A" }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" class="px-4 py-8 text-center text-sm text-secondary-500">No workflow executions yet.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+</div>
+{% endblock %}

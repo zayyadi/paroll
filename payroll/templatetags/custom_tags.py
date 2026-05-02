@@ -13,6 +13,8 @@ def index(sequence, position):
 
 @register.filter(name="mask_account_number")
 def mask_account_number(value):
+    if not value:
+        return ""
     if len(value) > 4:
         return "*" * (len(value) - 4) + value[-4:]
     else:

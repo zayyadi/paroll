@@ -1,16 +1,11 @@
-"""
-WebSocket URL Routing Configuration
-
-This module defines the WebSocket URL patterns for real-time notifications
-using Django Channels.
-
-Architecture Reference: plans/NOTIFICATION_SYSTEM_ARCHITECTURE.md (Section 12)
-"""
+"""WebSocket URL routing for realtime notifications and company chat."""
 
 from django.urls import re_path
-from payroll.consumers import NotificationConsumer
+from payroll.consumers import CompanyChatConsumer, NotificationConsumer
 
 websocket_urlpatterns = [
     # WebSocket endpoint for real-time notifications
     re_path(r"ws/notifications/$", NotificationConsumer.as_asgi()),
+    re_path(r"ws/chat/company/$", CompanyChatConsumer.as_asgi()),
+    re_path(r"ws/chat/rooms/(?P<room_id>\\d+)/$", CompanyChatConsumer.as_asgi()),
 ]

@@ -1,0 +1,49 @@
+{% extends "base_new.html" %}
+
+{% block page_header %}My Assets{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <section class="grid gap-4 md:grid-cols-2">
+        <div class="rounded-[1.5rem] bg-white p-6 ghost-border">
+            <p class="text-[10px] font-bold uppercase tracking-[0.24em] text-secondary-500">Assigned Assets</p>
+            <p class="mt-3 font-headline text-4xl font-extrabold text-primary-800">{{ assets|length }}</p>
+        </div>
+        <div class="rounded-[1.5rem] bg-white p-6 ghost-border">
+            <p class="text-[10px] font-bold uppercase tracking-[0.24em] text-secondary-500">In Use</p>
+            <p class="mt-3 font-headline text-4xl font-extrabold text-primary-800">{{ in_use_count }}</p>
+        </div>
+    </section>
+
+    <section class="rounded-[1.5rem] bg-white p-6 ghost-border">
+        <p class="text-[10px] font-bold uppercase tracking-[0.24em] text-secondary-500">Asset Register</p>
+        <h2 class="mt-2 font-headline text-2xl font-extrabold text-primary-800">Equipment assigned to you</h2>
+        <div class="mt-6 overflow-x-auto">
+            <table class="min-w-full">
+                <thead>
+                    <tr>
+                        <th class="px-4 py-3 text-left">Asset</th>
+                        <th class="px-4 py-3 text-left">Category</th>
+                        <th class="px-4 py-3 text-left">Tag</th>
+                        <th class="px-4 py-3 text-left">Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for asset in assets %}
+                    <tr>
+                        <td class="px-4 py-4 text-sm font-semibold text-secondary-900">{{ asset.name }}</td>
+                        <td class="px-4 py-4 text-sm text-secondary-700">{{ asset.category.name|default:"-" }}</td>
+                        <td class="px-4 py-4 text-sm text-secondary-700">{{ asset.asset_tag }}</td>
+                        <td class="px-4 py-4 text-sm text-secondary-700">{{ asset.get_status_display }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4" class="px-4 py-8 text-center text-sm text-secondary-500">No assets assigned yet.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+</div>
+{% endblock %}

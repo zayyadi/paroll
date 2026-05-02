@@ -17,6 +17,7 @@ from .payroll import (
     PayrollRunEntry,
     PayrollRun,
     PayrollEntry,
+    PayslipEmailJob,
     LeavePolicy,
     Deduction,
     IOU,
@@ -32,5 +33,31 @@ from .notification import (
     NotificationChannel,
     DeliveryStatus,
     NotificationType,
+)
+from .chat import (
+    CompanyChatMessage,
+    CompanyChatReadState,
+    CompanyChatRoom,
+    CompanyChatRoomMember,
+)
+from .workforce import (
+    Position,
+    Skill,
+    EmployeeSkill,
+    AttendanceRecord,
+    EmployeeDocument,
+    AssetCategory,
+    EmployeeAsset,
+    WorkflowTemplate,
+    WorkflowExecution,
+    Goal,
+    OneOnOne,
+    SurveyTemplate,
+    SurveyQuestion,
+    SurveyResponse,
+    LearningCourse,
+    CourseEnrollment,
+    BenefitPlan,
+    BenefitEnrollment,
 )
 from .utils import *

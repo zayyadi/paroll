@@ -15,6 +15,7 @@ from typing import Dict, Any, Optional, List
 from django.conf import settings
 from django.core.cache import cache
 from django.core.mail import EmailMultiAlternatives, get_connection
+from django.template import TemplateDoesNotExist
 from django.template.loader import render_to_string
 from django.utils import timezone
 
@@ -411,15 +412,15 @@ class EmailHandler(BaseHandler):
         html_template = f"notifications/email/{notification_type}.html"
         text_template = f"notifications/email/{notification_type}.txt"
 
-        # Fallback to default templates
+        # Fallback to default templates when a notification type has no override.
         try:
             html_content = render_to_string(html_template, context)
-        except Exception:
+        except TemplateDoesNotExist:
             html_content = render_to_string("notifications/email/default.html", context)
 
         try:
             text_content = render_to_string(text_template, context)
-        except Exception:
+        except TemplateDoesNotExist:
             text_content = render_to_string("notifications/email/default.txt", context)
 
         # Use notification title as subject, with prefix

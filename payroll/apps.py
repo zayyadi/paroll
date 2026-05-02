@@ -24,6 +24,7 @@ class PayrollConfig(AppConfig):
 
         # Import notification tasks (ensures Celery tasks are registered)
         import payroll.tasks.notification_tasks
+        import payroll.tasks.payslip_tasks
 
         # Import notification services (ensures services are initialized)
         import payroll.services.notification_service

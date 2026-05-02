@@ -1,6 +1,17 @@
 from django.contrib import admin
-from import_export import resources
-from import_export.admin import ImportExportModelAdmin
+try:
+    from import_export import resources
+    from import_export.admin import ImportExportModelAdmin
+except ImportError:  # pragma: no cover - optional admin dependency
+    class _FallbackModelResource:
+        class Meta:
+            abstract = True
+
+    class _FallbackResources:
+        ModelResource = _FallbackModelResource
+
+    resources = _FallbackResources()
+    ImportExportModelAdmin = admin.ModelAdmin
 from .models import (
     Account,
     Journal,

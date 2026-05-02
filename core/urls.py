@@ -3,6 +3,8 @@ from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib.staticfiles.urls import staticfiles_urlpatterns
+from payroll import views as payroll_views
+import importlib.util
 
 # Custom error handlers
 handler400 = "django.views.defaults.bad_request"
@@ -12,18 +14,25 @@ handler500 = "django.views.defaults.server_error"
 
 urlpatterns = [
     path("admin/", admin.site.urls),
-    path("", include("marketing.urls", namespace="marketing")),
+    path("", payroll_views.index, name="root"),
+    path("marketing/", include("marketing.urls", namespace="marketing")),
     path("users/", include("users.urls", namespace="users")),
     # path("account/", include("django.contrib.auth.urls")),
     path("", include("payroll.urls", namespace="payroll")),
     path("accounting/", include("accounting.urls", namespace="accounting")),
-    path("api/", include("api.urls", namespace="api")),
-    path("oauth/", include("social_django.urls", namespace="social")),
     # path(
     #     "__reload__/",
     #     include("django_browser_reload.urls"),
     # ),
 ]
+
+if importlib.util.find_spec("rest_framework") and importlib.util.find_spec(
+    "drf_spectacular"
+):
+    urlpatterns.append(path("api/", include("api.urls", namespace="api")))
+
+if importlib.util.find_spec("social_django"):
+    urlpatterns.append(path("oauth/", include("social_django.urls", namespace="social")))
 
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

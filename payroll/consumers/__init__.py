@@ -1,9 +1,6 @@
-"""
-WebSocket Consumers for Real-time Notifications
+"""WebSocket consumers for realtime notifications and internal chat."""
 
-This package contains WebSocket consumers for real-time notification delivery.
-"""
-
+from .chat_consumer import CompanyChatConsumer
 from .notification_consumer import NotificationConsumer
 
-__all__ = ["NotificationConsumer"]
+__all__ = ["CompanyChatConsumer", "NotificationConsumer"]

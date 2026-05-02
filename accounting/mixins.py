@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.contrib.auth.mixins import AccessMixin, UserPassesTestMixin
 from django.http import HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect
@@ -15,6 +16,14 @@ from .permissions import (
 )
 
 
+def _is_accounting_lockdown_enabled(user):
+    return (
+        settings.ACCOUNTING_SUPERUSER_ONLY_UNTIL_TENANT_SCOPED
+        and user.is_authenticated
+        and not user.is_superuser
+    )
+
+
 class AuditorRequiredMixin(AccessMixin):
     """
     Mixin to ensure user has auditor role
@@ -23,6 +32,11 @@ class AuditorRequiredMixin(AccessMixin):
     def dispatch(self, request, *args, **kwargs):
         if not request.user.is_authenticated:
             return self.handle_no_permission()
+
+        if _is_accounting_lockdown_enabled(request.user):
+            return HttpResponseForbidden(
+                "Accounting access is temporarily restricted to superusers until tenant scoping is complete."
+            )
 
         if not is_auditor(request.user):
             return self.handle_no_permission()
@@ -39,6 +53,11 @@ class AccountantRequiredMixin(AccessMixin):
         if not request.user.is_authenticated:
             return self.handle_no_permission()
 
+        if _is_accounting_lockdown_enabled(request.user):
+            return HttpResponseForbidden(
+                "Accounting access is temporarily restricted to superusers until tenant scoping is complete."
+            )
+
         if not is_accountant(request.user):
             return self.handle_no_permission()
 
@@ -54,6 +73,11 @@ class PayrollProcessorRequiredMixin(AccessMixin):
         if not request.user.is_authenticated:
             return self.handle_no_permission()
 
+        if _is_accounting_lockdown_enabled(request.user):
+            return HttpResponseForbidden(
+                "Accounting access is temporarily restricted to superusers until tenant scoping is complete."
+            )
+
         if not is_payroll_processor(request.user):
             return self.handle_no_permission()
 
@@ -68,6 +92,11 @@ class AccountingRoleRequiredMixin(AccessMixin):
     def dispatch(self, request, *args, **kwargs):
         if not request.user.is_authenticated:
             return self.handle_no_permission()
+
+        if _is_accounting_lockdown_enabled(request.user):
+            return HttpResponseForbidden(
+                "Accounting access is temporarily restricted to superusers until tenant scoping is complete."
+            )
 
         if not (
             is_auditor(request.user)
@@ -87,6 +116,11 @@ class AuditorOrAccountantRequiredMixin(AccessMixin):
     def dispatch(self, request, *args, **kwargs):
         if not request.user.is_authenticated:
             return self.handle_no_permission()
+
+        if _is_accounting_lockdown_enabled(request.user):
+            return HttpResponseForbidden(
+                "Accounting access is temporarily restricted to superusers until tenant scoping is complete."
+            )
 
         if not (is_auditor(request.user) or is_accountant(request.user)):
             return self.handle_no_permission()
@@ -113,6 +147,8 @@ class JournalApprovalMixin(UserPassesTestMixin):
         )
 
     def test_func(self):
+        if _is_accounting_lockdown_enabled(self.request.user):
+            return False
         journal = self.get_permission_object()
         return can_approve_journal(self.request.user, journal)
 
@@ -143,6 +179,8 @@ class JournalReversalMixin(UserPassesTestMixin):
         )
 
     def test_func(self):
+        if _is_accounting_lockdown_enabled(self.request.user):
+            return False
         journal = self.get_permission_object()
         return can_reverse_journal(self.request.user, journal)
 
@@ -173,6 +211,8 @@ class PeriodClosingMixin(UserPassesTestMixin):
         )
 
     def test_func(self):
+        if _is_accounting_lockdown_enabled(self.request.user):
+            return False
         period = self.get_permission_object()
         return can_close_period(self.request.user, period)
 
@@ -190,6 +230,8 @@ class PayrollViewMixin(UserPassesTestMixin):
     """
 
     def test_func(self):
+        if _is_accounting_lockdown_enabled(self.request.user):
+            return False
         return can_view_payroll_data(self.request.user)
 
     def handle_no_permission(self):
@@ -206,6 +248,8 @@ class PayrollModifyMixin(UserPassesTestMixin):
     """
 
     def test_func(self):
+        if _is_accounting_lockdown_enabled(self.request.user):
+            return False
         return can_modify_payroll_data(self.request.user)
 
     def handle_no_permission(self):
@@ -222,6 +266,8 @@ class SelfModificationMixin(UserPassesTestMixin):
     """
 
     def test_func(self):
+        if _is_accounting_lockdown_enabled(self.request.user):
+            return False
         if is_auditor(self.request.user):
             return True  # Auditors can modify any journal
 
@@ -243,6 +289,11 @@ class DisciplineAccessRequiredMixin(AccessMixin):
         if not request.user.is_authenticated:
             return self.handle_no_permission()
 
+        if _is_accounting_lockdown_enabled(request.user):
+            return HttpResponseForbidden(
+                "Accounting access is temporarily restricted to superusers until tenant scoping is complete."
+            )
+
         if not can_access_disciplinary(request.user):
             return self.handle_no_permission()
 
@@ -257,6 +308,11 @@ class DisciplineManagerRequiredMixin(AccessMixin):
     def dispatch(self, request, *args, **kwargs):
         if not request.user.is_authenticated:
             return self.handle_no_permission()
+
+        if _is_accounting_lockdown_enabled(request.user):
+            return HttpResponseForbidden(
+                "Accounting access is temporarily restricted to superusers until tenant scoping is complete."
+            )
 
         if not can_manage_disciplinary_case(request.user):
             return self.handle_no_permission()

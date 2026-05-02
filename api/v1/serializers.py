@@ -14,6 +14,10 @@ from accounting.models import (
 from company.models import CompanyMembership
 from company.utils import get_user_company
 from payroll.models import (
+    CompanyChatMessage,
+    CompanyChatReadState,
+    CompanyChatRoom,
+    CompanyChatRoomMember,
     Department,
     EmployeeProfile,
     IOU,
@@ -41,6 +45,82 @@ class UserLiteSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ["id", "email", "first_name", "last_name", "is_active"]
+        read_only_fields = fields
+
+
+class CompanyChatSenderSerializer(serializers.ModelSerializer):
+    email = serializers.EmailField(source="user.email", read_only=True)
+    full_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = EmployeeProfile
+        fields = ["id", "full_name", "email"]
+        read_only_fields = fields
+
+    def get_full_name(self, obj) -> str:
+        full_name = " ".join(
+            part for part in [obj.first_name, obj.last_name] if part
+        ).strip()
+        return full_name or getattr(getattr(obj, "user", None), "email", "")
+
+
+class CompanyChatMessageSerializer(serializers.ModelSerializer):
+    sender = CompanyChatSenderSerializer(read_only=True)
+    room_slug = serializers.CharField(source="room.slug", read_only=True)
+
+    class Meta:
+        model = CompanyChatMessage
+        fields = ["id", "room", "room_slug", "sender", "body", "created_at"]
+        read_only_fields = fields
+
+
+class CompanyChatMessageCreateSerializer(serializers.Serializer):
+    body = serializers.CharField(max_length=2000, trim_whitespace=True)
+    room_id = serializers.IntegerField(required=False)
+
+    def validate_body(self, value):
+        value = value.strip()
+        if not value:
+            raise serializers.ValidationError("Message body cannot be empty.")
+        return value
+
+
+class CompanyChatRoomSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CompanyChatRoom
+        fields = [
+            "id",
+            "company",
+            "slug",
+            "name",
+            "description",
+            "room_type",
+            "is_active",
+            "created_at",
+        ]
+        read_only_fields = fields
+
+
+class CompanyChatRoomCreateSerializer(serializers.Serializer):
+    name = serializers.CharField(max_length=120)
+    slug = serializers.SlugField(max_length=64, required=False, allow_blank=True)
+    description = serializers.CharField(required=False, allow_blank=True)
+    room_type = serializers.ChoiceField(choices=CompanyChatRoom.TYPE_CHOICES)
+
+    def validate_room_type(self, value):
+        if value == CompanyChatRoom.TYPE_COMPANY:
+            raise serializers.ValidationError(
+                "Company rooms are created automatically."
+            )
+        return value
+
+
+class CompanyChatRoomMemberSerializer(serializers.ModelSerializer):
+    employee = CompanyChatSenderSerializer(read_only=True)
+
+    class Meta:
+        model = CompanyChatRoomMember
+        fields = ["id", "employee", "role", "is_active", "joined_at"]
         read_only_fields = fields
 
 
@@ -495,7 +575,9 @@ class StandupTeamMemberSerializer(serializers.ModelSerializer):
         team = attrs.get("team")
         employee = attrs.get("employee")
         if team and employee and team.company_id != employee.company_id:
-            raise serializers.ValidationError("Team and employee must belong to the same company.")
+            raise serializers.ValidationError(
+                "Team and employee must belong to the same company."
+            )
         return attrs
 
 

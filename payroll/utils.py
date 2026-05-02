@@ -1,6 +1,10 @@
 from decimal import Decimal, ROUND_HALF_UP
 
-from num2words import num2words
+try:
+    from num2words import num2words
+except ImportError:  # pragma: no cover - fallback for constrained environments
+    def num2words(value, **kwargs):
+        return str(value)
 import calendar
 import logging
 

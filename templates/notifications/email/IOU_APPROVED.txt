@@ -1,0 +1,16 @@
+IOU request approved
+
+{{ title|default:"IOU approved" }}
+
+{{ message }}
+
+{% if metadata.amount or metadata.tenor %}
+IOU details:
+{% if metadata.amount %}- Amount: NGN {{ metadata.amount }}
+{% endif %}{% if metadata.tenor %}- Tenor: {{ metadata.tenor }} month{{ metadata.tenor|pluralize }}
+{% endif %}
+{% endif %}
+{% if action_url %}
+View details:
+{{ action_url }}
+{% endif %}

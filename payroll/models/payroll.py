@@ -824,6 +824,59 @@ class PayrollRunEntry(models.Model):
     )
 
 
+class PayslipEmailJob(models.Model):
+    class Status(models.TextChoices):
+        QUEUED = "queued", "Queued"
+        RUNNING = "running", "Running"
+        SENT = "sent", "Sent"
+        PARTIAL = "partial", "Partial"
+        FAILED = "failed", "Failed"
+
+    payroll_run = models.ForeignKey(
+        PayrollRun,
+        on_delete=models.CASCADE,
+        related_name="payslip_email_jobs",
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.QUEUED,
+        db_index=True,
+    )
+    celery_task_id = models.CharField(max_length=255, blank=True)
+    sent_count = models.PositiveIntegerField(default=0)
+    skipped_count = models.PositiveIntegerField(default=0)
+    skipped_details = models.JSONField(default=list, blank=True)
+    error_message = models.TextField(blank=True)
+    queued_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    started_at = models.DateTimeField(null=True, blank=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ("-queued_at",)
+        indexes = [
+            models.Index(fields=["status", "queued_at"]),
+            models.Index(fields=["payroll_run", "status"]),
+        ]
+
+    def __str__(self):
+        return f"Payslip emails for {self.payroll_run} ({self.get_status_display()})"
+
+    def enqueue(self):
+        from payroll.tasks.payslip_tasks import send_payslips_for_payroll_run_task
+
+        result = send_payslips_for_payroll_run_task.apply_async(
+            args=[self.payroll_run_id, self.id],
+            queue="notifications_normal",
+        )
+        self.status = self.Status.QUEUED
+        self.celery_task_id = result.id or ""
+        self.error_message = ""
+        self.save(update_fields=["status", "celery_task_id", "error_message", "updated_at"])
+        return result
+
+
 class IOUDeduction(models.Model):
     iou = models.ForeignKey("IOU", on_delete=models.CASCADE, related_name="deductions")
     employee = models.ForeignKey(
