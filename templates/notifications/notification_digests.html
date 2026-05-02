@@ -106,10 +106,14 @@
                     <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Past Digests</h2>
                     <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">View previously sent notification digests</p>
                 </div>
-                <button onclick="triggerManualDigest()" class="inline-flex items-center px-3 py-1.5 border border-gray-300 dark:border-gray-600 text-sm font-medium rounded-md text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
-                    <i data-lucide="send" class="h-4 w-4 mr-1.5"></i>
-                    Send Now
-                </button>
+                <form method="post" action="{% url 'payroll:trigger_manual_digest' %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="frequency" value="daily">
+                    <button type="submit" class="inline-flex items-center px-3 py-1.5 border border-gray-300 dark:border-gray-600 text-sm font-medium rounded-md text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
+                        <i data-lucide="send" class="h-4 w-4 mr-1.5"></i>
+                        Send Now
+                    </button>
+                </form>
             </div>
         </div>
 
@@ -134,20 +138,20 @@
                                 <div class="flex-1 min-w-0">
                                     <div class="flex items-center space-x-2">
                                         <h3 class="text-sm font-semibold text-gray-900 dark:text-white">
-                                            {% if digest.frequency == 'daily' %}Daily Digest{% elif digest.frequency == 'weekly' %}Weekly Digest{% else %}Notification Digest{% endif %}
+                                            {{ digest.title|default:"Notification Digest" }}
                                         </h3>
                                         <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium
                                             {% if digest.frequency == 'daily' %}bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-200
                                             {% elif digest.frequency == 'weekly' %}bg-purple-100 text-purple-800 dark:bg-purple-900/50 dark:text-purple-200
                                             {% else %}bg-gray-100 text-gray-800 dark:bg-gray-900/50 dark:text-gray-200{% endif %}">
-                                            {{ digest.notification_count }} notifications
+                                            {{ digest.aggregation_count }} notification{{ digest.aggregation_count|pluralize }}
                                         </span>
                                     </div>
                                     <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">
-                                        Digest for {{ digest.date|date:"F j, Y" }}
+                                        Digest created {{ digest.created_at|date:"F j, Y" }}
                                     </p>
                                     <p class="mt-1 text-xs text-gray-500 dark:text-gray-500">
-                                        Sent {{ digest.sent_at|timesince }} ago
+                                        Created {{ digest.created_at|timesince }} ago
                                     </p>
                                 </div>
                             </div>
@@ -159,12 +163,6 @@
                                     <i data-lucide="eye" class="h-4 w-4 mr-1.5"></i>
                                     View
                                 </a>
-                                <button onclick="toggleDigest({{ digest.id }})" 
-                                        class="inline-flex items-center px-3 py-1.5 border border-gray-300 dark:border-gray-600 text-sm font-medium rounded-md text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
-                                    <i data-lucide="{% if digest.is_enabled %}bell-off{% else %}bell{% endif %}" 
-                                       class="h-4 w-4 mr-1.5"></i>
-                                    {% if digest.is_enabled %}Disable{% else %}Enable{% endif %}
-                                </button>
                             </div>
                         </div>
                     </div>
@@ -190,69 +188,4 @@
         </a>
     </div>
 </div>
-
-<script>
-function triggerManualDigest() {
-    if (!confirm('Send a manual digest now? This will send a digest of all unread notifications.')) return;
-    
-    fetch('{% url "payroll:trigger_manual_digest" %}', {
-        method: 'POST',
-        headers: {
-            'X-CSRFToken': getCookie('csrftoken'),
-            'Content-Type': 'application/json',
-        },
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            location.reload();
-        } else {
-            alert('Error: ' + (data.error || 'Failed to send digest'));
-        }
-    })
-    .catch(error => {
-        console.error('Error sending digest:', error);
-        alert('Failed to send digest. Please try again.');
-    });
-}
-
-function toggleDigest(digestId) {
-    fetch(`/payroll/notifications/digests/${digestId}/toggle/`, {
-        method: 'POST',
-        headers: {
-            'X-CSRFToken': getCookie('csrftoken'),
-            'Content-Type': 'application/json',
-        },
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            location.reload();
-        }
-    })
-    .catch(error => console.error('Error toggling digest:', error));
-}
-
-function getCookie(name) {
-    let cookieValue = null;
-    if (document.cookie && document.cookie !== '') {
-        const cookies = document.cookie.split(';');
-        for (let i = 0; i < cookies.length; i++) {
-            const cookie = cookies[i].trim();
-            if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                break;
-            }
-        }
-    }
-    return cookieValue;
-}
-
-// Initialize Lucide icons
-document.addEventListener('DOMContentLoaded', function() {
-    if (typeof lucide !== 'undefined') {
-        lucide.createIcons();
-    }
-});
-</script>
 {% endblock %}

@@ -17,6 +17,8 @@ from payroll.models import (
 )
 from payroll import utils
 from company.utils import get_user_company
+from accounting.permissions import is_auditor
+from payroll.services.payslips import resolve_payslip_run_entry
 from weasyprint import HTML
 import xlwt
 from decimal import Decimal
@@ -26,14 +28,16 @@ from decimal import Decimal
 
 @login_required
 def payslip(request, id):
-    company = get_user_company(request.user)
-    pay_id = get_object_or_404(PayrollRunEntry, id=id, payroll_entry__company=company)
+    pay_id = resolve_payslip_run_entry(id)
+    if pay_id is None:
+        raise Http404("No PayrollRunEntry matches the given query.")
     target_employee_user = pay_id.payroll_entry.pays.user
     if not (
         request.user == target_employee_user
         or request.user.has_perm("payroll.view_payroll")
+        or is_auditor(request.user)
     ):
-        raise HttpResponseForbidden("You are not authorized to view this payslip.")
+        return HttpResponseForbidden("You are not authorized to view this payslip.")
 
     num2word = utils.format_currency_words_with_kobo(pay_id.payroll_entry.netpay)
     dates = utils.convert_month_to_word(str(pay_id.payroll_run.paydays))
@@ -136,22 +140,20 @@ def varview_report(request, paydays):
 
 
 @login_required
-def payslip_pdf(request, id):  # id here is EmployeeProfile.id
-    company = get_user_company(request.user)
-    target_employee_profile = get_object_or_404(EmployeeProfile, id=id, company=company)
+def payslip_pdf(request, id):
+    pay_id = resolve_payslip_run_entry(id)
+    if pay_id is None:
+        raise Http404("No PayrollRunEntry matches the given query.")
+
+    target_employee_profile = pay_id.payroll_entry.pays
     if not (
         request.user == target_employee_profile.user
         or request.user.has_perm("payroll.view_payroll")
+        or is_auditor(request.user)
     ):
-        raise HttpResponseForbidden("You are not authorized to view this payslip PDF.")
+        return HttpResponseForbidden("You are not authorized to view this payslip PDF.")
 
-    payroll_entry = (
-        PayrollEntry.objects.filter(pays_id=target_employee_profile.id)
-        .order_by("-id")
-        .first()
-    )
-    if not payroll_entry:
-        return HttpResponse("No payroll data available to generate PDF.", status=404)
+    payroll_entry = pay_id.payroll_entry
     template_path = "pay/payslip_pdf.html"
     num2word = utils.format_currency_words_with_kobo(payroll_entry.netpay)
     html_string = render_to_string(

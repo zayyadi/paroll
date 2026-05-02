@@ -1,4 +1,5 @@
 # from django.contrib.auth.decorators import login_required, user_passes_test
+from django.conf import settings
 from django.http import HttpResponseForbidden
 from django.shortcuts import redirect
 from django.contrib import messages
@@ -15,6 +16,14 @@ from .permissions import (
 )
 
 
+def _accounting_lockdown_denied(request):
+    return (
+        settings.ACCOUNTING_SUPERUSER_ONLY_UNTIL_TENANT_SCOPED
+        and request.user.is_authenticated
+        and not request.user.is_superuser
+    )
+
+
 def auditor_required(view_func):
     """
     Decorator to ensure user has auditor role
@@ -23,6 +32,11 @@ def auditor_required(view_func):
     def _wrapped_view(request, *args, **kwargs):
         if not request.user.is_authenticated:
             return redirect("login")
+
+        if _accounting_lockdown_denied(request):
+            return HttpResponseForbidden(
+                "Accounting access is temporarily restricted to superusers until tenant scoping is complete."
+            )
 
         if not is_auditor(request.user):
             return HttpResponseForbidden("Access denied. Auditor role required.")
@@ -41,6 +55,11 @@ def accountant_required(view_func):
         if not request.user.is_authenticated:
             return redirect("login")
 
+        if _accounting_lockdown_denied(request):
+            return HttpResponseForbidden(
+                "Accounting access is temporarily restricted to superusers until tenant scoping is complete."
+            )
+
         if not is_accountant(request.user):
             return HttpResponseForbidden("Access denied. Accountant role required.")
 
@@ -57,6 +76,11 @@ def payroll_processor_required(view_func):
     def _wrapped_view(request, *args, **kwargs):
         if not request.user.is_authenticated:
             return redirect("login")
+
+        if _accounting_lockdown_denied(request):
+            return HttpResponseForbidden(
+                "Accounting access is temporarily restricted to superusers until tenant scoping is complete."
+            )
 
         if not is_payroll_processor(request.user):
             return HttpResponseForbidden(
@@ -179,6 +203,11 @@ def accounting_role_required(view_func):
         if not request.user.is_authenticated:
             return redirect("login")
 
+        if _accounting_lockdown_denied(request):
+            return HttpResponseForbidden(
+                "Accounting access is temporarily restricted to superusers until tenant scoping is complete."
+            )
+
         if not (
             is_auditor(request.user)
             or is_accountant(request.user)
@@ -200,6 +229,11 @@ def auditor_or_accountant_required(view_func):
         if not request.user.is_authenticated:
             return redirect("login")
 
+        if _accounting_lockdown_denied(request):
+            return HttpResponseForbidden(
+                "Accounting access is temporarily restricted to superusers until tenant scoping is complete."
+            )
+
         if not (is_auditor(request.user) or is_accountant(request.user)):
             return HttpResponseForbidden(
                 "Access denied. Auditor or Accountant role required."
@@ -218,6 +252,11 @@ def discipline_access_required(view_func):
     def _wrapped_view(request, *args, **kwargs):
         if not request.user.is_authenticated:
             return redirect("login")
+
+        if _accounting_lockdown_denied(request):
+            return HttpResponseForbidden(
+                "Accounting access is temporarily restricted to superusers until tenant scoping is complete."
+            )
 
         if not can_access_disciplinary(request.user):
             return HttpResponseForbidden(

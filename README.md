@@ -41,6 +41,41 @@ Multi-tenant payroll and employee management SaaS built with Django, Celery, Cha
    python manage.py runserver
    ```
 
+## WebSocket Server (ASGI)
+
+WebSocket endpoints are served by Daphne (ASGI). If the main app runs on `:8000`,
+start Daphne on `:8001` so `/ws/*` can connect.
+
+```bash
+./scripts/dev-asgi.sh
+```
+
+Or run directly:
+
+```bash
+venv/bin/python -m daphne -b 0.0.0.0 -p 8001 core.asgi:application
+```
+
+## Background Jobs
+
+Start the local Celery worker for payslip emails and notifications:
+
+```bash
+venv/bin/celery -A core worker -l INFO -Q notifications_critical,notifications_high,notifications_normal,notifications_low --concurrency=4
+```
+
+Check worker health:
+
+```bash
+venv/bin/celery -A core report
+venv/bin/celery -A core inspect ping
+```
+
+Payslip email jobs can be monitored and resent from Django admin under
+**Payslip email jobs**. See [docs/payslip_email_jobs.md](docs/payslip_email_jobs.md)
+for the full operations runbook, including Redis queue checks and the synchronous
+fallback command.
+
 ## Tenant Onboarding
 
 Create a new tenant workspace and owner user:

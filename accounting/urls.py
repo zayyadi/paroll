@@ -50,11 +50,6 @@ urlpatterns = [
         name="journal_reversal_confirm",
     ),
     path(
-        "journals/<int:pk>/reversal/confirm/",
-        views.JournalReversalConfirmationView.as_view(),
-        name="journal_reversal_confirmation",
-    ),
-    path(
         "journals/<int:pk>/reversal/partial/",
         views.JournalPartialReversalView.as_view(),
         name="journal_partial_reversal",

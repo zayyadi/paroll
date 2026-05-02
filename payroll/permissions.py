@@ -7,7 +7,6 @@ from payroll.models import (
     EmployeeProfile,
     Payroll,
     IOU,
-    PerformanceReview,
     Allowance,
     Deduction,
     PayrollRun,
@@ -85,12 +84,6 @@ def setup_groups_and_permissions():
             "delete_deduction",
             "view_deduction",
         ],
-        PerformanceReview: [
-            "add_performancereview",
-            "change_performancereview",
-            "delete_performancereview",
-            "view_performancereview",
-        ],
         AuditTrail: ["view_audittrail"],
     }
     for model, codenames in payroll_models_for_admin.items():
@@ -140,12 +133,6 @@ def setup_groups_and_permissions():
             "view_employeeprofile",
             "delete_employeeprofile",
         ],
-        PerformanceReview: [
-            "add_performancereview",
-            "change_performancereview",
-            "view_performancereview",
-            "delete_performancereview",
-        ],
         IOU: ["add_iou", "change_iou", "delete_iou", "view_iou"],
         Payroll: ["view_payroll", "change_payroll"],
         PayrollRun: ["view_payrollrun", "change_payrollrun"],
@@ -180,7 +167,6 @@ def setup_groups_and_permissions():
         LeaveRequest: ["change_leaverequest", "view_leaverequest"],
         LeavePolicy: ["view_leavepolicy"],
         EmployeeProfile: ["view_employeeprofile"],
-        PerformanceReview: ["view_performancereview", "add_performancereview"],
     }
     for model, codenames in payroll_models_for_supervisor.items():
         try:
@@ -204,7 +190,6 @@ def setup_groups_and_permissions():
         IOU: ["add_iou", "view_iou", "delete_iou"],
         EmployeeProfile: ["view_employeeprofile", "change_employeeprofile"],
         Payroll: ["view_payroll"],
-        PerformanceReview: ["view_performancereview"],
     }
     for model, codenames in payroll_models_for_employee.items():
         try:

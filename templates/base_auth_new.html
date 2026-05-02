@@ -1,231 +1,191 @@
 {% load static %}
 <!DOCTYPE html>
-<html lang="en">
-
+<html lang="en" class="scroll-smooth">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="icon" type="image/svg+xml" href="{{ APP_LOGO_URL }}">
     <link rel="shortcut icon" href="{{ APP_LOGO_URL }}">
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="{% static 'js/tailwind.min.js' %}"></script>
+    <script src="{% static 'vendor/lucide.min.js' %}" defer></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@700;800&display=swap" rel="stylesheet">
     <script>
         tailwind.config = {
             theme: {
                 extend: {
                     colors: {
                         primary: {
-                            50: '#eff6ff',
-                            100: '#dbeafe',
-                            200: '#bfdbfe',
-                            300: '#93c5fd',
-                            400: '#60a5fa',
-                            500: '#3b82f6',
-                            600: '#2563eb',
-                            700: '#1d4ed8',
-                            800: '#1e40af',
-                            900: '#1e3a8a',
+                            50: "#e7f6fa",
+                            100: "#cdeaf2",
+                            500: "#18667e",
+                            600: "#005c73",
+                            700: "#004d61",
+                            800: "#004355",
+                            900: "#001f28",
                         },
                         secondary: {
-                            50: '#f8fafc',
-                            100: '#f1f5f9',
-                            200: '#e2e8f0',
-                            300: '#cbd5e1',
-                            400: '#94a3b8',
-                            500: '#64748b',
-                            600: '#475569',
-                            700: '#334155',
-                            800: '#1e293b',
-                            900: '#0f172a',
-                        },
-                        success: {
-                            50: '#f0fdf4',
-                            100: '#dcfce7',
-                            200: '#bbf7d0',
-                            300: '#86efac',
-                            400: '#4ade80',
-                            500: '#22c55e',
-                            600: '#16a34a',
-                            700: '#15803d',
-                            800: '#166534',
-                            900: '#14532d',
+                            50: "#f7f9fa",
+                            100: "#f3f4f4",
+                            200: "#edeeef",
+                            400: "#bfc8cc",
+                            500: "#70787d",
+                            600: "#536167",
+                            700: "#40484c",
+                            900: "#1a1c1d",
                         },
                         warning: {
-                            50: '#fffbeb',
-                            100: '#fef3c7',
-                            200: '#fde68a',
-                            300: '#fcd34d',
-                            400: '#fbbf24',
-                            500: '#f59e0b',
-                            600: '#d97706',
-                            700: '#b45309',
-                            800: '#92400e',
-                            900: '#78350f',
+                            100: "#ffedd5",
+                            200: "#ffdcc2",
+                            900: "#5f3201",
                         },
                         danger: {
-                            50: '#fef2f2',
-                            100: '#fee2e2',
-                            200: '#fecaca',
-                            300: '#fca5a5',
-                            400: '#f87171',
-                            500: '#ef4444',
-                            600: '#dc2626',
-                            700: '#b91c1c',
-                            800: '#991b1b',
-                            900: '#7f1d1d',
-                        }
+                            50: "#fff1f0",
+                            100: "#ffdad6",
+                            500: "#de3730",
+                            700: "#93000a",
+                        },
+                        surface: "#f9f9fa",
+                        "surface-container": "#edeeef",
+                        "surface-container-low": "#f3f4f4",
+                        "surface-container-lowest": "#ffffff",
+                        "primary-container": "#005c73",
+                        tertiary: "#5f3201",
+                        "tertiary-fixed": "#ffdcc2",
                     },
                     fontFamily: {
-                        sans: ['Inter', 'sans-serif'],
+                        sans: ["Inter", "sans-serif"],
+                        headline: ["Manrope", "sans-serif"],
                     },
-                    boxShadow: {
-                        'soft': '0 2px 15px -3px rgba(0, 0, 0, 0.07), 0 10px 20px -2px rgba(0, 0, 0, 0.04)',
-                        'medium': '0 4px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
-                    },
-                    animation: {
-                        'fade-in': 'fadeIn 0.5s ease-in-out',
-                        'slide-up': 'slideUp 0.3s ease-out',
-                    }
                 },
             },
-        }
+        };
     </script>
     <style>
         body {
-            font-family: 'Inter', sans-serif;
+            font-family: "Inter", sans-serif;
+            background:
+                radial-gradient(circle at top left, rgba(205, 234, 242, 0.8), transparent 28%),
+                radial-gradient(circle at bottom right, rgba(255, 220, 194, 0.7), transparent 26%),
+                #f9f9fa;
+            color: #1a1c1d;
         }
 
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-            }
-
-            to {
-                opacity: 1;
-            }
+        h1,
+        h2,
+        h3,
+        .font-headline {
+            font-family: "Manrope", sans-serif;
+            letter-spacing: -0.02em;
         }
 
-        @keyframes slideUp {
-            from {
-                transform: translateY(10px);
-                opacity: 0;
-            }
-
-            to {
-                transform: translateY(0);
-                opacity: 1;
-            }
-        }
-
-        [x-cloak] {
-            display: none !important;
+        .auth-shell {
+            background: rgba(255, 255, 255, 0.82);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            outline: 1px solid rgba(191, 200, 204, 0.18);
         }
 
         .btn-primary {
-            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-            transition: all 0.2s ease;
+            background: linear-gradient(135deg, #004355 0%, #005c73 100%);
+            color: #ffffff;
+            box-shadow: 0 14px 30px rgba(0, 67, 85, 0.15);
         }
 
         .btn-primary:hover {
-            background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
-            transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+            filter: brightness(1.05);
         }
 
-        .form-input {
-            transition: all 0.2s ease;
+        input:not([type="checkbox"]):not([type="radio"]),
+        select,
+        textarea {
+            background: #f3f4f4;
+            border: none;
+            border-radius: 0.9rem;
+            min-height: 3rem;
         }
 
-        .form-input:focus {
-            border-color: #3b82f6;
-            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-        }
-
-        .notification {
-            animation: slideUp 0.3s ease-out;
-        }
-
-        .auth-card {
-            animation: fadeIn 0.5s ease-in-out;
+        input:focus,
+        select:focus,
+        textarea:focus {
+            outline: none;
+            box-shadow: 0 0 0 2px rgba(24, 102, 126, 0.22);
+            background: #ffffff;
         }
     </style>
     {% block page_title_in_head %}<title>{{ APP_NAME }} - {{ APP_TAGLINE }}</title>{% endblock %}
     {% block extra_head %}{% endblock %}
 </head>
-
-<body class="bg-gradient-to-br from-primary-50 via-white to-secondary-50 min-h-screen flex flex-col">
-    <!-- Simple header for auth pages -->
-    <header class="py-6 px-4 sm:px-6 lg:px-8">
-        <div class="max-w-7xl mx-auto flex justify-center">
-            <a href="{% url 'payroll:index' %}" class="flex items-center">
-                <img src="{{ APP_LOGO_URL }}" alt="{{ APP_NAME }} logo" class="h-10 w-auto">
-                <span class="ml-3 text-2xl font-bold text-secondary-900">{{ APP_NAME }}</span>
-            </a>
-        </div>
-    </header>
-
-    <!-- Main content -->
-    <main class="flex-grow flex items-center justify-center px-4 sm:px-6 lg:px-8 py-12">
-        <div class="max-w-md w-full space-y-8">
-            <!-- Flash messages -->
-            {% if messages %}
-            <div class="space-y-2">
-                {% for message in messages %}
-                <div x-data="{ show: true }" x-show="show" x-transition:enter="transition ease-out duration-300"
-                    x-transition:enter-start="opacity-0 transform translate-y-2"
-                    x-transition:enter-end="opacity-100 transform translate-y-0"
-                    x-transition:leave="transition ease-in duration-200"
-                    x-transition:leave-start="opacity-100 transform translate-y-0"
-                    x-transition:leave-end="opacity-0 transform translate-y-2"
-                    class="notification rounded-md p-4 flex items-start
-                    {% if message.tags == 'success' %}bg-success-50 text-success-800 border border-success-200
-                    {% elif message.tags == 'error' %}bg-danger-50 text-danger-800 border border-danger-200
-                    {% elif message.tags == 'info' %}bg-primary-50 text-primary-800 border border-primary-200
-                    {% elif message.tags == 'warning' %}bg-warning-50 text-warning-800 border border-warning-200
-                    {% endif %}">
-
-                    <div class="flex-shrink-0 mr-3">
-                        {% if message.tags == 'success' %}<i data-lucide="check-circle"
-                            class="h-5 w-5 text-success-600"></i>
-                        {% elif message.tags == 'error' %}<i data-lucide="alert-circle"
-                            class="h-5 w-5 text-danger-600"></i>
-                        {% elif message.tags == 'info' %}<i data-lucide="info" class="h-5 w-5 text-primary-600"></i>
-                        {% elif message.tags == 'warning' %}<i data-lucide="alert-triangle"
-                            class="h-5 w-5 text-warning-600"></i>
-                        {% endif %}
-                    </div>
-                    <div class="flex-grow text-sm">{{ message }}</div>
-                    <div class="ml-3">
-                        <button @click="show = false" type="button"
-                            class="inline-flex text-secondary-400 hover:text-secondary-600 focus:outline-none">
-                            <span class="sr-only">Dismiss</span>
-                            <i data-lucide="x" class="h-4 w-4"></i>
-                        </button>
-                    </div>
+<body class="min-h-screen">
+    <div class="mx-auto flex min-h-screen max-w-7xl flex-col px-4 py-6 sm:px-6 lg:px-8">
+        <header class="flex items-center justify-between py-4">
+            <a href="{% url 'payroll:index' %}" class="flex items-center gap-3">
+                <img src="{{ APP_LOGO_URL }}" alt="{{ APP_NAME }} logo" class="h-10 w-auto rounded-full bg-white p-1 shadow-sm">
+                <div>
+                    <p class="font-headline text-2xl font-extrabold text-primary-800">{{ APP_NAME }}</p>
+                    <p class="text-[10px] font-bold uppercase tracking-[0.28em] text-secondary-500">Editorial Command</p>
                 </div>
-                {% endfor %}
+            </a>
+            <a href="{% url 'users:login' %}" class="hidden rounded-full bg-white/80 px-4 py-2 text-sm font-semibold text-secondary-700 outline outline-1 outline-secondary-200 transition hover:text-primary-800 sm:inline-flex">
+                Sign In
+            </a>
+        </header>
+
+        <main class="flex flex-1 items-center justify-center py-8 lg:py-16">
+            <div class="grid w-full max-w-6xl gap-8 lg:grid-cols-[1.1fr_0.9fr]">
+                <section class="hidden rounded-[2rem] bg-primary-800 px-8 py-10 text-white shadow-2xl lg:block">
+                    <span class="inline-flex rounded-full bg-white/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.28em] text-warning-100">
+                        Professional Editorial Management
+                    </span>
+                    <h1 class="mt-6 font-headline text-5xl font-extrabold leading-tight">
+                        Payroll operations,<br>curated with authority.
+                    </h1>
+                    <p class="mt-6 max-w-xl text-base leading-7 text-primary-50">
+                        The Editorial Command gives your team a calmer, clearer way to handle payroll, compliance,
+                        employee records, and approvals without losing precision.
+                    </p>
+                    <div class="mt-10 grid gap-4 sm:grid-cols-2">
+                        <div class="rounded-3xl bg-white/10 p-5">
+                            <p class="text-xs font-bold uppercase tracking-[0.24em] text-warning-100">Secure Workflows</p>
+                            <p class="mt-3 text-sm leading-6 text-primary-50">Statutory deductions, audit trails, and approval flows presented in one disciplined workspace.</p>
+                        </div>
+                        <div class="rounded-3xl bg-white/10 p-5">
+                            <p class="text-xs font-bold uppercase tracking-[0.24em] text-warning-100">Editorial Command</p>
+                            <p class="mt-3 text-sm leading-6 text-primary-50">Manrope headlines, layered surfaces, and calmer form states inspired by the Stitch references.</p>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="auth-shell rounded-[2rem] px-6 py-8 shadow-xl sm:px-8 sm:py-10">
+                    {% if messages %}
+                    <div class="mb-6 space-y-3">
+                        {% for message in messages %}
+                        <div class="rounded-2xl px-4 py-3 text-sm {% if message.tags == 'error' %}bg-danger-50 text-danger-700{% elif message.tags == 'warning' %}bg-warning-100 text-warning-900{% else %}bg-secondary-100 text-secondary-700{% endif %}">
+                            {{ message }}
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+
+                    {% block auth_content %}{% endblock %}
+                </section>
             </div>
-            {% endif %}
+        </main>
 
-            <!-- Auth content -->
-            {% block auth_content %}{% endblock %}
-        </div>
-    </main>
+        <footer class="py-4 text-center">
+            <p class="font-headline text-lg font-bold text-primary-800">{{ APP_NAME }}</p>
+            <p class="mt-1 text-xs font-bold uppercase tracking-[0.24em] text-secondary-500">© {% now "Y" %} {{ APP_NAME }}. Professional Editorial Management.</p>
+        </footer>
+    </div>
 
-    <!-- Simple footer for auth pages -->
-    <footer class="py-6 text-center text-sm text-secondary-500">
-        <p>&copy; {% now "Y" %} {{ APP_NAME }}. All rights reserved.</p>
-    </footer>
-
-    <!-- Initialize Lucide icons -->
     <script>
-        document.addEventListener('DOMContentLoaded', function () {
-            lucide.createIcons();
+        document.addEventListener("DOMContentLoaded", function () {
+            if (typeof lucide !== "undefined") {
+                lucide.createIcons();
+            }
         });
     </script>
-
     {% block extra_js %}{% endblock %}
 </body>
-
 </html>

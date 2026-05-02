@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Pulse HR | Payroll Hub</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "on-primary-fixed": "#001f28",
+              "tertiary-fixed-dim": "#feb77d",
+              "inverse-surface": "#2e3132",
+              "secondary": "#536167",
+              "surface-variant": "#e2e2e3",
+              "surface-container-low": "#f3f4f4",
+              "on-surface-variant": "#40484c",
+              "outline-variant": "#bfc8cc",
+              "on-secondary-container": "#58676d",
+              "on-surface": "#1a1c1d",
+              "tertiary": "#5f3201",
+              "on-secondary-fixed-variant": "#3b494f",
+              "outline": "#70787d",
+              "on-tertiary-fixed-variant": "#6b3b09",
+              "on-primary-container": "#8fd2ed",
+              "on-error-container": "#93000a",
+              "on-tertiary": "#ffffff",
+              "surface-container-highest": "#e2e2e3",
+              "inverse-on-surface": "#f0f1f2",
+              "secondary-fixed": "#d6e5ec",
+              "on-secondary-fixed": "#101d23",
+              "secondary-fixed-dim": "#bac9d0",
+              "on-primary-fixed-variant": "#004d61",
+              "surface-container-high": "#e7e8e9",
+              "secondary-container": "#d6e5ec",
+              "on-background": "#1a1c1d",
+              "primary-container": "#005c73",
+              "surface-container-lowest": "#ffffff",
+              "on-tertiary-fixed": "#2e1500",
+              "error-container": "#ffdad6",
+              "on-primary": "#ffffff",
+              "on-tertiary-container": "#ffbb83",
+              "primary-fixed-dim": "#8dd0ea",
+              "background": "#f9f9fa",
+              "surface-container": "#edeeef",
+              "error": "#ba1a1a",
+              "inverse-primary": "#8dd0ea",
+              "surface-dim": "#d9dadb",
+              "tertiary-container": "#7b4817",
+              "surface": "#f9f9fa",
+              "surface-bright": "#f9f9fa",
+              "primary": "#004355",
+              "surface-tint": "#18667e",
+              "tertiary-fixed": "#ffdcc2",
+              "on-secondary": "#ffffff",
+              "on-error": "#ffffff",
+              "primary-fixed": "#b8eaff",
+            },
+            fontFamily: {
+              "headline": ["Manrope"],
+              "body": ["Inter"],
+              "label": ["Inter"]
+            },
+            borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            display: inline-block;
+            line-height: 1;
+        }
+        body { font-family: 'Inter', sans-serif; }
+        h1, h2, h3 { font-family: 'Manrope', sans-serif; }
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+        }
+    </style>
+</head>
+<body class="bg-surface text-on-surface antialiased">
+<!-- SideNavBar -->
+<aside class="fixed left-0 top-0 h-full w-64 bg-slate-50 dark:bg-slate-950 flex flex-col p-4 space-y-2 z-50">
+<div class="mb-8 px-2">
+<h1 class="font-['Manrope'] font-black text-2xl text-teal-900 dark:text-teal-50">Pulse HR</h1>
+<p class="text-xs text-slate-500 font-medium">Editorial Command</p>
+</div>
+<nav class="flex-1 space-y-1">
+<div class="text-slate-600 dark:text-slate-400 hover:bg-slate-200/50 dark:hover:bg-slate-800/50 hover:translate-x-1 transition-transform duration-200 cursor-pointer p-3 rounded-lg flex items-center gap-3">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-['Inter'] text-sm">Dashboard</span>
+</div>
+<div class="text-slate-600 dark:text-slate-400 hover:bg-slate-200/50 dark:hover:bg-slate-800/50 hover:translate-x-1 transition-transform duration-200 cursor-pointer p-3 rounded-lg flex items-center gap-3">
+<span class="material-symbols-outlined">groups</span>
+<span class="font-['Inter'] text-sm">Staff Directory</span>
+</div>
+<!-- Active Tab: Payroll Hub -->
+<div class="bg-white dark:bg-slate-800 text-teal-900 dark:text-teal-100 font-bold shadow-sm rounded-lg p-3 flex items-center gap-3">
+<span class="material-symbols-outlined">payments</span>
+<span class="font-['Inter'] text-sm">Payroll Hub</span>
+</div>
+<div class="text-slate-600 dark:text-slate-400 hover:bg-slate-200/50 dark:hover:bg-slate-800/50 hover:translate-x-1 transition-transform duration-200 cursor-pointer p-3 rounded-lg flex items-center gap-3">
+<span class="material-symbols-outlined">gavel</span>
+<span class="font-['Inter'] text-sm">Disciplinary</span>
+</div>
+<div class="text-slate-600 dark:text-slate-400 hover:bg-slate-200/50 dark:hover:bg-slate-800/50 hover:translate-x-1 transition-transform duration-200 cursor-pointer p-3 rounded-lg flex items-center gap-3">
+<span class="material-symbols-outlined">shield_person</span>
+<span class="font-['Inter'] text-sm">Admin Panel</span>
+</div>
+<div class="text-slate-600 dark:text-slate-400 hover:bg-slate-200/50 dark:hover:bg-slate-800/50 hover:translate-x-1 transition-transform duration-200 cursor-pointer p-3 rounded-lg flex items-center gap-3">
+<span class="material-symbols-outlined">account_circle</span>
+<span class="font-['Inter'] text-sm">My Profile</span>
+</div>
+</nav>
+<button class="w-full bg-gradient-to-br from-primary to-primary-container text-white py-3 rounded-lg font-bold mb-6 shadow-md hover:opacity-90 transition-opacity">
+            New Entry
+        </button>
+<div class="border-t border-slate-200 dark:border-slate-800 pt-4 space-y-1">
+<div class="text-slate-400 hover:text-teal-600 transition-colors cursor-pointer p-2 text-xs uppercase tracking-widest flex items-center gap-2">
+<span class="material-symbols-outlined text-sm">help_outline</span> Support
+            </div>
+<div class="text-slate-400 hover:text-teal-600 transition-colors cursor-pointer p-2 text-xs uppercase tracking-widest flex items-center gap-2">
+<span class="material-symbols-outlined text-sm">logout</span> Sign Out
+            </div>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="ml-64 min-h-screen flex flex-col">
+<!-- TopAppBar -->
+<header class="fixed top-0 right-0 left-64 h-16 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md z-40 flex justify-between items-center px-8 border-b border-transparent">
+<div class="flex items-center gap-4">
+<div class="relative">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">search</span>
+<input class="pl-10 pr-4 py-2 bg-slate-50 border-none rounded-full text-sm w-64 focus:ring-2 focus:ring-primary/20 transition-all" placeholder="Search payroll records..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-6">
+<button class="relative text-slate-500 hover:text-teal-900 transition-colors">
+<span class="material-symbols-outlined">notifications</span>
+<span class="absolute top-0 right-0 w-2 h-2 bg-error rounded-full border-2 border-white"></span>
+</button>
+<button class="text-slate-500 hover:text-teal-900 transition-colors">
+<span class="material-symbols-outlined">settings</span>
+</button>
+<div class="flex items-center gap-3 pl-4 border-l border-slate-200">
+<div class="text-right">
+<p class="text-sm font-bold text-teal-900">Executive Profile</p>
+<p class="text-[10px] uppercase tracking-tighter text-slate-400 font-bold">HR Director</p>
+</div>
+<img alt="Executive Profile" class="w-10 h-10 rounded-full object-cover" data-alt="professional portrait of a middle-aged executive in a charcoal suit against a clean architectural office background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCMBYdtzb6p623vLwpRA8BAMo1a8IPuW_DNMOT8zPwNwc4WKaA4tyCp-nXLQUS_konLcylexW54raeKawL9V6D4cCyUbhQ0ylQzaBhczXPX78nBiDyEUnsNumO5QFJMQJZqJuuZSZXRzztvISyYw1Vm-GhAkpJeE12pwh3NfZqucGFkONhABfh3WPUrKp4ua-OCBzV2Si5yb3qe1BPq2kUbuK3VyqRHUzXl4TtZH3sA4hjJ-1AxUIojgEa8yOJ03GiCjYIOhpejhjo"/>
+</div>
+</div>
+</header>
+<!-- Content Canvas -->
+<section class="mt-16 p-8 flex-1 bg-surface-container-low">
+<!-- Page Title and Status -->
+<div class="flex justify-between items-end mb-10">
+<div>
+<span class="text-tertiary font-bold text-xs uppercase tracking-widest bg-tertiary-fixed px-2 py-1 rounded-sm mb-2 inline-block">Cycle: Oct 2024</span>
+<h2 class="text-4xl font-extrabold tracking-tighter text-primary">Payroll Executive Summary</h2>
+<p class="text-on-surface-variant mt-1 font-medium">Reviewing processing status for 428 active employees.</p>
+</div>
+<div class="flex gap-3">
+<button class="px-6 py-2.5 bg-surface-container-lowest text-primary font-bold rounded-lg border border-outline-variant/20 shadow-sm hover:bg-surface-container-high transition-colors">
+                        Export Report
+                    </button>
+<button class="px-6 py-2.5 bg-primary text-white font-bold rounded-lg shadow-lg hover:shadow-xl transition-all">
+                        Process Batch
+                    </button>
+</div>
+</div>
+<!-- Dashboard Bento Grid -->
+<div class="grid grid-cols-12 gap-6 mb-10">
+<!-- Main Status Card -->
+<div class="col-span-12 lg:col-span-8 bg-surface-container-lowest rounded-xl p-8 flex items-center justify-between shadow-sm relative overflow-hidden">
+<div class="absolute left-0 top-0 bottom-0 w-1.5 bg-primary"></div>
+<div class="space-y-4">
+<h3 class="text-sm font-bold uppercase tracking-widest text-on-surface-variant">Processing Status</h3>
+<div class="flex items-baseline gap-2">
+<span class="text-6xl font-black tracking-tighter text-primary">92%</span>
+<span class="text-on-surface-variant font-semibold">Verified</span>
+</div>
+<div class="w-full bg-surface-container-high h-2 rounded-full max-w-md">
+<div class="bg-primary h-full rounded-full w-[92%]"></div>
+</div>
+<p class="text-sm text-on-surface-variant italic">32 pending approvals remaining in Finance department.</p>
+</div>
+<div class="hidden md:grid grid-cols-2 gap-8 text-right pr-4">
+<div>
+<p class="text-[10px] uppercase font-bold text-slate-400">Total Net Pay</p>
+<p class="text-2xl font-bold text-primary">$1,248,500</p>
+</div>
+<div>
+<p class="text-[10px] uppercase font-bold text-slate-400">Tax Liability</p>
+<p class="text-2xl font-bold text-primary">$412,800</p>
+</div>
+</div>
+</div>
+<!-- Secondary Metric -->
+<div class="col-span-12 lg:col-span-4 bg-surface-container-lowest rounded-xl p-8 shadow-sm relative">
+<div class="absolute left-0 top-0 bottom-0 w-1.5 bg-tertiary"></div>
+<h3 class="text-sm font-bold uppercase tracking-widest text-on-surface-variant mb-6">Critical Alerts</h3>
+<div class="space-y-4">
+<div class="flex items-start gap-4 p-3 bg-tertiary-fixed/30 rounded-lg">
+<span class="material-symbols-outlined text-tertiary">warning</span>
+<div>
+<p class="text-sm font-bold text-on-tertiary-fixed">Bank Detail Discrepancy</p>
+<p class="text-xs text-on-tertiary-fixed-variant">12 employees missing routing info.</p>
+</div>
+</div>
+<div class="flex items-start gap-4 p-3 bg-secondary-container rounded-lg">
+<span class="material-symbols-outlined text-primary">info</span>
+<div>
+<p class="text-sm font-bold text-on-secondary-fixed">Tax Rate Update</p>
+<p class="text-xs text-on-secondary-fixed-variant">New federal rates applied automatically.</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Employee Breakdown Table Section -->
+<div class="bg-surface-container-lowest rounded-xl shadow-sm overflow-hidden mb-10">
+<div class="p-6 border-b border-surface-container">
+<div class="flex justify-between items-center">
+<h3 class="text-xl font-bold text-primary">Salary Breakdown</h3>
+<div class="flex gap-2">
+<button class="p-2 hover:bg-surface-container-high rounded transition-colors">
+<span class="material-symbols-outlined text-on-surface-variant">filter_list</span>
+</button>
+<button class="p-2 hover:bg-surface-container-high rounded transition-colors">
+<span class="material-symbols-outlined text-on-surface-variant">more_vert</span>
+</button>
+</div>
+</div>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left">
+<thead>
+<tr class="bg-surface-container-low">
+<th class="px-6 py-4 text-[11px] font-bold uppercase tracking-widest text-on-surface-variant">Employee</th>
+<th class="px-6 py-4 text-[11px] font-bold uppercase tracking-widest text-on-surface-variant">Gross Salary</th>
+<th class="px-6 py-4 text-[11px] font-bold uppercase tracking-widest text-on-surface-variant">Deductions</th>
+<th class="px-6 py-4 text-[11px] font-bold uppercase tracking-widest text-on-surface-variant">Tax (EST)</th>
+<th class="px-6 py-4 text-[11px] font-bold uppercase tracking-widest text-on-surface-variant">Net Pay</th>
+<th class="px-6 py-4 text-[11px] font-bold uppercase tracking-widest text-on-surface-variant">Status</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-surface-container">
+<tr class="hover:bg-slate-50 transition-colors">
+<td class="px-6 py-5">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-primary-fixed flex items-center justify-center text-primary font-bold">JD</div>
+<div>
+<p class="font-bold text-sm">Jordan Daniels</p>
+<p class="text-xs text-on-surface-variant">Lead Designer</p>
+</div>
+</div>
+</td>
+<td class="px-6 py-5 font-mono text-sm">$8,450.00</td>
+<td class="px-6 py-5 font-mono text-sm text-error">-$450.00</td>
+<td class="px-6 py-5 font-mono text-sm">-$1,240.00</td>
+<td class="px-6 py-5 font-mono text-sm font-bold">$6,760.00</td>
+<td class="px-6 py-5">
+<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-green-100 text-green-800">
+<span class="w-1 h-1 rounded-full bg-green-600"></span> Verified
+                                    </span>
+</td>
+</tr>
+<tr class="hover:bg-slate-50 transition-colors">
+<td class="px-6 py-5">
+<div class="flex items-center gap-3">
+<img alt="Employee" class="w-10 h-10 rounded-full object-cover" data-alt="professional headshot of a smiling woman with glasses in a modern office interior" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAE4v6nq2OzQrlZUfRQtUZP596MKidep3O3F7wtNw_1Rm5vNhmkGD-F66bpK3MljamIGra7wxBbHHHTYTWLGWCYR4IaticigkviMAreu8-rK4-EXB1TescPI1TWKK_NrpIZ86J_MTYOgGh9Qladpwuw8Zq73mt2SnA8xhECcmrCdAsmp5mHYKsC2E55lyI469XzrzqCJ55ZceXRrm9oJ09OVqD0WLWHLaaiirufxMLqD6HFPjp4uU1XuYlGLd0eqCGPcUvNC5Xn3Aw"/>
+<div>
+<p class="font-bold text-sm">Elena Rodriguez</p>
+<p class="text-xs text-on-surface-variant">Senior Engineer</p>
+</div>
+</div>
+</td>
+<td class="px-6 py-5 font-mono text-sm">$12,200.00</td>
+<td class="px-6 py-5 font-mono text-sm text-error">-$820.00</td>
+<td class="px-6 py-5 font-mono text-sm">-$2,100.00</td>
+<td class="px-6 py-5 font-mono text-sm font-bold">$9,280.00</td>
+<td class="px-6 py-5">
+<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-orange-100 text-orange-800">
+<span class="w-1 h-1 rounded-full bg-orange-600"></span> Pending
+                                    </span>
+</td>
+</tr>
+<tr class="hover:bg-slate-50 transition-colors">
+<td class="px-6 py-5">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-secondary-container flex items-center justify-center text-primary font-bold">MK</div>
+<div>
+<p class="font-bold text-sm">Marcus Kihn</p>
+<p class="text-xs text-on-surface-variant">Sales Director</p>
+</div>
+</div>
+</td>
+<td class="px-6 py-5 font-mono text-sm">$9,800.00</td>
+<td class="px-6 py-5 font-mono text-sm text-error">-$310.00</td>
+<td class="px-6 py-5 font-mono text-sm">-$1,650.00</td>
+<td class="px-6 py-5 font-mono text-sm font-bold">$7,840.00</td>
+<td class="px-6 py-5">
+<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-green-100 text-green-800">
+<span class="w-1 h-1 rounded-full bg-green-600"></span> Verified
+                                    </span>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="p-6 border-t border-surface-container flex justify-center">
+<button class="text-primary font-bold text-sm hover:underline">View All 428 Employees</button>
+</div>
+</div>
+<!-- Tax and Compliance Cards -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
+<div class="bg-surface-container-lowest p-8 rounded-xl shadow-sm border-l-4 border-primary">
+<h3 class="text-lg font-bold text-primary mb-4 flex items-center gap-2">
+<span class="material-symbols-outlined">receipt_long</span> Tax Compliance Report
+                    </h3>
+<div class="space-y-4">
+<div class="flex justify-between text-sm">
+<span class="text-on-surface-variant">Federal Tax Withholding</span>
+<span class="font-bold">$284,320.00</span>
+</div>
+<div class="flex justify-between text-sm">
+<span class="text-on-surface-variant">State Tax (NY/CA/TX)</span>
+<span class="font-bold">$98,150.00</span>
+</div>
+<div class="flex justify-between text-sm">
+<span class="text-on-surface-variant">Social Security &amp; Medicare</span>
+<span class="font-bold">$124,900.00</span>
+</div>
+<div class="pt-4 border-t border-surface-container flex justify-between">
+<span class="font-bold text-primary">Total Payable</span>
+<span class="font-black text-primary">$507,370.00</span>
+</div>
+</div>
+</div>
+<div class="bg-surface-container-lowest p-8 rounded-xl shadow-sm border-l-4 border-tertiary">
+<h3 class="text-lg font-bold text-tertiary mb-4 flex items-center gap-2">
+<span class="material-symbols-outlined">analytics</span> Payment Distribution
+                    </h3>
+<div class="space-y-6">
+<div class="relative h-24 flex items-end gap-2">
+<div class="flex-1 bg-primary-fixed hover:bg-primary transition-colors rounded-t-sm" style="height: 80%" title="Direct Deposit"></div>
+<div class="flex-1 bg-primary-fixed hover:bg-primary transition-colors rounded-t-sm" style="height: 15%" title="Physical Check"></div>
+<div class="flex-1 bg-primary-fixed hover:bg-primary transition-colors rounded-t-sm" style="height: 5%" title="International Wire"></div>
+</div>
+<div class="flex justify-between text-xs font-bold text-on-surface-variant">
+<span>Direct Deposit (82%)</span>
+<span>Check (14%)</span>
+<span>Wire (4%)</span>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Footer -->
+<footer class="w-full py-8 mt-auto bg-white dark:bg-slate-950 border-t border-slate-100 dark:border-slate-800 flex flex-col md:flex-row justify-between items-center px-12">
+<div class="mb-4 md:mb-0">
+<p class="font-['Inter'] text-xs uppercase tracking-widest text-slate-400">© 2024 Pulse HR. Professional Editorial Management.</p>
+</div>
+<div class="flex gap-8">
+<a class="font-['Inter'] text-xs uppercase tracking-widest text-slate-400 hover:text-teal-600 transition-colors" href="#">Privacy Policy</a>
+<a class="font-['Inter'] text-xs uppercase tracking-widest text-slate-400 hover:text-teal-600 transition-colors" href="#">Service Terms</a>
+<a class="font-['Inter'] text-xs uppercase tracking-widest text-slate-400 hover:text-teal-600 transition-colors" href="#">Cookie Settings</a>
+</div>
+</footer>
+</main>
+<!-- Floating Action Button (FAB) - Suppressed on Details as per mandate, but logic check: this IS a Dashboard/Management screen -->
+<button class="fixed bottom-8 right-8 w-14 h-14 bg-primary text-white rounded-full shadow-2xl flex items-center justify-center hover:scale-105 transition-transform z-50">
+<span class="material-symbols-outlined text-2xl" data-weight="fill">add</span>
+</button>
+</body></html>

@@ -25,6 +25,7 @@
                     <tr>
                         <th class="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase">Type</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase">Dates</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase">Reason</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase">Duration</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase">Status</th>
                         <th class="px-6 py-3 text-right text-xs font-medium text-secondary-500 uppercase">Actions</th>
@@ -35,6 +36,7 @@
                     <tr class="hover:bg-secondary-50">
                         <td class="px-6 py-4 text-sm text-secondary-900">{{ leave_req.get_leave_type_display }}</td>
                         <td class="px-6 py-4 text-sm text-secondary-700">{{ leave_req.start_date|date:"d M Y" }} - {{ leave_req.end_date|date:"d M Y" }}</td>
+                        <td class="px-6 py-4 text-sm text-secondary-700 max-w-xs truncate">{{ leave_req.reason|default:"N/A" }}</td>
                         <td class="px-6 py-4 text-sm text-secondary-700">{{ leave_req.duration }} day(s)</td>
                         <td class="px-6 py-4">
                             <span class="px-2 py-1 inline-flex text-xs font-semibold rounded-full {% if leave_req.status == 'APPROVED' %}bg-success-100 text-success-800{% elif leave_req.status == 'REJECTED' %}bg-danger-100 text-danger-800{% else %}bg-warning-100 text-warning-800{% endif %}">{{ leave_req.get_status_display }}</span>
@@ -47,7 +49,7 @@
                         </td>
                     </tr>
                     {% empty %}
-                    <tr><td colspan="5" class="px-6 py-10 text-center text-secondary-500">No leave requests found.</td></tr>
+                    <tr><td colspan="6" class="px-6 py-10 text-center text-secondary-500">No leave requests found.</td></tr>
                     {% endfor %}
                 </tbody>
             </table>

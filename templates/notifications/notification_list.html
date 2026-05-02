@@ -33,7 +33,7 @@
             <!-- Type Filter -->
             <div class="flex items-center space-x-2">
                 <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Type:</label>
-                <select id="typeFilter" onchange="applyFilters()" class="text-sm border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white">
+                <select id="typeFilter" class="text-sm border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white">
                     <option value="all" {% if filter_type == 'all' %}selected{% endif %}>All</option>
                     <option value="LEAVE_APPROVED" {% if filter_type == 'LEAVE_APPROVED' %}selected{% endif %}>Leave Approved</option>
                     <option value="LEAVE_REJECTED" {% if filter_type == 'LEAVE_REJECTED' %}selected{% endif %}>Leave Rejected</option>
@@ -51,7 +51,7 @@
             <!-- Read Status Filter -->
             <div class="flex items-center space-x-2">
                 <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Status:</label>
-                <select id="readFilter" onchange="applyFilters()" class="text-sm border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white">
+                <select id="readFilter" class="text-sm border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white">
                     <option value="all" {% if read_status == 'all' %}selected{% endif %}>All</option>
                     <option value="unread" {% if read_status == 'unread' %}selected{% endif %}>Unread</option>
                     <option value="read" {% if read_status == 'read' %}selected{% endif %}>Read</option>
@@ -62,13 +62,16 @@
             <div class="flex-1 min-w-64">
                 <input type="text" id="searchInput" placeholder="Search notifications..." 
                        value="{{ search_query }}"
-                       onkeyup="if(event.key === 'Enter') applyFilters()"
                        class="w-full text-sm border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white">
             </div>
 
             <!-- Mark All Read Button -->
             {% if unread_count > 0 %}
-                <button onclick="markAllAsRead()" class="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                <button type="button"
+                        data-notification-action="mark-all-read"
+                        data-notification-url="{% url 'payroll:mark_all_read' %}"
+                        data-notification-confirm="Mark all notifications as read?"
+                        class="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
                     <i data-lucide="check-double" class="h-4 w-4 mr-1.5"></i>
                     Mark All Read
                 </button>
@@ -77,7 +80,7 @@
     </div>
 
     <!-- Notifications List -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow border border-gray-200 dark:border-gray-700 divide-y divide-gray-200 dark:divide-gray-700">
+    <div data-notification-page class="bg-white dark:bg-gray-800 rounded-lg shadow border border-gray-200 dark:border-gray-700 divide-y divide-gray-200 dark:divide-gray-700">
         {% if notifications %}
             {% for notification in notifications %}
                 <div class="p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors {% if not notification.is_read %}bg-blue-50 dark:bg-blue-900/10{% endif %}">
@@ -114,15 +117,28 @@
                                 <!-- Actions -->
                                 <div class="flex items-center space-x-2 ml-4">
                                     {% if not notification.is_read %}
-                                        <button onclick="markAsRead('{{ notification.id }}')" class="p-1 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400" title="Mark as read">
+                                        <button type="button"
+                                                data-notification-action="mark-read"
+                                                data-notification-id="{{ notification.id }}"
+                                                data-notification-url="{% url 'payroll:mark_notification_read' notification.id %}"
+                                                class="p-1 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400" title="Mark as read">
                                             <i data-lucide="check" class="h-4 w-4"></i>
                                         </button>
                                     {% else %}
-                                        <button onclick="markAsUnread('{{ notification.id }}')" class="p-1 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400" title="Mark as unread">
+                                        <button type="button"
+                                                data-notification-action="mark-unread"
+                                                data-notification-id="{{ notification.id }}"
+                                                data-notification-url="{% url 'payroll:mark_notification_unread' notification.id %}"
+                                                class="p-1 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400" title="Mark as unread">
                                             <i data-lucide="mail" class="h-4 w-4"></i>
                                         </button>
                                     {% endif %}
-                                    <button onclick="deleteNotification('{{ notification.id }}')" class="p-1 text-gray-400 hover:text-red-600 dark:hover:text-red-400" title="Delete">
+                                    <button type="button"
+                                            data-notification-action="delete"
+                                            data-notification-id="{{ notification.id }}"
+                                            data-notification-url="{% url 'payroll:delete_notification' notification.id %}"
+                                            data-notification-confirm="Delete this notification?"
+                                            class="p-1 text-gray-400 hover:text-red-600 dark:hover:text-red-400" title="Delete">
                                         <i data-lucide="trash-2" class="h-4 w-4"></i>
                                     </button>
                                 </div>
@@ -201,92 +217,13 @@ function applyFilters() {
     window.location.href = `{% url 'payroll:notifications' %}?${params.toString()}`;
 }
 
-function markAsRead(notificationId) {
-    fetch(`/payroll/notifications/${notificationId}/mark-read/`, {
-        method: 'POST',
-        headers: {
-            'X-CSRFToken': getCookie('csrftoken'),
-            'Content-Type': 'application/json',
-        },
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            location.reload();
-        }
-    })
-    .catch(error => console.error('Error marking notification as read:', error));
-}
-
-function markAsUnread(notificationId) {
-    fetch(`/payroll/notifications/${notificationId}/mark-unread/`, {
-        method: 'POST',
-        headers: {
-            'X-CSRFToken': getCookie('csrftoken'),
-            'Content-Type': 'application/json',
-        },
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            location.reload();
-        }
-    })
-    .catch(error => console.error('Error marking notification as unread:', error));
-}
-
-function markAllAsRead() {
-    if (!confirm('Mark all notifications as read?')) return;
-    
-    fetch('/payroll/notifications/mark-all-read/', {
-        method: 'POST',
-        headers: {
-            'X-CSRFToken': getCookie('csrftoken'),
-            'Content-Type': 'application/json',
-        },
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            location.reload();
-        }
-    })
-    .catch(error => console.error('Error marking all notifications as read:', error));
-}
-
-function deleteNotification(notificationId) {
-    if (!confirm('Delete this notification?')) return;
-    
-    fetch(`/payroll/notifications/${notificationId}/delete/`, {
-        method: 'POST',
-        headers: {
-            'X-CSRFToken': getCookie('csrftoken'),
-            'Content-Type': 'application/json',
-        },
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            location.reload();
-        }
-    })
-    .catch(error => console.error('Error deleting notification:', error));
-}
-
-function getCookie(name) {
-    let cookieValue = null;
-    if (document.cookie && document.cookie !== '') {
-        const cookies = document.cookie.split(';');
-        for (let i = 0; i < cookies.length; i++) {
-            const cookie = cookies[i].trim();
-            if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                break;
-            }
-        }
+document.getElementById("typeFilter")?.addEventListener("change", applyFilters);
+document.getElementById("readFilter")?.addEventListener("change", applyFilters);
+document.getElementById("searchInput")?.addEventListener("keydown", function (event) {
+    if (event.key === "Enter") {
+        applyFilters();
     }
-    return cookieValue;
-}
+});
 
 // Initialize Lucide icons
 if (typeof lucide !== 'undefined') {

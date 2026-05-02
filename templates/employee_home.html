@@ -1,362 +1,165 @@
 {% extends "base_new.html" %}
 {% load humanize %}
 
-{% block page_title_in_head %}<title>Employee Dashboard - Payroll System</title>{% endblock %}
-
-{% block page_header %}Welcome, {{ user.first_name|default:user.email }}{% endblock %}
-
-{% block extra_head %}
-<!-- Chart.js for data visualization -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<style>
-    .stat-card {
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        position: relative;
-        overflow: hidden;
-    }
-    
-    .stat-card::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: -100%;
-        width: 100%;
-        height: 100%;
-        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
-        transition: left 0.5s;
-    }
-    
-    .stat-card:hover::before {
-        left: 100%;
-    }
-    
-    .stat-card:hover {
-        transform: translateY(-8px);
-        box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.15);
-    }
-    
-    .notification-item {
-        transition: all 0.2s ease;
-        border-left: 3px solid transparent;
-    }
-    
-    .notification-item:hover {
-        background-color: rgba(248, 250, 252, 0.8);
-        border-left-color: #3b82f6;
-        padding-left: calc(1rem + 3px);
-    }
-    
-    .action-card {
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        position: relative;
-        overflow: hidden;
-    }
-    
-    .action-card::after {
-        content: '';
-        position: absolute;
-        bottom: 0;
-        left: 0;
-        width: 100%;
-        height: 3px;
-        background: linear-gradient(90deg, #3b82f6, #8b5cf6);
-        transform: scaleX(0);
-        transform-origin: left;
-        transition: transform 0.3s ease;
-    }
-    
-    .action-card:hover::after {
-        transform: scaleX(1);
-    }
-    
-    .action-card:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 15px 35px -5px rgba(0, 0, 0, 0.1);
-    }
-    
-    .gradient-bg {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    }
-    
-    .gradient-text {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
-    }
-    
-    .dark .gradient-bg {
-        background: linear-gradient(135deg, #4c1d95 0%, #5b21b6 100%);
-    }
-    
-    .dark .gradient-text {
-        background: linear-gradient(135deg, #818cf8 0%, #c084fc 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
-    }
-</style>
-{% endblock %}
+{% block page_title_in_head %}<title>My Dashboard - Payroll System</title>{% endblock %}
+{% block page_header %}My Dashboard{% endblock %}
 
 {% block content %}
-<!-- Welcome Section -->
-<div class="mb-8 animate-fade-in">
-    <div class="gradient-bg rounded-2xl p-8 text-white shadow-soft">
-        <div class="flex flex-col md:flex-row items-center justify-between">
-            <div class="mb-4 md:mb-0">
-                <h1 class="text-3xl font-bold mb-2">Welcome back, {{ user.first_name|default:user.email }}!</h1>
-                <p class="text-white/80">Here's your personal dashboard</p>
-            </div>
-            <div class="flex items-center space-x-4">
-                <div class="text-center">
-                    <p class="text-sm text-white/70">Current Date</p>
-                    <p class="text-xl font-semibold">{% now "jS F Y" %}</p>
+<div class="space-y-8">
+    <section class="overflow-hidden rounded-3xl bg-white shadow-float ghost-border">
+        <div class="grid gap-6 p-6 lg:grid-cols-[1.2fr_0.8fr] lg:p-8">
+            <div class="flex flex-col gap-5 sm:flex-row sm:items-center">
+                {% if emp.photo %}
+                <img src="{{ emp.photo.url }}" alt="{{ emp.first_name }} {{ emp.last_name }}" class="h-24 w-24 rounded-3xl object-cover">
+                {% else %}
+                <div class="flex h-24 w-24 items-center justify-center rounded-3xl bg-primary-100 font-headline text-3xl font-extrabold text-primary-800">
+                    {{ emp.first_name|first|upper }}{{ emp.last_name|first|upper }}
                 </div>
-                <div class="text-center">
-                    <p class="text-sm text-white/70">Pay Period</p>
-                    <p class="text-xl font-semibold">{% now "F Y" %}</p>
+                {% endif %}
+                <div>
+                    <p class="text-xs font-bold uppercase tracking-[0.24em] text-secondary-500">Employee workspace</p>
+                    <h2 class="mt-2 font-headline text-3xl font-extrabold text-primary-800">
+                        {{ emp.first_name|default:user.first_name }} {{ emp.last_name|default:"" }}
+                    </h2>
+                    <p class="mt-2 text-sm text-secondary-600">
+                        {{ emp.get_job_title_display|default:emp.job_title|default:"Team member" }} · {{ emp.department.name|default:"Unassigned department" }}
+                    </p>
+                    <div class="mt-4 flex flex-wrap gap-2 text-xs font-bold uppercase tracking-[0.16em] text-secondary-500">
+                        <span class="rounded-full bg-surface-container-low px-3 py-1">ID: {{ emp.emp_id|default:"Pending" }}</span>
+                        <span class="rounded-full bg-surface-container-low px-3 py-1">{{ current_company.name|default:"Company" }}</span>
+                    </div>
+                </div>
+            </div>
+            <div class="rounded-2xl bg-primary-800 p-5 text-white">
+                <p class="text-xs font-bold uppercase tracking-[0.24em] text-white/60">Last recorded net pay</p>
+                <p class="mt-3 font-headline text-3xl font-extrabold">
+                    {% if emp.net_pay %}₦{{ emp.net_pay|floatformat:"0"|intcomma }}{% else %}Not available{% endif %}
+                </p>
+                <div class="mt-5 grid grid-cols-2 gap-3">
+                    <a href="{% url 'payroll:payslips' %}" class="rounded-xl bg-white/10 p-4 transition hover:bg-white/15">
+                        <i data-lucide="receipt-text" class="h-5 w-5"></i>
+                        <span class="mt-2 block text-sm font-bold">Payslips</span>
+                    </a>
+                    <a href="{% url 'payroll:employee_profile' %}" class="rounded-xl bg-white/10 p-4 transition hover:bg-white/15">
+                        <i data-lucide="user-pen" class="h-5 w-5"></i>
+                        <span class="mt-2 block text-sm font-bold">Update Profile</span>
+                    </a>
                 </div>
             </div>
         </div>
-    </div>
-</div>
+    </section>
 
-<!-- Employee Profile Summary -->
-<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-    <!-- Profile Card -->
-    <div class="lg:col-span-2">
-        <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm">
-            <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
-                <i data-lucide="user" class="h-5 w-5 mr-2 text-primary-600"></i>
-                Your Profile
-            </h2>
-            <div class="flex flex-col md:flex-row items-center md:items-start space-y-4 md:space-y-0 md:space-x-6">
-                {% if emp.photo %}
-                    <img src="{{ emp.photo.url }}" 
-                         alt="{{ emp.first_name }} {{ emp.last_name }}"
-                         class="h-24 w-24 rounded-full object-cover border-4 border-gray-200">
-                {% else %}
-                    <div class="h-24 w-24 rounded-full bg-gray-300 flex items-center justify-center text-3xl font-bold text-gray-600">
-                        {{ emp.first_name|first|upper }}{{ emp.last_name|first|upper }}
+    <section class="grid gap-4 md:grid-cols-3">
+        <div class="rounded-2xl bg-white p-5 ghost-border">
+            <div class="flex items-center justify-between">
+                <span class="rounded-xl bg-warning-100 p-3 text-warning-700"><i data-lucide="timer" class="h-5 w-5"></i></span>
+                <span class="text-3xl font-extrabold text-primary-800">{{ pending_requests_count|default:0 }}</span>
+            </div>
+            <p class="mt-4 text-xs font-bold uppercase tracking-[0.18em] text-secondary-500">Pending requests</p>
+            <p class="mt-1 text-sm text-secondary-600">Leave and IOU applications waiting for action.</p>
+        </div>
+        <div class="rounded-2xl bg-white p-5 ghost-border">
+            <div class="flex items-center justify-between">
+                <span class="rounded-xl bg-primary-50 p-3 text-primary-700"><i data-lucide="bell" class="h-5 w-5"></i></span>
+                <span class="text-3xl font-extrabold text-primary-800">{{ unread_count|default:0 }}</span>
+            </div>
+            <p class="mt-4 text-xs font-bold uppercase tracking-[0.18em] text-secondary-500">Unread updates</p>
+            <p class="mt-1 text-sm text-secondary-600">Payroll, request, and company notifications.</p>
+        </div>
+        <div class="rounded-2xl bg-white p-5 ghost-border">
+            <div class="flex items-center justify-between">
+                <span class="rounded-xl bg-success-100 p-3 text-success-700"><i data-lucide="shield-check" class="h-5 w-5"></i></span>
+                <span class="text-xl font-extrabold text-primary-800">{{ emp.status|default:"Active"|title }}</span>
+            </div>
+            <p class="mt-4 text-xs font-bold uppercase tracking-[0.18em] text-secondary-500">Employee status</p>
+            <p class="mt-1 text-sm text-secondary-600">Your current HR record status.</p>
+        </div>
+    </section>
+
+    <section class="grid gap-6 xl:grid-cols-[0.85fr_1.15fr]">
+        <div class="rounded-3xl bg-white p-6 shadow-float ghost-border">
+            <h3 class="font-headline text-xl font-extrabold text-primary-800">Quick Actions</h3>
+            <div class="mt-5 grid gap-3 sm:grid-cols-2">
+                <a href="{% url 'payroll:apply_leave' %}" class="rounded-2xl bg-surface-container-low p-4 transition hover:bg-surface-container">
+                    <i data-lucide="calendar-plus" class="h-5 w-5 text-primary-700"></i>
+                    <span class="mt-3 block font-bold text-primary-900">Apply for Leave</span>
+                    <span class="mt-1 block text-sm text-secondary-600">Submit and track time off.</span>
+                </a>
+                <a href="{% url 'payroll:request_iou' %}" class="rounded-2xl bg-surface-container-low p-4 transition hover:bg-surface-container">
+                    <i data-lucide="hand-coins" class="h-5 w-5 text-primary-700"></i>
+                    <span class="mt-3 block font-bold text-primary-900">Request IOU</span>
+                    <span class="mt-1 block text-sm text-secondary-600">Create a salary advance request.</span>
+                </a>
+                <a href="{% url 'payroll:payslips' %}" class="rounded-2xl bg-surface-container-low p-4 transition hover:bg-surface-container">
+                    <i data-lucide="receipt-text" class="h-5 w-5 text-primary-700"></i>
+                    <span class="mt-3 block font-bold text-primary-900">View Payslips</span>
+                    <span class="mt-1 block text-sm text-secondary-600">Open monthly payslip records.</span>
+                </a>
+                <a href="{% url 'payroll:company_chat' %}" class="rounded-2xl bg-surface-container-low p-4 transition hover:bg-surface-container">
+                    <i data-lucide="messages-square" class="h-5 w-5 text-primary-700"></i>
+                    <span class="mt-3 block font-bold text-primary-900">Company Chat</span>
+                    <span class="mt-1 block text-sm text-secondary-600">Message your company workspace.</span>
+                </a>
+            </div>
+        </div>
+
+        <div class="rounded-3xl bg-white p-6 shadow-float ghost-border">
+            <div class="flex items-center justify-between">
+                <h3 class="font-headline text-xl font-extrabold text-primary-800">Recent Payslips</h3>
+                <a href="{% url 'payroll:payslips' %}" class="text-sm font-semibold text-primary-700 hover:text-primary-900">View all</a>
+            </div>
+            <div class="mt-5 divide-y divide-outline-variant/30">
+                {% for payslip in recent_payslips %}
+                <div class="flex items-center justify-between gap-4 py-4">
+                    <div>
+                        <p class="font-bold text-primary-900">{{ payslip.payroll_run.paydays|date:"F Y" }}</p>
+                        <p class="mt-1 text-sm text-secondary-600">Net pay ₦{{ payslip.payroll_entry.netpay|floatformat:"0"|intcomma }}</p>
                     </div>
-                {% endif %}
-                <div class="flex-1 text-center md:text-left">
-                    <h3 class="text-xl font-bold text-gray-900 dark:text-white">{{ emp.first_name }} {{ emp.last_name }}</h3>
-                    <p class="text-gray-600 dark:text-gray-400">{{ emp.get_job_title_display|default:emp.job_title|default:"N/A" }}</p>
-                    <p class="text-gray-600 dark:text-gray-400">{{ emp.department.name|default:"N/A" }}</p>
-                    <p class="text-gray-600 dark:text-gray-400">Employee ID: {{ emp.emp_id|default:"N/A" }}</p>
-                    <div class="mt-4">
-                        <a href="{% url 'payroll:employee_profile' %}" 
-                           class="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors">
-                            <i data-lucide="edit" class="h-4 w-4 mr-2"></i>
-                            Update Profile
+                    <div class="flex items-center gap-2">
+                        <a href="{% url 'payroll:payslip' payslip.id %}" class="rounded-xl bg-surface-container-low p-2 text-secondary-600 transition hover:text-primary-800" title="View payslip">
+                            <i data-lucide="eye" class="h-4 w-4"></i>
+                        </a>
+                        <a href="{% url 'payroll:payslip_pdf' payslip.id %}" class="rounded-xl bg-surface-container-low p-2 text-secondary-600 transition hover:text-primary-800" title="Download PDF">
+                            <i data-lucide="download" class="h-4 w-4"></i>
                         </a>
                     </div>
                 </div>
+                {% empty %}
+                <div class="py-10 text-center">
+                    <i data-lucide="receipt-text" class="mx-auto h-9 w-9 text-secondary-300"></i>
+                    <p class="mt-3 text-sm text-secondary-500">No payslips are available yet.</p>
+                </div>
+                {% endfor %}
             </div>
         </div>
-    </div>
-    
-    <!-- Quick Stats Card -->
-    <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm">
-        <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
-            <i data-lucide="bar-chart-2" class="h-5 w-5 mr-2 text-primary-600"></i>
-            Quick Stats
-        </h2>
-        <div class="space-y-4">
-            <div class="flex items-center justify-between">
-                <span class="text-sm text-gray-600 dark:text-gray-400">Leave Balance</span>
-                <span class="text-sm font-semibold text-gray-900 dark:text-white">10 days</span>
-            </div>
-            <div class="flex items-center justify-between">
-                <span class="text-sm text-gray-600 dark:text-gray-400">Pending Requests</span>
-                <span class="text-sm font-semibold text-yellow-600">{{ pending_requests_count }}</span>
-            </div>
-            <div class="flex items-center justify-between">
-                <span class="text-sm text-gray-600 dark:text-gray-400">Net Pay (Last)</span>
-                <span class="text-sm font-semibold text-gray-900 dark:text-white">
-                    {% if emp.net_pay %}₦{{ emp.net_pay|intcomma }}{% else %}N/A{% endif %}
-                </span>
-            </div>
-            <div class="flex items-center justify-between">
-                <span class="text-sm text-gray-600 dark:text-gray-400">Pension RSA</span>
-                <span class="text-sm font-semibold text-gray-900 dark:text-white">{{ emp.pension_rsa|default:"N/A" }}</span>
-            </div>
-        </div>
-    </div>
-</div>
+    </section>
 
-<!-- Notifications Section -->
-<div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm mb-8">
-    <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
-        <i data-lucide="bell" class="h-5 w-5 mr-2 text-primary-600"></i>
-        Notifications
-    </h2>
-    <div class="space-y-4">
-        {% for notification in notifications %}
+    <section class="rounded-3xl bg-white p-6 shadow-float ghost-border">
+        <div class="flex items-center justify-between">
+            <h3 class="font-headline text-xl font-extrabold text-primary-800">Latest Updates</h3>
+            <a href="{% url 'payroll:notifications' %}" class="text-sm font-semibold text-primary-700 hover:text-primary-900">All notifications</a>
+        </div>
+        <div class="mt-5 grid gap-3 md:grid-cols-2">
+            {% for notification in notifications %}
             <a href="{% if notification.action_url %}{{ notification.action_url }}{% else %}{% url 'payroll:notification_detail' notification.id %}{% endif %}"
-               class="notification-item block p-4 rounded-lg {% if not notification.is_read %}bg-blue-50 dark:bg-blue-900/20{% else %}bg-gray-50 dark:bg-gray-700/50{% endif %} hover:bg-gray-100 dark:hover:bg-gray-700">
-                <div class="flex items-start space-x-3">
-                    <div class="{% if notification.color_class == 'green' %}bg-green-100 dark:bg-green-900/50 text-green-600 dark:text-green-400
-                    {% elif notification.color_class == 'red' %}bg-red-100 dark:bg-red-900/50 text-red-600 dark:text-red-400
-                    {% elif notification.color_class == 'yellow' %}bg-yellow-100 dark:bg-yellow-900/50 text-yellow-600 dark:text-yellow-400
-                    {% elif notification.color_class == 'blue' %}bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400
-                    {% elif notification.color_class == 'purple' %}bg-purple-100 dark:bg-purple-900/50 text-purple-600 dark:text-purple-400
-                    {% elif notification.color_class == 'gold' %}bg-amber-100 dark:bg-amber-900/50 text-amber-600 dark:text-amber-400
-                    {% else %}bg-gray-100 dark:bg-gray-900/50 text-gray-600 dark:text-gray-400{% endif %} p-2 rounded-full">
-                        <i data-lucide="{{ notification.icon_class }}" class="h-4 w-4"></i>
-                    </div>
-                    <div class="flex-1">
-                        <p class="text-sm font-medium text-gray-900 dark:text-white">{{ notification.title }}</p>
-                        <p class="text-xs text-gray-500 dark:text-gray-400 line-clamp-2">{{ notification.message }}</p>
-                        <p class="text-xs text-gray-400 dark:text-gray-500 mt-1">{{ notification.created_at|timesince }} ago</p>
-                    </div>
-                    {% if not notification.is_read %}
-                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-200">
-                            New
-                        </span>
-                    {% endif %}
+               class="rounded-2xl border border-outline-variant/30 p-4 transition hover:border-primary-200 hover:bg-surface-container-low">
+                <div class="flex items-start gap-3">
+                    <span class="rounded-xl bg-primary-50 p-2 text-primary-700">
+                        <i data-lucide="{{ notification.icon_class|default:'bell' }}" class="h-4 w-4"></i>
+                    </span>
+                    <span class="min-w-0">
+                        <span class="block font-bold text-primary-900">{{ notification.title }}</span>
+                        <span class="mt-1 line-clamp-2 block text-sm text-secondary-600">{{ notification.message }}</span>
+                        <span class="mt-2 block text-xs font-bold uppercase tracking-[0.16em] text-secondary-400">{{ notification.created_at|timesince }} ago</span>
+                    </span>
                 </div>
             </a>
-        {% empty %}
-            <div class="text-center py-8">
-                <i data-lucide="bell-off" class="h-12 w-12 text-gray-400 mx-auto mb-4"></i>
-                <p class="text-gray-500 dark:text-gray-400">No new notifications</p>
+            {% empty %}
+            <div class="rounded-2xl bg-surface-container-low p-8 text-center text-sm text-secondary-500 md:col-span-2">
+                You are all caught up.
             </div>
-        {% endfor %}
-    </div>
-    
-    <div class="mt-4 text-center">
-        <a href="{% url 'payroll:notifications' %}" class="text-sm text-blue-600 hover:text-blue-800 font-medium">
-            View All Notifications →
-        </a>
-    </div>
+            {% endfor %}
+        </div>
+    </section>
 </div>
-
-<!-- Recent Payslips -->
-<div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm mb-8">
-    <div class="flex items-center justify-between mb-4">
-        <h2 class="text-lg font-semibold text-gray-900 dark:text-white flex items-center">
-            <i data-lucide="file-text" class="h-5 w-5 mr-2 text-primary-600"></i>
-            Recent Payslips
-        </h2>
-        <a href="{% url 'payroll:payslips' %}" class="text-sm text-blue-600 hover:text-blue-800 font-medium">
-            View All
-        </a>
-    </div>
-    <div class="space-y-4">
-        {% for payslip_item in recent_payslips %}
-            <div class="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
-                <div>
-                    <p class="font-medium text-gray-900 dark:text-white">
-                        {{ payslip_item.payroll_run.paydays|date:"F Y" }}
-                    </p>
-                    <p class="text-xs text-gray-500 dark:text-gray-400">
-                        Net: ₦{{ payslip_item.payroll_entry.netpay|intcomma }}
-                    </p>
-                </div>
-                <div class="flex space-x-2">
-                    <a href="{% url 'payroll:payslip' payslip_item.id %}"
-                       class="p-2 text-gray-500 hover:text-blue-600 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600" title="View Payslip">
-                        <i data-lucide="eye" class="h-4 w-4"></i>
-                    </a>
-                    <a href="{% url 'payroll:payslip_pdf' payslip_item.payroll_entry.pays.id %}"
-                       class="p-2 text-gray-500 hover:text-green-600 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600" title="Download PDF">
-                        <i data-lucide="download" class="h-4 w-4"></i>
-                    </a>
-                </div>
-            </div>
-        {% empty %}
-            <div class="text-center py-8">
-                <i data-lucide="file-text" class="h-12 w-12 text-gray-400 mx-auto mb-4"></i>
-                <p class="text-gray-500 dark:text-gray-400">No payslips available</p>
-            </div>
-        {% endfor %}
-    </div>
-</div>
-
-<!-- Quick Actions -->
-<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-    <a href="{% url 'payroll:apply_leave' %}" class="action-card block">
-        <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm">
-            <div class="flex items-center space-x-4">
-                <div class="bg-green-100 dark:bg-green-900/50 p-3 rounded-lg">
-                    <i data-lucide="calendar-plus" class="h-6 w-6 text-green-500"></i>
-                </div>
-                <div class="flex-1">
-                    <h3 class="font-semibold text-lg text-gray-900 dark:text-white">Apply for Leave</h3>
-                    <p class="text-sm text-gray-500 dark:text-gray-400">Submit a new leave request</p>
-                </div>
-                <i data-lucide="arrow-right" class="h-5 w-5 text-gray-400"></i>
-            </div>
-        </div>
-    </a>
-    
-    <a href="{% url 'payroll:leave_requests' %}" class="action-card block">
-        <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm">
-            <div class="flex items-center space-x-4">
-                <div class="bg-yellow-100 dark:bg-yellow-900/50 p-3 rounded-lg">
-                    <i data-lucide="calendar" class="h-6 w-6 text-yellow-500"></i>
-                </div>
-                <div class="flex-1">
-                    <h3 class="font-semibold text-lg text-gray-900 dark:text-white">Leave Status</h3>
-                    <p class="text-sm text-gray-500 dark:text-gray-400">Check your leave requests</p>
-                </div>
-                <i data-lucide="arrow-right" class="h-5 w-5 text-gray-400"></i>
-            </div>
-        </div>
-    </a>
-    
-    <a href="{% url 'payroll:request_iou' %}" class="action-card block">
-        <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm">
-            <div class="flex items-center space-x-4">
-                <div class="bg-purple-100 dark:bg-purple-900/50 p-3 rounded-lg">
-                    <i data-lucide="dollar-sign" class="h-6 w-6 text-purple-500"></i>
-                </div>
-                <div class="flex-1">
-                    <h3 class="font-semibold text-lg text-gray-900 dark:text-white">Request IOU</h3>
-                    <p class="text-sm text-gray-500 dark:text-gray-400">Submit an IOU request</p>
-                </div>
-                <i data-lucide="arrow-right" class="h-5 w-5 text-gray-400"></i>
-            </div>
-        </div>
-    </a>
-    
-    <a href="{% url 'payroll:my_iou_tracker' %}" class="action-card block">
-        <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm">
-            <div class="flex items-center space-x-4">
-                <div class="bg-blue-100 dark:bg-blue-900/50 p-3 rounded-lg">
-                    <i data-lucide="file-text" class="h-6 w-6 text-blue-500"></i>
-                </div>
-                <div class="flex-1">
-                    <h3 class="font-semibold text-lg text-gray-900 dark:text-white">View IOU Status</h3>
-                    <p class="text-sm text-gray-500 dark:text-gray-400">Track your IOU process</p>
-                </div>
-                <i data-lucide="arrow-right" class="h-5 w-5 text-gray-400"></i>
-            </div>
-        </div>
-    </a>
-</div>
-{% endblock %}
-
-{% block extra_js %}
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    // Initialize Lucide icons
-    lucide.createIcons();
-    
-    // Add smooth scroll behavior
-    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-        anchor.addEventListener('click', function (e) {
-            e.preventDefault();
-            const target = document.querySelector(this.getAttribute('href'));
-            if (target) {
-                target.scrollIntoView({
-                    behavior: 'smooth'
-                });
-            }
-        });
-    });
-});
-</script>
 {% endblock %}

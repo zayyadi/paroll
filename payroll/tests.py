@@ -1,10 +1,12 @@
 from datetime import date
 from decimal import Decimal
+from io import StringIO
 
 from django.test import TestCase
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Permission
 from django.core.exceptions import ValidationError
+from django.core.management import call_command
 from django.urls import reverse
 from django.utils import timezone
 from unittest.mock import patch
@@ -20,13 +22,36 @@ from payroll.models import (
     PayrollEntry,
     PayrollRun,
     PayrollRunEntry,
+    PayslipEmailJob,
     Appraisal,
     AppraisalAssignment,
     Review,
     Rating,
     Metric,
+    Position,
+    Skill,
+    EmployeeSkill,
+    AttendanceRecord,
+    EmployeeDocument,
+    AssetCategory,
+    EmployeeAsset,
+    WorkflowTemplate,
+    WorkflowExecution,
+    Goal,
+    OneOnOne,
+    SurveyTemplate,
+    SurveyQuestion,
+    SurveyResponse,
+    LearningCourse,
+    CourseEnrollment,
+    BenefitPlan,
+    BenefitEnrollment,
 )
-from payroll.views.payroll_view import _send_payslips_for_payroll_run
+from payroll.views.payroll_view import (
+    _queue_payslip_emails_for_payroll_run,
+    _send_payslips_for_payroll_run,
+)
+from payroll.tasks.payslip_tasks import send_payslips_for_payroll_run_task
 from payroll.notification_signals import _dispatch_iou_rejected_event
 from payroll.models import IOU
 
@@ -133,7 +158,18 @@ class PayrollDisciplinaryEligibilityTests(TestCase):
         self.employee = EmployeeProfile.objects.get(user=self.respondent)
         self.employee.company = self.company
         self.employee.status = "active"
-        self.employee.save(update_fields=["company", "status"])
+        self.employee.bank_account_number = "1234567890"
+        self.employee.bank_account_name = "Fallback User"
+        self.employee.bank = "GTB"
+        self.employee.save(
+            update_fields=[
+                "company",
+                "status",
+                "bank_account_number",
+                "bank_account_name",
+                "bank",
+            ]
+        )
 
     def test_payroll_run_create_skips_suspended_employee_for_overlapping_period(self):
         case = DisciplinaryCase.objects.create(
@@ -440,12 +476,124 @@ class PayrollRunPayslipEmailTests(TestCase):
         sent_count, skipped_count = _send_payslips_for_payroll_run(payroll_run)
 
         self.assertEqual(sent_count, 1)
-        self.assertEqual(skipped_count, 0)
+        self.assertEqual(skipped_count, [])
         self.assertEqual(mocked_send_mail.call_count, 1)
         kwargs = mocked_send_mail.call_args.kwargs
         self.assertEqual(kwargs["recipient_list"], [user.email])
         self.assertEqual(kwargs["template_name"], "email/payslip_email.html")
-        self.assertTrue(kwargs["attachments"])
+        self.assertEqual(len(kwargs["attachments"]), 1)
+        attachment = kwargs["attachments"][0]
+        self.assertTrue(attachment["filename"].endswith(".pdf"))
+        self.assertIn("payslip_", attachment["filename"])
+        self.assertEqual(attachment["content"], mocked_generate_pdf.return_value)
+        self.assertEqual(attachment["mimetype"], "application/pdf")
+
+    @patch("payroll.tasks.payslip_tasks.send_payslips_for_payroll_run_task.apply_async")
+    @patch("payroll.views.payroll_view.custom_send_mail")
+    @patch("payroll.views.payroll_view.generate_payslip_pdf")
+    def test_queue_payslip_emails_creates_job_and_defers_delivery_until_after_commit(
+        self, mocked_generate_pdf, mocked_send_mail, mocked_apply_async
+    ):
+        mocked_apply_async.return_value.id = "celery-task-123"
+        company = Company.objects.create(name="Async Payroll Mail Co")
+        payroll_run = PayrollRun.objects.create(
+            company=company,
+            name="June Payroll",
+            paydays=date(2026, 6, 1),
+            is_active=True,
+        )
+
+        with self.captureOnCommitCallbacks(execute=True):
+            job = _queue_payslip_emails_for_payroll_run(payroll_run)
+
+        self.assertEqual(job.payroll_run, payroll_run)
+        self.assertEqual(job.status, PayslipEmailJob.Status.QUEUED)
+        mocked_generate_pdf.assert_not_called()
+        mocked_send_mail.assert_not_called()
+        mocked_apply_async.assert_called_once_with(
+            args=[payroll_run.id, job.id],
+            queue="notifications_normal",
+        )
+        job.refresh_from_db()
+        self.assertEqual(job.celery_task_id, "celery-task-123")
+
+    @patch("payroll.views.payroll_view._send_payslips_for_payroll_run")
+    def test_payslip_task_marks_job_as_sent(self, mocked_send_payslips):
+        mocked_send_payslips.return_value = (2, [])
+        company = Company.objects.create(name="Task Status Co")
+        payroll_run = PayrollRun.objects.create(
+            company=company,
+            name="July Payroll",
+            paydays=date(2026, 7, 1),
+            is_active=True,
+        )
+        job = PayslipEmailJob.objects.create(payroll_run=payroll_run)
+
+        result = send_payslips_for_payroll_run_task(payroll_run.id, job.id)
+
+        job.refresh_from_db()
+        self.assertTrue(result["success"])
+        self.assertEqual(job.status, PayslipEmailJob.Status.SENT)
+        self.assertEqual(job.sent_count, 2)
+        self.assertEqual(job.skipped_count, 0)
+        self.assertIsNotNone(job.started_at)
+        self.assertIsNotNone(job.completed_at)
+
+    @patch("payroll.models.payroll.PayslipEmailJob.enqueue")
+    def test_admin_resend_job_url_requeues_selected_job(self, mocked_enqueue):
+        admin_user = User.objects.create_superuser(
+            email="admin-payslip@example.com",
+            password="testpass123",
+        )
+        self.client.force_login(admin_user)
+        company = Company.objects.create(name="Admin Resend Co")
+        payroll_run = PayrollRun.objects.create(
+            company=company,
+            name="August Payroll",
+            paydays=date(2026, 8, 1),
+            is_active=True,
+        )
+        job = PayslipEmailJob.objects.create(
+            payroll_run=payroll_run,
+            status=PayslipEmailJob.Status.FAILED,
+            error_message="SMTP timeout",
+        )
+
+        response = self.client.post(
+            reverse("admin:payroll_payslipemailjob_resend", args=[job.id])
+        )
+
+        self.assertEqual(response.status_code, 302)
+        mocked_enqueue.assert_called_once_with()
+
+    @patch(
+        "payroll.management.commands.process_payslip_email_jobs."
+        "send_payslips_for_payroll_run_task"
+    )
+    def test_process_payslip_email_jobs_command_runs_queued_jobs(self, mocked_task):
+        company = Company.objects.create(name="Command Fallback Co")
+        payroll_run = PayrollRun.objects.create(
+            company=company,
+            name="September Payroll",
+            paydays=date(2026, 9, 1),
+            is_active=True,
+        )
+        job = PayslipEmailJob.objects.create(
+            payroll_run=payroll_run,
+            status=PayslipEmailJob.Status.QUEUED,
+        )
+        output = StringIO()
+
+        call_command("process_payslip_email_jobs", "--limit=1", stdout=output)
+
+        mocked_task.assert_called_once_with(payroll_run.id, job.id)
+        self.assertIn("Processed 1 payslip email job(s).", output.getvalue())
+
+    def test_core_exports_celery_app_with_payslip_task_registered(self):
+        import core
+
+        self.assertTrue(hasattr(core, "celery_app"))
+        self.assertIn("payroll.send_payslips_for_payroll_run", core.celery_app.tasks)
 
 
 class HRComplianceRulesTests(TestCase):
@@ -756,8 +904,6 @@ class EmployeeLeaveIOUUrlWalkSmokeTests(TestCase):
             ("payroll:apply_leave", {}),
             ("payroll:leave_requests", {}),
             ("payroll:manage_leave_requests", {}),
-            ("payroll:approve_leave", {"pk": self.leave.pk}),
-            ("payroll:reject_leave", {"pk": self.leave.pk}),
             ("payroll:leave_policies", {}),
             ("payroll:edit_leave_request", {"pk": self.leave.pk}),
             ("payroll:view_leave_request", {"pk": self.leave.pk}),
@@ -770,12 +916,26 @@ class EmployeeLeaveIOUUrlWalkSmokeTests(TestCase):
             ("payroll:iou_list", {}),
             ("payroll:iou_detail", {"pk": self.iou.pk}),
             ("payroll:delete_leave_request", {"pk": self.leave_to_delete.pk}),
-            ("payroll:delete_employee", {"id": self.target_employee.id}),
         ]
 
         for route_name, kwargs in targets:
             with self.subTest(route=route_name):
                 response = self.client.get(reverse(route_name, kwargs=kwargs))
+                self.assertLess(
+                    response.status_code,
+                    500,
+                    f"{route_name} returned server error {response.status_code}",
+                )
+
+        post_targets = [
+            ("payroll:approve_leave", {"pk": self.leave.pk}),
+            ("payroll:reject_leave", {"pk": self.leave.pk}),
+            ("payroll:delete_employee", {"id": self.target_employee.id}),
+        ]
+
+        for route_name, kwargs in post_targets:
+            with self.subTest(route=route_name):
+                response = self.client.post(reverse(route_name, kwargs=kwargs))
                 self.assertLess(
                     response.status_code,
                     500,
@@ -834,3 +994,232 @@ class PayrollReportSmokeTests(TestCase):
         )
         self.assertEqual(nhis_response.status_code, 200)
         self.assertEqual(nhf_response.status_code, 200)
+
+
+class PayslipDetailFallbackTests(TestCase):
+    def setUp(self):
+        self.company = Company.objects.create(name="Payslip Fallback Co")
+        self.user = User.objects.create_user(
+            email="fallback@example.com",
+            password="testpass123",
+            first_name="Fallback",
+            last_name="User",
+            company=self.company,
+            active_company=self.company,
+        )
+        self.employee = EmployeeProfile.objects.get(user=self.user)
+        self.employee.company = self.company
+        self.employee.status = "active"
+        self.employee.save(update_fields=["company", "status"])
+
+        payroll_config = Payroll.objects.create(
+            company=self.company,
+            basic_salary=Decimal("120000.00"),
+        )
+        self.employee.employee_pay = payroll_config
+        self.employee.save(update_fields=["employee_pay"])
+
+        payroll_run = PayrollRun.objects.create(
+            company=self.company,
+            name="April 2026 Payroll",
+            paydays=date(2026, 4, 1),
+            is_active=True,
+        )
+        PayrollEntry.objects.create(
+            company=self.company,
+            pays=self.employee,
+            status="active",
+        )
+        self.payroll_entry = PayrollEntry.objects.create(
+            company=self.company,
+            pays=self.employee,
+            status="active",
+        )
+        self.payslip = PayrollRunEntry.objects.create(
+            payroll_run=payroll_run,
+            payroll_entry=self.payroll_entry,
+        )
+        self.client.login(email=self.user.email, password="testpass123")
+
+    def test_payslip_detail_falls_back_when_employee_id_is_used(self):
+        response = self.client.get(
+            reverse("payroll:payslip", kwargs={"id": self.employee.id})
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "April 2026")
+
+    def test_payslip_detail_falls_back_when_payroll_entry_id_is_used(self):
+        response = self.client.get(
+            reverse("payroll:payslip", kwargs={"id": self.payroll_entry.id})
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "April 2026")
+
+    def test_payslip_detail_allows_self_access_when_user_company_context_changes(self):
+        other_company = Company.objects.create(name="Other Company")
+        self.user.company = other_company
+        self.user.active_company = other_company
+        self.user.save(update_fields=["company", "active_company"])
+
+        response = self.client.get(
+            reverse("payroll:payslip", kwargs={"id": self.payslip.id})
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "April 2026")
+
+    def test_payslip_pdf_accepts_payroll_run_entry_id(self):
+        response = self.client.get(
+            reverse("payroll:payslip_pdf", kwargs={"id": self.payslip.id})
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "application/pdf")
+
+
+class WorkforceExpansionFoundationTests(TestCase):
+    def setUp(self):
+        self.company = Company.objects.create(name="Expansion Co")
+        self.user = User.objects.create_user(
+            email="foundations@example.com",
+            password="testpass123",
+            first_name="Foundation",
+            last_name="User",
+            company=self.company,
+            active_company=self.company,
+        )
+        self.employee = EmployeeProfile.objects.get(user=self.user)
+        self.employee.company = self.company
+        self.employee.status = "active"
+        self.employee.save(update_fields=["company", "status"])
+
+    def test_can_create_workforce_foundation_records(self):
+        position = Position.objects.create(
+            company=self.company,
+            title="Senior Product Analyst",
+            department=self.employee.department,
+            employment_type=Position.EmploymentType.FULL_TIME,
+            status=Position.Status.OPEN,
+        )
+        skill = Skill.objects.create(
+            company=self.company,
+            name="Payroll Compliance",
+            category="Compliance",
+        )
+        employee_skill = EmployeeSkill.objects.create(
+            company=self.company,
+            employee=self.employee,
+            skill=skill,
+            proficiency=EmployeeSkill.Proficiency.ADVANCED,
+        )
+        attendance = AttendanceRecord.objects.create(
+            company=self.company,
+            employee=self.employee,
+            work_date=date(2026, 4, 1),
+            status=AttendanceRecord.Status.PRESENT,
+            hours_worked=Decimal("8.00"),
+        )
+        document = EmployeeDocument.objects.create(
+            company=self.company,
+            employee=self.employee,
+            title="Signed Handbook",
+            document_type=EmployeeDocument.DocumentType.POLICY,
+            acknowledgement_required=True,
+            is_acknowledged=True,
+        )
+        category = AssetCategory.objects.create(
+            company=self.company,
+            name="Laptop",
+        )
+        asset = EmployeeAsset.objects.create(
+            company=self.company,
+            employee=self.employee,
+            category=category,
+            asset_tag="LAP-001",
+            name="MacBook Pro",
+            status=EmployeeAsset.Status.IN_USE,
+        )
+        workflow = WorkflowTemplate.objects.create(
+            company=self.company,
+            name="Employee Onboarding",
+            workflow_type=WorkflowTemplate.WorkflowType.ONBOARDING,
+            trigger_event="employee.created",
+        )
+        execution = WorkflowExecution.objects.create(
+            company=self.company,
+            template=workflow,
+            employee=self.employee,
+            status=WorkflowExecution.Status.IN_PROGRESS,
+        )
+        goal = Goal.objects.create(
+            company=self.company,
+            employee=self.employee,
+            title="Reduce payroll processing exceptions",
+            cycle="Q2 2026",
+            status=Goal.Status.ACTIVE,
+        )
+        one_on_one = OneOnOne.objects.create(
+            company=self.company,
+            employee=self.employee,
+            manager=self.user,
+            scheduled_for=timezone.now(),
+            status=OneOnOne.Status.SCHEDULED,
+        )
+        survey = SurveyTemplate.objects.create(
+            company=self.company,
+            name="Quarterly Pulse",
+            survey_type=SurveyTemplate.SurveyType.PULSE,
+            is_anonymous=False,
+        )
+        question = SurveyQuestion.objects.create(
+            survey=survey,
+            prompt="How supported do you feel at work?",
+            question_type=SurveyQuestion.QuestionType.RATING,
+            order=1,
+        )
+        response = SurveyResponse.objects.create(
+            company=self.company,
+            survey=survey,
+            question=question,
+            employee=self.employee,
+            numeric_response=4,
+        )
+        course = LearningCourse.objects.create(
+            company=self.company,
+            title="Workplace Conduct",
+            course_type=LearningCourse.CourseType.COMPLIANCE,
+            delivery_mode=LearningCourse.DeliveryMode.SELF_PACED,
+        )
+        enrollment = CourseEnrollment.objects.create(
+            company=self.company,
+            course=course,
+            employee=self.employee,
+            status=CourseEnrollment.Status.ENROLLED,
+        )
+        benefit = BenefitPlan.objects.create(
+            company=self.company,
+            name="Health Plus",
+            plan_type=BenefitPlan.PlanType.HEALTH,
+            enrollment_window_start=date(2026, 4, 1),
+            enrollment_window_end=date(2026, 4, 30),
+        )
+        benefit_enrollment = BenefitEnrollment.objects.create(
+            company=self.company,
+            plan=benefit,
+            employee=self.employee,
+            status=BenefitEnrollment.Status.ENROLLED,
+        )
+
+        self.assertEqual(str(position), "Senior Product Analyst")
+        self.assertEqual(employee_skill.skill.name, "Payroll Compliance")
+        self.assertEqual(attendance.hours_worked, Decimal("8.00"))
+        self.assertTrue(document.is_acknowledged)
+        self.assertEqual(asset.asset_tag, "LAP-001")
+        self.assertEqual(execution.template, workflow)
+        self.assertEqual(goal.employee, self.employee)
+        self.assertEqual(one_on_one.manager, self.user)
+        self.assertEqual(response.numeric_response, 4)
+        self.assertEqual(enrollment.course, course)
+        self.assertEqual(benefit_enrollment.plan, benefit)

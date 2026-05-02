@@ -41,6 +41,8 @@ def notification_list(request):
     # Get filter parameters
     filter_type = request.GET.get("type", "all")
     read_status = request.GET.get("read", "all")
+    if read_status not in {"all", "read", "unread"}:
+        read_status = "all"
     priority_filter = request.GET.get("priority", None)
 
     # Convert read status to unread_only flag
@@ -54,6 +56,7 @@ def notification_list(request):
         priority=priority_filter,
         limit=50,
         offset=0,
+        read_status=read_status,
     )
 
     # Get unread count using service
@@ -378,7 +381,7 @@ def notification_preferences(request):
         "preferences": preferences,
     }
 
-    return render(request, "notifications/preferences.html", context)
+    return render(request, "notifications/notification_preferences.html", context)
 
 
 @login_required
@@ -444,7 +447,9 @@ def notification_type_preferences(request, notification_type):
         "type_preferences": type_prefs,
     }
 
-    return render(request, "notifications/type_preferences.html", context)
+    return render(
+        request, "notifications/notification_type_preferences.html", context
+    )
 
 
 # ==================== AGGREGATION VIEWS ====================
@@ -467,19 +472,27 @@ def aggregated_notifications(request):
     service = NotificationService()
 
     # Get aggregated notifications
-    notifications = (
+    notifications = list(
         Notification.objects.filter(
             recipient=employee_profile, is_aggregated=True, is_deleted=False
         )
         .select_related("leave_request", "iou", "payroll", "appraisal")
         .order_by("-created_at")[:50]
     )
+    for notification in notifications:
+        notification.individual_notifications = list(
+            notification.aggregated_with.filter(is_deleted=False)
+        )
+        notification.aggregated_count = (
+            notification.aggregation_count
+            or len(notification.individual_notifications)
+        )
 
     # Get unread count
     unread_count = service.get_unread_count(employee_profile)
 
     context = {
-        "notifications": notifications,
+        "aggregated_notifications": notifications,
         "unread_count": unread_count,
     }
 
@@ -571,10 +584,12 @@ def notification_digests(request):
 
     # Get unread count
     unread_count = service.get_unread_count(employee_profile)
+    preferences = PreferenceService().get_preferences(employee_profile)
 
     context = {
         "digests": digests,
         "unread_count": unread_count,
+        "preferences": preferences,
     }
 
     return render(request, "notifications/notification_digests.html", context)
@@ -728,17 +743,27 @@ def trigger_manual_digest(request):
     frequency = request.POST.get("frequency", "daily")
 
     # Create and send digest
+    wants_json = request.headers.get("X-Requested-With") == "XMLHttpRequest"
+
     try:
         if frequency == "daily":
             digest = digest_service.create_daily_digest(employee_profile)
         elif frequency == "weekly":
             digest = digest_service.create_weekly_digest(employee_profile)
         else:
+            if not wants_json:
+                messages.error(request, "Invalid frequency. Use daily or weekly.")
+                return redirect("payroll:notification_digests")
             return JsonResponse(
                 {"error": "Invalid frequency. Use 'daily' or 'weekly'"}, status=400
             )
 
         if digest:
+            if not wants_json:
+                messages.success(
+                    request, f"{frequency.capitalize()} digest created successfully."
+                )
+                return redirect("payroll:notification_digests")
             return JsonResponse(
                 {
                     "success": True,
@@ -747,6 +772,12 @@ def trigger_manual_digest(request):
                 }
             )
         else:
+            if not wants_json:
+                messages.info(
+                    request,
+                    f"No notifications to include in {frequency} digest.",
+                )
+                return redirect("payroll:notification_digests")
             return JsonResponse(
                 {
                     "success": True,
@@ -755,6 +786,9 @@ def trigger_manual_digest(request):
             )
 
     except Exception as e:
+        if not wants_json:
+            messages.error(request, f"Failed to create digest: {e}")
+            return redirect("payroll:notification_digests")
         return JsonResponse({"error": f"Failed to create digest: {str(e)}"}, status=500)
 
 

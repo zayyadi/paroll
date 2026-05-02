@@ -10,6 +10,7 @@ from payroll.forms import (
 )
 from payroll import models
 from django.contrib.auth.decorators import login_required
+from django.views.decorators.http import require_POST
 
 
 from django.db.models import Q, Count, Sum
@@ -39,6 +40,7 @@ from django.contrib import messages
 # Removed user_passes_test as it's replaced by permission_required or custom logic in views
 from django.http import (
     Http404,
+    HttpResponseRedirect,
     HttpResponseForbidden,
 )
 from django.core.exceptions import PermissionDenied
@@ -48,6 +50,48 @@ from users import forms as user_forms
 from company.utils import get_user_company
 
 # Removed is_hr_user and check_super helper functions as their use is replaced
+
+
+def _start_workflow_execution(
+    *,
+    company,
+    employee_profile,
+    workflow_type,
+    started_by,
+    trigger_event,
+):
+    """
+    Start the first active company workflow matching the employee lifecycle event.
+    """
+    if company is None or employee_profile is None:
+        return None
+
+    templates = models.WorkflowTemplate.objects.filter(
+        company=company,
+        workflow_type=workflow_type,
+        is_active=True,
+    )
+    template = templates.filter(trigger_event=trigger_event).first() or templates.filter(
+        trigger_event=""
+    ).first()
+    if template is None:
+        return None
+
+    employee_name = " ".join(
+        part for part in [employee_profile.first_name, employee_profile.last_name] if part
+    ).strip()
+    return models.WorkflowExecution.objects.create(
+        company=company,
+        template=template,
+        employee=employee_profile,
+        started_by=started_by,
+        context={
+            "trigger_event": trigger_event,
+            "employee_id": employee_profile.pk,
+            "employee_email": employee_profile.email,
+            "employee_name": employee_name,
+        },
+    )
 
 
 def get_employee_notifications(employee_profile):
@@ -180,6 +224,736 @@ def get_recent_activities(limit=10, company=None):
 
     # Return limited number of activities
     return activities[:limit]
+
+
+def _get_or_create_today_attendance(employee_profile, company):
+    return models.AttendanceRecord.objects.get_or_create(
+        company=company,
+        employee=employee_profile,
+        work_date=timezone.localdate(),
+        defaults={"status": models.AttendanceRecord.Status.PRESENT},
+    )
+
+
+@login_required
+def attendance_my_day(request):
+    company = get_user_company(request.user)
+    employee_profile = get_object_or_404(
+        models.EmployeeProfile.objects.select_related("user"),
+        user=request.user,
+        company=company,
+    )
+    today_record = (
+        models.AttendanceRecord.objects.filter(
+            company=company,
+            employee=employee_profile,
+            work_date=timezone.localdate(),
+        )
+        .order_by("-created_at")
+        .first()
+    )
+    recent_records = models.AttendanceRecord.objects.filter(
+        company=company,
+        employee=employee_profile,
+    ).order_by("-work_date")[:10]
+
+    return render(
+        request,
+        "employee/attendance_my_day.html",
+        {
+            "page_title": "My Attendance",
+            "today": timezone.localdate(),
+            "today_record": today_record,
+            "recent_records": recent_records,
+        },
+    )
+
+
+@login_required
+def attendance_clock(request):
+    if request.method != "POST":
+        raise Http404()
+
+    company = get_user_company(request.user)
+    employee_profile = get_object_or_404(
+        models.EmployeeProfile.objects.select_related("user"),
+        user=request.user,
+        company=company,
+    )
+    attendance, _ = _get_or_create_today_attendance(employee_profile, company)
+    action = request.POST.get("action")
+    now = timezone.now()
+
+    if action == "clock_in":
+        if attendance.clock_in is None:
+            attendance.clock_in = now
+        attendance.status = models.AttendanceRecord.Status.PRESENT
+        attendance.save(update_fields=["clock_in", "status", "updated_at"])
+        messages.success(request, "You have been clocked in for today.")
+    elif action == "clock_out":
+        if attendance.clock_in is None:
+            attendance.clock_in = now
+        attendance.clock_out = now
+        duration = attendance.clock_out - attendance.clock_in
+        attendance.hours_worked = max(
+            Decimal("0.00"),
+            Decimal(duration.total_seconds() / 3600).quantize(Decimal("0.01")),
+        )
+        attendance.save(
+            update_fields=["clock_in", "clock_out", "hours_worked", "updated_at"]
+        )
+        messages.success(request, "You have been clocked out for today.")
+    else:
+        messages.error(request, "Unknown attendance action.")
+
+    return redirect(request.POST.get("next") or "payroll:attendance_my_day")
+
+
+@login_required
+def my_documents(request):
+    company = get_user_company(request.user)
+    employee_profile = get_object_or_404(
+        models.EmployeeProfile.objects.select_related("user"),
+        user=request.user,
+        company=company,
+    )
+    documents = models.EmployeeDocument.objects.filter(
+        company=company,
+        employee=employee_profile,
+    ).order_by("-created_at", "title")
+
+    return render(
+        request,
+        "employee/my_documents.html",
+        {
+            "page_title": "My Documents",
+            "documents": documents,
+            "pending_count": documents.filter(
+                acknowledgement_required=True,
+                is_acknowledged=False,
+            ).count(),
+        },
+    )
+
+
+@login_required
+def acknowledge_document(request, document_id):
+    if request.method != "POST":
+        raise Http404()
+
+    company = get_user_company(request.user)
+    employee_profile = get_object_or_404(
+        models.EmployeeProfile.objects.select_related("user"),
+        user=request.user,
+        company=company,
+    )
+    document = get_object_or_404(
+        models.EmployeeDocument,
+        id=document_id,
+        company=company,
+        employee=employee_profile,
+    )
+
+    if document.acknowledgement_required and not document.is_acknowledged:
+        document.is_acknowledged = True
+        document.acknowledged_at = timezone.now()
+        document.save(update_fields=["is_acknowledged", "acknowledged_at", "updated_at"])
+        messages.success(request, "Document acknowledged successfully.")
+    else:
+        messages.info(request, "This document is already acknowledged.")
+
+    return redirect("payroll:my_documents")
+
+
+@login_required
+@permission_required("payroll.view_employeeprofile", raise_exception=True)
+def document_overview(request):
+    company = get_user_company(request.user)
+    documents = (
+        models.EmployeeDocument.objects.filter(company=company)
+        .select_related("employee", "employee__user")
+        .order_by("-created_at", "title")
+    )
+
+    return render(
+        request,
+        "employee/document_overview.html",
+        {
+            "page_title": "Document Operations",
+            "documents": documents[:20],
+            "document_count": documents.count(),
+            "pending_count": documents.filter(
+                acknowledgement_required=True,
+                is_acknowledged=False,
+            ).count(),
+            "acknowledged_count": documents.filter(is_acknowledged=True).count(),
+        },
+    )
+
+
+@login_required
+def my_assets(request):
+    company = get_user_company(request.user)
+    employee_profile = get_object_or_404(
+        models.EmployeeProfile.objects.select_related("user"),
+        user=request.user,
+        company=company,
+    )
+    assets = (
+        models.EmployeeAsset.objects.filter(company=company, employee=employee_profile)
+        .select_related("category")
+        .order_by("asset_tag")
+    )
+
+    return render(
+        request,
+        "employee/my_assets.html",
+        {
+            "page_title": "My Assets",
+            "assets": assets,
+            "in_use_count": assets.filter(status=models.EmployeeAsset.Status.IN_USE).count(),
+        },
+    )
+
+
+@login_required
+@permission_required("payroll.view_employeeprofile", raise_exception=True)
+def asset_overview(request):
+    company = get_user_company(request.user)
+    assets = (
+        models.EmployeeAsset.objects.filter(company=company)
+        .select_related("employee", "category")
+        .order_by("asset_tag")
+    )
+
+    return render(
+        request,
+        "employee/asset_overview.html",
+        {
+            "page_title": "Asset Operations",
+            "assets": assets[:25],
+            "asset_count": assets.count(),
+            "in_use_count": assets.filter(status=models.EmployeeAsset.Status.IN_USE).count(),
+            "available_count": assets.filter(
+                status=models.EmployeeAsset.Status.AVAILABLE
+            ).count(),
+            "returned_count": assets.filter(
+                status=models.EmployeeAsset.Status.RETURNED
+            ).count(),
+        },
+    )
+
+
+@login_required
+@permission_required("payroll.change_employeeprofile", raise_exception=True)
+def return_asset(request, asset_id):
+    if request.method != "POST":
+        raise Http404()
+
+    company = get_user_company(request.user)
+    asset = get_object_or_404(models.EmployeeAsset, id=asset_id, company=company)
+    asset.status = models.EmployeeAsset.Status.RETURNED
+    asset.returned_at = timezone.now()
+    asset.employee = None
+    asset.save(update_fields=["status", "returned_at", "employee", "updated_at"])
+    messages.success(request, "Asset marked as returned.")
+    return redirect("payroll:asset_overview")
+
+
+@login_required
+def my_performance(request):
+    company = get_user_company(request.user)
+    employee_profile = get_object_or_404(
+        models.EmployeeProfile.objects.select_related("user"),
+        user=request.user,
+        company=company,
+    )
+    goals = models.Goal.objects.filter(company=company, employee=employee_profile).order_by(
+        "-created_at"
+    )
+    one_on_ones = models.OneOnOne.objects.filter(
+        company=company,
+        employee=employee_profile,
+    ).order_by("-scheduled_for")
+
+    return render(
+        request,
+        "employee/my_performance.html",
+        {
+            "page_title": "My Performance",
+            "goals": goals,
+            "one_on_ones": one_on_ones,
+            "active_goal_count": goals.filter(status=models.Goal.Status.ACTIVE).count(),
+            "scheduled_count": one_on_ones.filter(
+                status=models.OneOnOne.Status.SCHEDULED
+            ).count(),
+        },
+    )
+
+
+@login_required
+@permission_required("payroll.view_employeeprofile", raise_exception=True)
+def performance_overview(request):
+    company = get_user_company(request.user)
+    goals = (
+        models.Goal.objects.filter(company=company)
+        .select_related("employee", "manager")
+        .order_by("-created_at")
+    )
+    one_on_ones = (
+        models.OneOnOne.objects.filter(company=company)
+        .select_related("employee", "manager")
+        .order_by("-scheduled_for")
+    )
+
+    return render(
+        request,
+        "employee/performance_overview.html",
+        {
+            "page_title": "Performance Hub",
+            "goals": goals[:20],
+            "one_on_ones": one_on_ones[:12],
+            "goal_count": goals.count(),
+            "active_goal_count": goals.filter(status=models.Goal.Status.ACTIVE).count(),
+            "scheduled_count": one_on_ones.filter(
+                status=models.OneOnOne.Status.SCHEDULED
+            ).count(),
+            "completed_count": one_on_ones.filter(
+                status=models.OneOnOne.Status.COMPLETED
+            ).count(),
+        },
+    )
+
+
+@login_required
+@permission_required("payroll.change_employeeprofile", raise_exception=True)
+def complete_one_on_one(request, meeting_id):
+    if request.method != "POST":
+        raise Http404()
+
+    company = get_user_company(request.user)
+    meeting = get_object_or_404(models.OneOnOne, id=meeting_id, company=company)
+    if meeting.status != models.OneOnOne.Status.COMPLETED:
+        meeting.status = models.OneOnOne.Status.COMPLETED
+        meeting.completed_at = timezone.now()
+        meeting.save(update_fields=["status", "completed_at", "updated_at"])
+        messages.success(request, "1:1 marked as completed.")
+    else:
+        messages.info(request, "This 1:1 is already completed.")
+    return redirect("payroll:performance_overview")
+
+
+@login_required
+def my_surveys(request):
+    company = get_user_company(request.user)
+    employee_profile = get_object_or_404(
+        models.EmployeeProfile.objects.select_related("user"),
+        user=request.user,
+        company=company,
+    )
+    surveys = (
+        models.SurveyTemplate.objects.filter(company=company, is_active=True)
+        .prefetch_related("questions")
+        .order_by("name")
+    )
+    submitted_survey_ids = set(
+        models.SurveyResponse.objects.filter(company=company, employee=employee_profile)
+        .values_list("survey_id", flat=True)
+        .distinct()
+    )
+
+    return render(
+        request,
+        "employee/my_surveys.html",
+        {
+            "page_title": "My Surveys",
+            "surveys": surveys,
+            "submitted_survey_ids": submitted_survey_ids,
+        },
+    )
+
+
+@login_required
+def submit_survey(request, survey_id):
+    if request.method != "POST":
+        raise Http404()
+
+    company = get_user_company(request.user)
+    employee_profile = get_object_or_404(
+        models.EmployeeProfile.objects.select_related("user"),
+        user=request.user,
+        company=company,
+    )
+    survey = get_object_or_404(
+        models.SurveyTemplate.objects.prefetch_related("questions"),
+        id=survey_id,
+        company=company,
+        is_active=True,
+    )
+
+    for question in survey.questions.all():
+        field_name = f"question_{question.id}"
+        raw_value = request.POST.get(field_name, "").strip()
+        if not raw_value and question.is_required:
+            continue
+
+        response_defaults = {
+            "company": company,
+            "survey": survey,
+            "question": question,
+            "employee": None if survey.is_anonymous else employee_profile,
+            "text_response": "",
+            "numeric_response": None,
+            "choice_response": [],
+        }
+        if question.question_type == models.SurveyQuestion.QuestionType.RATING:
+            response_defaults["numeric_response"] = int(raw_value) if raw_value else None
+        elif question.question_type == models.SurveyQuestion.QuestionType.TEXT:
+            response_defaults["text_response"] = raw_value
+        else:
+            response_defaults["choice_response"] = [raw_value] if raw_value else []
+
+        models.SurveyResponse.objects.update_or_create(
+            company=company,
+            survey=survey,
+            question=question,
+            employee=response_defaults["employee"],
+            defaults=response_defaults,
+        )
+
+    messages.success(request, "Survey submitted successfully.")
+    return redirect("payroll:my_surveys")
+
+
+@login_required
+@permission_required("payroll.view_employeeprofile", raise_exception=True)
+def survey_overview(request):
+    company = get_user_company(request.user)
+    surveys = (
+        models.SurveyTemplate.objects.filter(company=company)
+        .prefetch_related("questions", "responses")
+        .order_by("name")
+    )
+
+    return render(
+        request,
+        "employee/survey_overview.html",
+        {
+            "page_title": "Survey Center",
+            "surveys": surveys,
+            "survey_count": surveys.count(),
+            "active_count": surveys.filter(is_active=True).count(),
+            "response_count": models.SurveyResponse.objects.filter(company=company).count(),
+        },
+    )
+
+
+@login_required
+def my_learning(request):
+    company = get_user_company(request.user)
+    employee_profile = get_object_or_404(
+        models.EmployeeProfile.objects.select_related("user"),
+        user=request.user,
+        company=company,
+    )
+    enrollments = (
+        models.CourseEnrollment.objects.filter(company=company, employee=employee_profile)
+        .select_related("course")
+        .order_by("-created_at")
+    )
+
+    return render(
+        request,
+        "employee/my_learning.html",
+        {
+            "page_title": "My Learning",
+            "enrollments": enrollments,
+            "required_count": enrollments.filter(course__is_mandatory=True).count(),
+            "completed_count": enrollments.filter(
+                status=models.CourseEnrollment.Status.COMPLETED
+            ).count(),
+        },
+    )
+
+
+@login_required
+def complete_learning_course(request, enrollment_id):
+    if request.method != "POST":
+        raise Http404()
+
+    company = get_user_company(request.user)
+    employee_profile = get_object_or_404(
+        models.EmployeeProfile.objects.select_related("user"),
+        user=request.user,
+        company=company,
+    )
+    enrollment = get_object_or_404(
+        models.CourseEnrollment,
+        id=enrollment_id,
+        company=company,
+        employee=employee_profile,
+    )
+    if enrollment.status != models.CourseEnrollment.Status.COMPLETED:
+        enrollment.status = models.CourseEnrollment.Status.COMPLETED
+        enrollment.completed_at = timezone.now()
+        enrollment.save(update_fields=["status", "completed_at", "updated_at"])
+        messages.success(request, "Course marked as completed.")
+    else:
+        messages.info(request, "This course is already completed.")
+    return redirect("payroll:my_learning")
+
+
+@login_required
+@permission_required("payroll.view_employeeprofile", raise_exception=True)
+def learning_overview(request):
+    company = get_user_company(request.user)
+    courses = (
+        models.LearningCourse.objects.filter(company=company)
+        .prefetch_related("enrollments")
+        .order_by("title")
+    )
+
+    return render(
+        request,
+        "employee/learning_overview.html",
+        {
+            "page_title": "Learning Center",
+            "courses": courses,
+            "course_count": courses.count(),
+            "mandatory_count": courses.filter(is_mandatory=True).count(),
+            "completion_count": models.CourseEnrollment.objects.filter(
+                company=company,
+                status=models.CourseEnrollment.Status.COMPLETED,
+            ).count(),
+        },
+    )
+
+
+@login_required
+def my_benefits(request):
+    company = get_user_company(request.user)
+    employee_profile = get_object_or_404(
+        models.EmployeeProfile.objects.select_related("user"),
+        user=request.user,
+        company=company,
+    )
+    plans = list(
+        models.BenefitPlan.objects.filter(company=company, is_active=True).order_by("name")
+    )
+    enrollments = {
+        enrollment.plan_id: enrollment
+        for enrollment in models.BenefitEnrollment.objects.filter(
+            company=company,
+            employee=employee_profile,
+        ).select_related("plan")
+    }
+    for plan in plans:
+        plan.employee_enrollment = enrollments.get(plan.id)
+
+    return render(
+        request,
+        "employee/my_benefits.html",
+        {
+            "page_title": "My Benefits",
+            "plans": plans,
+        },
+    )
+
+
+@login_required
+def enroll_benefit(request, plan_id):
+    if request.method != "POST":
+        raise Http404()
+
+    company = get_user_company(request.user)
+    employee_profile = get_object_or_404(
+        models.EmployeeProfile.objects.select_related("user"),
+        user=request.user,
+        company=company,
+    )
+    plan = get_object_or_404(models.BenefitPlan, id=plan_id, company=company, is_active=True)
+    models.BenefitEnrollment.objects.update_or_create(
+        company=company,
+        plan=plan,
+        employee=employee_profile,
+        defaults={
+            "status": models.BenefitEnrollment.Status.ENROLLED,
+            "effective_date": timezone.localdate(),
+        },
+    )
+    messages.success(request, "Benefit enrollment updated.")
+    return redirect("payroll:my_benefits")
+
+
+@login_required
+@permission_required("payroll.view_employeeprofile", raise_exception=True)
+def benefit_overview(request):
+    company = get_user_company(request.user)
+    plans = (
+        models.BenefitPlan.objects.filter(company=company)
+        .prefetch_related("enrollments")
+        .order_by("name")
+    )
+
+    return render(
+        request,
+        "employee/benefit_overview.html",
+        {
+            "page_title": "Benefits Center",
+            "plans": plans,
+            "plan_count": plans.count(),
+            "active_count": plans.filter(is_active=True).count(),
+            "enrollment_count": models.BenefitEnrollment.objects.filter(company=company).count(),
+        },
+    )
+
+
+@login_required
+@permission_required("payroll.view_employeeprofile", raise_exception=True)
+def workflow_overview(request):
+    company = get_user_company(request.user)
+    active_templates = models.WorkflowTemplate.objects.filter(
+        company=company,
+        is_active=True,
+    ).order_by("workflow_type", "name")
+    recent_executions = (
+        models.WorkflowExecution.objects.filter(company=company)
+        .select_related("template", "employee", "started_by")
+        .order_by("-started_at")[:12]
+    )
+
+    return render(
+        request,
+        "employee/workflow_overview.html",
+        {
+            "page_title": "Workflow Operations",
+            "active_templates": active_templates,
+            "recent_executions": recent_executions,
+            "execution_count": models.WorkflowExecution.objects.filter(
+                company=company
+            ).count(),
+            "pending_count": models.WorkflowExecution.objects.filter(
+                company=company,
+                status=models.WorkflowExecution.Status.PENDING,
+            ).count(),
+            "completed_count": models.WorkflowExecution.objects.filter(
+                company=company,
+                status=models.WorkflowExecution.Status.COMPLETED,
+            ).count(),
+        },
+    )
+
+
+@login_required
+@permission_required("payroll.view_employeeprofile", raise_exception=True)
+def attendance_overview(request):
+    company = get_user_company(request.user)
+    today = timezone.localdate()
+    today_records = (
+        models.AttendanceRecord.objects.select_related("employee", "employee__user")
+        .filter(company=company, work_date=today)
+        .order_by("employee__first_name", "employee__last_name")
+    )
+    present_count = today_records.filter(
+        status=models.AttendanceRecord.Status.PRESENT
+    ).count()
+    remote_count = today_records.filter(
+        status=models.AttendanceRecord.Status.REMOTE
+    ).count()
+    out_count = today_records.filter(
+        status__in=[
+            models.AttendanceRecord.Status.ABSENT,
+            models.AttendanceRecord.Status.LEAVE,
+            models.AttendanceRecord.Status.HALF_DAY,
+        ]
+    ).count() + models.LeaveRequest.objects.filter(
+        employee__company=company,
+        status="APPROVED",
+        start_date__lte=today,
+        end_date__gte=today,
+    ).count()
+    recent_records = (
+        models.AttendanceRecord.objects.select_related("employee", "employee__user")
+        .filter(company=company)
+        .order_by("-work_date", "employee__first_name")[:20]
+    )
+
+    return render(
+        request,
+        "employee/attendance_overview.html",
+        {
+            "page_title": "Attendance Overview",
+            "today_records": today_records,
+            "recent_records": recent_records,
+            "present_count": present_count,
+            "remote_count": remote_count,
+            "out_count": out_count,
+            "today": today,
+        },
+    )
+
+
+@login_required
+@permission_required("payroll.view_employeeprofile", raise_exception=True)
+def who_is_out(request):
+    company = get_user_company(request.user)
+    today = timezone.localdate()
+
+    approved_leave = models.LeaveRequest.objects.select_related("employee").filter(
+        employee__company=company,
+        status="APPROVED",
+        start_date__lte=today,
+        end_date__gte=today,
+    )
+    attendance_out = models.AttendanceRecord.objects.select_related("employee").filter(
+        company=company,
+        work_date=today,
+        status__in=[
+            models.AttendanceRecord.Status.ABSENT,
+            models.AttendanceRecord.Status.LEAVE,
+            models.AttendanceRecord.Status.HALF_DAY,
+        ],
+    )
+
+    entries = []
+    seen = set()
+    for leave in approved_leave:
+        key = ("leave", leave.employee_id)
+        if key in seen:
+            continue
+        seen.add(key)
+        entries.append(
+            {
+                "employee": leave.employee,
+                "reason": leave.get_leave_type_display(),
+                "source": "Approved leave",
+            }
+        )
+
+    for record in attendance_out:
+        key = ("attendance", record.employee_id)
+        if key in seen:
+            continue
+        seen.add(key)
+        entries.append(
+            {
+                "employee": record.employee,
+                "reason": record.get_status_display(),
+                "source": "Attendance",
+            }
+        )
+
+    entries.sort(key=lambda item: (item["employee"].first_name or "", item["employee"].last_name or ""))
+
+    return render(
+        request,
+        "employee/who_is_out.html",
+        {
+            "page_title": "Who's Out",
+            "out_entries": entries,
+            "today": today,
+        },
+    )
 
 
 @login_required  # index and dashboard remain login_required for now, internal logic dictates content
@@ -435,8 +1209,30 @@ def dashboard(request):
         pending_assignment_count = 0
         completed_assignment_count = 0
         next_assignment = None
+        recent_payslips = models.PayrollRunEntry.objects.none()
+        recent_leaves = models.LeaveRequest.objects.none()
+        pending_requests_count = 0
+        net_salary = 0
 
         if reviewer_profile:
+            recent_payslips = models.PayrollRunEntry.objects.filter(
+                payroll_entry__pays=reviewer_profile,
+                payroll_entry__company=company,
+            ).order_by("-payroll_run__paydays")[:5]
+            recent_leaves = models.LeaveRequest.objects.filter(
+                employee=reviewer_profile
+            ).order_by("-start_date")[:5]
+            pending_requests_count = (
+                models.LeaveRequest.objects.filter(
+                    employee=reviewer_profile,
+                    status="PENDING",
+                ).count()
+                + models.IOU.objects.filter(
+                    employee_id=reviewer_profile,
+                    status="PENDING",
+                ).count()
+            )
+            net_salary = reviewer_profile.net_pay or 0
             assignments = (
                 models.AppraisalAssignment.objects.filter(
                     appraiser=reviewer_profile,
@@ -470,6 +1266,10 @@ def dashboard(request):
             "pending_assignment_count": pending_assignment_count,
             "completed_assignment_count": completed_assignment_count,
             "next_assignment": next_assignment,
+            "recent_payslips": recent_payslips,
+            "recent_leaves": recent_leaves,
+            "pending_requests": pending_requests_count,
+            "net_salary": net_salary,
             "empty_list": [],  # For empty for loop handling in templates
         }
         return render(request, "dashboard_user_new.html", context)
@@ -615,19 +1415,40 @@ def add_employee(request):
         user_form = user_forms.CustomUserCreationForm(request.POST)
         employee_form = EmployeeProfileForm(request.POST, request.FILES, user=request.user)
         if user_form.is_valid() and employee_form.is_valid():
-            user = user_form.save(commit=False)
-            user.company = company
-            user.active_company = company
-            user.save()
-            employee_profile = employee_form.save(commit=False)
-            employee_profile.company = company
-            employee_profile.user = user
-            employee_profile.email = user.email
-            employee_profile.first_name = (
-                user.first_name
-            )  # Assuming CustomUser has these fields
-            employee_profile.last_name = user.last_name
-            employee_profile.save()
+            with transaction.atomic():
+                submitted_profile = employee_form.save(commit=False)
+                user = user_form.save(commit=False)
+                user.company = company
+                user.active_company = company
+                user.first_name = employee_form.cleaned_data.get("first_name", "")
+                user.last_name = employee_form.cleaned_data.get("last_name", "")
+                user.save()
+
+                employee_profile = getattr(user, "employee_user", None)
+                if employee_profile is None:
+                    employee_profile = submitted_profile
+
+                for field_name in employee_form.fields:
+                    setattr(
+                        employee_profile,
+                        field_name,
+                        getattr(submitted_profile, field_name),
+                    )
+
+                employee_profile.company = company
+                employee_profile.user = user
+                employee_profile.email = user.email
+                employee_profile.first_name = user.first_name
+                employee_profile.last_name = user.last_name
+                employee_profile.save()
+
+                _start_workflow_execution(
+                    company=company,
+                    employee_profile=employee_profile,
+                    workflow_type=models.WorkflowTemplate.WorkflowType.ONBOARDING,
+                    started_by=request.user,
+                    trigger_event="employee.created",
+                )
             messages.success(request, "Employee added successfully!")
             return redirect("payroll:employee_list")
     else:
@@ -698,10 +1519,11 @@ def update_employee(request, id):
 
 
 @permission_required("payroll.delete_employeeprofile", raise_exception=True)
+@require_POST
 def delete_employee(request, id=None):  # FBV for delete
     company = get_user_company(request.user)
     if id is None:
-        raw_id = request.POST.get("id") or request.GET.get("id")
+        raw_id = request.POST.get("id")
         try:
             id = int(raw_id) if raw_id is not None else None
         except (TypeError, ValueError):
@@ -710,6 +1532,13 @@ def delete_employee(request, id=None):  # FBV for delete
         messages.error(request, "No employee selected for deletion.")
         return redirect("payroll:employee_list")
     employee_profile = get_object_or_404(models.EmployeeProfile, id=id, company=company)
+    _start_workflow_execution(
+        company=company,
+        employee_profile=employee_profile,
+        workflow_type=models.WorkflowTemplate.WorkflowType.OFFBOARDING,
+        started_by=request.user,
+        trigger_event="employee.deleted",
+    )
     employee_profile.delete()
     messages.success(request, "Employee deleted Successfully!!")
     return redirect("payroll:employee_list")  # Ensure redirect after delete
@@ -729,7 +1558,7 @@ def employee(request, user_id: int):
     ):
         employee_profile_to_display = target_user_profile
     else:
-        raise HttpResponseForbidden("You are not authorized to view this profile.")
+        return HttpResponseForbidden("You are not authorized to view this profile.")
 
     pay = models.PayrollRunEntry.objects.filter(
         payroll_entry__pays__user_id=employee_profile_to_display.user.id,
@@ -924,6 +1753,16 @@ class ReviewCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
             raise Http404("Appraisal or employee not found in your company.")
         return appraisal, employee
 
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        appraisal, employee = self._get_targets()
+        kwargs["instance"] = models.Review(
+            appraisal=appraisal,
+            employee=employee,
+            reviewer=self.request.user.employee_user,
+        )
+        return kwargs
+
     def dispatch(self, request, *args, **kwargs):
         appraisal, employee = self._get_targets()
         requester_profile = getattr(request.user, "employee_user", None)
@@ -966,15 +1805,12 @@ class ReviewCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
         appraisal, employee = self._get_targets()
         with transaction.atomic():
             review = form.save(commit=False)
-            review.appraisal = appraisal
-            review.employee = employee
-            review.reviewer = self.request.user.employee_user
             review.full_clean()
             review.save()
             rating_formset.instance = review
             rating_formset.save()
             self.object = review
-        return super().form_valid(form)
+        return HttpResponseRedirect(self.get_success_url())
 
     def get_success_url(self):
         return reverse_lazy(

@@ -10,6 +10,17 @@ Architecture Reference: plans/NOTIFICATION_SYSTEM_ARCHITECTURE.md (Section 11)
 import os
 from celery import Celery
 from celery.schedules import crontab
+from django.conf import settings
+
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+try:
+    import dotenv
+except ImportError:  # pragma: no cover - python-dotenv is installed in normal envs
+    dotenv = None
+
+if dotenv is not None:
+    dotenv.load_dotenv(os.path.join(BASE_DIR, ".env"))
 
 # Set default Django settings module
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "core.settings")
@@ -67,6 +78,10 @@ app.conf.task_routes = {
     },
     # Normal notifications (default)
     "payroll.tasks.notification_tasks.deliver_notification_task": {
+        "queue": "notifications_normal",
+        "routing_key": "notifications.normal",
+    },
+    "payroll.send_payslips_for_payroll_run": {
         "queue": "notifications_normal",
         "routing_key": "notifications.normal",
     },
@@ -243,6 +258,12 @@ app.conf.task_send_event = True
 # Enable task events for monitoring
 app.conf.worker_send_task_events = True
 app.conf.task_send_event = True
+
+# Keep runtime queue topology aligned with Django settings. The legacy static
+# blocks above remain for compatibility while settings own the deployable config.
+app.conf.task_queues = settings.CELERY_TASK_QUEUES
+app.conf.task_routes = settings.CELERY_TASK_ROUTES
+app.conf.beat_schedule = settings.CELERY_BEAT_SCHEDULE
 
 
 @app.task(bind=True)

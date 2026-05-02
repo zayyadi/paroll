@@ -14,7 +14,7 @@ from django.db import transaction
 from django.views.generic import CreateView, UpdateView, DeleteView
 from django.contrib import messages
 from django.contrib.messages.views import SuccessMessageMixin
-from django.http import HttpResponseForbidden
+from django.http import Http404, HttpResponseForbidden
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.auth.mixins import (
     LoginRequiredMixin,
@@ -28,6 +28,7 @@ from users.email_backend import send_mail as custom_send_mail
 from core.settings import DEFAULT_FROM_EMAIL
 import io
 from xhtml2pdf import pisa
+from django.views.decorators.http import require_POST
 
 from payroll.forms import (
     AllowanceForm,
@@ -49,6 +50,7 @@ from payroll.models import (
     LeaveRequest,
     PayrollRun,
     PayrollRunEntry,
+    PayslipEmailJob,
     Payroll,
     Allowance,
     IOU,
@@ -68,10 +70,27 @@ from accounting.permissions import (
 )
 from payroll import utils
 from company.utils import get_user_company
+from payroll.services.payslips import resolve_payslip_run_entry
 
 CACHE_TTL = getattr(settings, "CACHE_TTL", DEFAULT_TIMEOUT)
 
 logger = logging.getLogger(__name__)
+
+
+def _can_manage_employee_requests(user):
+    """
+    HR, managers, staff admins, and superusers can review employee requests.
+
+    Ordinary employees can submit and track their own requests, but cannot
+    approve, reject, or manage requests for other employees.
+    """
+    return user.is_authenticated and (
+        user.is_superuser
+        or user.groups.filter(name="HR").exists()
+        or getattr(user, "is_manager", False)
+        or user.has_perm("payroll.change_leaverequest")
+        or user.has_perm("payroll.change_iou")
+    )
 
 
 def _get_payroll_close_journal_transaction_number(payroll_run):
@@ -196,6 +215,22 @@ def _send_payslips_for_payroll_run(payroll_run):
             skipped_details.append(f"{employee_label} (email send failed)")
 
     return sent_count, skipped_details
+
+
+def _queue_payslip_emails_for_payroll_run(payroll_run):
+    """
+    Queue payslip email delivery after the payroll run transaction commits.
+
+    The request that creates the pay period should only persist payroll data.
+    PDF rendering and SMTP delivery happen in Celery so slow email providers do
+    not block payroll creation.
+    """
+    if not payroll_run or not getattr(payroll_run, "pk", None):
+        return False
+
+    job = PayslipEmailJob.objects.create(payroll_run=payroll_run)
+    transaction.on_commit(lambda: job.enqueue())
+    return job
 
 
 @permission_required("payroll.add_payroll", raise_exception=True)
@@ -471,12 +506,9 @@ def payslips(request):
 
 @login_required
 def payslip_detail(request, id):
-    company = get_user_company(request.user)
-    pay_id = get_object_or_404(
-        PayrollRunEntry,
-        id=id,
-        payroll_entry__company=company,
-    )
+    pay_id = resolve_payslip_run_entry(id)
+    if pay_id is None:
+        raise Http404("No PayrollRunEntry matches the given query.")
     target_employee_user = pay_id.payroll_entry.pays.user
 
     # Enforce object-level access to prevent horizontal privilege escalation.
@@ -489,7 +521,6 @@ def payslip_detail(request, id):
 
     num2word = utils.format_currency_words_with_kobo(pay_id.payroll_entry.netpay)
     dates = utils.convert_month_to_word(str(pay_id.payroll_run.paydays))
-    pay_ids = pay_id.payroll_entry.pays.pk
     payroll_record = pay_id.payroll_entry.pays.employee_pay
 
     pay_id_nhif = payroll_record.nhif if payroll_record else Decimal("0.00")
@@ -537,7 +568,7 @@ def payslip_detail(request, id):
     # pay_id_
     context = {
         "pay": pay_id,
-        "pays": pay_ids,
+        "pays": pay_id.id,
         "num2words": num2word,
         "dates": dates,
         "basic": pay_id_basic,
@@ -772,11 +803,14 @@ class PayPeriodDeleteView(
         return PayrollRun.objects.filter(company=get_user_company(self.request.user))
 
 
-@permission_required("payroll.add_leaverequest", raise_exception=True)
+@login_required
 def apply_leave(request):
     try:
-        current_user = request.user.id
-        employee_profile = EmployeeProfile.objects.get(user_id=current_user)
+        company = get_user_company(request.user)
+        employee_profile = EmployeeProfile.objects.get(
+            user=request.user,
+            company=company,
+        )
     except EmployeeProfile.DoesNotExist:
         # This can happen if the OneToOneField relation from User to EmployeeProfile
         # is not yet created for this user, or if the related_name is different.
@@ -786,9 +820,10 @@ def apply_leave(request):
             "Your user account is not linked to an employee profile. Please contact HR.",
         )
         # Redirect to a relevant page, perhaps the main dashboard or a profile creation page
-        return redirect("payroll:hr_dashboard")
+        return redirect("payroll:dashboard")
     if request.method == "POST":
         form = LeaveRequestForm(request.POST)
+        form.instance.employee = employee_profile
         if form.is_valid():
             leave_request = form.save(commit=False)
             leave_request.employee = employee_profile
@@ -820,11 +855,15 @@ def leave_requests(request):
     try:
         employee_profile = user.employee_user
 
-        # HR / Staff with permission can see all requests
-        if user.has_perm("payroll.view_leaverequest"):
-            leave_requests_qs = LeaveRequest.objects.select_related(
-                "employee", "approved_by"
-            ).filter(employee__company=company).order_by("-created_at")
+        # HR / managers / admins can see all company requests; employees see their own.
+        if _can_manage_employee_requests(user) or user.has_perm(
+            "payroll.view_leaverequest"
+        ):
+            leave_requests_qs = (
+                LeaveRequest.objects.select_related("employee", "approved_by")
+                .filter(employee__company=company)
+                .order_by("-created_at")
+            )
         else:
             leave_requests_qs = LeaveRequest.objects.filter(employee=employee_profile)
 
@@ -877,20 +916,19 @@ def leave_requests(request):
         "leave_taken": leave_taken,
         "pending_count": pending_count,
         "current_year": current_year,
-        "is_hr": user.has_perm("payroll.change_leaverequest"),
+        "is_hr": _can_manage_employee_requests(user),
     }
 
     # print(f"leave taken: {leave_taken}  ")
     # print(f"pending count: {pending_count}  ")
-    print(f" leave query: {leave_requests_qs}  ")
-
     return render(request, "employee/leave_requests_new.html", context)
 
 
-@permission_required(
-    "payroll.change_leaverequest", raise_exception=True
-)  # For managing any leave request
+@login_required
 def manage_leave_requests(request):
+    if not _can_manage_employee_requests(request.user):
+        return HttpResponseForbidden("You are not authorized to manage leave requests.")
+
     company = get_user_company(request.user)
     requests = LeaveRequest.objects.filter(
         employee__company=company, status="PENDING"
@@ -900,22 +938,34 @@ def manage_leave_requests(request):
     )
 
 
-@permission_required("payroll.change_leaverequest", raise_exception=True)
+@login_required
+@require_POST
 def approve_leave(request, pk):
+    if not _can_manage_employee_requests(request.user):
+        return HttpResponseForbidden(
+            "You are not authorized to approve leave requests."
+        )
+
     company = get_user_company(request.user)
     leave_request = get_object_or_404(LeaveRequest, pk=pk, employee__company=company)
     leave_request.status = "APPROVED"
+    leave_request.approved_by = request.user
     # Pass the current user to the save method for audit logging
     leave_request.save(user=request.user)
     messages.success(request, "Leave request approved.")
     return redirect("payroll:manage_leave_requests")
 
 
-@permission_required("payroll.change_leaverequest", raise_exception=True)
+@login_required
+@require_POST
 def reject_leave(request, pk):
+    if not _can_manage_employee_requests(request.user):
+        return HttpResponseForbidden("You are not authorized to reject leave requests.")
+
     company = get_user_company(request.user)
     leave_request = get_object_or_404(LeaveRequest, pk=pk, employee__company=company)
     leave_request.status = "REJECTED"
+    leave_request.approved_by = request.user
     # Pass current user to the save method for audit logging
     leave_request.save(user=request.user)
     messages.success(request, "Leave request rejected.")
@@ -934,12 +984,15 @@ def edit_leave_request(request, pk):
     company = get_user_company(request.user)
     leave_request = get_object_or_404(LeaveRequest, pk=pk, employee__company=company)
     # User must be owner or have general change permission
-    if not (
-        request.user == leave_request.employee.user
-        or request.user.has_perm("payroll.change_leaverequest")
-    ):
-        raise HttpResponseForbidden(
+    can_manage = _can_manage_employee_requests(request.user)
+    is_owner = request.user == leave_request.employee.user
+    if not (is_owner or can_manage):
+        return HttpResponseForbidden(
             "You are not authorized to edit this leave request."
+        )
+    if is_owner and not can_manage and leave_request.status != "PENDING":
+        return HttpResponseForbidden(
+            "You can only edit leave requests that are still pending."
         )
 
     if request.method == "POST":
@@ -959,12 +1012,15 @@ def delete_leave_request(request, pk):
     company = get_user_company(request.user)
     leave_request = get_object_or_404(LeaveRequest, pk=pk, employee__company=company)
     # User must be owner or have general delete permission
-    if not (
-        request.user == leave_request.employee.user
-        or request.user.has_perm("payroll.delete_leaverequest")
-    ):
-        raise HttpResponseForbidden(
+    can_manage = _can_manage_employee_requests(request.user)
+    is_owner = request.user == leave_request.employee.user
+    if not (is_owner or can_manage):
+        return HttpResponseForbidden(
             "You are not authorized to delete this leave request."
+        )
+    if is_owner and not can_manage and leave_request.status != "PENDING":
+        return HttpResponseForbidden(
+            "You can only delete leave requests that are still pending."
         )
     leave_request.delete()
     messages.success(request, "Leave request deleted successfully.")
@@ -978,9 +1034,10 @@ def view_leave_request(request, pk):
     # User must be owner or have general view permission
     if not (
         request.user == leave_request.employee.user
+        or _can_manage_employee_requests(request.user)
         or request.user.has_perm("payroll.view_leaverequest")
     ):
-        raise HttpResponseForbidden(
+        return HttpResponseForbidden(
             "You are not authorized to view this leave request."
         )
     return render(
@@ -989,12 +1046,14 @@ def view_leave_request(request, pk):
 
 
 @login_required
-@permission_required("payroll.add_iou", raise_exception=True)
 def request_iou(request):
     # Try to get the employee profile linked to the current user
     try:
-        current_user = request.user.id
-        employee_profile = EmployeeProfile.objects.get(user_id=current_user)
+        company = get_user_company(request.user)
+        employee_profile = EmployeeProfile.objects.get(
+            user=request.user,
+            company=company,
+        )
     except EmployeeProfile.DoesNotExist:
         # This can happen if the OneToOneField relation from User to EmployeeProfile
         # is not yet created for this user, or if the related_name is different.
@@ -1004,7 +1063,7 @@ def request_iou(request):
             "Your user account is not linked to an employee profile. Please contact HR.",
         )
         # Redirect to a relevant page, perhaps the main dashboard or a profile creation page
-        return redirect("payroll:hr_dashboard")  # Or any other appropriate URL
+        return redirect("payroll:dashboard")
 
     monthly_salary = employee_profile.net_pay or Decimal("0.00")
     if monthly_salary <= 0 and employee_profile.employee_pay:
@@ -1046,10 +1105,11 @@ def request_iou(request):
     return render(request, "iou/request_iou_new.html", context)
 
 
-@permission_required(
-    "payroll.change_iou", raise_exception=True
-)  # For approving/rejecting IOUs
+@login_required
 def approve_iou(request, iou_id):
+    if not _can_manage_employee_requests(request.user):
+        return HttpResponseForbidden("You are not authorized to approve IOU requests.")
+
     company = get_user_company(request.user)
     iou = get_object_or_404(IOU, id=iou_id, employee_id__company=company)
     if request.method == "POST":
@@ -1067,7 +1127,6 @@ def approve_iou(request, iou_id):
 
 class IOUUpdateView(
     LoginRequiredMixin,
-    PermissionRequiredMixin,
     SuccessMessageMixin,
     UpdateView,
 ):
@@ -1075,15 +1134,26 @@ class IOUUpdateView(
     form_class = IOUUpdateForm
     template_name = "iou/iou_update_form.html"  # Path to your update template
     context_object_name = "iou"  # To match {{ iou }} in your template
-    success_url = reverse_lazy(
-        "payroll:iou_list"
-    )  # Redirect to IOU list view (assuming you have one)
+    success_url = reverse_lazy("payroll:iou_history")
     success_message = "IOU request updated successfully."
-    permission_required = "payroll.change_iou"
 
     def get_queryset(self):
         company = get_user_company(self.request.user)
-        return IOU.objects.filter(employee_id__company=company)
+        if _can_manage_employee_requests(self.request.user):
+            return IOU.objects.filter(employee_id__company=company)
+
+        try:
+            employee_profile = EmployeeProfile.objects.get(
+                user=self.request.user,
+                company=company,
+            )
+        except EmployeeProfile.DoesNotExist:
+            return IOU.objects.none()
+        return IOU.objects.filter(
+            employee_id=employee_profile,
+            employee_id__company=company,
+            status="PENDING",
+        )
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -1101,7 +1171,6 @@ class IOUUpdateView(
 
 class IOUDeleteView(
     LoginRequiredMixin,
-    PermissionRequiredMixin,
     SuccessMessageMixin,
     DeleteView,
 ):
@@ -1110,25 +1179,39 @@ class IOUDeleteView(
         "iou/iou_confirm_delete.html"  # Path to your delete confirmation template
     )
     context_object_name = "iou"
-    success_url = reverse_lazy("payroll:iou_list")  # Redirect to IOU list view
+    success_url = reverse_lazy("payroll:iou_history")
     success_message = "IOU request deleted successfully."
-    permission_required = "payroll.delete_iou"
 
     def get_queryset(self):
         company = get_user_company(self.request.user)
-        return IOU.objects.filter(employee_id__company=company)
+        if _can_manage_employee_requests(self.request.user):
+            return IOU.objects.filter(employee_id__company=company)
+
+        try:
+            employee_profile = EmployeeProfile.objects.get(
+                user=self.request.user,
+                company=company,
+            )
+        except EmployeeProfile.DoesNotExist:
+            return IOU.objects.none()
+        return IOU.objects.filter(
+            employee_id=employee_profile,
+            employee_id__company=company,
+            status="PENDING",
+        )
 
 
 @login_required  # Shows user's own IOUs or all if staff/has permission
 def iou_history(request):
-    # Check if user can view payroll data (auditors have view-only access)
-    if not can_view_payroll_data(request.user):
-        return HttpResponseForbidden("You don't have permission to view payroll data.")
-
+    company = get_user_company(request.user)
     try:
-        employee_profile = request.user.employee_user
-        company = get_user_company(request.user)
-        if request.user.has_perm("payroll.view_iou"):  # Staff/HR with general view perm
+        employee_profile = EmployeeProfile.objects.get(
+            user=request.user,
+            company=company,
+        )
+        if _can_manage_employee_requests(request.user) or request.user.has_perm(
+            "payroll.view_iou"
+        ):
             ious = IOU.objects.filter(employee_id__company=company).order_by(
                 "-created_at"
             )
@@ -1138,10 +1221,17 @@ def iou_history(request):
                 employee_id__company=company,
             ).order_by("-created_at")
     except EmployeeProfile.DoesNotExist:
-        ious = IOU.objects.none()
-        messages.info(
-            request, "Your user account is not linked to an employee profile."
-        )
+        if _can_manage_employee_requests(request.user) or can_view_payroll_data(
+            request.user
+        ):
+            ious = IOU.objects.filter(employee_id__company=company).order_by(
+                "-created_at"
+            )
+        else:
+            ious = IOU.objects.none()
+            messages.info(
+                request, "Your user account is not linked to an employee profile."
+            )
 
     pending_count = ious.filter(status="PENDING").count()
     approved_amount = (
@@ -1160,6 +1250,7 @@ def iou_history(request):
         "approved_amount": approved_amount,
         "outstanding_balance": outstanding_balance,
         "is_auditor": is_auditor(request.user),  # Add auditor flag for template
+        "can_manage_requests": _can_manage_employee_requests(request.user),
     }
     return render(request, "iou/iou_history_new.html", context)
 
@@ -1167,7 +1258,11 @@ def iou_history(request):
 @login_required
 def my_iou_tracker(request):
     try:
-        employee_profile = request.user.employee_user
+        company = get_user_company(request.user)
+        employee_profile = EmployeeProfile.objects.get(
+            user=request.user,
+            company=company,
+        )
     except EmployeeProfile.DoesNotExist:
         messages.info(
             request, "Your user account is not linked to an employee profile."
@@ -1185,7 +1280,10 @@ def my_iou_tracker(request):
             },
         )
 
-    ious = IOU.objects.filter(employee_id=employee_profile).order_by("-created_at")
+    ious = IOU.objects.filter(
+        employee_id=employee_profile,
+        employee_id__company=company,
+    ).order_by("-created_at")
     pending_count = ious.filter(status="PENDING").count()
     approved_count = ious.filter(status="APPROVED").count()
     rejected_count = ious.filter(status="REJECTED").count()
@@ -1292,7 +1390,7 @@ def restore_employee(request, id):
     return redirect("payroll:employee_list")
 
 
-@permission_required("payroll.change_iou", raise_exception=True)
+@permission_required("payroll.view_iou", raise_exception=True)
 def iou_list(request):  # This is a general list, should be protected
     # If this is for admins/HR to see all IOUs:
     # if not request.user.has_perm('payroll.view_iou'):
@@ -1323,10 +1421,18 @@ def iou_detail(request, pk):
     iou = get_object_or_404(IOU, pk=pk, employee_id__company=company)
     if not (
         request.user == iou.employee_id.user
+        or _can_manage_employee_requests(request.user)
         or request.user.has_perm("payroll.view_iou")
     ):
-        raise HttpResponseForbidden("You are not authorized to view this IOU.")
-    return render(request, "iou/iou_detail.html", {"iou": iou})
+        return HttpResponseForbidden("You are not authorized to view this IOU.")
+    return render(
+        request,
+        "iou/iou_detail.html",
+        {
+            "iou": iou,
+            "can_manage_requests": _can_manage_employee_requests(request.user),
+        },
+    )
 
 
 @login_required
@@ -1335,10 +1441,11 @@ def iou_payment_slip(request, pk):
     iou = get_object_or_404(IOU, pk=pk, employee_id__company=company)
     if not (
         request.user == iou.employee_id.user
+        or _can_manage_employee_requests(request.user)
         or request.user.has_perm("payroll.view_iou")
         or request.user.has_perm("payroll.change_iou")
     ):
-        raise HttpResponseForbidden(
+        return HttpResponseForbidden(
             "You are not authorized to view this IOU payment slip."
         )
 
@@ -1431,17 +1538,10 @@ def payday_create_new(request):
                 request,
                 f"Pay period '{payt.name}' created successfully with {employee_count} employees.",
             )
-            sent_count, skipped_email_details = _send_payslips_for_payroll_run(payt)
-            if sent_count:
+            if _queue_payslip_emails_for_payroll_run(payt):
                 messages.success(
                     request,
-                    f"Payslips emailed successfully to {sent_count} employee(s).",
-                )
-            if skipped_email_details:
-                messages.warning(
-                    request,
-                    f"{len(skipped_email_details)} employee(s) were skipped for payslip email: "
-                    + ", ".join(skipped_email_details),
+                    "Payslip emails are being sent in the background.",
                 )
             skipped = getattr(payt, "_skipped_employee_reasons", [])
             if skipped:
@@ -1531,17 +1631,10 @@ def payday_create(request):
                 request,
                 f"Pay period '{payt.name}' created successfully with {employee_count} employees.",
             )
-            sent_count, skipped_email_details = _send_payslips_for_payroll_run(payt)
-            if sent_count:
+            if _queue_payslip_emails_for_payroll_run(payt):
                 messages.success(
                     request,
-                    f"Payslips emailed successfully to {sent_count} employee(s).",
-                )
-            if skipped_email_details:
-                messages.warning(
-                    request,
-                    f"{len(skipped_email_details)} employee(s) were skipped for payslip email: "
-                    + ", ".join(skipped_email_details),
+                    "Payslip emails are being sent in the background.",
                 )
             if payt.closed:
                 txn = _get_payroll_close_journal_transaction_number(payt)

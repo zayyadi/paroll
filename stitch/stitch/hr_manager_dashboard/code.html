@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Pulse HR | Editorial Command Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;700;800&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "on-primary-fixed": "#001f28",
+                        "tertiary-fixed-dim": "#feb77d",
+                        "inverse-surface": "#2e3132",
+                        "secondary": "#536167",
+                        "surface-variant": "#e2e2e3",
+                        "surface-container-low": "#f3f4f4",
+                        "on-surface-variant": "#40484c",
+                        "outline-variant": "#bfc8cc",
+                        "on-secondary-container": "#58676d",
+                        "on-surface": "#1a1c1d",
+                        "tertiary": "#5f3201",
+                        "on-secondary-fixed-variant": "#3b494f",
+                        "outline": "#70787d",
+                        "on-tertiary-fixed-variant": "#6b3b09",
+                        "on-primary-container": "#8fd2ed",
+                        "on-error-container": "#93000a",
+                        "on-tertiary": "#ffffff",
+                        "surface-container-highest": "#e2e2e3",
+                        "inverse-on-surface": "#f0f1f2",
+                        "secondary-fixed": "#d6e5ec",
+                        "on-secondary-fixed": "#101d23",
+                        "secondary-fixed-dim": "#bac9d0",
+                        "on-primary-fixed-variant": "#004d61",
+                        "surface-container-high": "#e7e8e9",
+                        "secondary-container": "#d6e5ec",
+                        "on-background": "#1a1c1d",
+                        "primary-container": "#005c73",
+                        "surface-container-lowest": "#ffffff",
+                        "on-tertiary-fixed": "#2e1500",
+                        "error-container": "#ffdad6",
+                        "on-primary": "#ffffff",
+                        "on-tertiary-container": "#ffbb83",
+                        "primary-fixed-dim": "#8dd0ea",
+                        "background": "#f9f9fa",
+                        "surface-container": "#edeeef",
+                        "error": "#ba1a1a",
+                        "inverse-primary": "#8dd0ea",
+                        "surface-dim": "#d9dadb",
+                        "tertiary-container": "#7b4817",
+                        "surface": "#f9f9fa",
+                        "surface-tint": "#18667e",
+                        "tertiary-fixed": "#ffdcc2",
+                        "on-secondary": "#ffffff",
+                        "on-error": "#ffffff",
+                        "primary-fixed": "#b8eaff",
+                        "primary": "#004355",
+                        "surface-bright": "#f9f9fa"
+                    },
+                    fontFamily: {
+                        "headline": ["Manrope"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        body { font-family: 'Inter', sans-serif; }
+        h1, h2, h3 { font-family: 'Manrope', sans-serif; }
+    </style>
+</head>
+<body class="bg-background text-on-background antialiased">
+<!-- SideNavBar Component -->
+<aside class="fixed left-0 top-0 h-full w-64 bg-slate-50 dark:bg-slate-950 flex flex-col p-4 space-y-2 z-50">
+<div class="mb-8 px-2 flex items-center gap-3">
+<div class="w-10 h-10 bg-primary-container rounded-lg flex items-center justify-center">
+<span class="material-symbols-outlined text-on-primary-container" style="font-variation-settings: 'FILL' 1;">pulse_alert</span>
+</div>
+<div>
+<h1 class="font-['Manrope'] font-black text-2xl text-teal-900 dark:text-teal-50 leading-none">Pulse HR</h1>
+<p class="text-[10px] uppercase tracking-widest text-slate-500 font-bold mt-1">Editorial Command</p>
+</div>
+</div>
+<nav class="flex-1 space-y-1">
+<a class="flex items-center gap-3 px-4 py-3 bg-white dark:bg-slate-800 text-teal-900 dark:text-teal-100 font-bold shadow-sm rounded-lg transition-all" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">dashboard</span>
+<span>Dashboard</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-600 dark:text-slate-400 hover:bg-slate-200/50 dark:hover:bg-slate-800/50 hover:translate-x-1 transition-transform duration-200 rounded-lg" href="#">
+<span class="material-symbols-outlined">groups</span>
+<span>Staff Directory</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-600 dark:text-slate-400 hover:bg-slate-200/50 dark:hover:bg-slate-800/50 hover:translate-x-1 transition-transform duration-200 rounded-lg" href="#">
+<span class="material-symbols-outlined">payments</span>
+<span>Payroll Hub</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-600 dark:text-slate-400 hover:bg-slate-200/50 dark:hover:bg-slate-800/50 hover:translate-x-1 transition-transform duration-200 rounded-lg" href="#">
+<span class="material-symbols-outlined">gavel</span>
+<span>Disciplinary</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-600 dark:text-slate-400 hover:bg-slate-200/50 dark:hover:bg-slate-800/50 hover:translate-x-1 transition-transform duration-200 rounded-lg" href="#">
+<span class="material-symbols-outlined">shield_person</span>
+<span>Admin Panel</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-600 dark:text-slate-400 hover:bg-slate-200/50 dark:hover:bg-slate-800/50 hover:translate-x-1 transition-transform duration-200 rounded-lg" href="#">
+<span class="material-symbols-outlined">account_circle</span>
+<span>My Profile</span>
+</a>
+</nav>
+<div class="pt-4 mt-4 border-t border-slate-200 dark:border-slate-800 space-y-1">
+<button class="w-full flex items-center gap-3 px-4 py-3 text-slate-600 dark:text-slate-400 hover:bg-slate-200/50 dark:hover:bg-slate-800/50 rounded-lg transition-all">
+<span class="material-symbols-outlined">help_outline</span>
+<span>Support</span>
+</button>
+<button class="w-full flex items-center gap-3 px-4 py-3 text-error hover:bg-error-container/20 rounded-lg transition-all">
+<span class="material-symbols-outlined">logout</span>
+<span>Sign Out</span>
+</button>
+</div>
+</aside>
+<!-- Main Content Canvas -->
+<main class="ml-64 min-h-screen flex flex-col">
+<!-- TopNavBar Component -->
+<header class="fixed top-0 right-0 left-64 h-16 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md flex justify-between items-center px-8 z-40">
+<div class="flex items-center gap-4 flex-1 max-w-xl">
+<div class="relative w-full">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">search</span>
+<input class="w-full pl-10 pr-4 py-2 bg-surface-container-low border-none rounded-lg text-sm focus:ring-2 focus:ring-surface-tint/40 transition-all" placeholder="Search employee records, documents..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-6">
+<div class="flex items-center gap-2">
+<button class="p-2 text-slate-500 hover:text-teal-900 transition-colors relative">
+<span class="material-symbols-outlined">notifications</span>
+<span class="absolute top-2 right-2 w-2 h-2 bg-error rounded-full"></span>
+</button>
+<button class="p-2 text-slate-500 hover:text-teal-900 transition-colors">
+<span class="material-symbols-outlined">settings</span>
+</button>
+</div>
+<div class="h-8 w-px bg-slate-200 dark:bg-slate-700 mx-2"></div>
+<div class="flex items-center gap-3 cursor-pointer group">
+<div class="text-right hidden lg:block">
+<p class="text-xs font-bold text-teal-900 dark:text-teal-50">Eleanor Vance</p>
+<p class="text-[10px] text-slate-500 uppercase tracking-tighter">Chief People Officer</p>
+</div>
+<img alt="Executive Profile" class="w-10 h-10 rounded-full object-cover ring-2 ring-primary/10 group-hover:ring-primary/30 transition-all" data-alt="professional portrait of a high-level female executive with a confident smile in a modern bright office environment" src="https://lh3.googleusercontent.com/aida-public/AB6AXuALY15nWrWzesJi_O7q_yRhXbPKx_EIuvtf1VZQ96XE6J2lRDFl-BV4AHecc7XLAopVkoRfUsjsXJqBZLFLR8DIsFFqkGmkFNnDV0zmVdmowSpwVAfn-eXB6gao9vIqy8VR7ZpCv4TAWzMvpZG6-4xzuV7iyJJ-D-Ip_xJjFiEw8FoI8qJJoiBryf79bnqs9fzpxzqYzUmV1TGPNWG2AFZh6ObLJgM1jcJiL-Naa1v_10ItUqjwfyZhoXBeiVoHzdXmOKsr0xkXuGM"/>
+</div>
+</div>
+</header>
+<!-- Dashboard Body -->
+<div class="pt-24 px-10 pb-12 flex-1">
+<!-- Hero Header Section -->
+<section class="mb-10 flex flex-col md:flex-row md:items-end justify-between gap-6">
+<div>
+<h2 class="text-4xl font-extrabold tracking-tighter text-teal-900 dark:text-teal-50 mb-2">Quarterly Organizational Pulse</h2>
+<p class="text-on-surface-variant max-w-2xl font-body leading-relaxed">System-wide overview of talent health, retention strategies, and fiscal impact across all global departments.</p>
+</div>
+<div class="flex gap-3">
+<button class="px-6 py-3 bg-surface-container-high text-on-secondary-container font-semibold rounded-lg hover:bg-surface-container-highest transition-all flex items-center gap-2">
+<span class="material-symbols-outlined text-lg">download</span>
+                        Export Report
+                    </button>
+<button class="px-6 py-3 bg-gradient-to-br from-primary to-primary-container text-white font-semibold rounded-lg shadow-lg hover:opacity-90 transition-all flex items-center gap-2">
+<span class="material-symbols-outlined text-lg">add</span>
+                        New Entry
+                    </button>
+</div>
+</section>
+<!-- Bento Grid Metrics -->
+<div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
+<!-- Pulse Widget 1 -->
+<div class="md:col-span-2 bg-surface-container-lowest p-8 rounded-xl shadow-sm border-l-4 border-tertiary-fixed relative overflow-hidden group">
+<div class="relative z-10">
+<p class="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 mb-6">Organizational Health Score</p>
+<div class="flex items-baseline gap-4">
+<span class="text-6xl font-black text-teal-900 tracking-tighter">84.2</span>
+<span class="text-sm font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-md flex items-center gap-1">
+<span class="material-symbols-outlined text-sm">trending_up</span> +3.1%
+                            </span>
+</div>
+<p class="text-sm text-on-surface-variant mt-4 leading-snug">Employee engagement is at a 2-year high, driven by the new "Hybrid First" policy implementation.</p>
+</div>
+<!-- Abstract Background Visual -->
+<div class="absolute right-0 bottom-0 opacity-5 group-hover:opacity-10 transition-opacity">
+<span class="material-symbols-outlined text-[160px]" style="font-variation-settings: 'FILL' 1;">analytics</span>
+</div>
+</div>
+<!-- Stats Card 2 -->
+<div class="bg-surface-container-lowest p-8 rounded-xl shadow-sm group">
+<div class="flex justify-between items-start mb-6">
+<span class="material-symbols-outlined text-primary-container p-2 bg-primary-fixed rounded-lg">group_add</span>
+<span class="text-xs font-medium text-slate-400">Monthly</span>
+</div>
+<p class="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Recruitment</p>
+<div class="text-3xl font-extrabold text-on-surface tracking-tight mt-1">28 New Hires</div>
+<div class="mt-4 flex gap-1 h-1">
+<div class="w-full bg-primary rounded-full"></div>
+<div class="w-1/3 bg-slate-200 rounded-full"></div>
+</div>
+</div>
+<!-- Stats Card 3 -->
+<div class="bg-surface-container-lowest p-8 rounded-xl shadow-sm group">
+<div class="flex justify-between items-start mb-6">
+<span class="material-symbols-outlined text-tertiary-container p-2 bg-tertiary-fixed rounded-lg">timer</span>
+<span class="text-xs font-medium text-slate-400">Pending</span>
+</div>
+<p class="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Leave Approvals</p>
+<div class="text-3xl font-extrabold text-on-surface tracking-tight mt-1">14 Requests</div>
+<p class="text-xs text-on-surface-variant mt-4">Requires attention by end of day</p>
+</div>
+</div>
+<!-- Main Dashboard Layout -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-10">
+<!-- Center Column: Data Visualizations -->
+<div class="lg:col-span-2 space-y-10">
+<!-- Turnover Chart Area -->
+<section class="bg-surface-container-low rounded-2xl p-8">
+<div class="flex justify-between items-center mb-8">
+<h3 class="text-xl font-bold tracking-tight text-teal-900">Retention &amp; Attrition Trends</h3>
+<div class="flex bg-white rounded-lg p-1 shadow-inner">
+<button class="px-4 py-1 text-xs font-bold bg-slate-100 rounded-md">12 Months</button>
+<button class="px-4 py-1 text-xs font-medium text-slate-500">6 Months</button>
+</div>
+</div>
+<!-- Mock Chart Visualization -->
+<div class="h-64 flex items-end justify-between gap-4 px-2">
+<div class="flex-1 flex flex-col items-center gap-2">
+<div class="w-full bg-primary-container/20 h-40 rounded-t-lg relative">
+<div class="absolute bottom-0 w-full bg-primary h-24 rounded-t-lg"></div>
+</div>
+<span class="text-[10px] font-bold text-slate-400">JAN</span>
+</div>
+<div class="flex-1 flex flex-col items-center gap-2">
+<div class="w-full bg-primary-container/20 h-32 rounded-t-lg relative">
+<div class="absolute bottom-0 w-full bg-primary h-16 rounded-t-lg"></div>
+</div>
+<span class="text-[10px] font-bold text-slate-400">FEB</span>
+</div>
+<div class="flex-1 flex flex-col items-center gap-2">
+<div class="w-full bg-primary-container/20 h-48 rounded-t-lg relative">
+<div class="absolute bottom-0 w-full bg-primary h-36 rounded-t-lg"></div>
+</div>
+<span class="text-[10px] font-bold text-slate-400">MAR</span>
+</div>
+<div class="flex-1 flex flex-col items-center gap-2">
+<div class="w-full bg-primary-container/20 h-36 rounded-t-lg relative">
+<div class="absolute bottom-0 w-full bg-primary h-20 rounded-t-lg"></div>
+</div>
+<span class="text-[10px] font-bold text-slate-400">APR</span>
+</div>
+<div class="flex-1 flex flex-col items-center gap-2">
+<div class="w-full bg-primary-container/20 h-52 rounded-t-lg relative">
+<div class="absolute bottom-0 w-full bg-primary h-44 rounded-t-lg"></div>
+</div>
+<span class="text-[10px] font-bold text-slate-400">MAY</span>
+</div>
+<div class="flex-1 flex flex-col items-center gap-2">
+<div class="w-full bg-primary-container/20 h-44 rounded-t-lg relative">
+<div class="absolute bottom-0 w-full bg-primary h-32 rounded-t-lg"></div>
+</div>
+<span class="text-[10px] font-bold text-slate-400">JUN</span>
+</div>
+</div>
+<div class="mt-8 grid grid-cols-2 gap-4">
+<div class="bg-white p-4 rounded-xl flex items-center gap-4">
+<div class="w-2 h-10 bg-primary rounded-full"></div>
+<div>
+<p class="text-[10px] font-bold uppercase tracking-widest text-slate-400">Average Tenure</p>
+<p class="text-xl font-black text-teal-900">4.2 Years</p>
+</div>
+</div>
+<div class="bg-white p-4 rounded-xl flex items-center gap-4">
+<div class="w-2 h-10 bg-tertiary rounded-full"></div>
+<div>
+<p class="text-[10px] font-bold uppercase tracking-widest text-slate-400">Churn Rate</p>
+<p class="text-xl font-black text-teal-900">2.8%</p>
+</div>
+</div>
+</div>
+</section>
+<!-- Staff Directory Quick Look -->
+<section class="bg-surface-container-lowest rounded-2xl p-8">
+<div class="flex justify-between items-center mb-10">
+<div>
+<h3 class="text-xl font-bold tracking-tight text-teal-900">Recent Onboarding</h3>
+<p class="text-sm text-on-surface-variant">4 talent acquisitions joined this week</p>
+</div>
+<a class="text-sm font-bold text-primary underline underline-offset-4" href="#">View All Staff</a>
+</div>
+<div class="space-y-6">
+<div class="flex items-center justify-between group cursor-pointer">
+<div class="flex items-center gap-4">
+<img class="w-12 h-12 rounded-full object-cover" data-alt="close-up portrait of a diverse male professional in a modern office with creative lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCFLG2rmyGr7Br3q8291tOTQj6iBbldhhZcR-ckoVwz7z5n6A0-u4RnWe7HHQzwS37i_fHS3DCv5MPCr3DEVMbWIXSnFdsI5ox2aVdkGhNEdNsaol7FM4gEYe555yQT3dWA6sZL1A0K5ii1xV-asjFDF9H87CqiVnfX1l_hWdzR8KQRdpO0mjys_49zF_aQIcnnly2mfkGkUppCU2rVhZDjjSXnoJUjNiPcXYWK1EhT8nySJ_ljb5yT352H3JUBtudGN4xcR6BQMbs"/>
+<div>
+<p class="font-bold text-on-surface">Marcus Holloway</p>
+<p class="text-xs text-on-surface-variant">Senior Product Designer • Engineering</p>
+</div>
+</div>
+<div class="text-right">
+<p class="text-xs font-bold text-teal-900">Joined June 12</p>
+<span class="text-[10px] uppercase tracking-widest text-emerald-600 font-bold px-2 py-1 bg-emerald-50 rounded">Active</span>
+</div>
+</div>
+<div class="flex items-center justify-between group cursor-pointer">
+<div class="flex items-center gap-4">
+<img class="w-12 h-12 rounded-full object-cover" data-alt="professional portrait of a smiling young woman with bright energetic lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDwRZqwTQcjAzXxXlFdphn8U3w7cpsffZPzITcCLtStYIhIDRpA9b0adWKcBnw_BFi5FcpjYdMZTofqhFxjgns7LU1R3pvlU-lkltb8GgzWzx2O5yHAp-n42EtqbkB-WOYX6gD7THeWhfIhghf4imCBRVxw66b9E34v6GMPF9Sjkk5aDU8NyAcvob7JBPvfX8nHA8zUmMaCsm71fO80O-jGIvfV25kwhYxWiKQA-o6qq-ukd_UwmfWFQ_GLZhtMdP3YHmtTpsAJjPo"/>
+<div>
+<p class="font-bold text-on-surface">Elena Rodriguez</p>
+<p class="text-xs text-on-surface-variant">Marketing Lead • Growth</p>
+</div>
+</div>
+<div class="text-right">
+<p class="text-xs font-bold text-teal-900">Joined June 14</p>
+<span class="text-[10px] uppercase tracking-widest text-emerald-600 font-bold px-2 py-1 bg-emerald-50 rounded">Active</span>
+</div>
+</div>
+<div class="flex items-center justify-between group cursor-pointer">
+<div class="flex items-center gap-4">
+<img class="w-12 h-12 rounded-full object-cover" data-alt="mature male business professional in smart casual attire looking thoughtfully at camera" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAEz1dINPFoRSzgDGWhktQzBN4XkJteV1oFbdWkPu3i1fdwCM2RKpZTUTtQzcq-1fx_wtyy37Uw-PS9HJ8x1vIjfTt5Bq3KDF3GXGWvwvP_nLhuWv7zjIVwnxy6zq2YhNUwORLqN9XwZJSiiaGzAOOUzupJC09xotEtzF4hN6zYVETHyzLyXEk7CzQ6APbuW7Xst0-7pkjy2hudYjRnhoOE_KD7v7cX4Np_5oDFYtNTx1rOCPNjf_ISDpCbHNXsPhVBZ2-fEYbFKN8"/>
+<div>
+<p class="font-bold text-on-surface">Dr. Simon Chen</p>
+<p class="text-xs text-on-surface-variant">AI Ethics Officer • Compliance</p>
+</div>
+</div>
+<div class="text-right">
+<p class="text-xs font-bold text-teal-900">Joined June 15</p>
+<span class="text-[10px] uppercase tracking-widest text-amber-600 font-bold px-2 py-1 bg-amber-50 rounded">In Progress</span>
+</div>
+</div>
+</div>
+</section>
+</div>
+<!-- Right Column: Contextual Actions & Alerts -->
+<div class="space-y-8">
+<!-- High Priority Approvals -->
+<section class="bg-surface-container-highest/30 backdrop-blur-md rounded-2xl p-6">
+<div class="flex items-center gap-2 mb-6">
+<span class="material-symbols-outlined text-tertiary">priority_high</span>
+<h3 class="font-bold text-teal-900 uppercase tracking-widest text-xs">Urgent Approvals</h3>
+</div>
+<div class="space-y-4">
+<div class="bg-white p-4 rounded-xl shadow-sm hover:shadow-md transition-shadow">
+<div class="flex justify-between mb-2">
+<span class="text-[10px] font-bold text-slate-400">SICK LEAVE</span>
+<span class="text-[10px] font-bold text-error">URGENT</span>
+</div>
+<p class="text-sm font-bold text-on-surface">Sarah Jenkins</p>
+<p class="text-xs text-on-surface-variant mt-1">3 Days (Medical cert attached)</p>
+<div class="flex gap-2 mt-4">
+<button class="flex-1 py-2 text-xs font-bold bg-primary text-white rounded-md">Approve</button>
+<button class="flex-1 py-2 text-xs font-bold bg-surface-container-low text-on-surface-variant rounded-md">Deny</button>
+</div>
+</div>
+<div class="bg-white p-4 rounded-xl shadow-sm hover:shadow-md transition-shadow">
+<div class="flex justify-between mb-2">
+<span class="text-[10px] font-bold text-slate-400">EXPENSE CLAIM</span>
+<span class="text-[10px] font-bold text-primary">REVIEW</span>
+</div>
+<p class="text-sm font-bold text-on-surface">Liam O'Connell</p>
+<p class="text-xs text-on-surface-variant mt-1">$1,240.50 • Tech Summit SF</p>
+<div class="flex gap-2 mt-4">
+<button class="flex-1 py-2 text-xs font-bold bg-primary text-white rounded-md">Approve</button>
+<button class="flex-1 py-2 text-xs font-bold bg-surface-container-low text-on-surface-variant rounded-md">Details</button>
+</div>
+</div>
+</div>
+</section>
+<!-- Recruitment Health -->
+<section class="bg-teal-900 text-white rounded-2xl p-8 relative overflow-hidden">
+<div class="relative z-10">
+<h3 class="text-xl font-bold tracking-tight mb-2">Talent Pipeline</h3>
+<p class="text-teal-200 text-xs mb-8">Active vacancies across 4 departments</p>
+<div class="space-y-4">
+<div>
+<div class="flex justify-between text-xs font-bold mb-1 uppercase tracking-widest">
+<span>Engineering</span>
+<span>12 Candidates</span>
+</div>
+<div class="h-2 bg-white/10 rounded-full">
+<div class="h-2 bg-white rounded-full w-4/5"></div>
+</div>
+</div>
+<div>
+<div class="flex justify-between text-xs font-bold mb-1 uppercase tracking-widest">
+<span>Product Management</span>
+<span>8 Candidates</span>
+</div>
+<div class="h-2 bg-white/10 rounded-full">
+<div class="h-2 bg-white rounded-full w-2/5"></div>
+</div>
+</div>
+<div>
+<div class="flex justify-between text-xs font-bold mb-1 uppercase tracking-widest">
+<span>Customer Success</span>
+<span>24 Candidates</span>
+</div>
+<div class="h-2 bg-white/10 rounded-full">
+<div class="h-2 bg-white rounded-full w-3/5"></div>
+</div>
+</div>
+</div>
+<button class="w-full mt-10 py-3 bg-white text-teal-900 font-bold rounded-lg hover:bg-teal-50 transition-colors">Manage Hiring Boards</button>
+</div>
+<div class="absolute -right-12 -bottom-12 w-48 h-48 bg-teal-800 rounded-full blur-3xl opacity-50"></div>
+</section>
+<!-- Payroll Alert -->
+<div class="p-6 bg-tertiary-fixed rounded-2xl flex items-start gap-4">
+<span class="material-symbols-outlined text-tertiary-container mt-1">payments</span>
+<div>
+<p class="text-xs font-bold text-tertiary-container uppercase tracking-widest">Payroll Lock</p>
+<p class="text-sm font-bold text-on-tertiary-fixed mt-1">Final reconciliation for July is due in 48 hours.</p>
+<button class="mt-3 text-xs font-bold text-tertiary underline underline-offset-4">Review Ledger</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Footer Component -->
+<footer class="w-full py-8 mt-auto border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-950 flex flex-col md:flex-row justify-between items-center px-12">
+<div class="flex flex-col items-center md:items-start gap-2">
+<span class="font-bold text-teal-950 dark:text-white">Pulse HR</span>
+<p class="font-['Inter'] text-xs uppercase tracking-widest text-slate-400">© 2024 Pulse HR. Professional Editorial Management.</p>
+</div>
+<div class="flex gap-8 mt-6 md:mt-0">
+<a class="font-['Inter'] text-xs uppercase tracking-widest text-slate-400 hover:text-teal-600 transition-colors" href="#">Privacy Policy</a>
+<a class="font-['Inter'] text-xs uppercase tracking-widest text-slate-400 hover:text-teal-600 transition-colors" href="#">Service Terms</a>
+<a class="font-['Inter'] text-xs uppercase tracking-widest text-slate-400 hover:text-teal-600 transition-colors" href="#">Cookie Settings</a>
+</div>
+</footer>
+</main>
+<!-- Contextual FAB - Only for Dashboard/Home -->
+<button class="fixed bottom-8 right-8 w-14 h-14 bg-primary text-white rounded-full shadow-2xl flex items-center justify-center hover:scale-110 active:scale-95 transition-all group z-50">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">add</span>
+<div class="absolute right-full mr-4 bg-on-surface text-white px-3 py-1 rounded text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity">
+            Quick Entry
+        </div>
+</button>
+</body></html>

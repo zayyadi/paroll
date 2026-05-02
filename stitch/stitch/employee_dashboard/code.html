@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Pulse HR - Employee Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;family=Inter:wght@300;400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "on-primary-fixed": "#001f28",
+                        "tertiary-fixed-dim": "#feb77d",
+                        "inverse-surface": "#2e3132",
+                        "secondary": "#536167",
+                        "surface-variant": "#e2e2e3",
+                        "surface-container-low": "#f3f4f4",
+                        "on-surface-variant": "#40484c",
+                        "outline-variant": "#bfc8cc",
+                        "on-secondary-container": "#58676d",
+                        "on-surface": "#1a1c1d",
+                        "tertiary": "#5f3201",
+                        "on-secondary-fixed-variant": "#3b494f",
+                        "outline": "#70787d",
+                        "on-tertiary-fixed-variant": "#6b3b09",
+                        "on-primary-container": "#8fd2ed",
+                        "on-error-container": "#93000a",
+                        "on-tertiary": "#ffffff",
+                        "surface-container-highest": "#e2e2e3",
+                        "inverse-on-surface": "#f0f1f2",
+                        "secondary-fixed": "#d6e5ec",
+                        "on-secondary-fixed": "#101d23",
+                        "secondary-fixed-dim": "#bac9d0",
+                        "on-primary-fixed-variant": "#004d61",
+                        "surface-container-high": "#e7e8e9",
+                        "secondary-container": "#d6e5ec",
+                        "on-background": "#1a1c1d",
+                        "primary-container": "#005c73",
+                        "surface-container-lowest": "#ffffff",
+                        "on-tertiary-fixed": "#2e1500",
+                        "error-container": "#ffdad6",
+                        "on-primary": "#ffffff",
+                        "on-tertiary-container": "#ffbb83",
+                        "primary-fixed-dim": "#8dd0ea",
+                        "background": "#f9f9fa",
+                        "surface-container": "#edeeef",
+                        "error": "#ba1a1a",
+                        "inverse-primary": "#8dd0ea",
+                        "surface-dim": "#d9dadb",
+                        "tertiary-container": "#7b4817",
+                        "surface": "#f9f9fa",
+                        "surface-tint": "#18667e",
+                        "tertiary-fixed": "#ffdcc2",
+                        "on-secondary": "#ffffff",
+                        "on-error": "#ffffff",
+                        "primary-fixed": "#b8eaff",
+                        "primary": "#004355",
+                        "surface-bright": "#f9f9fa"
+                    },
+                    fontFamily: {
+                        "headline": ["Manrope"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body { font-family: 'Inter', sans-serif; }
+        h1, h2, h3, .headline { font-family: 'Manrope', sans-serif; }
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(12px);
+        }
+    </style>
+</head>
+<body class="bg-surface text-on-surface antialiased">
+<!-- Sidebar Navigation -->
+<aside class="fixed left-0 top-0 h-full w-64 bg-slate-50 dark:bg-slate-950 flex flex-col p-4 space-y-2 z-50">
+<div class="mb-8 px-2">
+<h1 class="font-['Manrope'] font-black text-2xl text-teal-900 dark:text-teal-50 tracking-tighter">Pulse HR</h1>
+<p class="text-xs text-slate-500 font-['Inter'] uppercase tracking-widest mt-1">Editorial Command</p>
+</div>
+<nav class="flex-1 space-y-1">
+<a class="flex items-center gap-3 px-4 py-3 bg-white dark:bg-slate-800 text-teal-900 dark:text-teal-100 font-bold shadow-sm rounded-lg transition-all" href="#">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+<span>Dashboard</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-600 dark:text-slate-400 hover:bg-slate-200/50 dark:hover:bg-slate-800/50 hover:translate-x-1 transition-transform duration-200 rounded-lg" href="#">
+<span class="material-symbols-outlined" data-icon="groups">groups</span>
+<span>Staff Directory</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-600 dark:text-slate-400 hover:bg-slate-200/50 dark:hover:bg-slate-800/50 hover:translate-x-1 transition-transform duration-200 rounded-lg" href="#">
+<span class="material-symbols-outlined" data-icon="payments">payments</span>
+<span>Payroll Hub</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-600 dark:text-slate-400 hover:bg-slate-200/50 dark:hover:bg-slate-800/50 hover:translate-x-1 transition-transform duration-200 rounded-lg" href="#">
+<span class="material-symbols-outlined" data-icon="gavel">gavel</span>
+<span>Disciplinary</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-600 dark:text-slate-400 hover:bg-slate-200/50 dark:hover:bg-slate-800/50 hover:translate-x-1 transition-transform duration-200 rounded-lg" href="#">
+<span class="material-symbols-outlined" data-icon="shield_person">shield_person</span>
+<span>Admin Panel</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-600 dark:text-slate-400 hover:bg-slate-200/50 dark:hover:bg-slate-800/50 hover:translate-x-1 transition-transform duration-200 rounded-lg" href="#">
+<span class="material-symbols-outlined" data-icon="account_circle">account_circle</span>
+<span>My Profile</span>
+</a>
+</nav>
+<div class="pt-4 border-t border-slate-100 dark:border-slate-800 flex flex-col space-y-1">
+<a class="flex items-center gap-3 px-4 py-2 text-slate-400 text-xs uppercase tracking-widest hover:text-teal-600 transition-colors" href="#">
+<span class="material-symbols-outlined text-sm" data-icon="help_outline">help_outline</span>
+<span>Support</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-2 text-slate-400 text-xs uppercase tracking-widest hover:text-teal-600 transition-colors" href="#">
+<span class="material-symbols-outlined text-sm" data-icon="logout">logout</span>
+<span>Sign Out</span>
+</a>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="ml-64 min-h-screen">
+<!-- Top Bar -->
+<header class="h-16 flex justify-between items-center px-12 bg-white/80 backdrop-blur-md sticky top-0 z-40">
+<div class="flex items-center bg-surface-container-low px-4 py-2 rounded-full w-96">
+<span class="material-symbols-outlined text-slate-400 mr-2" data-icon="search">search</span>
+<input class="bg-transparent border-none focus:ring-0 text-sm w-full placeholder:text-slate-400" placeholder="Search records, files, or people..." type="text"/>
+</div>
+<div class="flex items-center gap-6">
+<button class="relative text-slate-500 hover:text-teal-900 transition-colors">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+<span class="absolute -top-1 -right-1 w-2 h-2 bg-error rounded-full"></span>
+</button>
+<button class="text-slate-500 hover:text-teal-900 transition-colors">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+</button>
+<div class="flex items-center gap-3 pl-6 border-l border-slate-100">
+<div class="text-right">
+<p class="text-sm font-bold text-teal-900">Marcus Thorne</p>
+<p class="text-[10px] uppercase tracking-tighter text-slate-500 font-semibold">Senior Editorial Director</p>
+</div>
+<img alt="Executive Profile" class="w-10 h-10 rounded-lg object-cover ring-2 ring-teal-50" data-alt="Close-up portrait of a professional man in a tailored charcoal suit against a clean studio background, executive and confident look." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAqJesiEWFXUzILYAluM2GueYBDjLnHTTUTQlXZNRTkiM_c2wyr1CIeIPv_J8sGFHy5gfpbKhw3NyeQ1LFnPc_uqIVGne2JZH5GuXrHxLmHqa-5j36U4JG5ted4F40Oc3_UTpi4VSf8211ljIgAA68fXg03uGyYsPYj70PG79Y1G73gHZV2ouV0CgqT4pRsyLtO-URlFUffkjoFi_XbwQVxPcH-yIhjNqzpxygtWYKaTKMAJp9ZDeSSZCs0xzFp6iFLBxC1xkBEuIw"/>
+</div>
+</div>
+</header>
+<!-- Page Canvas -->
+<div class="p-12 space-y-10">
+<!-- Hero Section / Welcome -->
+<section class="flex justify-between items-end">
+<div>
+<h2 class="text-4xl font-extrabold tracking-tight text-teal-950 mb-2">Welcome back, Marcus.</h2>
+<p class="text-on-surface-variant max-w-xl">Your editorial performance is up 12% this quarter. You have 3 pending appraisals and a budget review at 2:00 PM.</p>
+</div>
+<div class="flex gap-3">
+<button class="px-6 py-3 bg-surface-container-high text-on-secondary-container font-semibold rounded-lg hover:bg-surface-container-highest transition-all flex items-center gap-2">
+<span class="material-symbols-outlined text-xl" data-icon="history">history</span>
+                        Log Hours
+                    </button>
+<button class="px-6 py-3 bg-gradient-to-br from-primary to-primary-container text-white font-bold rounded-lg shadow-lg hover:shadow-xl transition-all flex items-center gap-2">
+<span class="material-symbols-outlined text-xl" data-icon="calendar_add_on">calendar_add_on</span>
+                        Request Leave
+                    </button>
+</div>
+</section>
+<!-- Bento Grid Dashboard -->
+<div class="grid grid-cols-12 gap-6">
+<!-- Performance Chart (Large) -->
+<div class="col-span-12 lg:col-span-8 bg-surface-container-lowest p-8 rounded-xl shadow-sm border-l-4 border-primary">
+<div class="flex justify-between items-center mb-8">
+<div>
+<h3 class="text-lg font-bold text-teal-950">Editorial Impact</h3>
+<p class="text-xs text-slate-500 uppercase tracking-widest">Performance Metrics (Last 6 Months)</p>
+</div>
+<div class="flex items-center gap-2 text-primary font-bold bg-primary-fixed/20 px-3 py-1 rounded-full text-xs">
+<span class="material-symbols-outlined text-sm" data-icon="trending_up">trending_up</span>
+                            +12.4%
+                        </div>
+</div>
+<!-- Mock Chart Visualization -->
+<div class="h-64 flex items-end justify-between gap-4 pt-4">
+<div class="w-full bg-slate-50 rounded-t-lg h-1/2 relative group">
+<div class="absolute inset-x-0 bottom-0 bg-primary/20 rounded-t-lg h-3/4 transition-all group-hover:bg-primary/40"></div>
+<span class="absolute -bottom-6 left-1/2 -translate-x-1/2 text-[10px] text-slate-400 font-bold">JAN</span>
+</div>
+<div class="w-full bg-slate-50 rounded-t-lg h-2/3 relative group">
+<div class="absolute inset-x-0 bottom-0 bg-primary/20 rounded-t-lg h-4/5 transition-all group-hover:bg-primary/40"></div>
+<span class="absolute -bottom-6 left-1/2 -translate-x-1/2 text-[10px] text-slate-400 font-bold">FEB</span>
+</div>
+<div class="w-full bg-slate-50 rounded-t-lg h-1/3 relative group">
+<div class="absolute inset-x-0 bottom-0 bg-primary/20 rounded-t-lg h-2/3 transition-all group-hover:bg-primary/40"></div>
+<span class="absolute -bottom-6 left-1/2 -translate-x-1/2 text-[10px] text-slate-400 font-bold">MAR</span>
+</div>
+<div class="w-full bg-slate-50 rounded-t-lg h-3/4 relative group">
+<div class="absolute inset-x-0 bottom-0 bg-primary/40 rounded-t-lg h-full transition-all group-hover:bg-primary/60"></div>
+<span class="absolute -bottom-6 left-1/2 -translate-x-1/2 text-[10px] text-teal-900 font-black">APR</span>
+</div>
+<div class="w-full bg-slate-50 rounded-t-lg h-1/2 relative group">
+<div class="absolute inset-x-0 bottom-0 bg-primary/20 rounded-t-lg h-1/2 transition-all group-hover:bg-primary/40"></div>
+<span class="absolute -bottom-6 left-1/2 -translate-x-1/2 text-[10px] text-slate-400 font-bold">MAY</span>
+</div>
+<div class="w-full bg-slate-50 rounded-t-lg h-4/5 relative group">
+<div class="absolute inset-x-0 bottom-0 bg-primary/20 rounded-t-lg h-2/3 transition-all group-hover:bg-primary/40"></div>
+<span class="absolute -bottom-6 left-1/2 -translate-x-1/2 text-[10px] text-slate-400 font-bold">JUN</span>
+</div>
+</div>
+</div>
+<!-- Leave Balance (Square) -->
+<div class="col-span-12 md:col-span-6 lg:col-span-4 bg-primary text-white p-8 rounded-xl shadow-lg relative overflow-hidden">
+<div class="relative z-10">
+<h3 class="text-sm font-bold opacity-80 uppercase tracking-widest mb-6">Leave Balance</h3>
+<div class="flex items-baseline gap-2">
+<span class="text-6xl font-black tracking-tighter">18</span>
+<span class="text-xl font-medium opacity-60">/ 25 Days</span>
+</div>
+<p class="mt-4 text-xs opacity-80 leading-relaxed">Available for use. Your next scheduled leave is in <span class="font-bold underline">14 days</span> (Annual Retreat).</p>
+</div>
+<!-- Decorative Graphic -->
+<div class="absolute -bottom-4 -right-4 opacity-10">
+<span class="material-symbols-outlined text-9xl" data-icon="beach_access">beach_access</span>
+</div>
+</div>
+<!-- Upcoming Tasks (Medium) -->
+<div class="col-span-12 md:col-span-6 lg:col-span-5 bg-surface-container-lowest p-8 rounded-xl shadow-sm">
+<div class="flex justify-between items-center mb-6">
+<h3 class="text-lg font-bold text-teal-950">Active Focus</h3>
+<a class="text-xs font-bold text-primary hover:underline" href="#">View All</a>
+</div>
+<div class="space-y-6">
+<div class="flex gap-4">
+<div class="w-10 h-10 rounded-lg bg-tertiary-fixed flex items-center justify-center text-tertiary shrink-0">
+<span class="material-symbols-outlined" data-icon="rate_review">rate_review</span>
+</div>
+<div>
+<h4 class="text-sm font-bold text-teal-900">Quarterly Content Audit</h4>
+<p class="text-xs text-on-surface-variant mt-1">Due today • Finance Dept.</p>
+</div>
+</div>
+<div class="flex gap-4">
+<div class="w-10 h-10 rounded-lg bg-secondary-container flex items-center justify-center text-secondary shrink-0">
+<span class="material-symbols-outlined" data-icon="assignment_turned_in">assignment_turned_in</span>
+</div>
+<div>
+<h4 class="text-sm font-bold text-teal-900">Policy Update Review</h4>
+<p class="text-xs text-on-surface-variant mt-1">Due tomorrow • Compliance</p>
+</div>
+</div>
+<div class="flex gap-4">
+<div class="w-10 h-10 rounded-lg bg-surface-container-high flex items-center justify-center text-slate-400 shrink-0">
+<span class="material-symbols-outlined" data-icon="groups">groups</span>
+</div>
+<div>
+<h4 class="text-sm font-bold text-teal-900">New Joiner Onboarding</h4>
+<p class="text-xs text-on-surface-variant mt-1">Friday, May 24 • HR Hub</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Quick Insight (Small) -->
+<div class="col-span-12 md:col-span-6 lg:col-span-3 bg-surface-container-lowest p-8 rounded-xl shadow-sm border-l-4 border-tertiary">
+<h3 class="text-sm font-bold text-teal-950 uppercase tracking-widest mb-6">Upcoming Payroll</h3>
+<div class="space-y-2">
+<p class="text-xs text-slate-500 font-medium">ESTIMATED DISBURSEMENT</p>
+<p class="text-3xl font-black text-teal-900">$8,420.00</p>
+</div>
+<div class="mt-8 pt-6 border-t border-slate-50">
+<div class="flex justify-between items-center text-xs">
+<span class="text-slate-500">Date</span>
+<span class="font-bold">May 30, 2024</span>
+</div>
+</div>
+</div>
+<!-- Personal Milestone (Small/Lifestyle) -->
+<div class="col-span-12 md:col-span-6 lg:col-span-4 relative rounded-xl overflow-hidden group">
+<img alt="Team Milestone" class="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" data-alt="Modern collaborative workspace with natural light, large windows, and indoor plants where professionals are working together in a relaxed atmosphere." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCzjcv-QR--thoRZyIOPlqQeKjNElsXCwj5xmei9aQLLyvhhoCpXFfbVJ4yuhJmd-tSZu5q39cPe8Y5VOhje2e71-QzD_Jb5MkkT0kjwMUeF-VzWUKNz0kkubkc_gtvyEMm6V6Lb8uvWOlWJSbHFjDVMOp5eseUcaYxu6afcyNiknIllB0P1uxi4gBr_-c5Gj3easx4eVGd_4cW9ryiyDyPxCiIBay6-YxqdyE6mfywrYowuAydAQM1m2XNFjrHA2V02onde_QwLgo"/>
+<div class="absolute inset-0 bg-gradient-to-t from-teal-950/90 via-teal-950/40 to-transparent"></div>
+<div class="absolute bottom-0 left-0 p-8 text-white">
+<span class="bg-tertiary px-2 py-1 text-[10px] font-bold uppercase rounded mb-3 inline-block">Milestone</span>
+<h3 class="text-xl font-bold leading-tight">3 Years of Excellence</h3>
+<p class="text-sm opacity-80 mt-1">Anniversary Celebration • June 12</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Footer Shell -->
+<footer class="w-full py-8 mt-auto flex flex-col md:flex-row justify-between items-center px-12 border-t border-slate-100 dark:border-slate-800">
+<p class="font-['Inter'] text-xs uppercase tracking-widest text-slate-400">© 2024 Pulse HR. Professional Editorial Management.</p>
+<div class="flex gap-8 mt-4 md:mt-0">
+<a class="font-['Inter'] text-xs uppercase tracking-widest text-slate-400 hover:text-teal-600 transition-colors" href="#">Privacy Policy</a>
+<a class="font-['Inter'] text-xs uppercase tracking-widest text-slate-400 hover:text-teal-600 transition-colors" href="#">Service Terms</a>
+<a class="font-['Inter'] text-xs uppercase tracking-widest text-slate-400 hover:text-teal-600 transition-colors" href="#">Cookie Settings</a>
+</div>
+</footer>
+</main>
+<!-- Contextual FAB (Only for Dashboard/Home) -->
+<div class="fixed bottom-8 right-8 z-50">
+<button class="w-14 h-14 bg-primary text-white rounded-full shadow-2xl flex items-center justify-center hover:scale-110 active:scale-95 transition-all">
+<span class="material-symbols-outlined text-2xl" data-icon="add">add</span>
+</button>
+</div>
+</body></html>

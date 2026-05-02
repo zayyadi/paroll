@@ -3,10 +3,11 @@ from __future__ import annotations
 from datetime import date
 from zoneinfo import ZoneInfo
 
-from django.db import transaction
+from django.db import models, transaction
 from django.shortcuts import get_object_or_404
 from django.utils.dateparse import parse_date
 from django.utils import timezone
+from django.utils.text import slugify
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied
@@ -20,6 +21,10 @@ from accounting.models import Account, AccountingPeriod, FiscalYear, Journal, Jo
 from company.models import Company
 from company.utils import get_user_companies, get_user_company, set_active_company
 from payroll.models import (
+    CompanyChatMessage,
+    CompanyChatReadState,
+    CompanyChatRoom,
+    CompanyChatRoomMember,
     Department,
     EmployeeProfile,
     IOU,
@@ -43,6 +48,12 @@ from api.v1.permissions import CanMutateAccounting, IsAccountingRole, IsTenantMe
 from api.v1.serializers import (
     AccountSerializer,
     AccountingPeriodSerializer,
+    CompanyChatRoomCreateSerializer,
+    CompanyChatRoomMemberSerializer,
+    CompanyChatRoomSerializer,
+    CompanyChatMessageCreateSerializer,
+    CompanyChatMessageSerializer,
+    CompanyChatSenderSerializer,
     CompanyMembershipSerializer,
     DepartmentSerializer,
     EmployeeProfileSerializer,
@@ -61,6 +72,15 @@ from api.v1.serializers import (
     StandupQuestionSerializer,
     StandupTeamMemberSerializer,
     StandupTeamSerializer,
+)
+from payroll.services.chat_service import (
+    broadcast_company_chat_message,
+    create_company_chat_message,
+    create_room_message,
+    get_company_chat_room,
+    get_or_create_direct_room,
+    is_room_member,
+    mark_company_chat_read,
 )
 
 
@@ -133,6 +153,302 @@ class EmployeeViewSet(TenantScopedModelViewSet):
         employee = get_object_or_404(self.get_queryset(), user=request.user)
         serializer = self.get_serializer(employee)
         return Response(serializer.data)
+
+
+class CompanyChatMessageViewSet(
+    mixins.ListModelMixin,
+    mixins.CreateModelMixin,
+    viewsets.GenericViewSet,
+):
+    permission_classes = [IsAuthenticated, IsTenantMember]
+
+    def get_company(self):
+        return get_user_company(self.request.user)
+
+    def get_room(self):
+        company = self.get_company()
+        if company is None:
+            raise PermissionDenied("No active company is configured for this account.")
+        return get_company_chat_room(company)
+
+    def get_queryset(self):
+        company = self.get_company()
+        if company is None:
+            return CompanyChatMessage.objects.none()
+        room_id = self.request.query_params.get("room_id")
+        if room_id:
+            room = get_object_or_404(CompanyChatRoom, id=room_id, company=company)
+            employee = getattr(self.request.user, "employee_user", None)
+            if room.room_type != CompanyChatRoom.TYPE_COMPANY and not is_room_member(room, employee):
+                return CompanyChatMessage.objects.none()
+        else:
+            room = get_company_chat_room(company)
+        return (
+            CompanyChatMessage.objects.select_related("room", "sender", "sender__user")
+            .filter(room=room)
+            .order_by("created_at", "id")
+        )
+
+    def get_serializer_class(self):
+        if self.action == "create":
+            return CompanyChatMessageCreateSerializer
+        return CompanyChatMessageSerializer
+
+    def _get_employee(self):
+        employee = getattr(self.request.user, "employee_user", None)
+        company = self.get_company()
+        if employee is None:
+            raise PermissionDenied("This account is not linked to an employee profile.")
+        if company is None or employee.company_id != company.id:
+            raise PermissionDenied("Employee profile is not attached to the active company.")
+        return employee
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        employee = self._get_employee()
+        room_id = serializer.validated_data.get("room_id") or request.data.get("room_id")
+        if room_id:
+            room = get_object_or_404(CompanyChatRoom, id=room_id, company=employee.company)
+            if not is_room_member(room, employee):
+                raise PermissionDenied("You are not a member of this room.")
+            message = create_room_message(room, employee, serializer.validated_data["body"])
+        else:
+            message = create_company_chat_message(
+                employee,
+                serializer.validated_data["body"],
+            )
+        broadcast_company_chat_message(message)
+
+        output = CompanyChatMessageSerializer(
+            message,
+            context=self.get_serializer_context(),
+        )
+        headers = self.get_success_headers(output.data)
+        return Response(output.data, status=status.HTTP_201_CREATED, headers=headers)
+
+    @action(detail=False, methods=["post"], url_path="mark-read")
+    def mark_read(self, request):
+        class MarkReadSerializer(drf_serializers.Serializer):
+            message_id = drf_serializers.IntegerField(required=False)
+            room_id = drf_serializers.IntegerField(required=False)
+
+        serializer = MarkReadSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        employee = self._get_employee()
+        room_id = serializer.validated_data.get("room_id")
+        if room_id:
+            room = get_object_or_404(CompanyChatRoom, id=room_id, company=employee.company)
+            if not is_room_member(room, employee):
+                raise PermissionDenied("You are not a member of this room.")
+        else:
+            room = self.get_room()
+        message = None
+        message_id = serializer.validated_data.get("message_id")
+        if message_id is not None:
+            message = get_object_or_404(self.get_queryset(), pk=message_id)
+
+        state = mark_company_chat_read(room, employee, message)
+        return Response(
+            {
+                "room": room.id,
+                "last_read_message_id": state.last_read_message_id,
+                "last_read_at": state.last_read_at,
+            }
+        )
+
+
+class CompanyChatRoomViewSet(
+    mixins.ListModelMixin,
+    mixins.CreateModelMixin,
+    viewsets.GenericViewSet,
+):
+    permission_classes = [IsAuthenticated, IsTenantMember]
+
+    def get_company(self):
+        return get_user_company(self.request.user)
+
+    def get_queryset(self):
+        company = self.get_company()
+        if company is None:
+            return CompanyChatRoom.objects.none()
+        employee = getattr(self.request.user, "employee_user", None)
+        if employee is None:
+            return CompanyChatRoom.objects.none()
+        member_room_ids = CompanyChatRoomMember.objects.filter(
+            employee=employee,
+            is_active=True,
+        ).values_list("room_id", flat=True)
+        return CompanyChatRoom.objects.filter(
+            company=company,
+            is_active=True,
+        ).filter(
+            models.Q(room_type=CompanyChatRoom.TYPE_COMPANY) | models.Q(id__in=member_room_ids)
+        )
+
+    def get_serializer_class(self):
+        if self.action == "create":
+            return CompanyChatRoomCreateSerializer
+        return CompanyChatRoomSerializer
+
+    def _get_employee(self):
+        employee = getattr(self.request.user, "employee_user", None)
+        company = self.get_company()
+        if employee is None:
+            raise PermissionDenied("This account is not linked to an employee profile.")
+        if company is None or employee.company_id != company.id:
+            raise PermissionDenied("Employee profile is not attached to the active company.")
+        return employee
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        employee = self._get_employee()
+        payload = serializer.validated_data
+        slug = payload.get("slug") or None
+
+        room = CompanyChatRoom.objects.create(
+            company=employee.company,
+            slug=slugify(slug or payload["name"]),
+            name=payload["name"],
+            description=payload.get("description", ""),
+            room_type=payload["room_type"],
+            created_by=employee,
+        )
+        CompanyChatRoomMember.objects.create(room=room, employee=employee, role="admin")
+
+        output = CompanyChatRoomSerializer(room, context=self.get_serializer_context())
+        return Response(output.data, status=status.HTTP_201_CREATED)
+
+    @action(detail=False, methods=["post"], url_path="direct")
+    def direct(self, request):
+        class DirectRoomSerializer(drf_serializers.Serializer):
+            employee_id = drf_serializers.IntegerField()
+
+        serializer = DirectRoomSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        employee = self._get_employee()
+        target_employee = get_object_or_404(
+            EmployeeProfile,
+            id=serializer.validated_data["employee_id"],
+            company=employee.company,
+        )
+        room, created = get_or_create_direct_room(employee.company, employee, target_employee)
+        output = CompanyChatRoomSerializer(room, context=self.get_serializer_context())
+        return Response(output.data, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
+
+    @action(detail=True, methods=["get"], url_path="members")
+    def members(self, request, pk=None):
+        room = get_object_or_404(self.get_queryset(), pk=pk)
+        employee = self._get_employee()
+        if not is_room_member(room, employee):
+            raise PermissionDenied("You are not a member of this room.")
+
+        memberships = CompanyChatRoomMember.objects.filter(room=room, is_active=True).select_related(
+            "employee", "employee__user"
+        )
+        serializer = CompanyChatRoomMemberSerializer(memberships, many=True)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=["get"], url_path="candidates")
+    def candidates(self, request):
+        employee = self._get_employee()
+        search = (request.query_params.get("search") or "").strip()
+        queryset = EmployeeProfile.objects.filter(company=employee.company)
+        if search:
+            queryset = queryset.filter(
+                models.Q(first_name__icontains=search)
+                | models.Q(last_name__icontains=search)
+                | models.Q(email__icontains=search)
+                | models.Q(user__email__icontains=search)
+            )
+        queryset = queryset.select_related("user").order_by("first_name", "last_name")[:20]
+        serializer = CompanyChatSenderSerializer(queryset, many=True)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=["post"], url_path="add-member")
+    def add_member(self, request, pk=None):
+        room = get_object_or_404(CompanyChatRoom, pk=pk, company=self.get_company())
+        employee = self._get_employee()
+        membership = CompanyChatRoomMember.objects.filter(
+            room=room,
+            employee=employee,
+            is_active=True,
+        ).first()
+        if not membership or membership.role != CompanyChatRoomMember.ROLE_ADMIN:
+            raise PermissionDenied("Only room admins can add members.")
+
+        class AddMemberSerializer(drf_serializers.Serializer):
+            employee_id = drf_serializers.IntegerField()
+
+        serializer = AddMemberSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        target_employee = get_object_or_404(
+            EmployeeProfile,
+            id=serializer.validated_data["employee_id"],
+            company=employee.company,
+        )
+        new_member, _ = CompanyChatRoomMember.objects.get_or_create(
+            room=room,
+            employee=target_employee,
+            defaults={"role": CompanyChatRoomMember.ROLE_MEMBER},
+        )
+        output = CompanyChatRoomMemberSerializer(new_member)
+        return Response(output.data, status=status.HTTP_201_CREATED)
+
+    @action(detail=False, methods=["get"], url_path="unread")
+    def unread(self, request):
+        employee = self._get_employee()
+        member_room_ids = CompanyChatRoomMember.objects.filter(
+            employee=employee,
+            is_active=True,
+        ).values_list("room_id", flat=True)
+        rooms = list(
+            CompanyChatRoom.objects.filter(
+                company=employee.company,
+                is_active=True,
+            ).filter(
+                models.Q(room_type=CompanyChatRoom.TYPE_COMPANY)
+                | models.Q(id__in=member_room_ids)
+            )
+        )
+        if not rooms:
+            rooms = [get_company_chat_room(employee.company)]
+
+        room_ids = [room.id for room in rooms]
+        read_states = {
+            state.room_id: state
+            for state in CompanyChatReadState.objects.filter(
+                room_id__in=room_ids,
+                employee=employee,
+            )
+        }
+
+        room_counts = []
+        total_unread = 0
+        for room in rooms:
+            state = read_states.get(room.id)
+            if state and state.last_read_at:
+                unread_count = CompanyChatMessage.objects.filter(
+                    room=room,
+                    created_at__gt=state.last_read_at,
+                ).count()
+            else:
+                unread_count = CompanyChatMessage.objects.filter(room=room).count()
+            total_unread += unread_count
+            room_counts.append(
+                {
+                    "room_id": room.id,
+                    "unread_count": unread_count,
+                }
+            )
+
+        return Response({"total_unread": total_unread, "rooms": room_counts})
 
 
 class PayrollViewSet(TenantScopedModelViewSet):
@@ -473,8 +789,12 @@ class StandupCheckinViewSet(TenantScopedModelViewSet):
     ordering_fields = ["work_date", "created_at", "submitted_at", "status"]
 
     def perform_create(self, serializer):
-        employee = get_object_or_404(EmployeeProfile, user=self.request.user)
         company = self.get_company()
+        employee = get_object_or_404(
+            EmployeeProfile,
+            user=self.request.user,
+            company=company,
+        )
         serializer.save(
             company=company,
             member=employee,
@@ -494,8 +814,12 @@ class StandupCheckinViewSet(TenantScopedModelViewSet):
           "answers": [{"question": 1, "body": "...", "is_blocker": false}]
         }
         """
-        employee = get_object_or_404(EmployeeProfile, user=request.user)
         company = self.get_company()
+        employee = get_object_or_404(
+            EmployeeProfile,
+            user=request.user,
+            company=company,
+        )
         team_id = request.data.get("team")
         raw_work_date = request.data.get("work_date") or date.today().isoformat()
         work_date_value = parse_date(str(raw_work_date))

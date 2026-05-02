@@ -1,10 +1,9 @@
 import os
 from datetime import timedelta
 from celery.schedules import crontab
+from django.core.exceptions import ImproperlyConfigured
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-
-SECRET_KEY = os.environ.get("SECRET_KEY")
 
 
 def env_bool(name: str, default: bool = False) -> bool:
@@ -12,6 +11,13 @@ def env_bool(name: str, default: bool = False) -> bool:
 
 
 DEBUG = env_bool("DEBUG", False)
+
+SECRET_KEY = os.environ.get("SECRET_KEY")
+if not SECRET_KEY:
+    if DEBUG:
+        SECRET_KEY = "django-insecure-local-development-only"
+    else:
+        raise ImproperlyConfigured("SECRET_KEY must be set when DEBUG is false.")
 
 ALLOWED_HOSTS = [
     host.strip()
@@ -108,9 +114,13 @@ ASGI_APPLICATION = "core.asgi.application"
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql_psycopg2",
-        "NAME": os.environ.get("DB_NAME", "payroll_db"),
-        "USER": os.environ.get("DB_USER", "payroll_user"),
-        "PASSWORD": os.environ.get("DB_PASSWORD", "payroll_password"),
+        "NAME": os.environ.get("DB_NAME", "payroll"),
+        "USER": os.environ.get(
+            "DB_USER",
+        ),
+        "PASSWORD": os.environ.get(
+            "DB_PASSWORD",
+        ),
         "HOST": os.environ.get("DB_HOST", "localhost"),
         "PORT": os.environ.get("DB_PORT", "5432"),
     }
@@ -252,7 +262,7 @@ SOCIAL_AUTH_PIPELINE = (
 
 SOCIAL_AUTH_ADMIN_USER_SEARCH_FIELDS = ["username", "first_name", "email"]
 
-X_FRAME_OPTIONS = "SAMEORIGIN"
+X_FRAME_OPTIONS = os.getenv("X_FRAME_OPTIONS", "DENY")
 
 EMAIL_BACKEND = os.getenv("EMAIL_BACKEND", "users.email_backend.EmailBackend")
 
@@ -291,6 +301,30 @@ REGISTRATION_RESEND_MAX_PER_HOUR = int(
 OTP_MAX_ATTEMPTS = int(os.getenv("OTP_MAX_ATTEMPTS", "5"))
 OTP_ATTEMPT_WINDOW_SECONDS = int(os.getenv("OTP_ATTEMPT_WINDOW_SECONDS", "600"))
 OTP_LOCKOUT_SECONDS = int(os.getenv("OTP_LOCKOUT_SECONDS", "900"))
+
+# Accounting hardening
+ACCOUNTING_SUPERUSER_ONLY_UNTIL_TENANT_SCOPED = env_bool(
+    "ACCOUNTING_SUPERUSER_ONLY_UNTIL_TENANT_SCOPED",
+    not DEBUG,
+)
+
+SESSION_COOKIE_SECURE = env_bool("SESSION_COOKIE_SECURE", not DEBUG)
+CSRF_COOKIE_SECURE = env_bool("CSRF_COOKIE_SECURE", not DEBUG)
+SECURE_SSL_REDIRECT = env_bool("SECURE_SSL_REDIRECT", not DEBUG)
+SECURE_HSTS_SECONDS = int(
+    os.getenv("SECURE_HSTS_SECONDS", "0" if DEBUG else "31536000")
+)
+SECURE_HSTS_INCLUDE_SUBDOMAINS = env_bool(
+    "SECURE_HSTS_INCLUDE_SUBDOMAINS",
+    not DEBUG,
+)
+SECURE_HSTS_PRELOAD = env_bool("SECURE_HSTS_PRELOAD", not DEBUG)
+SECURE_PROXY_SSL_HEADER = (
+    ("HTTP_X_FORWARDED_PROTO", "https")
+    if env_bool("USE_SECURE_PROXY_SSL_HEADER", False)
+    else None
+)
+SECURE_REFERRER_POLICY = os.getenv("SECURE_REFERRER_POLICY", "same-origin")
 
 # ============================================================================
 # NOTIFICATION SYSTEM SETTINGS
@@ -368,7 +402,7 @@ CELERY_TASK_SEND_SENT_EVENT = True
 CELERY_WORKER_CONCURRENCY = 4
 
 # Celery task queues (priority-based)
-CELERY_TASK_ROUTES = {
+CELERY_TASK_QUEUES = {
     "notifications_critical": {
         "exchange": "notifications",
         "routing_key": "notifications.critical",
@@ -402,6 +436,10 @@ CELERY_TASK_ROUTES = {
         "routing_key": "notifications.normal",
     },
     "payroll.send_email_notification": {
+        "queue": "notifications_normal",
+        "routing_key": "notifications.normal",
+    },
+    "payroll.send_payslips_for_payroll_run": {
         "queue": "notifications_normal",
         "routing_key": "notifications.normal",
     },
@@ -472,12 +510,12 @@ CHANNEL_LAYERS = {
         "BACKEND": "channels_redis.core.RedisChannelLayer",
         "CONFIG": {
             "hosts": [
-                (
-                    os.environ.get("REDIS_HOST", "127.0.0.1"),
-                    int(os.environ.get("REDIS_PORT", "6379")),
+                "redis://{host}:{port}/{db}".format(
+                    host=os.environ.get("REDIS_HOST", "127.0.0.1"),
+                    port=int(os.environ.get("REDIS_PORT", "6379")),
+                    db=int(os.environ.get("REDIS_DB", "3")),
                 )
             ],
-            "db": int(os.environ.get("REDIS_DB", "3")),
         },
     },
 }

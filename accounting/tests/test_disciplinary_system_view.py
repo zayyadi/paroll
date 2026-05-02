@@ -19,7 +19,6 @@ class DisciplinarySystemViewTests(TestCase):
 
     def test_forbidden_for_non_accounting_user(self):
         user = User.objects.create_user(
-            username="regular_user",
             email="regular@example.com",
             password="testpass123",
         )
@@ -30,7 +29,6 @@ class DisciplinarySystemViewTests(TestCase):
 
     def test_renders_for_hr_permission_user(self):
         user = User.objects.create_user(
-            username="hr_user",
             email="hr@example.com",
             password="testpass123",
         )
@@ -41,6 +39,8 @@ class DisciplinarySystemViewTests(TestCase):
         response = self.client.get(self.url)
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "System Overview")
+        self.assertContains(response, "Editorial Command")
+        self.assertContains(response, "Manrope")
 
         case_list_response = self.client.get(self.case_list_url)
         self.assertEqual(case_list_response.status_code, 200)
@@ -48,7 +48,6 @@ class DisciplinarySystemViewTests(TestCase):
 
     def test_renders_for_accountant_user(self):
         user = User.objects.create_user(
-            username="accountant_user",
             email="accountant@example.com",
             password="testpass123",
         )
@@ -61,3 +60,4 @@ class DisciplinarySystemViewTests(TestCase):
         self.assertContains(response, "System Overview")
         self.assertContains(response, "Sanction Matrix (Table)")
         self.assertContains(response, "Implementation Checklist")
+        self.assertContains(response, "Editorial Command")

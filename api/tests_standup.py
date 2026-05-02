@@ -217,6 +217,28 @@ class StandupAPITests(APITestCase):
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
+    def test_submit_rejects_when_active_company_profile_is_missing(self):
+        self.employee_a.company = self.company_b
+        self.employee_a.save(update_fields=["company"])
+
+        self.client.force_authenticate(self.user_a)
+        url = reverse("api:v1:standup-checkin-submit")
+        response = self.client.post(
+            url,
+            {
+                "team": self.team_a.id,
+                "work_date": "2026-02-27",
+                "answers": [
+                    {
+                        "question": self.question_a1.id,
+                        "body": "Should fail without a company-scoped profile.",
+                    }
+                ],
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
     def test_submit_is_idempotent_per_member_day_team(self):
         self.client.force_authenticate(self.user_a)
         url = reverse("api:v1:standup-checkin-submit")

@@ -6,6 +6,8 @@ from api.v1.viewsets import (
     AccountViewSet,
     AccountingPeriodViewSet,
     AuthContextView,
+    CompanyChatMessageViewSet,
+    CompanyChatRoomViewSet,
     DepartmentViewSet,
     EmployeeViewSet,
     FiscalYearViewSet,
@@ -31,6 +33,8 @@ from api.v1.viewsets import (
 app_name = "v1"
 
 router = DefaultRouter()
+router.register(r"company-chat/rooms", CompanyChatRoomViewSet, basename="company-chat-room")
+router.register(r"company-chat/messages", CompanyChatMessageViewSet, basename="company-chat-message")
 router.register(r"departments", DepartmentViewSet, basename="department")
 router.register(r"employees", EmployeeViewSet, basename="employee")
 router.register(r"payrolls", PayrollViewSet, basename="payroll")

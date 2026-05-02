@@ -1,0 +1,55 @@
+{% extends "base_new.html" %}
+
+{% block page_header %}Survey Center{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <section class="grid gap-4 md:grid-cols-3">
+        <div class="rounded-[1.5rem] bg-white p-6 ghost-border">
+            <p class="text-[10px] font-bold uppercase tracking-[0.24em] text-secondary-500">Surveys</p>
+            <p class="mt-3 font-headline text-4xl font-extrabold text-primary-800">{{ survey_count }}</p>
+        </div>
+        <div class="rounded-[1.5rem] bg-white p-6 ghost-border">
+            <p class="text-[10px] font-bold uppercase tracking-[0.24em] text-secondary-500">Active</p>
+            <p class="mt-3 font-headline text-4xl font-extrabold text-primary-800">{{ active_count }}</p>
+        </div>
+        <div class="rounded-[1.5rem] bg-white p-6 ghost-border">
+            <p class="text-[10px] font-bold uppercase tracking-[0.24em] text-secondary-500">Responses</p>
+            <p class="mt-3 font-headline text-4xl font-extrabold text-primary-800">{{ response_count }}</p>
+        </div>
+    </section>
+
+    <section class="rounded-[1.5rem] bg-white p-6 ghost-border">
+        <p class="text-[10px] font-bold uppercase tracking-[0.24em] text-secondary-500">Feedback Programs</p>
+        <h2 class="mt-2 font-headline text-2xl font-extrabold text-primary-800">Company surveys and response health</h2>
+        <div class="mt-6 overflow-x-auto">
+            <table class="min-w-full">
+                <thead>
+                    <tr>
+                        <th class="px-4 py-3 text-left">Survey</th>
+                        <th class="px-4 py-3 text-left">Type</th>
+                        <th class="px-4 py-3 text-left">Questions</th>
+                        <th class="px-4 py-3 text-left">Responses</th>
+                        <th class="px-4 py-3 text-left">Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for survey in surveys %}
+                    <tr>
+                        <td class="px-4 py-4 text-sm font-semibold text-secondary-900">{{ survey.name }}</td>
+                        <td class="px-4 py-4 text-sm text-secondary-700">{{ survey.get_survey_type_display }}</td>
+                        <td class="px-4 py-4 text-sm text-secondary-700">{{ survey.questions.count }}</td>
+                        <td class="px-4 py-4 text-sm text-secondary-700">{{ survey.responses.count }}</td>
+                        <td class="px-4 py-4 text-sm text-secondary-700">{% if survey.is_active %}Active{% else %}Inactive{% endif %}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" class="px-4 py-8 text-center text-sm text-secondary-500">No surveys configured yet.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+</div>
+{% endblock %}

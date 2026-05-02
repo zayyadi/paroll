@@ -1,679 +1,299 @@
 {% extends "base_new.html" %}
 {% load static %}
 {% load humanize %}
-{% load mathfilters %}
-{% load custom_tags %}
 
-{% block page_title_in_head %}<title>HR/Admin Dashboard - Payroll System</title>{% endblock %}
-
-{% block page_header %}HR/Admin Dashboard{% endblock %}
+{% block page_title_in_head %}<title>Operations Dashboard - Payroll System</title>{% endblock %}
+{% block page_header %}Operations Dashboard{% endblock %}
 
 {% block extra_head %}
-<!-- Chart.js for data visualization - deferred loading for better performance -->
 <script src="{% static 'vendor/chart.min.js' %}" defer></script>
-<!-- Additional custom styles for dashboard -->
 <style>
-    /* Optimized stat card with will-change for GPU acceleration */
-    .stat-card {
-        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    .dashboard-panel {
+        border: 1px solid rgba(191, 200, 204, 0.35);
+        border-radius: 1.25rem;
+        background: rgba(255, 255, 255, 0.88);
+        box-shadow: 0 18px 45px rgba(26, 28, 29, 0.06);
+    }
+
+    .metric-tile {
+        border: 1px solid rgba(191, 200, 204, 0.28);
+        border-radius: 1rem;
+        background: #ffffff;
+    }
+
+    .chart-frame {
         position: relative;
-        overflow: hidden;
-        will-change: transform, box-shadow;
-    }
-    
-    .stat-card:hover {
-        transform: translateY(-8px);
-        box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.15);
-    }
-    
-    /* Simplified action card - removed pseudo-element animations */
-    .action-card {
-        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        position: relative;
-        will-change: transform, box-shadow;
-    }
-    
-    .action-card:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 15px 35px -5px rgba(0, 0, 0, 0.1);
-    }
-    
-    /* Simplified quick action button - removed ripple effect */
-    .quick-action-btn {
-        transition: transform 0.2s ease, background-color 0.2s ease;
-        will-change: transform, background-color;
-    }
-    
-    .quick-action-btn:hover {
-        transform: translateY(-2px);
-    }
-    
-    /* Simplified activity item */
-    .activity-item {
-        transition: background-color 0.2s ease, border-left-color 0.2s ease, padding-left 0.2s ease;
-        border-left: 3px solid transparent;
-        will-change: background-color, border-left-color, padding-left;
-    }
-    
-    .activity-item:hover {
-        background-color: rgba(248, 250, 252, 0.8);
-        border-left-color: #3b82f6;
-        padding-left: calc(1rem + 3px);
-    }
-    
-    .chart-container {
-        position: relative;
-        height: 300px;
-        margin: 20px 0;
-        contain: layout style paint;
-    }
-    
-    /* Optimized pulse animation - reduced duration and added will-change */
-    @keyframes pulse {
-        0%, 100% {
-            opacity: 1;
-        }
-        50% {
-            opacity: 0.8;
-        }
-    }
-    
-    .pulse-animation {
-        animation: pulse 2s infinite;
-        will-change: opacity;
-    }
-    
-    .gradient-bg {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    }
-    
-    .gradient-text {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
-    }
-    
-    .dark .gradient-bg {
-        background: linear-gradient(135deg, #4c1d95 0%, #5b21b6 100%);
-    }
-    
-    .dark .gradient-text {
-        background: linear-gradient(135deg, #818cf8 0%, #c084fc 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
-    }
-    
-    /* Add GPU acceleration for animations */
-    @media (prefers-reduced-motion: no-preference) {
-        .animate-fade-in {
-            animation: fadeIn 0.5s ease-out;
-            will-change: opacity;
-        }
-        
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-                transform: translateY(10px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-    }
-    
-    @media (prefers-reduced-motion: reduce) {
-        .stat-card,
-        .action-card,
-        .quick-action-btn,
-        .activity-item,
-        .pulse-animation {
-            transition: none;
-            animation: none;
-            will-change: auto;
-        }
+        min-height: 18rem;
     }
 </style>
 {% endblock %}
 
 {% block content %}
-<!-- Welcome Section -->
-<div class="mb-8 animate-fade-in">
-    <div class="gradient-bg rounded-2xl p-8 text-white shadow-soft">
-        <div class="flex flex-col md:flex-row items-center justify-between">
-            <div class="mb-4 md:mb-0">
-                <h1 class="text-3xl font-bold mb-2">Welcome back, {{ user.first_name|default:user.email }}!</h1>
-                <p class="text-white/80">Here's what's happening with your payroll today</p>
-            </div>
-            <div class="flex items-center space-x-4">
-                <div class="text-center">
-                    <p class="text-sm text-white/70">Current Date</p>
-                    <p class="text-xl font-semibold">{% now "jS F Y" %}</p>
-                </div>
-                <div class="text-center">
-                    <p class="text-sm text-white/70">Payroll Period</p>
-                    <p class="text-xl font-semibold">
-                        {% if recent_pay_period and recent_pay_period.paydays %}
-                            {{ recent_pay_period.paydays|date:"F Y" }}
-                        {% else %}
-                            {% now "F Y" %}
-                        {% endif %}
-                    </p>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Statistics Cards -->
-<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-    <!-- Total Employees Card -->
-    <div class="stat-card bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm">
-        <div class="flex items-center justify-between mb-4">
-            <div class="bg-blue-100 dark:bg-blue-900/50 p-3 rounded-lg">
-                <i data-lucide="users" class="h-6 w-6 text-blue-500"></i>
-            </div>
-        </div>
-        <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400">Total Employees</h3>
-        <p class="text-3xl font-bold text-gray-900 dark:text-white mt-2">{{ count }}</p>
-        
-    </div>
-    
-    <!-- Processed Payments Card -->
-    <div class="stat-card bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm">
-        <div class="flex items-center justify-between mb-4">
-            <div class="bg-green-100 dark:bg-green-900/50 p-3 rounded-lg">
-                <i data-lucide="credit-card" class="h-6 w-6 text-green-500"></i>
-            </div>
-            <span class="text-sm font-medium text-green-500 flex items-center">
-                <i data-lucide="trending-up" class="h-4 w-4 mr-1"></i>
-                {{percentage_increase|floatformat:"2"|intcomma}}%
-            </span>
-        </div>
-        <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400">Processed Payments</h3>
-        <p class="text-3xl font-bold text-gray-900 dark:text-white mt-2">{{ processed_payments_count }}</p>
-        <div class="mt-4 flex items-center text-sm">
-            <span class="text-gray-500 dark:text-gray-400">This month:</span>
-            <span class="ml-2 font-medium text-gray-900 dark:text-white">₦{{ recent_month_total|floatformat:"2"|intcomma }}</span>
-        </div>
-    </div>
-    
-    <!-- Pending Approvals Card -->
-    <div class="stat-card bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm">
-        <div class="flex items-center justify-between mb-4">
-            <div class="bg-yellow-100 dark:bg-yellow-900/50 p-3 rounded-lg">
-                <i data-lucide="clock" class="h-6 w-6 text-yellow-500"></i>
-            </div>
-            <span class="text-sm font-medium text-yellow-500 pulse-animation">
-                {{ pending_approvals_count }} open
-            </span>
-        </div>
-        <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400">Pending Approvals</h3>
-        <p class="text-3xl font-bold text-gray-900 dark:text-white mt-2">{{ pending_approvals_count }}</p>
-        <div class="mt-4 flex items-center text-sm">
-            <span class="text-gray-500 dark:text-gray-400">Leave / IOU:</span>
-            <span class="ml-2 font-medium text-gray-900 dark:text-white">
-                {{ pending_leave_requests_count }} / {{ pending_iou_requests_count }}
-            </span>
-        </div>
-    </div>
-    
-    <!-- Total Payroll Card -->
-    <div class="stat-card bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm">
-        <div class="flex items-center justify-between mb-4">
-            <div class="bg-purple-100 dark:bg-purple-900/50 p-3 rounded-lg">
-                <i data-lucide="dollar-sign" class="h-6 w-6 text-purple-500"></i>
-            </div>
-            <span class="text-sm font-medium text-green-500 flex items-center">
-                <i data-lucide="trending-up" class="h-4 w-4 mr-1"></i>
-                {{percentage_increase|floatformat:"2"|intcomma}}%
-            </span>
-        </div>
-        <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400">Total Payroll</h3>
-        <p class="text-3xl font-bold text-gray-900 dark:text-white mt-2">₦{{ pay_count|floatformat:"2"|intcomma }}</p>
-        <div class="mt-4 flex items-center text-sm">
-            <span class="text-gray-500 dark:text-gray-400">This month:</span>
-            <span class="ml-2 font-medium text-gray-900 dark:text-white">₦{{ recent_month_total|floatformat:"2"|intcomma }}</span>
-        </div>
-        <div class="mt-2 flex items-center text-sm">
-            <span class="text-gray-500 dark:text-gray-400">Payee (tax):</span>
-            <span class="ml-2 font-medium text-gray-900 dark:text-white">₦{{ total_payee_paid|floatformat:"2"|intcomma }}</span>
-        </div>
-        <div class="mt-2 flex items-center text-sm">
-            <span class="text-gray-500 dark:text-gray-400">Payee (net):</span>
-            <span class="ml-2 font-medium text-gray-900 dark:text-white">₦{{ total_payee_net_paid|floatformat:"2"|intcomma }}</span>
-        </div>
-    </div>
-</div>
-
-<!-- Charts Section -->
-<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-    <!-- Payroll Trend Chart -->
-    <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm">
-        <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Payroll Trend</h3>
-        <div class="chart-container">
-            <canvas id="payrollTrendChart"></canvas>
-        </div>
-    </div>
-    
-    <!-- Department Distribution Chart -->
-    <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm">
-        <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Department Distribution</h3>
-        <div class="chart-container">
-            <canvas id="departmentChart"></canvas>
-        </div>
-    </div>
-</div>
-
-<!-- Quick Actions Toolbar -->
-<div class="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm mb-8">
-    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Quick Actions</h3>
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <button class="quick-action-btn bg-blue-500 hover:bg-blue-600 text-white p-4 rounded-lg flex flex-col items-center justify-center space-y-2">
-            <i data-lucide="user-plus" class="h-6 w-6"></i>
-            <span class="text-sm font-medium">Add Employee</span>
-        </button>
-        <button class="quick-action-btn bg-green-500 hover:bg-green-600 text-white p-4 rounded-lg flex flex-col items-center justify-center space-y-2">
-            <i data-lucide="file-plus" class="h-6 w-6"></i>
-            <span class="text-sm font-medium">Generate Payslip</span>
-        </button>
-        <button class="quick-action-btn bg-purple-500 hover:bg-purple-600 text-white p-4 rounded-lg flex flex-col items-center justify-center space-y-2">
-            <i data-lucide="calendar-plus" class="h-6 w-6"></i>
-            <span class="text-sm font-medium">Approve Leave</span>
-        </button>
-        <button class="quick-action-btn bg-yellow-500 hover:bg-yellow-600 text-white p-4 rounded-lg flex flex-col items-center justify-center space-y-2">
-            <i data-lucide="download" class="h-6 w-6"></i>
-            <span class="text-sm font-medium">Export Report</span>
-        </button>
-    </div>
-</div>
-
-<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-    <!-- Action Cards -->
-    <div class="lg:col-span-2 space-y-6">
-        <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Common Tasks</h3>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <!-- Add Employee Card -->
-            <a href="{% url 'payroll:add_employee' %}" class="block">
-                <div class="action-card bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm">
-                    <div class="flex items-center space-x-4">
-                        <div class="bg-indigo-100 dark:bg-indigo-900/50 p-3 rounded-lg">
-                            <i data-lucide="user-plus" class="h-6 w-6 text-indigo-500"></i>
-                        </div>
-                        <div class="flex-1">
-                            <h3 class="font-semibold text-lg text-gray-900 dark:text-white">Add Employee</h3>
-                            <p class="text-sm text-gray-500 dark:text-gray-400">Register new staff members</p>
-                        </div>
-                        <i data-lucide="arrow-right" class="h-5 w-5 text-gray-400"></i>
-                    </div>
-                </div>
-            </a>
-            
-            <!-- Process Payment Card -->
-            <a href="{% url 'payroll:add_pay' %}" class="block">
-                <div class="action-card bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm">
-                    <div class="flex items-center space-x-4">
-                        <div class="bg-purple-100 dark:bg-purple-900/50 p-3 rounded-lg">
-                            <i data-lucide="credit-card" class="h-6 w-6 text-purple-500"></i>
-                        </div>
-                        <div class="flex-1">
-                            <h3 class="font-semibold text-lg text-gray-900 dark:text-white">Process Payment</h3>
-                            <p class="text-sm text-gray-500 dark:text-gray-400">Run payroll for employees</p>
-                        </div>
-                        <i data-lucide="arrow-right" class="h-5 w-5 text-gray-400"></i>
-                    </div>
-                </div>
-            </a>
-            
-            <!-- Generate Reports Card -->
-            <a href="{% url 'payroll:payee' %}" class="block">
-                <div class="action-card bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm">
-                    <div class="flex items-center space-x-4">
-                        <div class="bg-green-100 dark:bg-green-900/50 p-3 rounded-lg">
-                            <i data-lucide="file-text" class="h-6 w-6 text-green-500"></i>
-                        </div>
-                        <div class="flex-1">
-                            <h3 class="font-semibold text-lg text-gray-900 dark:text-white">Generate Reports</h3>
-                            <p class="text-sm text-gray-500 dark:text-gray-400">Create tax and payroll reports</p>
-                        </div>
-                        <i data-lucide="arrow-right" class="h-5 w-5 text-gray-400"></i>
-                    </div>
-                </div>
-            </a>
-            
-            <!-- Manage Leave Card -->
-            <a href="{% url 'payroll:leave_requests' %}" class="block">
-                <div class="action-card bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm">
-                    <div class="flex items-center space-x-4">
-                        <div class="bg-yellow-100 dark:bg-yellow-900/50 p-3 rounded-lg">
-                            <i data-lucide="calendar" class="h-6 w-6 text-yellow-500"></i>
-                        </div>
-                        <div class="flex-1">
-                            <h3 class="font-semibold text-lg text-gray-900 dark:text-white">Manage Leave</h3>
-                            <p class="text-sm text-gray-500 dark:text-gray-400">Review and approve requests</p>
-                        </div>
-                        <i data-lucide="arrow-right" class="h-5 w-5 text-gray-400"></i>
-                    </div>
-                </div>
-            </a>
-        </div>
-    </div>
-    
-    <!-- Recent Activity Feed -->
-    <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm">
-        <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Recent Activity</h3>
-        <div class="space-y-4">
-            {% if recent_activities %}
-                {% for activity in recent_activities %}
-                <div class="activity-item p-3 rounded-lg">
-                    <div class="flex items-start space-x-3">
-                        <div class="bg-{{ activity.icon_color }}-100 dark:bg-{{ activity.icon_color }}-900/50 p-2 rounded-full">
-                            <i data-lucide="{{ activity.icon }}" class="h-4 w-4 text-{{ activity.icon_color }}-500"></i>
-                        </div>
-                        <div class="flex-1">
-                            <p class="text-sm font-medium text-gray-900 dark:text-white">{{ activity.title }}</p>
-                            <p class="text-xs text-gray-500 dark:text-gray-400">{{ activity.description }}</p>
-                            <p class="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                                {{ activity.timestamp|naturaltime }}
-                            </p>
-                        </div>
-                    </div>
-                </div>
-                {% endfor %}
-            {% else %}
-                <div class="text-center text-gray-500 dark:text-gray-400 py-8">
-                    <p class="text-sm">No recent activities found</p>
-                </div>
-            {% endif %}
-        </div>
-    </div>
-</div>
-
-
-<!-- Quick Links Section -->
-<div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm">
-    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Quick Links</h3>
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <a href="{% url 'payroll:iou_list' %}" 
-           class="flex items-center p-4 space-x-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-            <div class="bg-red-100 dark:bg-red-900/50 p-2 rounded-lg">
-                <i data-lucide="file-text" class="h-5 w-5 text-red-500"></i>
-            </div>
+<div class="space-y-8">
+    <section class="dashboard-panel overflow-hidden">
+        <div class="grid gap-6 p-6 lg:grid-cols-[1.5fr_1fr] lg:p-8">
             <div>
-                <p class="font-medium text-gray-900 dark:text-white">IOU List</p>
-                <p class="text-xs text-gray-500 dark:text-gray-400">View pending IOUs</p>
+                <p class="text-xs font-bold uppercase tracking-[0.24em] text-secondary-500">Payroll command center</p>
+                <h2 class="mt-3 font-headline text-3xl font-extrabold text-primary-800 sm:text-4xl">
+                    Good to see you, {{ user.first_name|default:user.email }}.
+                </h2>
+                <p class="mt-3 max-w-2xl text-sm leading-6 text-secondary-600">
+                    Monitor payroll readiness, approvals, employee coverage, and statutory outputs from one working surface.
+                </p>
+                <div class="mt-6 flex flex-wrap gap-3">
+                    <a href="{% url 'payroll:payday_create_new' %}" class="btn-primary inline-flex items-center gap-2 rounded-xl px-4 py-3 text-sm font-bold text-white">
+                        <i data-lucide="plus" class="h-4 w-4"></i>
+                        New Payroll Entry
+                    </a>
+                    <a href="{% url 'payroll:manage_leave_requests' %}" class="inline-flex items-center gap-2 rounded-xl bg-surface-container-low px-4 py-3 text-sm font-bold text-primary-800 transition hover:bg-surface-container">
+                        <i data-lucide="inbox" class="h-4 w-4"></i>
+                        Review Requests
+                    </a>
+                    <a href="{% url 'payroll:payee' %}" class="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-3 text-sm font-bold text-secondary-700 ghost-border transition hover:text-primary-800">
+                        <i data-lucide="file-chart-column" class="h-4 w-4"></i>
+                        Reports
+                    </a>
+                </div>
             </div>
-        </a>
-        
-        <a href="{% url 'payroll:leave_requests' %}" 
-           class="flex items-center p-4 space-x-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-            <div class="bg-yellow-100 dark:bg-yellow-900/50 p-2 rounded-lg">
-                <i data-lucide="calendar" class="h-5 w-5 text-yellow-500"></i>
+            <div class="rounded-2xl bg-primary-800 p-5 text-white">
+                <p class="text-xs font-bold uppercase tracking-[0.24em] text-white/60">Current period</p>
+                <p class="mt-3 font-headline text-2xl font-extrabold">
+                    {% if recent_pay_period and recent_pay_period.paydays %}
+                        {{ recent_pay_period.paydays|date:"F Y" }}
+                    {% else %}
+                        No closed period
+                    {% endif %}
+                </p>
+                <div class="mt-6 grid grid-cols-2 gap-3">
+                    <div class="rounded-xl bg-white/10 p-4">
+                        <p class="text-xs text-white/60">Net Payroll</p>
+                        <p class="mt-1 text-lg font-bold">₦{{ recent_month_total|floatformat:"0"|intcomma }}</p>
+                    </div>
+                    <div class="rounded-xl bg-white/10 p-4">
+                        <p class="text-xs text-white/60">Entries</p>
+                        <p class="mt-1 text-lg font-bold">{{ processed_payments_count|intcomma }}</p>
+                    </div>
+                </div>
             </div>
-            <div>
-                <p class="font-medium text-gray-900 dark:text-white">Leave Requests</p>
-                <p class="text-xs text-gray-500 dark:text-gray-400">Manage time off</p>
+        </div>
+    </section>
+
+    <section class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <div class="metric-tile p-5">
+            <div class="flex items-start justify-between">
+                <div>
+                    <p class="text-xs font-bold uppercase tracking-[0.18em] text-secondary-500">Employees</p>
+                    <p class="mt-3 text-3xl font-extrabold text-primary-800">{{ count|intcomma }}</p>
+                </div>
+                <span class="rounded-xl bg-primary-50 p-3 text-primary-700"><i data-lucide="users" class="h-5 w-5"></i></span>
             </div>
-        </a>
-        
-        <a href="{% url 'payroll:appraisal_list' %}" 
-           class="flex items-center p-4 space-x-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-            <div class="bg-teal-100 dark:bg-teal-900/50 p-2 rounded-lg">
-                <i data-lucide="star" class="h-5 w-5 text-teal-500"></i>
+            <a href="{% url 'payroll:employee_list' %}" class="mt-4 inline-flex text-sm font-semibold text-primary-700 hover:text-primary-900">Open directory</a>
+        </div>
+
+        <div class="metric-tile p-5">
+            <div class="flex items-start justify-between">
+                <div>
+                    <p class="text-xs font-bold uppercase tracking-[0.18em] text-secondary-500">Pending approvals</p>
+                    <p class="mt-3 text-3xl font-extrabold text-primary-800">{{ pending_approvals_count|intcomma }}</p>
+                </div>
+                <span class="rounded-xl bg-warning-100 p-3 text-warning-700"><i data-lucide="timer" class="h-5 w-5"></i></span>
             </div>
-            <div>
-                <p class="font-medium text-gray-900 dark:text-white">Performance Reviews</p>
-                <p class="text-xs text-gray-500 dark:text-gray-400">Employee evaluations</p>
+            <p class="mt-4 text-sm text-secondary-600">{{ pending_leave_requests_count }} leave, {{ pending_iou_requests_count }} IOU</p>
+        </div>
+
+        <div class="metric-tile p-5">
+            <div class="flex items-start justify-between">
+                <div>
+                    <p class="text-xs font-bold uppercase tracking-[0.18em] text-secondary-500">Tax liability</p>
+                    <p class="mt-3 text-3xl font-extrabold text-primary-800">₦{{ total_payee_paid|floatformat:"0"|intcomma }}</p>
+                </div>
+                <span class="rounded-xl bg-success-100 p-3 text-success-700"><i data-lucide="landmark" class="h-5 w-5"></i></span>
             </div>
-        </a>
-    </div>
+            <a href="{% url 'payroll:payee' %}" class="mt-4 inline-flex text-sm font-semibold text-primary-700 hover:text-primary-900">View PAYE report</a>
+        </div>
+
+        <div class="metric-tile p-5">
+            <div class="flex items-start justify-between">
+                <div>
+                    <p class="text-xs font-bold uppercase tracking-[0.18em] text-secondary-500">Payroll movement</p>
+                    <p class="mt-3 text-3xl font-extrabold text-primary-800">{{ percentage_increase|floatformat:"1" }}%</p>
+                </div>
+                <span class="rounded-xl bg-tertiary-fixed p-3 text-tertiary"><i data-lucide="activity" class="h-5 w-5"></i></span>
+            </div>
+            <p class="mt-4 text-sm text-secondary-600">Compared with previous closed period</p>
+        </div>
+    </section>
+
+    <section class="grid gap-6 xl:grid-cols-[1.4fr_0.8fr]">
+        <div class="dashboard-panel p-6">
+            <div class="flex items-center justify-between gap-4">
+                <div>
+                    <h3 class="font-headline text-xl font-extrabold text-primary-800">Payroll Trend</h3>
+                    <p class="mt-1 text-sm text-secondary-600">Closed payroll value by period</p>
+                </div>
+                <a href="{% url 'payroll:pay_period_list' %}" class="text-sm font-semibold text-primary-700 hover:text-primary-900">All periods</a>
+            </div>
+            <div class="chart-frame mt-5">
+                <canvas id="payrollTrendChart"></canvas>
+            </div>
+        </div>
+
+        <div class="dashboard-panel p-6">
+            <div class="flex items-center justify-between gap-4">
+                <div>
+                    <h3 class="font-headline text-xl font-extrabold text-primary-800">People Mix</h3>
+                    <p class="mt-1 text-sm text-secondary-600">Employees by department</p>
+                </div>
+            </div>
+            <div class="chart-frame mt-5">
+                <canvas id="departmentChart"></canvas>
+            </div>
+        </div>
+    </section>
+
+    <section class="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
+        <div class="dashboard-panel p-6">
+            <h3 class="font-headline text-xl font-extrabold text-primary-800">Priority Work</h3>
+            <div class="mt-5 space-y-3">
+                <a href="{% url 'payroll:manage_leave_requests' %}" class="flex items-center justify-between rounded-2xl bg-surface-container-low p-4 transition hover:bg-surface-container">
+                    <span class="flex items-center gap-3">
+                        <span class="rounded-xl bg-warning-100 p-3 text-warning-700"><i data-lucide="calendar-check" class="h-5 w-5"></i></span>
+                        <span>
+                            <span class="block font-bold text-primary-800">Leave approvals</span>
+                            <span class="text-sm text-secondary-600">{{ pending_leave_requests_count }} waiting</span>
+                        </span>
+                    </span>
+                    <i data-lucide="arrow-right" class="h-5 w-5 text-secondary-400"></i>
+                </a>
+                <a href="{% url 'payroll:iou_history' %}" class="flex items-center justify-between rounded-2xl bg-surface-container-low p-4 transition hover:bg-surface-container">
+                    <span class="flex items-center gap-3">
+                        <span class="rounded-xl bg-danger-50 p-3 text-danger-700"><i data-lucide="hand-coins" class="h-5 w-5"></i></span>
+                        <span>
+                            <span class="block font-bold text-primary-800">IOU approvals</span>
+                            <span class="text-sm text-secondary-600">{{ pending_iou_requests_count }} waiting</span>
+                        </span>
+                    </span>
+                    <i data-lucide="arrow-right" class="h-5 w-5 text-secondary-400"></i>
+                </a>
+                <a href="{% url 'payroll:attendance_overview' %}" class="flex items-center justify-between rounded-2xl bg-surface-container-low p-4 transition hover:bg-surface-container">
+                    <span class="flex items-center gap-3">
+                        <span class="rounded-xl bg-primary-50 p-3 text-primary-700"><i data-lucide="clock-3" class="h-5 w-5"></i></span>
+                        <span>
+                            <span class="block font-bold text-primary-800">Attendance review</span>
+                            <span class="text-sm text-secondary-600">Today’s attendance and absence view</span>
+                        </span>
+                    </span>
+                    <i data-lucide="arrow-right" class="h-5 w-5 text-secondary-400"></i>
+                </a>
+            </div>
+        </div>
+
+        <div class="dashboard-panel p-6">
+            <div class="flex items-center justify-between gap-4">
+                <h3 class="font-headline text-xl font-extrabold text-primary-800">Recent Activity</h3>
+                <a href="{% url 'payroll:notifications' %}" class="text-sm font-semibold text-primary-700 hover:text-primary-900">Notifications</a>
+            </div>
+            <div class="mt-5 divide-y divide-outline-variant/30">
+                {% if recent_activities %}
+                    {% for activity in recent_activities %}
+                    <div class="flex gap-3 py-4">
+                        <span class="mt-0.5 rounded-xl bg-surface-container-low p-2 text-primary-700">
+                            <i data-lucide="{{ activity.icon|default:'activity' }}" class="h-4 w-4"></i>
+                        </span>
+                        <div class="min-w-0">
+                            <p class="font-semibold text-primary-900">{{ activity.title }}</p>
+                            <p class="mt-1 text-sm text-secondary-600">{{ activity.description }}</p>
+                            {% if activity.timestamp %}
+                            <p class="mt-1 text-xs font-semibold uppercase tracking-[0.16em] text-secondary-400">{{ activity.timestamp|naturaltime }}</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="py-10 text-center text-sm text-secondary-500">No recent activity yet.</div>
+                {% endif %}
+            </div>
+        </div>
+    </section>
 </div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
-(function() {
-    'use strict';
-    
-    // Store chart instances for cleanup
-    let payrollTrendChart = null;
-    let departmentChart = null;
-    
-    // Optimized number animation with IntersectionObserver
-    const animateValue = (element, start, end, duration) => {
-        let startTimestamp = null;
-        const step = (timestamp) => {
-            if (!startTimestamp) startTimestamp = timestamp;
-            const progress = Math.min((timestamp - startTimestamp) / duration, 1);
-            // Use easeOutQuad for smoother animation
-            const easeProgress = 1 - (1 - progress) * (1 - progress);
-            const current = Math.floor(easeProgress * (end - start) + start);
-            element.textContent = current.toLocaleString();
-            if (progress < 1) {
-                window.requestAnimationFrame(step);
-            }
-        };
-        window.requestAnimationFrame(step);
-    };
-    
-    // IntersectionObserver for lazy animation of statistics
-    const observeStats = () => {
-        const statNumbers = document.querySelectorAll('.stat-card p.text-3xl');
-        
-        if ('IntersectionObserver' in window) {
-            const observer = new IntersectionObserver((entries) => {
-                entries.forEach(entry => {
-                    if (entry.isIntersecting) {
-                        const stat = entry.target;
-                        const finalValue = parseInt(stat.textContent.replace(/[^0-9]/g, ''));
-                        if (!isNaN(finalValue) && finalValue > 0) {
-                            animateValue(stat, 0, finalValue, 1000);
-                        }
-                        observer.unobserve(stat);
-                    }
-                });
-            }, { threshold: 0.1 });
-            
-            statNumbers.forEach(stat => observer.observe(stat));
-        } else {
-            // Fallback for browsers without IntersectionObserver
-            statNumbers.forEach(stat => {
-                const finalValue = parseInt(stat.textContent.replace(/[^0-9]/g, ''));
-                if (!isNaN(finalValue) && finalValue > 0) {
-                    animateValue(stat, 0, finalValue, 1000);
-                }
-            });
-        }
-    };
-    
-    // Initialize charts
-    const initCharts = () => {
-        if (typeof Chart === 'undefined') {
-            console.warn('Chart.js not loaded yet');
+(function () {
+    function renderCharts() {
+        if (typeof Chart === "undefined") {
             return;
         }
-        
-        // Initialize Payroll Trend Chart
-        const payrollTrendCanvas = document.getElementById('payrollTrendChart');
-        if (payrollTrendCanvas) {
-            const payrollTrendCtx = payrollTrendCanvas.getContext('2d');
-            payrollTrendChart = new Chart(payrollTrendCtx, {
-                type: 'line',
+
+        const payrollCanvas = document.getElementById("payrollTrendChart");
+        if (payrollCanvas) {
+            new Chart(payrollCanvas, {
+                type: "line",
                 data: {
                     labels: {{ pay_period_labels|safe }},
                     datasets: [{
-                        label: 'Payroll Amount',
+                        label: "Net Payroll",
                         data: {{ pay_period_data|safe }},
-                        borderColor: 'rgb(59, 130, 246)',
-                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                        tension: 0.4,
+                        borderColor: "#005c73",
+                        backgroundColor: "rgba(0, 92, 115, 0.12)",
                         fill: true,
-                        pointRadius: 4,
-                        pointHoverRadius: 6
+                        tension: 0.35,
+                        pointRadius: 3
                     }]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    animation: {
-                        duration: 800,
-                        easing: 'easeOutQuart'
-                    },
-                    plugins: {
-                        legend: {
-                            display: false
-                        },
-                        tooltip: {
-                            mode: 'index',
-                            intersect: false
-                        }
-                    },
+                    plugins: { legend: { display: false } },
                     scales: {
                         y: {
                             beginAtZero: true,
                             ticks: {
-                                callback: function(value) {
-                                    return '₦' + value.toLocaleString();
+                                callback: function (value) {
+                                    return "₦" + Number(value).toLocaleString();
                                 }
-                            },
-                            grid: {
-                                color: 'rgba(0, 0, 0, 0.05)'
                             }
                         },
-                        x: {
-                            grid: {
-                                display: false
-                            }
-                        }
-                    },
-                    interaction: {
-                        mode: 'nearest',
-                        axis: 'x',
-                        intersect: false
+                        x: { grid: { display: false } }
                     }
                 }
             });
         }
-        
-        // Initialize Department Distribution Chart
-        const departmentCanvas = document.getElementById('departmentChart');
+
+        const departmentCanvas = document.getElementById("departmentChart");
         if (departmentCanvas) {
-            const departmentCtx = departmentCanvas.getContext('2d');
-            const departmentLabels = {{ department_labels|safe }};
-            const departmentCounts = {{ department_counts|safe }};
-            
-            // Generate colors dynamically based on number of departments
-            const colors = [
-                'rgba(59, 130, 246, 0.8)',
-                'rgba(16, 185, 129, 0.8)',
-                'rgba(245, 158, 11, 0.8)',
-                'rgba(139, 92, 246, 0.8)',
-                'rgba(236, 72, 153, 0.8)',
-                'rgba(6, 182, 212, 0.8)',
-                'rgba(249, 115, 22, 0.8)',
-                'rgba(141, 15, 78, 0.8)',
-                'rgba(140, 161, 20, 0.8)',
-                'rgba(234, 88, 12, 0.8)'
-            ];
-            
-            const backgroundColors = departmentLabels.map((_, index) => colors[index % colors.length]);
-            
-            departmentChart = new Chart(departmentCtx, {
-                type: 'doughnut',
+            new Chart(departmentCanvas, {
+                type: "doughnut",
                 data: {
-                    labels: departmentLabels,
+                    labels: {{ department_labels|safe }},
                     datasets: [{
-                        data: departmentCounts,
-                        backgroundColor: backgroundColors,
-                        borderWidth: 2,
-                        borderColor: '#ffffff'
+                        data: {{ department_counts|safe }},
+                        backgroundColor: ["#005c73", "#29985a", "#ea580c", "#de3730", "#536167", "#5f3201", "#18667e"],
+                        borderWidth: 3,
+                        borderColor: "#ffffff"
                     }]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    animation: {
-                        duration: 800,
-                        easing: 'easeOutQuart'
-                    },
+                    cutout: "66%",
                     plugins: {
                         legend: {
-                            position: 'bottom',
-                            labels: {
-                                padding: 15,
-                                usePointStyle: true
-                            }
-                        },
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
-                                    const percentage = ((context.raw / total) * 100).toFixed(1);
-                                    return `${context.label}: ${context.raw} (${percentage}%)`;
-                                }
-                            }
+                            position: "bottom",
+                            labels: { usePointStyle: true, boxWidth: 8 }
                         }
                     }
                 }
             });
         }
-    };
-    
-    // Cleanup function to destroy charts and free memory
-    const cleanup = () => {
-        if (payrollTrendChart) {
-            payrollTrendChart.destroy();
-            payrollTrendChart = null;
-        }
-        if (departmentChart) {
-            departmentChart.destroy();
-            departmentChart = null;
-        }
-    };
-    
-    // Initialize everything when DOM is ready
-    const init = () => {
-        // Initialize charts
-        initCharts();
-        
-        // Start observing stats for animation
-        observeStats();
-        
-        // Add smooth scroll behavior
-        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-            anchor.addEventListener('click', function (e) {
-                e.preventDefault();
-                const targetId = this.getAttribute('href');
-                if (targetId && targetId !== '#') {
-                    const target = document.querySelector(targetId);
-                    if (target) {
-                        target.scrollIntoView({
-                            behavior: 'smooth'
-                        });
-                    }
-                }
-            });
-        });
-    };
-    
-    // Wait for DOM to be ready
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', init);
-    } else {
-        init();
     }
-    
-    // Cleanup on page unload to prevent memory leaks
-    window.addEventListener('beforeunload', cleanup);
-    
-    // Also cleanup on page visibility change (when user navigates away)
-    document.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'hidden') {
-            cleanup();
-        }
-    });
+
+    if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", renderCharts);
+    } else {
+        renderCharts();
+    }
 })();
 </script>
 {% endblock %}

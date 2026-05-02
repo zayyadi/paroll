@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Pulse HR | Admin Panel</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "on-primary-fixed": "#001f28",
+                        "tertiary-fixed-dim": "#feb77d",
+                        "inverse-surface": "#2e3132",
+                        "secondary": "#536167",
+                        "surface-variant": "#e2e2e3",
+                        "surface-container-low": "#f3f4f4",
+                        "on-surface-variant": "#40484c",
+                        "outline-variant": "#bfc8cc",
+                        "on-secondary-container": "#58676d",
+                        "on-surface": "#1a1c1d",
+                        "tertiary": "#5f3201",
+                        "on-secondary-fixed-variant": "#3b494f",
+                        "outline": "#70787d",
+                        "on-tertiary-fixed-variant": "#6b3b09",
+                        "on-primary-container": "#8fd2ed",
+                        "on-error-container": "#93000a",
+                        "on-tertiary": "#ffffff",
+                        "surface-container-highest": "#e2e2e3",
+                        "inverse-on-surface": "#f0f1f2",
+                        "secondary-fixed": "#d6e5ec",
+                        "on-secondary-fixed": "#101d23",
+                        "secondary-fixed-dim": "#bac9d0",
+                        "on-primary-fixed-variant": "#004d61",
+                        "surface-container-high": "#e7e8e9",
+                        "secondary-container": "#d6e5ec",
+                        "on-background": "#1a1c1d",
+                        "primary-container": "#005c73",
+                        "surface-container-lowest": "#ffffff",
+                        "on-tertiary-fixed": "#2e1500",
+                        "error-container": "#ffdad6",
+                        "on-primary": "#ffffff",
+                        "on-tertiary-container": "#ffbb83",
+                        "primary-fixed-dim": "#8dd0ea",
+                        "background": "#f9f9fa",
+                        "surface-container": "#edeeef",
+                        "error": "#ba1a1a",
+                        "inverse-primary": "#8dd0ea",
+                        "surface-dim": "#d9dadb",
+                        "tertiary-container": "#7b4817",
+                        "surface": "#f9f9fa",
+                        "surface-tint": "#18667e",
+                        "tertiary-fixed": "#ffdcc2",
+                        "on-secondary": "#ffffff",
+                        "on-error": "#ffffff",
+                        "primary-fixed": "#b8eaff",
+                        "primary": "#004355",
+                        "surface-bright": "#f9f9fa"
+                    },
+                    fontFamily: {
+                        "headline": ["Manrope"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body { font-family: 'Inter', sans-serif; }
+        h1, h2, h3, .editorial-header { font-family: 'Manrope', sans-serif; }
+    </style>
+</head>
+<body class="bg-surface text-on-surface">
+<!-- Top Navigation Bar -->
+<nav class="fixed top-0 w-full z-40 bg-white/80 backdrop-blur-md flex justify-between items-center px-6 h-16 w-full border-b border-outline-variant/10">
+<div class="flex items-center gap-8">
+<span class="text-xl font-bold tracking-tighter text-teal-900">Pulse HR</span>
+<div class="hidden md:flex gap-6">
+<a class="text-teal-900 font-bold border-b-2 border-teal-900 font-['Manrope'] tracking-tight transition-colors" href="#">Overview</a>
+<a class="text-slate-500 font-medium hover:text-teal-700 font-['Manrope'] tracking-tight transition-colors" href="#">Audit</a>
+<a class="text-slate-500 font-medium hover:text-teal-700 font-['Manrope'] tracking-tight transition-colors" href="#">Systems</a>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<button class="p-2 text-teal-900 hover:bg-slate-100 rounded-full transition-all">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="p-2 text-teal-900 hover:bg-slate-100 rounded-full transition-all">
+<span class="material-symbols-outlined">settings</span>
+</button>
+<div class="h-8 w-8 rounded-full overflow-hidden border border-teal-900/10">
+<img alt="Executive Profile" data-alt="professional male executive in a sharp navy suit looking confident in a modern office setting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAxFo405uaoi9t9odX4uo_LReUlEBDlKAJymu1fHpOCyW8UDpJ_ZZAeSbNemeGZjEuhCKpseOb9ndpLodRVjXMfV-MK3PgilimUsgBcCiQPK1hEfETW-ifL42GUFGQ9KwZxTBh_3YslNgcRh9K_1f2O7rqGGYGODbOYOTssWvphCPJaJ8fwgcFvnYLP3qdU9XJvKVJuDedWGlyKTpMxMRG5zWt8sY_wIbnL7epVo0zVcjOoZRO_WFQniwAohbn-3Wx9ghE-nMCGWKU"/>
+</div>
+</div>
+</nav>
+<!-- Side Navigation Bar -->
+<aside class="fixed left-0 top-0 h-full w-64 bg-slate-50 flex flex-col p-4 space-y-2 z-30 pt-20 border-r border-slate-100">
+<div class="px-4 mb-8">
+<h2 class="font-['Manrope'] font-black text-2xl text-teal-900">Pulse HR</h2>
+<p class="text-xs text-slate-500 font-['Inter'] antialiased">Editorial Command</p>
+</div>
+<nav class="space-y-1">
+<a class="flex items-center gap-3 p-3 text-slate-600 hover:bg-slate-200/50 hover:translate-x-1 transition-all rounded-lg" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-medium">Dashboard</span>
+</a>
+<a class="flex items-center gap-3 p-3 text-slate-600 hover:bg-slate-200/50 hover:translate-x-1 transition-all rounded-lg" href="#">
+<span class="material-symbols-outlined">groups</span>
+<span class="font-medium">Staff Directory</span>
+</a>
+<a class="flex items-center gap-3 p-3 text-slate-600 hover:bg-slate-200/50 hover:translate-x-1 transition-all rounded-lg" href="#">
+<span class="material-symbols-outlined">payments</span>
+<span class="font-medium">Payroll Hub</span>
+</a>
+<a class="flex items-center gap-3 p-3 text-slate-600 hover:bg-slate-200/50 hover:translate-x-1 transition-all rounded-lg" href="#">
+<span class="material-symbols-outlined">gavel</span>
+<span class="font-medium">Disciplinary</span>
+</a>
+<a class="flex items-center gap-3 p-3 bg-white text-teal-900 font-bold shadow-sm rounded-lg hover:translate-x-1 transition-all" href="#">
+<span class="material-symbols-outlined">shield_person</span>
+<span class="font-medium">Admin Panel</span>
+</a>
+<a class="flex items-center gap-3 p-3 text-slate-600 hover:bg-slate-200/50 hover:translate-x-1 transition-all rounded-lg" href="#">
+<span class="material-symbols-outlined">account_circle</span>
+<span class="font-medium">My Profile</span>
+</a>
+</nav>
+<div class="mt-auto pt-6 space-y-1">
+<button class="w-full bg-gradient-to-br from-primary to-primary-container text-white p-3 rounded-lg font-bold mb-4 shadow-lg active:scale-95 transition-transform">
+                New Entry
+            </button>
+<a class="flex items-center gap-3 p-3 text-slate-600 hover:bg-slate-200/50 hover:translate-x-1 transition-all rounded-lg text-sm" href="#">
+<span class="material-symbols-outlined">help_outline</span>
+<span>Support</span>
+</a>
+<a class="flex items-center gap-3 p-3 text-slate-600 hover:bg-slate-200/50 hover:translate-x-1 transition-all rounded-lg text-sm" href="#">
+<span class="material-symbols-outlined">logout</span>
+<span>Sign Out</span>
+</a>
+</div>
+</aside>
+<!-- Main Content Canvas -->
+<main class="ml-64 pt-16 min-h-screen bg-surface">
+<div class="p-10 max-w-7xl mx-auto">
+<!-- Hero Header Section -->
+<header class="mb-12">
+<div class="flex justify-between items-end">
+<div>
+<h1 class="text-4xl font-extrabold tracking-tighter text-on-surface mb-2">System Governance</h1>
+<p class="text-on-surface-variant text-lg">Central control for infrastructure, security, and administrative permissions.</p>
+</div>
+<div class="flex gap-4">
+<div class="flex items-center gap-2 bg-surface-container-low px-4 py-2 rounded-lg">
+<span class="w-2 h-2 bg-teal-500 rounded-full animate-pulse"></span>
+<span class="text-sm font-bold text-teal-900">SYSTEM STABLE</span>
+</div>
+</div>
+</div>
+</header>
+<!-- Bento Grid Dashboard -->
+<div class="grid grid-cols-12 gap-6 mb-12">
+<!-- Security Overview (Large) -->
+<div class="col-span-12 lg:col-span-8 bg-surface-container-lowest p-8 rounded-xl relative overflow-hidden group">
+<div class="absolute top-0 left-0 w-1 h-full bg-primary-container transition-all group-hover:w-2"></div>
+<div class="flex justify-between items-start mb-8">
+<div>
+<h3 class="text-xl font-bold font-headline mb-1">Security Posture</h3>
+<p class="text-sm text-on-surface-variant uppercase tracking-widest">Real-time intrusion monitoring</p>
+</div>
+<span class="material-symbols-outlined text-primary-container text-3xl">verified_user</span>
+</div>
+<div class="grid grid-cols-3 gap-8">
+<div>
+<p class="text-3xl font-black text-on-surface">99.9%</p>
+<p class="text-xs text-on-surface-variant font-medium mt-1">UPTIME SERVICE LEVEL</p>
+</div>
+<div>
+<p class="text-3xl font-black text-on-surface">2.4k</p>
+<p class="text-xs text-on-surface-variant font-medium mt-1">FAILED LOGIN ATTEMPTS</p>
+</div>
+<div>
+<p class="text-3xl font-black text-on-surface">0</p>
+<p class="text-xs text-on-surface-variant font-medium mt-1">CRITICAL VULNERABILITIES</p>
+</div>
+</div>
+<div class="mt-8 pt-8 border-t border-outline-variant/10 flex gap-4">
+<button class="bg-primary text-white px-6 py-2 rounded-lg font-bold text-sm">Run Global Audit</button>
+<button class="bg-surface-container-high text-on-secondary-container px-6 py-2 rounded-lg font-bold text-sm">View Logs</button>
+</div>
+</div>
+<!-- Active Sessions (Small) -->
+<div class="col-span-12 lg:col-span-4 bg-surface-container-lowest p-8 rounded-xl border-l-4 border-tertiary-fixed">
+<h3 class="text-xl font-bold font-headline mb-6">Active Admins</h3>
+<div class="space-y-6">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center">
+<span class="material-symbols-outlined text-teal-900">person</span>
+</div>
+<div>
+<p class="text-sm font-bold">Sarah Jenkins</p>
+<p class="text-xs text-on-surface-variant">Editing Payroll Hub • 2m ago</p>
+</div>
+</div>
+<div class="flex items-center gap-4 opacity-60">
+<div class="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center">
+<span class="material-symbols-outlined text-teal-900">person</span>
+</div>
+<div>
+<p class="text-sm font-bold">Marcus Thorne</p>
+<p class="text-xs text-on-surface-variant">System Config • 15m ago</p>
+</div>
+</div>
+</div>
+<button class="w-full mt-8 py-2 text-sm font-bold text-primary hover:underline flex items-center justify-center gap-2">
+                        View All Sessions <span class="material-symbols-outlined text-sm">arrow_forward</span>
+</button>
+</div>
+<!-- User Management Section -->
+<div class="col-span-12 bg-surface-container-low p-1 rounded-xl">
+<div class="bg-surface-container-lowest rounded-lg p-8">
+<div class="flex flex-col md:flex-row justify-between items-center gap-6 mb-10">
+<h3 class="text-2xl font-bold font-headline tracking-tight">Access Control &amp; Roles</h3>
+<div class="flex gap-4 w-full md:w-auto">
+<div class="relative flex-1 md:w-64">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant">search</span>
+<input class="w-full bg-surface-container-low border-none rounded-md pl-10 pr-4 py-2 focus:ring-2 focus:ring-surface-tint/40 text-sm" placeholder="Search administrators..." type="text"/>
+</div>
+<button class="bg-primary text-white px-6 py-2 rounded-lg font-bold flex items-center gap-2 shadow-md">
+<span class="material-symbols-outlined text-sm">person_add</span>
+                                    Add Admin
+                                </button>
+</div>
+</div>
+<!-- Data Table Style List -->
+<div class="overflow-x-auto">
+<table class="w-full text-left">
+<thead>
+<tr class="text-on-surface-variant border-b border-outline-variant/10">
+<th class="pb-4 font-label text-xs uppercase tracking-widest px-4">Entity</th>
+<th class="pb-4 font-label text-xs uppercase tracking-widest px-4">Role Assigned</th>
+<th class="pb-4 font-label text-xs uppercase tracking-widest px-4">Security Group</th>
+<th class="pb-4 font-label text-xs uppercase tracking-widest px-4">Last Modified</th>
+<th class="pb-4 font-label text-xs uppercase tracking-widest px-4 text-right">Actions</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant/5">
+<tr class="hover:bg-slate-50 transition-colors group">
+<td class="py-6 px-4">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-lg bg-teal-50 flex items-center justify-center text-teal-900 font-bold text-xs">JD</div>
+<div>
+<p class="font-bold text-sm">Jane Doe</p>
+<p class="text-xs text-on-surface-variant">j.doe@pulsehr.com</p>
+</div>
+</div>
+</td>
+<td class="py-6 px-4">
+<span class="px-2 py-1 bg-secondary-container text-on-secondary-container text-[10px] font-black rounded uppercase">Super Admin</span>
+</td>
+<td class="py-6 px-4 text-sm font-medium">Global Operations</td>
+<td class="py-6 px-4 text-sm text-on-surface-variant">Oct 24, 2023</td>
+<td class="py-6 px-4 text-right">
+<button class="text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined">edit</span>
+</button>
+</td>
+</tr>
+<tr class="hover:bg-slate-50 transition-colors group">
+<td class="py-6 px-4">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-lg bg-orange-50 flex items-center justify-center text-orange-900 font-bold text-xs">RK</div>
+<div>
+<p class="font-bold text-sm">Robert King</p>
+<p class="text-xs text-on-surface-variant">r.king@pulsehr.com</p>
+</div>
+</div>
+</td>
+<td class="py-6 px-4">
+<span class="px-2 py-1 bg-surface-container-high text-on-surface-variant text-[10px] font-black rounded uppercase">HR Analyst</span>
+</td>
+<td class="py-6 px-4 text-sm font-medium">Payroll Compliance</td>
+<td class="py-6 px-4 text-sm text-on-surface-variant">Nov 02, 2023</td>
+<td class="py-6 px-4 text-right">
+<button class="text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined">edit</span>
+</button>
+</td>
+</tr>
+<tr class="hover:bg-slate-50 transition-colors group">
+<td class="py-6 px-4">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center text-blue-900 font-bold text-xs">AW</div>
+<div>
+<p class="font-bold text-sm">Alice Wong</p>
+<p class="text-xs text-on-surface-variant">a.wong@pulsehr.com</p>
+</div>
+</div>
+</td>
+<td class="py-6 px-4">
+<span class="px-2 py-1 bg-surface-container-high text-on-surface-variant text-[10px] font-black rounded uppercase">IT Support</span>
+</td>
+<td class="py-6 px-4 text-sm font-medium">System Maintenance</td>
+<td class="py-6 px-4 text-sm text-on-surface-variant">Dec 12, 2023</td>
+<td class="py-6 px-4 text-right">
+<button class="text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined">edit</span>
+</button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+<!-- Config Modules (Tiled) -->
+<div class="col-span-12 md:col-span-6 lg:col-span-4 group cursor-pointer">
+<div class="bg-white p-8 rounded-xl h-full border border-transparent hover:border-primary/20 transition-all hover:shadow-xl hover:-translate-y-1">
+<div class="w-12 h-12 rounded-lg bg-surface-container-low flex items-center justify-center mb-6 group-hover:bg-primary group-hover:text-white transition-colors">
+<span class="material-symbols-outlined">storage</span>
+</div>
+<h4 class="text-xl font-bold mb-2">Database Config</h4>
+<p class="text-sm text-on-surface-variant mb-6 leading-relaxed">Adjust shard distribution, indexing schedules, and automated backup windows for global nodes.</p>
+<div class="flex items-center gap-2 text-primary font-bold text-xs uppercase tracking-tighter">
+                            Manage Assets <span class="material-symbols-outlined text-xs">open_in_new</span>
+</div>
+</div>
+</div>
+<div class="col-span-12 md:col-span-6 lg:col-span-4 group cursor-pointer">
+<div class="bg-white p-8 rounded-xl h-full border border-transparent hover:border-primary/20 transition-all hover:shadow-xl hover:-translate-y-1">
+<div class="w-12 h-12 rounded-lg bg-surface-container-low flex items-center justify-center mb-6 group-hover:bg-primary group-hover:text-white transition-colors">
+<span class="material-symbols-outlined">api</span>
+</div>
+<h4 class="text-xl font-bold mb-2">Integrations &amp; API</h4>
+<p class="text-sm text-on-surface-variant mb-6 leading-relaxed">Manage OAuth2 clients, webhooks, and third-party SaaS connectors (Slack, Jira, Salesforce).</p>
+<div class="flex items-center gap-2 text-primary font-bold text-xs uppercase tracking-tighter">
+                            Configure Keys <span class="material-symbols-outlined text-xs">open_in_new</span>
+</div>
+</div>
+</div>
+<div class="col-span-12 md:col-span-6 lg:col-span-4 group cursor-pointer">
+<div class="bg-white p-8 rounded-xl h-full border border-transparent hover:border-primary/20 transition-all hover:shadow-xl hover:-translate-y-1">
+<div class="w-12 h-12 rounded-lg bg-surface-container-low flex items-center justify-center mb-6 group-hover:bg-primary group-hover:text-white transition-colors">
+<span class="material-symbols-outlined">rule</span>
+</div>
+<h4 class="text-xl font-bold mb-2">Policy Engine</h4>
+<p class="text-sm text-on-surface-variant mb-6 leading-relaxed">Global conditional access policies, password complexity, and 2FA enforcement settings.</p>
+<div class="flex items-center gap-2 text-primary font-bold text-xs uppercase tracking-tighter">
+                            Edit Rules <span class="material-symbols-outlined text-xs">open_in_new</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Footer Section -->
+<footer class="w-full py-8 mt-auto flex flex-col md:flex-row justify-between items-center px-12 border-t border-slate-100 bg-white">
+<div class="mb-4 md:mb-0">
+<span class="font-bold text-teal-950">Pulse HR</span>
+<span class="mx-2 text-slate-300">|</span>
+<span class="text-slate-400 font-['Inter'] text-xs uppercase tracking-widest">© 2024 Pulse HR. Professional Editorial Management.</span>
+</div>
+<div class="flex gap-8">
+<a class="text-slate-400 hover:text-teal-600 transition-colors text-xs uppercase tracking-widest" href="#">Privacy Policy</a>
+<a class="text-slate-400 hover:text-teal-600 transition-colors text-xs uppercase tracking-widest" href="#">Service Terms</a>
+<a class="text-slate-400 hover:text-teal-600 transition-colors text-xs uppercase tracking-widest" href="#">Cookie Settings</a>
+</div>
+</footer>
+</main>
+</body></html>

@@ -20,10 +20,12 @@
         </div>
 
         <div class="flex justify-end gap-3 mt-6">
-            <a href="{% url 'payroll:iou_list' %}" class="px-4 py-2.5 rounded-xl border border-secondary-300 text-secondary-700 hover:bg-secondary-50 text-sm font-medium">Back</a>
+            <a href="{% url 'payroll:iou_history' %}" class="px-4 py-2.5 rounded-xl border border-secondary-300 text-secondary-700 hover:bg-secondary-50 text-sm font-medium">Back</a>
             <a href="{% url 'payroll:iou_payment_slip' iou.pk %}" class="px-4 py-2.5 rounded-xl border border-primary-300 text-primary-700 hover:bg-primary-50 text-sm font-medium">Payment Slip</a>
-            {% if iou.status == 'PENDING' and perms.payroll.change_iou %}
-            <a href="{% url 'payroll:iou_update' iou.pk %}" class="btn-primary px-4 py-2.5 rounded-xl text-white text-sm font-medium">Edit</a>
+            {% if iou.status == 'PENDING' %}
+                {% if can_manage_requests or request.user == iou.employee_id.user %}
+                <a href="{% url 'payroll:iou_update' iou.pk %}" class="btn-primary px-4 py-2.5 rounded-xl text-white text-sm font-medium">Edit</a>
+                {% endif %}
             {% endif %}
         </div>
     </div>

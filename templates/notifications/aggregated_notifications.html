@@ -28,7 +28,9 @@
             {% for aggregated in aggregated_notifications %}
                 <div class="p-4" id="aggregated-{{ aggregated.id }}">
                     <!-- Aggregated Header -->
-                    <div class="flex items-start justify-between cursor-pointer" onclick="toggleAggregated('{{ aggregated.id }}')">
+                    <button type="button"
+                            data-aggregate-toggle="{{ aggregated.id }}"
+                            class="flex w-full items-start justify-between cursor-pointer text-left">
                         <div class="flex items-start space-x-4 flex-1">
                             <!-- Icon -->
                             <div class="flex-shrink-0">
@@ -73,7 +75,7 @@
                             <i data-lucide="chevron-down" id="chevron-{{ aggregated.id }}" 
                                class="h-5 w-5 text-gray-400 transition-transform duration-200"></i>
                         </div>
-                    </div>
+                    </button>
 
                     <!-- Individual Notifications (Hidden by default) -->
                     <div id="details-{{ aggregated.id }}" class="hidden mt-4 ml-14 space-y-3">
@@ -115,7 +117,10 @@
                                                 <!-- Actions -->
                                                 <div class="flex items-center space-x-2 ml-4">
                                                     {% if not notification.is_read %}
-                                                        <button onclick="event.stopPropagation(); markAsRead('{{ notification.id }}')" 
+                                                        <button type="button"
+                                                                data-notification-action="mark-read"
+                                                                data-notification-id="{{ notification.id }}"
+                                                                data-notification-url="{% url 'payroll:mark_notification_read' notification.id %}"
                                                                 class="p-1 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400" 
                                                                 title="Mark as read">
                                                             <i data-lucide="check" class="h-4 w-4"></i>
@@ -133,7 +138,6 @@
                                             {% if notification.action_url %}
                                                 <div class="mt-2">
                                                     <a href="{{ notification.action_url }}" 
-                                                       onclick="event.stopPropagation()"
                                                        class="inline-flex items-center text-xs font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300">
                                                         View Details
                                                         <i data-lucide="arrow-right" class="h-3 w-3 ml-1"></i>
@@ -206,37 +210,13 @@ function toggleAggregated(aggregatedId) {
     }
 }
 
-function markAsRead(notificationId) {
-    fetch(`/payroll/notifications/${notificationId}/mark-read/`, {
-        method: 'POST',
-        headers: {
-            'X-CSRFToken': getCookie('csrftoken'),
-            'Content-Type': 'application/json',
-        },
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            location.reload();
-        }
-    })
-    .catch(error => console.error('Error marking notification as read:', error));
-}
-
-function getCookie(name) {
-    let cookieValue = null;
-    if (document.cookie && document.cookie !== '') {
-        const cookies = document.cookie.split(';');
-        for (let i = 0; i < cookies.length; i++) {
-            const cookie = cookies[i].trim();
-            if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                break;
-            }
-        }
+document.addEventListener("click", function (event) {
+    const trigger = event.target.closest("[data-aggregate-toggle]");
+    if (!trigger) {
+        return;
     }
-    return cookieValue;
-}
+    toggleAggregated(trigger.dataset.aggregateToggle);
+});
 
 // Initialize Lucide icons
 document.addEventListener('DOMContentLoaded', function() {

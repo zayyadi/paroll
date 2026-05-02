@@ -1,0 +1,80 @@
+{% extends "base_new.html" %}
+
+{% block page_header %}Attendance Overview{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <section class="grid gap-4 md:grid-cols-3">
+        <div class="rounded-[1.5rem] bg-white p-6 ghost-border">
+            <p class="text-[10px] font-bold uppercase tracking-[0.24em] text-secondary-500">Present</p>
+            <p class="mt-3 font-headline text-4xl font-extrabold text-primary-800">{{ present_count }}</p>
+        </div>
+        <div class="rounded-[1.5rem] bg-white p-6 ghost-border">
+            <p class="text-[10px] font-bold uppercase tracking-[0.24em] text-secondary-500">Remote</p>
+            <p class="mt-3 font-headline text-4xl font-extrabold text-primary-800">{{ remote_count }}</p>
+        </div>
+        <div class="rounded-[1.5rem] bg-white p-6 ghost-border">
+            <p class="text-[10px] font-bold uppercase tracking-[0.24em] text-secondary-500">Out Today</p>
+            <p class="mt-3 font-headline text-4xl font-extrabold text-primary-800">{{ out_count }}</p>
+            <a href="{% url 'payroll:who_is_out' %}" class="mt-4 inline-flex text-sm font-semibold text-primary-700 hover:text-primary-900">View Who's Out</a>
+        </div>
+    </section>
+
+    <section class="rounded-[1.5rem] bg-white p-6 ghost-border">
+        <div class="flex items-center justify-between gap-3">
+            <div>
+                <p class="text-[10px] font-bold uppercase tracking-[0.24em] text-secondary-500">Today</p>
+                <h2 class="mt-2 font-headline text-2xl font-extrabold text-primary-800">{{ today|date:"F j, Y" }}</h2>
+            </div>
+            <a href="{% url 'payroll:who_is_out' %}" class="editorial-secondary editorial-action rounded-2xl px-4 py-2.5 text-sm font-bold">Who's Out</a>
+        </div>
+
+        <div class="mt-6 overflow-x-auto">
+            <table class="min-w-full">
+                <thead>
+                    <tr>
+                        <th class="px-4 py-3 text-left">Employee</th>
+                        <th class="px-4 py-3 text-left">Status</th>
+                        <th class="px-4 py-3 text-left">Clock In</th>
+                        <th class="px-4 py-3 text-left">Clock Out</th>
+                        <th class="px-4 py-3 text-left">Hours</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for record in today_records %}
+                    <tr>
+                        <td class="px-4 py-4 text-sm font-semibold text-secondary-900">{{ record.employee.first_name }} {{ record.employee.last_name }}</td>
+                        <td class="px-4 py-4 text-sm text-secondary-700">{{ record.get_status_display }}</td>
+                        <td class="px-4 py-4 text-sm text-secondary-700">{{ record.clock_in|date:"g:i A"|default:"-" }}</td>
+                        <td class="px-4 py-4 text-sm text-secondary-700">{{ record.clock_out|date:"g:i A"|default:"-" }}</td>
+                        <td class="px-4 py-4 text-sm text-secondary-700">{{ record.hours_worked|default:"-" }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" class="px-4 py-8 text-center text-sm text-secondary-500">No attendance records for today.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <section class="rounded-[1.5rem] bg-white p-6 ghost-border">
+        <p class="text-[10px] font-bold uppercase tracking-[0.24em] text-secondary-500">Recent Activity</p>
+        <h3 class="mt-2 font-headline text-2xl font-extrabold text-primary-800">Recent Attendance Records</h3>
+        <div class="mt-6 space-y-3">
+            {% for record in recent_records %}
+            <div class="rounded-2xl bg-surface-container-low p-4">
+                <div class="flex items-center justify-between gap-4">
+                    <p class="font-semibold text-secondary-900">{{ record.employee.first_name }} {{ record.employee.last_name }}</p>
+                    <span class="text-sm text-secondary-600">{{ record.work_date|date:"M j, Y" }}</span>
+                </div>
+                <p class="mt-2 text-sm text-secondary-600">{{ record.get_status_display }} · {{ record.hours_worked }} hrs</p>
+            </div>
+            {% empty %}
+            <div class="rounded-2xl bg-surface-container-low p-5 text-sm text-secondary-600">No recent attendance records yet.</div>
+            {% endfor %}
+        </div>
+    </section>
+</div>
+{% endblock %}

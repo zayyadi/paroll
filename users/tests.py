@@ -175,6 +175,41 @@ class LoginSecurityTests(TestCase):
         self.assertRedirects(response, reverse("payroll:index"))
         self.assertNotEqual(reverse("payroll:index"), "/")
 
+    def test_login_page_uses_editorial_auth_shell(self):
+        response = self.client.get(reverse("users:login"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Editorial Command")
+        self.assertContains(response, "Manrope")
+
+
+@override_settings(
+    CACHES={"default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"}},
+    MULTI_COMPANY_MEMBERSHIP_ENABLED=False,
+)
+class RootRoutingTests(TestCase):
+    def setUp(self):
+        self.company = Company.objects.create(name="Root Routing Co")
+        self.user = get_user_model().objects.create_user(
+            email="root@example.com",
+            first_name="Root",
+            last_name="User",
+            password="StrongPass123!",
+            company=self.company,
+            active_company=self.company,
+            is_active=True,
+        )
+
+    def test_root_redirects_anonymous_user_to_login(self):
+        response = self.client.get("/")
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(reverse("users:login"), response.url)
+
+    def test_root_renders_dashboard_for_authenticated_user(self):
+        self.client.force_login(self.user)
+        response = self.client.get("/")
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "home_normal.html")
+
 
 @override_settings(
     CACHES={"default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"}},
@@ -193,3 +228,42 @@ class OtpHardeningTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Too many attempts")
+
+
+@override_settings(
+    CACHES={"default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"}},
+    MULTI_COMPANY_MEMBERSHIP_ENABLED=False,
+)
+class UserRouteHardeningTests(TestCase):
+    def setUp(self):
+        self.company = Company.objects.create(name="User Route Co")
+        self.user = get_user_model().objects.create_user(
+            email="user-routes@example.com",
+            first_name="Route",
+            last_name="Tester",
+            password="StrongPass123!",
+            company=self.company,
+            active_company=self.company,
+            is_active=True,
+        )
+        self.client.force_login(self.user)
+
+    def test_send_otp_requires_post(self):
+        response = self.client.get(reverse("users:send_otp"))
+        self.assertEqual(response.status_code, 405)
+
+    def test_password_view_renders_django_password_change_template(self):
+        response = self.client.get(reverse("users:password"))
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "registration/password_change_form.html")
+
+    def test_password_view_redirects_with_namespace_after_success(self):
+        response = self.client.post(
+            reverse("users:password"),
+            {
+                "old_password": "StrongPass123!",
+                "new_password1": "EvenStrongerPass123!",
+                "new_password2": "EvenStrongerPass123!",
+            },
+        )
+        self.assertRedirects(response, reverse("users:password"))

@@ -1,120 +1,155 @@
 {% load static %}
 <!DOCTYPE html>
-<html lang="en">
-
+<html lang="en" class="scroll-smooth">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="icon" type="image/svg+xml" href="{{ APP_LOGO_URL }}">
     <link rel="shortcut icon" href="{{ APP_LOGO_URL }}">
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/lucide@latest" defer></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" as="style">
+    <script src="{% static 'js/tailwind.min.js' %}"></script>
+    <script src="{% static 'vendor/lucide.min.js' %}" defer></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@700;800&display=swap" rel="stylesheet">
     <script>
         tailwind.config = {
+            darkMode: "class",
             theme: {
                 extend: {
                     colors: {
                         primary: {
-                            50: '#eff6ff',
-                            100: '#dbeafe',
-                            200: '#bfdbfe',
-                            300: '#93c5fd',
-                            400: '#60a5fa',
-                            500: '#3b82f6',
-                            600: '#2563eb',
-                            700: '#1d4ed8',
-                            800: '#1e40af',
-                            900: '#1e3a8a',
+                            50: "#e7f6fa",
+                            100: "#cdeaf2",
+                            200: "#9dd5e5",
+                            300: "#69b9cc",
+                            400: "#358ca1",
+                            500: "#18667e",
+                            600: "#005c73",
+                            700: "#004d61",
+                            800: "#004355",
+                            900: "#001f28",
                         },
                         secondary: {
-                            50: '#f8fafc',
-                            100: '#f1f5f9',
-                            200: '#e2e8f0',
-                            300: '#cbd5e1',
-                            400: '#94a3b8',
-                            500: '#64748b',
-                            600: '#475569',
-                            700: '#334155',
-                            800: '#1e293b',
-                            900: '#0f172a',
+                            50: "#f7f9fa",
+                            100: "#f3f4f4",
+                            200: "#edeeef",
+                            300: "#e2e2e3",
+                            400: "#bfc8cc",
+                            500: "#70787d",
+                            600: "#536167",
+                            700: "#40484c",
+                            800: "#2e3132",
+                            900: "#1a1c1d",
                         },
                         success: {
-                            50: '#f0fdf4',
-                            100: '#dcfce7',
-                            200: '#bbf7d0',
-                            300: '#86efac',
-                            400: '#4ade80',
-                            500: '#22c55e',
-                            600: '#16a34a',
-                            700: '#15803d',
-                            800: '#166534',
-                            900: '#14532d',
+                            50: "#eefbf3",
+                            100: "#daf4e4",
+                            200: "#b2e5c6",
+                            300: "#82d1a3",
+                            400: "#50b87c",
+                            500: "#29985a",
+                            600: "#1f7b48",
+                            700: "#1c613c",
+                            800: "#174f31",
+                            900: "#143f28",
                         },
                         warning: {
-                            50: '#fffbeb',
-                            100: '#fef3c7',
-                            200: '#fde68a',
-                            300: '#fcd34d',
-                            400: '#fbbf24',
-                            500: '#f59e0b',
-                            600: '#d97706',
-                            700: '#b45309',
-                            800: '#92400e',
-                            900: '#78350f',
+                            50: "#fff7ed",
+                            100: "#ffedd5",
+                            200: "#ffdcc2",
+                            300: "#feb77d",
+                            400: "#fb923c",
+                            500: "#ea580c",
+                            600: "#c2410c",
+                            700: "#9a3412",
+                            800: "#7c2d12",
+                            900: "#5f3201",
                         },
                         danger: {
-                            50: '#fef2f2',
-                            100: '#fee2e2',
-                            200: '#fecaca',
-                            300: '#fca5a5',
-                            400: '#f87171',
-                            500: '#ef4444',
-                            600: '#dc2626',
-                            700: '#b91c1c',
-                            800: '#991b1b',
-                            900: '#7f1d1d',
-                        }
+                            50: "#fff1f0",
+                            100: "#ffdad6",
+                            200: "#ffb4ab",
+                            300: "#ff897d",
+                            400: "#ff5449",
+                            500: "#de3730",
+                            600: "#ba1a1a",
+                            700: "#93000a",
+                            800: "#740006",
+                            900: "#5d0004",
+                        },
+                        background: "#f9f9fa",
+                        surface: "#f9f9fa",
+                        "surface-dim": "#d9dadb",
+                        "surface-bright": "#f9f9fa",
+                        "surface-container": "#edeeef",
+                        "surface-container-low": "#f3f4f4",
+                        "surface-container-lowest": "#ffffff",
+                        "surface-container-high": "#e7e8e9",
+                        "surface-container-highest": "#e2e2e3",
+                        "surface-tint": "#18667e",
+                        outline: "#70787d",
+                        "outline-variant": "#bfc8cc",
+                        tertiary: "#5f3201",
+                        "tertiary-fixed": "#ffdcc2",
+                        "tertiary-fixed-dim": "#feb77d",
+                        "primary-container": "#005c73",
+                        "secondary-container": "#d6e5ec",
+                        "on-primary": "#ffffff",
+                        "on-primary-container": "#8fd2ed",
+                        "on-secondary-container": "#58676d",
+                        "on-surface": "#1a1c1d",
+                        "on-surface-variant": "#40484c",
                     },
                     fontFamily: {
-                        sans: ['Inter', 'sans-serif'],
+                        sans: ["Inter", "sans-serif"],
+                        headline: ["Manrope", "sans-serif"],
+                        body: ["Inter", "sans-serif"],
                     },
                     boxShadow: {
-                        'soft': '0 2px 15px -3px rgba(0, 0, 0, 0.07), 0 10px 20px -2px rgba(0, 0, 0, 0.04)',
-                        'medium': '0 4px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+                        ambient: "0 20px 45px rgba(26, 28, 29, 0.08)",
+                        float: "0 8px 24px rgba(26, 28, 29, 0.10)",
+                    },
+                    borderRadius: {
+                        editorial: "1.5rem",
                     },
                     animation: {
-                        'fade-in': 'fadeIn 0.5s ease-in-out',
-                        'slide-up': 'slideUp 0.3s ease-out',
-                    }
+                        "fade-in": "fadeIn 0.35s ease-out",
+                        "slide-up": "slideUp 0.3s ease-out",
+                    },
                 },
             },
-        }
+        };
     </script>
     <style>
         body {
-            font-family: 'Inter', sans-serif;
+            font-family: "Inter", sans-serif;
+            background: #f9f9fa;
+            color: #1a1c1d;
+        }
+
+        h1,
+        h2,
+        h3,
+        h4,
+        .font-headline {
+            font-family: "Manrope", sans-serif;
+            letter-spacing: -0.02em;
         }
 
         @keyframes fadeIn {
-            from {
-                opacity: 0;
-            }
-
-            to {
-                opacity: 1;
-            }
+            from { opacity: 0; }
+            to { opacity: 1; }
         }
 
         @keyframes slideUp {
             from {
-                transform: translateY(10px);
                 opacity: 0;
+                transform: translateY(10px);
             }
 
             to {
-                transform: translateY(0);
                 opacity: 1;
+                transform: translateY(0);
             }
         }
 
@@ -122,55 +157,146 @@
             display: none !important;
         }
 
+        .ghost-border {
+            outline: 1px solid rgba(191, 200, 204, 0.25);
+        }
+
+        .editorial-glass {
+            background: rgba(249, 249, 250, 0.78);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+        }
+
+        .editorial-gradient {
+            background: linear-gradient(135deg, #004355 0%, #005c73 100%);
+        }
+
+        .editorial-panel {
+            background: #ffffff;
+            border-radius: 1.25rem;
+            outline: 1px solid rgba(191, 200, 204, 0.18);
+        }
+
         .card-hover {
-            transition: all 0.3s ease;
+            transition: transform 180ms ease, box-shadow 180ms ease, background-color 180ms ease;
         }
 
         .card-hover:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.15);
+            transform: translateY(-3px);
+            box-shadow: 0 16px 32px rgba(26, 28, 29, 0.08);
         }
 
         .sidebar-link {
-            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            border-radius: 0.875rem;
+            color: #536167;
+            padding: 0.8rem 0.95rem;
+            font-size: 0.95rem;
+            font-weight: 500;
+            transition: transform 180ms ease, background-color 180ms ease, color 180ms ease;
         }
 
         .sidebar-link:hover {
-            background-color: rgba(59, 130, 246, 0.1);
-            border-left: 3px solid #3b82f6;
-            padding-left: calc(1rem - 3px);
+            background: rgba(226, 226, 227, 0.65);
+            color: #004355;
+            transform: translateX(4px);
         }
 
         .sidebar-link.active {
-            background-color: rgba(59, 130, 246, 0.1);
-            border-left: 3px solid #3b82f6;
-            padding-left: calc(1rem - 3px);
-            color: #3b82f6;
-            font-weight: 600;
+            background: #ffffff;
+            color: #004355;
+            font-weight: 700;
+            box-shadow: 0 10px 28px rgba(26, 28, 29, 0.06);
+        }
+
+        .sidebar-link.active .sidebar-icon {
+            color: #004355;
+        }
+
+        .editorial-action {
+            border-radius: 0.875rem;
+            font-weight: 700;
+            transition: transform 180ms ease, box-shadow 180ms ease, filter 180ms ease;
+        }
+
+        .editorial-action:hover {
+            transform: translateY(-1px);
+        }
+
+        .chat-float {
+            position: fixed;
+            bottom: 1.5rem;
+            right: 1.5rem;
+            z-index: 50;
+            animation: floatPulse 2.2s ease-in-out infinite;
+        }
+
+        @keyframes floatPulse {
+            0% { transform: translateY(0); box-shadow: 0 10px 24px rgba(0, 67, 85, 0.25); }
+            50% { transform: translateY(-4px); box-shadow: 0 18px 30px rgba(0, 67, 85, 0.35); }
+            100% { transform: translateY(0); box-shadow: 0 10px 24px rgba(0, 67, 85, 0.25); }
         }
 
         .btn-primary {
-            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-            transition: all 0.2s ease;
+            background: linear-gradient(135deg, #004355 0%, #005c73 100%);
+            color: #ffffff;
+            box-shadow: 0 12px 30px rgba(0, 67, 85, 0.16);
         }
 
         .btn-primary:hover {
-            background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
-            transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+            filter: brightness(1.06);
+            box-shadow: 0 18px 34px rgba(0, 67, 85, 0.18);
         }
 
-        .form-input {
-            transition: all 0.2s ease;
+        .editorial-secondary {
+            background: #e7e8e9;
+            color: #58676d;
         }
 
-        .form-input:focus {
-            border-color: #3b82f6;
-            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        .editorial-tertiary {
+            color: #004355;
         }
 
-        .table-row-hover:hover {
-            background-color: rgba(248, 250, 252, 0.8);
+        .editorial-input,
+        input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+        select,
+        textarea {
+            background: #f3f4f4;
+            border: none;
+            border-radius: 0.75rem;
+            color: #1a1c1d;
+            min-height: 2.9rem;
+        }
+
+        .editorial-input:focus,
+        input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):focus,
+        select:focus,
+        textarea:focus {
+            outline: none;
+            box-shadow: 0 0 0 2px rgba(24, 102, 126, 0.22);
+            background: #ffffff;
+        }
+
+        table {
+            width: 100%;
+        }
+
+        thead th {
+            font-size: 0.72rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: #536167;
+        }
+
+        tbody tr {
+            transition: background-color 160ms ease;
+        }
+
+        tbody tr:hover {
+            background: rgba(243, 244, 244, 0.75);
         }
 
         .notification {
@@ -180,443 +306,395 @@
     {% block page_title_in_head %}<title>{{ APP_NAME }} - {{ APP_TAGLINE }}</title>{% endblock %}
     {% block extra_head %}{% endblock %}
 </head>
-<script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+<body class="min-h-screen bg-surface text-on-surface">
+    <nav class="fixed inset-x-0 top-0 z-50 border-b border-outline-variant/20 bg-white/80 backdrop-blur-xl">
+        <div class="mx-auto flex h-16 max-w-[1600px] items-center justify-between px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center gap-3 lg:gap-8">
+                <button type="button"
+                        id="mobileSidebarButton"
+                        aria-expanded="false"
+                        aria-controls="mobileSidebarOverlay"
+                        class="rounded-full p-2 text-secondary-600 transition hover:bg-surface-container-low hover:text-primary-800 md:hidden">
+                    <span class="sr-only">Open sidebar</span>
+                    <i data-lucide="menu" class="h-5 w-5"></i>
+                </button>
 
-<body x-data="{ sidebarOpen: false, notificationsOpen: false }" x-init="sidebarOpen = false; notificationsOpen = false"
-    @keydown.escape.window="sidebarOpen = false; notificationsOpen = false"
-    class="bg-gray-50 text-secondary-800 min-h-screen">
+                <a href="{% url 'payroll:index' %}" class="flex items-center gap-3">
+                    <img src="{{ APP_LOGO_URL }}" alt="{{ APP_NAME }} logo" class="h-9 w-auto rounded-full bg-white p-1 ghost-border">
+                    <div>
+                        <p class="font-headline text-xl font-extrabold tracking-tight text-primary-800">{{ APP_NAME }}</p>
+                        <p class="text-[10px] font-semibold uppercase tracking-[0.28em] text-secondary-500">Editorial Command</p>
+                    </div>
+                </a>
+            </div>
 
-    <!-- Top Navigation -->
-    <nav class="bg-white shadow-soft fixed top-0 left-0 right-0 z-50">
-        <div class="px-4 sm:px-6 lg:px-8">
-            <div class="flex justify-between items-center h-16">
-                <!-- Left side: Logo and Mobile menu button -->
-                <div class="flex items-center">
-                    <!-- Mobile menu button -->
-                    <button @click="sidebarOpen = !sidebarOpen"
-                        class="md:hidden p-2 rounded-md text-secondary-600 hover:text-secondary-900 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-500">
-                        <span class="sr-only">Open sidebar</span>
-                        <i data-lucide="menu" class="h-6 w-6"></i>
+            <div class="hidden lg:flex flex-1 justify-center px-8">
+                <form method="get"
+                      action="{% if request.user.is_authenticated and request.user.is_superuser or request.user.is_authenticated and request.user.is_staff %}{% url 'payroll:employee_list' %}{% elif request.user.is_authenticated %}{% url 'payroll:notifications' %}{% else %}{% url 'users:login' %}{% endif %}"
+                      class="flex w-full max-w-xl items-center rounded-full bg-surface-container-low px-4 py-2">
+                    <i data-lucide="search" class="h-4 w-4 text-secondary-400"></i>
+                    <input type="text"
+                           name="q"
+                           placeholder="{% if request.user.is_authenticated and request.user.is_superuser or request.user.is_authenticated and request.user.is_staff %}Search employees, payroll records, requests...{% elif request.user.is_authenticated %}Search notifications and updates...{% else %}Search the workspace...{% endif %}"
+                           class="w-full bg-transparent px-3 py-0 text-sm text-on-surface placeholder:text-secondary-400 focus:ring-0">
+                </form>
+            </div>
+
+            <div class="flex items-center gap-2 sm:gap-4">
+                {% if user.is_authenticated and current_company %}
+                <span class="hidden rounded-full bg-secondary-container px-4 py-2 text-xs font-bold uppercase tracking-[0.22em] text-on-secondary-container lg:inline-flex">
+                    {{ current_company.name }}
+                </span>
+                {% endif %}
+
+                {% if user.is_authenticated %}
+                <div class="relative">
+                    <button type="button"
+                            id="notificationButton"
+                            aria-expanded="false"
+                            aria-controls="notificationDropdownPanel"
+                            class="relative rounded-full p-2 text-secondary-500 transition hover:bg-surface-container-low hover:text-primary-800">
+                        <span class="sr-only">View notifications</span>
+                        <i data-lucide="bell" class="h-5 w-5"></i>
+                        <span id="notificationBadge" class="absolute -right-1 -top-1 hidden min-h-5 min-w-5 items-center justify-center rounded-full bg-danger-600 px-1 text-[10px] font-bold text-white">0</span>
                     </button>
 
-                    <!-- Logo -->
-                    <a href="{% url 'payroll:index' %}" class="flex items-center ml-2 md:ml-0">
-                        <div class="flex-shrink-0 flex items-center">
-                            <img src="{{ APP_LOGO_URL }}" alt="{{ APP_NAME }} logo" class="h-8 w-auto">
-                            <span class="ml-2 text-xl font-bold text-secondary-900">{{ APP_NAME }}</span>
-                        </div>
-                    </a>
+                    <div id="notificationDropdownPanel"
+                         class="editorial-panel absolute right-0 mt-3 hidden w-80 overflow-hidden bg-white shadow-float">
+                        <div id="notificationDropdownContent"></div>
+                    </div>
                 </div>
+                {% endif %}
 
-                <!-- Right side: User menu and notifications -->
-               <div class="flex items-center space-x-4">
-    {% if user.is_authenticated and current_company %}
-    <span class="hidden lg:inline-flex items-center px-3 py-1 rounded-full bg-primary-50 text-primary-700 text-xs font-semibold">
-        <i data-lucide="building-2" class="h-3.5 w-3.5 mr-1"></i>
-        {{ current_company.name }}
-    </span>
-    {% endif %}
-    <!-- Notifications -->
-    {% if user.is_authenticated %}
-    <button @click="loadNotifications(); notificationsOpen = !notificationsOpen"
-        class="relative p-2 rounded-full text-secondary-600 hover:text-secondary-900 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500">
-        <span class="sr-only">View notifications</span>
-        <i data-lucide="bell" class="h-6 w-6"></i>
-        <span id="notificationBadge" class="notification-badge absolute top-0 right-0 hidden flex items-center justify-center h-5 w-5 rounded-full bg-danger-500 text-white text-xs font-bold">0</span>
-    </button>
+                <div class="relative">
+                    {% if user.is_authenticated %}
+                    <button type="button"
+                            id="userMenuButton"
+                            aria-expanded="false"
+                            aria-controls="userMenuPanel"
+                            class="flex items-center gap-3 rounded-full bg-white/90 py-1.5 pl-1.5 pr-3 ghost-border transition hover:bg-white">
+                        {% if user.employee_user.photo %}
+                        <img class="h-9 w-9 rounded-full object-cover" src="{{ user.employee_user.photo.url }}" alt="User avatar">
+                        {% else %}
+                        <div class="flex h-9 w-9 items-center justify-center rounded-full bg-primary-100 text-sm font-bold text-primary-800">
+                            {{ user.first_name|first|default:user.email|first|upper }}
+                        </div>
+                        {% endif %}
+                        <div class="hidden text-right md:block">
+                            <p class="text-sm font-bold text-primary-800">{{ user.first_name|default:user.email }}</p>
+                            <p class="text-[10px] uppercase tracking-[0.22em] text-secondary-500">Workspace</p>
+                        </div>
+                        <i data-lucide="chevron-down" class="h-4 w-4 text-secondary-400"></i>
+                    </button>
 
-    <!-- Notifications dropdown -->
-    <div x-show="notificationsOpen" x-cloak
-        @click.away="notificationsOpen = false"
-        x-transition:enter="transition ease-out duration-200"
-        x-transition:enter-start="opacity-0 transform scale-95"
-        x-transition:enter-end="opacity-100 transform scale-100"
-        x-transition:leave="transition ease-in duration-75"
-        x-transition:leave-start="opacity-100 transform scale-100"
-        x-transition:leave-end="opacity-0 transform scale-95"
-        class="origin-top-right absolute right-0 mt-2 w-80 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 divide-y divide-gray-100 focus:outline-none z-50"
-        style="top: 3.5rem;">
-        <div id="notificationDropdownContent">
-            <!-- Notifications will be loaded here -->
-        </div>
-    </div>
-    {% endif %}
-
-    <!-- User dropdown -->
-    <div x-data="{ open: false }" @click.away="open = false" class="relative">
-        {% if user.is_authenticated %}
-        <button @click="open = !open"
-            class="flex items-center space-x-3 p-2 rounded-full hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500">
-            {% if user.employee_user.photo %}
-            <img class="h-8 w-8 rounded-full object-cover" src="{{ user.employee_user.photo.url }}"
-                alt="User Avatar">
-            {% else %}
-            <div
-                class="h-8 w-8 rounded-full bg-primary-200 flex items-center justify-center text-primary-800 font-semibold text-sm">
-                {{ user.first_name|first|default:user.email|first|upper }}
-            </div>
-            {% endif %}
-            <span class="hidden md:block text-sm font-medium text-secondary-700">{{ user.first_name|default:user.email }}</span>
-            <i data-lucide="chevron-down" class="h-4 w-4 text-secondary-500"></i>
-        </button>
-
-        <!-- User dropdown menu -->
-        <div x-show="open" x-cloak
-            x-transition:enter="transition ease-out duration-200"
-            x-transition:enter-start="opacity-0 transform scale-95"
-            x-transition:enter-end="opacity-100 transform scale-100"
-            x-transition:leave="transition ease-in duration-75"
-            x-transition:leave-start="opacity-100 transform scale-100"
-            x-transition:leave-end="opacity-0 transform scale-95"
-            class="origin-top-right absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 divide-y divide-gray-100 focus:outline-none z-50">
-            <div class="py-1">
-                <a href="{% url 'payroll:profile' user.id %}"
-                    class="block px-4 py-2 text-sm text-secondary-700 hover:bg-gray-100">Your
-                    Profile</a>
-                <a href="{% url 'users:settings' %}"
-                    class="block px-4 py-2 text-sm text-secondary-700 hover:bg-gray-100">Account
-                    Settings</a>
-                <a href="{% url 'users:password' %}"
-                    class="block px-4 py-2 text-sm text-secondary-700 hover:bg-gray-100">Change
-                    Password</a>
-                <a href="{% url 'users:logout' %}"
-                    class="block px-4 py-2 text-sm text-secondary-700 hover:bg-gray-100">Sign out</a>
-            </div>
-        </div>
-        {% else %}
-        <a href="{% url 'users:login' %}"
-            class="btn-primary text-white px-4 py-2 rounded-lg text-sm font-medium">Login</a>
-        {% endif %}
-    </div>
-</div>
+                    <div id="userMenuPanel"
+                         class="editorial-panel absolute right-0 mt-3 hidden w-56 overflow-hidden bg-white shadow-float">
+                        <div class="space-y-1 p-2 text-sm text-secondary-700">
+                            <a href="{% url 'payroll:profile' user.id %}" class="block rounded-xl px-3 py-2 transition hover:bg-surface-container-low hover:text-primary-800">Your Profile</a>
+                            <a href="{% url 'users:settings' %}" class="block rounded-xl px-3 py-2 transition hover:bg-surface-container-low hover:text-primary-800">Account Settings</a>
+                            <a href="{% url 'users:password' %}" class="block rounded-xl px-3 py-2 transition hover:bg-surface-container-low hover:text-primary-800">Change Password</a>
+                            <a href="{% url 'users:logout' %}" class="block rounded-xl px-3 py-2 text-danger-700 transition hover:bg-danger-50">Sign Out</a>
+                        </div>
+                    </div>
+                    {% else %}
+                    <a href="{% url 'users:login' %}" class="btn-primary editorial-action inline-flex items-center rounded-full px-5 py-2.5 text-sm font-bold">
+                        Login
+                    </a>
+                    {% endif %}
                 </div>
             </div>
         </div>
     </nav>
 
-    <!-- Mobile sidebar -->
-    <div x-show="sidebarOpen" class="md:hidden fixed inset-0 z-40" x-cloak>
-        <!-- Backdrop -->
-        <div x-show="sidebarOpen" @click="sidebarOpen = false"
-            x-transition:enter="transition-opacity ease-linear duration-300" x-transition:enter-start="opacity-0"
-            x-transition:enter-end="opacity-100" x-transition:leave="transition-opacity ease-linear duration-300"
-            x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0"
-            class="fixed inset-0 bg-secondary-600 bg-opacity-75"></div>
-
-        <!-- Sidebar -->
-        <div x-show="sidebarOpen" x-transition:enter="transition ease-in-out duration-300 transform"
-            x-transition:enter-start="-translate-x-full" x-transition:enter-end="translate-x-0"
-            x-transition:leave="transition ease-in-out duration-300 transform" x-transition:leave-start="translate-x-0"
-            x-transition:leave-end="-translate-x-full"
-            class="relative flex-1 flex flex-col max-w-xs w-full bg-white pt-5 pb-4">
-            <div class="absolute top-0 right-0 -mr-12 pt-2">
-                <button x-show="sidebarOpen" @click="sidebarOpen = false"
-                    class="ml-1 flex items-center justify-center h-10 w-10 rounded-full focus:outline-none focus:ring-2 focus:ring-inset focus:ring-white">
-                    <span class="sr-only">Close sidebar</span>
-                    <i data-lucide="x" class="h-6 w-6 text-white"></i>
+    <div id="mobileSidebarOverlay" class="fixed inset-0 z-40 hidden md:hidden">
+        <div data-sidebar-close class="absolute inset-0 bg-secondary-900/30 backdrop-blur-sm"></div>
+        <aside id="mobileSidebar"
+               class="relative flex h-full w-72 flex-col bg-surface-container-low px-4 pb-6 pt-6 shadow-float">
+            <div class="mb-8 flex items-center justify-between">
+                <div>
+                    <p class="font-headline text-2xl font-extrabold text-primary-800">{{ APP_NAME }}</p>
+                    <p class="text-[10px] font-semibold uppercase tracking-[0.28em] text-secondary-500">Editorial Command</p>
+                </div>
+                <button type="button" data-sidebar-close class="rounded-full p-2 text-secondary-500 hover:bg-white">
+                    <i data-lucide="x" class="h-5 w-5"></i>
                 </button>
             </div>
-
-            <!-- Sidebar content -->
-            <div class="flex-1 h-0 overflow-y-auto">
-                <nav class="px-2 space-y-1">
-                    <a href="{% url 'payroll:index' %}"
-                        class="sidebar-link group flex items-center px-2 py-2 text-base font-medium rounded-md">
-                        <i data-lucide="home"
-                            class="mr-4 h-6 w-6 text-secondary-400 group-hover:text-secondary-500"></i>
-                        Dashboard
+            <div class="overflow-y-auto">
+                <nav class="space-y-1">
+                    <a href="{% url 'payroll:index' %}" class="sidebar-link {% if request.resolver_match.url_name == 'index' %}active{% endif %}">
+                        <i data-lucide="layout-dashboard" class="sidebar-icon h-5 w-5 text-secondary-400"></i>
+                        <span>Dashboard</span>
                     </a>
-                    {% if request.user.is_superuser or request.user.is_staff %}
-                    <a href="{% url 'payroll:employee_list' %}"
-                        class="sidebar-link group flex items-center px-2 py-2 text-base font-medium rounded-md">
-                        <i data-lucide="users"
-                            class="mr-4 h-6 w-6 text-secondary-400 group-hover:text-secondary-500"></i>
-                        Employees
+                    {% if request.user.is_authenticated and request.user.is_superuser or request.user.is_authenticated and request.user.is_staff %}
+                    <a href="{% url 'payroll:employee_list' %}" class="sidebar-link {% if request.resolver_match.url_name == 'employee_list' %}active{% endif %}">
+                        <i data-lucide="users" class="sidebar-icon h-5 w-5 text-secondary-400"></i>
+                        <span>People</span>
                     </a>
-                    {% endif %}
-                    <a href="{% url 'payroll:profile' request.user.id %}"
-                        class="sidebar-link group flex items-center px-2 py-2 text-base font-medium rounded-md">
-                        <i data-lucide="user"
-                            class="mr-4 h-6 w-6 text-secondary-400 group-hover:text-secondary-500"></i>
-                        My Profile
+                    <a href="{% url 'payroll:pay_period_list' %}" class="sidebar-link {% if request.resolver_match.url_name == 'pay_period_list' %}active{% endif %}">
+                        <i data-lucide="wallet-cards" class="sidebar-icon h-5 w-5 text-secondary-400"></i>
+                        <span>Payroll</span>
                     </a>
-                    <a href="{% url 'payroll:bank' %}"
-                        class="sidebar-link group flex items-center px-2 py-2 text-base font-medium rounded-md">
-                        <i data-lucide="credit-card"
-                            class="mr-4 h-6 w-6 text-secondary-400 group-hover:text-secondary-500"></i>
-                        Banking
+                    <a href="{% url 'payroll:manage_leave_requests' %}" class="sidebar-link {% if request.resolver_match.url_name == 'manage_leave_requests' or request.resolver_match.url_name == 'leave_requests' or request.resolver_match.url_name == 'iou_history' %}active{% endif %}">
+                        <i data-lucide="inbox" class="sidebar-icon h-5 w-5 text-secondary-400"></i>
+                        <span>Requests</span>
                     </a>
-                    <a href="{% url 'payroll:payee' %}"
-                        class="sidebar-link group flex items-center px-2 py-2 text-base font-medium rounded-md">
-                        <i data-lucide="file-text"
-                            class="mr-4 h-6 w-6 text-secondary-400 group-hover:text-secondary-500"></i>
-                        Tax Reports
+                    <a href="{% url 'payroll:payee' %}" class="sidebar-link {% if request.resolver_match.url_name == 'payee' or request.resolver_match.url_name == 'bank' or request.resolver_match.url_name == 'pension' or request.resolver_match.url_name == 'nhis' %}active{% endif %}">
+                        <i data-lucide="file-chart-column" class="sidebar-icon h-5 w-5 text-secondary-400"></i>
+                        <span>Reports</span>
                     </a>
-                    {% if request.user.is_superuser or request.user.is_staff %}
-                    <a href="{% url 'payroll:hr_dashboard' %}"
-                        class="sidebar-link group flex items-center px-2 py-2 text-base font-medium rounded-md">
-                        <i data-lucide="bar-chart-2"
-                            class="mr-4 h-6 w-6 text-secondary-400 group-hover:text-secondary-500"></i>
-                        HR Dashboard
+                    <a href="{% url 'accounting:dashboard' %}" class="sidebar-link {% if request.resolver_match.app_name == 'accounting' %}active{% endif %}">
+                        <i data-lucide="landmark" class="sidebar-icon h-5 w-5 text-secondary-400"></i>
+                        <span>Accounting</span>
                     </a>
-                    <a href="{% url 'payroll:payday_create_new' %}"
-                        class="sidebar-link group flex items-center px-2 py-2 text-base font-medium rounded-md">
-                        <i data-lucide="calendar-plus"
-                            class="mr-4 h-6 w-6 text-secondary-400 group-hover:text-secondary-500"></i>
-                        Create Pay Period
+                    {% elif request.user.is_authenticated %}
+                    <a href="{% url 'payroll:profile' request.user.id %}" class="sidebar-link {% if request.resolver_match.url_name == 'profile' %}active{% endif %}">
+                        <i data-lucide="user-round" class="sidebar-icon h-5 w-5 text-secondary-400"></i>
+                        <span>My Profile</span>
                     </a>
-                    <a href="{% url 'payroll:payvar_create_new' %}"
-                        class="sidebar-link group flex items-center px-2 py-2 text-base font-medium rounded-md">
-                        <i data-lucide="settings"
-                            class="mr-4 h-6 w-6 text-secondary-400 group-hover:text-secondary-500"></i>
-                        Create Payroll Variables
+                    <a href="{% url 'payroll:payslips' %}" class="sidebar-link {% if request.resolver_match.url_name == 'payslips' or request.resolver_match.url_name == 'payslip' %}active{% endif %}">
+                        <i data-lucide="receipt-text" class="sidebar-icon h-5 w-5 text-secondary-400"></i>
+                        <span>Payslips</span>
+                    </a>
+                    <a href="{% url 'payroll:leave_requests' %}" class="sidebar-link {% if request.resolver_match.url_name == 'leave_requests' or request.resolver_match.url_name == 'apply_leave' %}active{% endif %}">
+                        <i data-lucide="calendar-days" class="sidebar-icon h-5 w-5 text-secondary-400"></i>
+                        <span>Leave</span>
+                    </a>
+                    <a href="{% url 'payroll:my_iou_tracker' %}" class="sidebar-link {% if request.resolver_match.url_name == 'my_iou_tracker' or request.resolver_match.url_name == 'request_iou' or request.resolver_match.url_name == 'iou_history' %}active{% endif %}">
+                        <i data-lucide="hand-coins" class="sidebar-icon h-5 w-5 text-secondary-400"></i>
+                        <span>IOU Tracker</span>
+                    </a>
+                    {% else %}
+                    <a href="{% url 'users:login' %}" class="sidebar-link">
+                        <i data-lucide="log-in" class="sidebar-icon h-5 w-5 text-secondary-400"></i>
+                        <span>Login</span>
                     </a>
                     {% endif %}
-                    <a href="{% url 'payroll:appraisal_list' %}"
-                        class="sidebar-link group flex items-center px-2 py-2 text-base font-medium rounded-md">
-                        <i data-lucide="star"
-                            class="mr-4 h-6 w-6 text-secondary-400 group-hover:text-secondary-500"></i>
-                        Performance Reviews
+                    <a href="{% url 'payroll:attendance_my_day' %}" class="sidebar-link {% if request.resolver_match.url_name == 'attendance_my_day' or request.resolver_match.url_name == 'attendance_overview' or request.resolver_match.url_name == 'who_is_out' %}active{% endif %}">
+                        <i data-lucide="clock-3" class="sidebar-icon h-5 w-5 text-secondary-400"></i>
+                        <span>Attendance</span>
                     </a>
-                    <a href="{% url 'payroll:standup_dashboard' %}"
-                        class="sidebar-link group flex items-center px-2 py-2 text-base font-medium rounded-md">
-                        <i data-lucide="message-square"
-                            class="mr-4 h-6 w-6 text-secondary-400 group-hover:text-secondary-500"></i>
-                        Standup
+                    <a href="{% url 'payroll:my_documents' %}" class="sidebar-link {% if request.resolver_match.url_name == 'my_documents' or request.resolver_match.url_name == 'document_overview' %}active{% endif %}">
+                        <i data-lucide="files" class="sidebar-icon h-5 w-5 text-secondary-400"></i>
+                        <span>Documents</span>
                     </a>
-                    <a href="{% url 'payroll:leave_requests' %}"
-                        class="sidebar-link group flex items-center px-2 py-2 text-base font-medium rounded-md">
-                        <i data-lucide="calendar"
-                            class="mr-4 h-6 w-6 text-secondary-400 group-hover:text-secondary-500"></i>
-                        Leave Requests
+                    <a href="{% url 'payroll:my_assets' %}" class="sidebar-link {% if request.resolver_match.url_name == 'my_assets' or request.resolver_match.url_name == 'asset_overview' %}active{% endif %}">
+                        <i data-lucide="laptop-minimal" class="sidebar-icon h-5 w-5 text-secondary-400"></i>
+                        <span>Assets</span>
                     </a>
-                    <a href="{% url 'users:settings' %}"
-                        class="sidebar-link group flex items-center px-2 py-2 text-base font-medium rounded-md">
-                        <i data-lucide="settings"
-                            class="mr-4 h-6 w-6 text-secondary-400 group-hover:text-secondary-500"></i>
-                        Account Settings
+                    <a href="{% url 'payroll:my_performance' %}" class="sidebar-link {% if request.resolver_match.url_name == 'my_performance' or request.resolver_match.url_name == 'performance_overview' or request.resolver_match.url_name == 'appraisal_list' %}active{% endif %}">
+                        <i data-lucide="target" class="sidebar-icon h-5 w-5 text-secondary-400"></i>
+                        <span>Performance</span>
                     </a>
-                    {% if not request.user.is_superuser and not request.user.is_staff %}
-                    <a href="{% url 'payroll:my_iou_tracker' %}"
-                        class="sidebar-link group flex items-center px-2 py-2 text-base font-medium rounded-md">
-                        <i data-lucide="wallet"
-                            class="mr-4 h-6 w-6 text-secondary-400 group-hover:text-secondary-500"></i>
-                        My IOU Tracker
+                    <a href="{% url 'payroll:my_benefits' %}" class="sidebar-link {% if request.resolver_match.url_name == 'my_benefits' or request.resolver_match.url_name == 'benefit_overview' %}active{% endif %}">
+                        <i data-lucide="heart-handshake" class="sidebar-icon h-5 w-5 text-secondary-400"></i>
+                        <span>Benefits</span>
                     </a>
-                    {% endif %}
-                    {% if request.user.is_authenticated and multi_company_enabled %}
-                    <div class="px-3 py-3 mt-3 border-t border-secondary-200">
-                        <p class="text-xs font-semibold text-secondary-500 uppercase tracking-wide">Company</p>
-                        <p class="mt-2 text-sm text-secondary-700">{{ current_company.name|default:"No active company" }}</p>
-                        {% if can_switch_company %}
-                        <div class="mt-2 space-y-2">
-                            {% for company in user_companies %}
-                            {% if current_company and company.id != current_company.id %}
-                            <form method="post" action="{% url 'users:switch_company' company.id %}">
-                                {% csrf_token %}
-                                <button type="submit"
-                                    class="w-full text-left text-xs text-primary-700 bg-primary-50 hover:bg-primary-100 rounded-md px-2 py-1.5">
-                                    Switch to {{ company.name }}
-                                </button>
-                            </form>
-                            {% endif %}
-                            {% endfor %}
-                        </div>
-                        {% endif %}
-                    </div>
-                    {% endif %}
+                    <a href="{% url 'payroll:company_chat' %}" class="sidebar-link {% if request.resolver_match.url_name == 'company_chat' %}active{% endif %}">
+                        <i data-lucide="messages-square" class="sidebar-icon h-5 w-5 text-secondary-400"></i>
+                        <span>Company Chat</span>
+                    </a>
+                    <a href="{% url 'users:settings' %}" class="sidebar-link">
+                        <i data-lucide="settings" class="sidebar-icon h-5 w-5 text-secondary-400"></i>
+                        <span>Settings</span>
+                    </a>
                 </nav>
             </div>
-        </div>
+        </aside>
     </div>
 
-    <!-- Desktop sidebar -->
-    <div class="hidden md:flex md:w-64 md:flex-col md:fixed md:inset-y-0">
-        <div class="flex flex-col flex-grow pt-16 bg-white border-r border-gray-200 overflow-y-auto">
-            <div class="flex-grow flex flex-col">
-                <nav class="flex-1 px-2 py-4 space-y-1">
-                    <a href="{% url 'payroll:index' %}"
-                        class="sidebar-link group flex items-center px-2 py-2 text-sm font-medium rounded-md">
-                        <i data-lucide="home"
-                            class="mr-3 h-5 w-5 text-secondary-400 group-hover:text-secondary-500"></i>
-                        Dashboard
-                    </a>
-                    {% if request.user.is_superuser or request.user.is_staff %}
-                    <a href="{% url 'payroll:employee_list' %}"
-                        class="sidebar-link group flex items-center px-2 py-2 text-sm font-medium rounded-md">
-                        <i data-lucide="users"
-                            class="mr-3 h-5 w-5 text-secondary-400 group-hover:text-secondary-500"></i>
-                        Employees
-                    </a>
+    <aside class="fixed inset-y-0 left-0 hidden w-64 border-r border-outline-variant/20 bg-surface-container-low px-4 pb-6 pt-24 md:flex md:flex-col">
+        <div class="mb-8 px-2">
+            <h2 class="font-headline text-2xl font-black text-primary-800">{{ APP_NAME }}</h2>
+            <p class="mt-1 text-[10px] font-bold uppercase tracking-[0.28em] text-secondary-500">Editorial Command</p>
+        </div>
+
+        <nav class="flex-1 space-y-1 overflow-y-auto">
+            <a href="{% url 'payroll:index' %}" class="sidebar-link {% if request.resolver_match.url_name == 'index' %}active{% endif %}">
+                <i data-lucide="layout-dashboard" class="sidebar-icon h-5 w-5 text-secondary-400"></i>
+                <span>Dashboard</span>
+            </a>
+            {% if request.user.is_authenticated and request.user.is_superuser or request.user.is_authenticated and request.user.is_staff %}
+            <a href="{% url 'payroll:employee_list' %}" class="sidebar-link {% if request.resolver_match.url_name == 'employee_list' %}active{% endif %}">
+                <i data-lucide="users" class="sidebar-icon h-5 w-5 text-secondary-400"></i>
+                <span>People</span>
+            </a>
+            <a href="{% url 'payroll:pay_period_list' %}" class="sidebar-link {% if request.resolver_match.url_name == 'pay_period_list' %}active{% endif %}">
+                <i data-lucide="wallet-cards" class="sidebar-icon h-5 w-5 text-secondary-400"></i>
+                <span>Payroll</span>
+            </a>
+            <a href="{% url 'payroll:manage_leave_requests' %}" class="sidebar-link {% if request.resolver_match.url_name == 'manage_leave_requests' or request.resolver_match.url_name == 'leave_requests' or request.resolver_match.url_name == 'iou_history' %}active{% endif %}">
+                <i data-lucide="inbox" class="sidebar-icon h-5 w-5 text-secondary-400"></i>
+                <span>Requests</span>
+            </a>
+            <a href="{% url 'payroll:payee' %}" class="sidebar-link {% if request.resolver_match.url_name == 'payee' or request.resolver_match.url_name == 'bank' or request.resolver_match.url_name == 'pension' or request.resolver_match.url_name == 'nhis' %}active{% endif %}">
+                <i data-lucide="file-chart-column" class="sidebar-icon h-5 w-5 text-secondary-400"></i>
+                <span>Reports</span>
+            </a>
+            <a href="{% url 'accounting:dashboard' %}" class="sidebar-link {% if request.resolver_match.app_name == 'accounting' %}active{% endif %}">
+                <i data-lucide="landmark" class="sidebar-icon h-5 w-5 text-secondary-400"></i>
+                <span>Accounting</span>
+            </a>
+            {% elif request.user.is_authenticated %}
+            <a href="{% url 'payroll:profile' request.user.id %}" class="sidebar-link {% if request.resolver_match.url_name == 'profile' %}active{% endif %}">
+                <i data-lucide="user-round" class="sidebar-icon h-5 w-5 text-secondary-400"></i>
+                <span>My Profile</span>
+            </a>
+            <a href="{% url 'payroll:payslips' %}" class="sidebar-link {% if request.resolver_match.url_name == 'payslips' or request.resolver_match.url_name == 'payslip' %}active{% endif %}">
+                <i data-lucide="receipt-text" class="sidebar-icon h-5 w-5 text-secondary-400"></i>
+                <span>Payslips</span>
+            </a>
+            <a href="{% url 'payroll:leave_requests' %}" class="sidebar-link {% if request.resolver_match.url_name == 'leave_requests' or request.resolver_match.url_name == 'apply_leave' %}active{% endif %}">
+                <i data-lucide="calendar-days" class="sidebar-icon h-5 w-5 text-secondary-400"></i>
+                <span>Leave</span>
+            </a>
+            <a href="{% url 'payroll:my_iou_tracker' %}" class="sidebar-link {% if request.resolver_match.url_name == 'my_iou_tracker' or request.resolver_match.url_name == 'request_iou' or request.resolver_match.url_name == 'iou_history' %}active{% endif %}">
+                <i data-lucide="hand-coins" class="sidebar-icon h-5 w-5 text-secondary-400"></i>
+                <span>IOU Tracker</span>
+            </a>
+            {% else %}
+            <a href="{% url 'users:login' %}" class="sidebar-link">
+                <i data-lucide="log-in" class="sidebar-icon h-5 w-5 text-secondary-400"></i>
+                <span>Login</span>
+            </a>
+            {% endif %}
+            <a href="{% url 'payroll:attendance_my_day' %}" class="sidebar-link {% if request.resolver_match.url_name == 'attendance_my_day' or request.resolver_match.url_name == 'attendance_overview' or request.resolver_match.url_name == 'who_is_out' %}active{% endif %}">
+                <i data-lucide="clock-3" class="sidebar-icon h-5 w-5 text-secondary-400"></i>
+                <span>Attendance</span>
+            </a>
+            <a href="{% url 'payroll:my_documents' %}" class="sidebar-link {% if request.resolver_match.url_name == 'my_documents' or request.resolver_match.url_name == 'document_overview' %}active{% endif %}">
+                <i data-lucide="files" class="sidebar-icon h-5 w-5 text-secondary-400"></i>
+                <span>Documents</span>
+            </a>
+            <a href="{% url 'payroll:my_assets' %}" class="sidebar-link {% if request.resolver_match.url_name == 'my_assets' or request.resolver_match.url_name == 'asset_overview' %}active{% endif %}">
+                <i data-lucide="laptop-minimal" class="sidebar-icon h-5 w-5 text-secondary-400"></i>
+                <span>Assets</span>
+            </a>
+            <a href="{% url 'payroll:my_performance' %}" class="sidebar-link {% if request.resolver_match.url_name == 'my_performance' or request.resolver_match.url_name == 'performance_overview' or request.resolver_match.url_name == 'appraisal_list' %}active{% endif %}">
+                <i data-lucide="target" class="sidebar-icon h-5 w-5 text-secondary-400"></i>
+                <span>Performance</span>
+            </a>
+            <a href="{% url 'payroll:my_benefits' %}" class="sidebar-link {% if request.resolver_match.url_name == 'my_benefits' or request.resolver_match.url_name == 'benefit_overview' %}active{% endif %}">
+                <i data-lucide="heart-handshake" class="sidebar-icon h-5 w-5 text-secondary-400"></i>
+                <span>Benefits</span>
+            </a>
+            <a href="{% url 'payroll:standup_dashboard' %}" class="sidebar-link {% if request.resolver_match.url_name == 'standup_dashboard' %}active{% endif %}">
+                <i data-lucide="messages-square" class="sidebar-icon h-5 w-5 text-secondary-400"></i>
+                <span>Standup</span>
+            </a>
+            {% if request.user.is_authenticated and request.user.is_superuser or request.user.is_authenticated and request.user.is_staff %}
+            <a href="{% url 'payroll:workflow_overview' %}" class="sidebar-link {% if request.resolver_match.url_name == 'workflow_overview' %}active{% endif %}">
+                <i data-lucide="workflow" class="sidebar-icon h-5 w-5 text-secondary-400"></i>
+                <span>Workflows</span>
+            </a>
+            <a href="{% url 'payroll:disciplinary_system' %}" class="sidebar-link {% if request.resolver_match.url_name == 'disciplinary_system' or request.resolver_match.url_name == 'discipline_case_list' %}active{% endif %}">
+                <i data-lucide="gavel" class="sidebar-icon h-5 w-5 text-secondary-400"></i>
+                <span>Disciplinary</span>
+            </a>
+            {% endif %}
+
+            {% if request.user.is_authenticated and multi_company_enabled %}
+            <div class="mt-6 rounded-2xl bg-white p-4 ghost-border">
+                <p class="text-[10px] font-bold uppercase tracking-[0.24em] text-secondary-500">Active Company</p>
+                <p class="mt-2 font-headline text-lg font-extrabold text-primary-800">{{ current_company.name|default:"No active company" }}</p>
+                {% if can_switch_company %}
+                <div class="mt-4 space-y-2">
+                    {% for company in user_companies %}
+                    {% if current_company and company.id != current_company.id %}
+                    <form method="post" action="{% url 'users:switch_company' company.id %}">
+                        {% csrf_token %}
+                        <button type="submit" class="w-full rounded-xl bg-surface-container-low px-3 py-2 text-left text-sm font-medium text-secondary-700 transition hover:bg-surface-container-high hover:text-primary-800">
+                            Switch to {{ company.name }}
+                        </button>
+                    </form>
                     {% endif %}
-                    <a href="{% url 'payroll:profile' request.user.id %}"
-                        class="sidebar-link group flex items-center px-2 py-2 text-sm font-medium rounded-md">
-                        <i data-lucide="user"
-                            class="mr-3 h-5 w-5 text-secondary-400 group-hover:text-secondary-500"></i>
-                        My Profile
-                    </a>
-                    <a href="{% url 'payroll:bank' %}"
-                        class="sidebar-link group flex items-center px-2 py-2 text-sm font-medium rounded-md">
-                        <i data-lucide="credit-card"
-                            class="mr-3 h-5 w-5 text-secondary-400 group-hover:text-secondary-500"></i>
-                        Banking
-                    </a>
-                    <a href="{% url 'payroll:payee' %}"
-                        class="sidebar-link group flex items-center px-2 py-2 text-sm font-medium rounded-md">
-                        <i data-lucide="file-text"
-                            class="mr-3 h-5 w-5 text-secondary-400 group-hover:text-secondary-500"></i>
-                        Tax Reports
-                    </a>
-                    {% if request.user.is_superuser or request.user.is_staff %}
-                    <a href="{% url 'payroll:hr_dashboard' %}"
-                        class="sidebar-link group flex items-center px-2 py-2 text-sm font-medium rounded-md">
-                        <i data-lucide="bar-chart-2"
-                            class="mr-3 h-5 w-5 text-secondary-400 group-hover:text-secondary-500"></i>
-                        HR Dashboard
-                    </a>
-                    <a href="{% url 'payroll:payday_create_new' %}"
-                        class="sidebar-link group flex items-center px-2 py-2 text-sm font-medium rounded-md">
-                        <i data-lucide="calendar-plus"
-                            class="mr-3 h-5 w-5 text-secondary-400 group-hover:text-secondary-500"></i>
-                        Create Pay Period
-                    </a>
-                    <a href="{% url 'payroll:payvar_create_new' %}"
-                        class="sidebar-link group flex items-center px-2 py-2 text-sm font-medium rounded-md">
-                        <i data-lucide="settings"
-                            class="mr-3 h-5 w-5 text-secondary-400 group-hover:text-secondary-500"></i>
-                        Create Payroll Variables
-                    </a>
-                    {% endif %}
-                    <a href="{% url 'payroll:appraisal_list' %}"
-                        class="sidebar-link group flex items-center px-2 py-2 text-sm font-medium rounded-md">
-                        <i data-lucide="star"
-                            class="mr-3 h-5 w-5 text-secondary-400 group-hover:text-secondary-500"></i>
-                        Performance Reviews
-                    </a>
-                    <a href="{% url 'payroll:standup_dashboard' %}"
-                        class="sidebar-link group flex items-center px-2 py-2 text-sm font-medium rounded-md">
-                        <i data-lucide="message-square"
-                            class="mr-3 h-5 w-5 text-secondary-400 group-hover:text-secondary-500"></i>
-                        Standup
-                    </a>
-                    <a href="{% url 'payroll:leave_requests' %}"
-                        class="sidebar-link group flex items-center px-2 py-2 text-sm font-medium rounded-md">
-                        <i data-lucide="calendar"
-                            class="mr-3 h-5 w-5 text-secondary-400 group-hover:text-secondary-500"></i>
-                        Leave Requests
-                    </a>
-                    <a href="{% url 'users:settings' %}"
-                        class="sidebar-link group flex items-center px-2 py-2 text-sm font-medium rounded-md">
-                        <i data-lucide="settings"
-                            class="mr-3 h-5 w-5 text-secondary-400 group-hover:text-secondary-500"></i>
-                        Account Settings
-                    </a>
-                    {% if not request.user.is_superuser and not request.user.is_staff %}
-                    <a href="{% url 'payroll:my_iou_tracker' %}"
-                        class="sidebar-link group flex items-center px-2 py-2 text-sm font-medium rounded-md">
-                        <i data-lucide="wallet"
-                            class="mr-3 h-5 w-5 text-secondary-400 group-hover:text-secondary-500"></i>
-                        My IOU Tracker
-                    </a>
-                    {% endif %}
-                    {% if request.user.is_authenticated and multi_company_enabled %}
-                    <div class="px-2 py-3 mt-3 border-t border-secondary-200">
-                        <p class="text-xs font-semibold text-secondary-500 uppercase tracking-wide">Company</p>
-                        <p class="mt-2 text-sm text-secondary-700">{{ current_company.name|default:"No active company" }}</p>
-                        {% if can_switch_company %}
-                        <div class="mt-2 space-y-2">
-                            {% for company in user_companies %}
-                            {% if current_company and company.id != current_company.id %}
-                            <form method="post" action="{% url 'users:switch_company' company.id %}">
-                                {% csrf_token %}
-                                <button type="submit"
-                                    class="w-full text-left text-xs text-primary-700 bg-primary-50 hover:bg-primary-100 rounded-md px-2 py-1.5">
-                                    Switch to {{ company.name }}
-                                </button>
-                            </form>
-                            {% endif %}
-                            {% endfor %}
-                        </div>
-                        {% endif %}
-                    </div>
-                    {% endif %}
-                </nav>
+                    {% endfor %}
+                </div>
+                {% endif %}
             </div>
+            {% endif %}
+        </nav>
+
+        <div class="mt-6 space-y-2 border-t border-outline-variant/20 pt-5">
+            {% if request.user.is_authenticated and request.user.is_superuser or request.user.is_authenticated and request.user.is_staff %}
+            <a href="{% url 'payroll:payday_create_new' %}" class="btn-primary editorial-action inline-flex w-full items-center justify-center rounded-2xl px-4 py-3 text-sm font-bold text-white">
+                New Entry
+            </a>
+            {% endif %}
+            {% if request.user.is_authenticated %}
+            <a href="{% url 'users:settings' %}" class="sidebar-link">
+                <i data-lucide="settings" class="sidebar-icon h-5 w-5 text-secondary-400"></i>
+                <span>Support Settings</span>
+            </a>
+            <a href="{% url 'users:logout' %}" class="sidebar-link !text-danger-700">
+                <i data-lucide="log-out" class="sidebar-icon h-5 w-5 text-danger-500"></i>
+                <span>Sign Out</span>
+            </a>
+            {% else %}
+            <a href="{% url 'users:register' %}" class="btn-primary editorial-action inline-flex w-full items-center justify-center rounded-2xl px-4 py-3 text-sm font-bold text-white">
+                Create Account
+            </a>
+            {% endif %}
         </div>
-    </div>
+    </aside>
 
-    <!-- Main content -->
-    <div class="md:pl-64 flex flex-col flex-1">
-        <main class="flex-1 pt-16">
-            <div class="py-6">
-                <div class="max-w-7xl mx-auto px-4 sm:px-6 md:px-8">
-                    <!-- Page header -->
-                    <div class="mb-6">
-                        <h1 class="text-2xl font-bold text-secondary-900">{% block page_header %}{% endblock %}</h1>
-                        {% block breadcrumbs %}{% endblock %}
-                    </div>
+    <div class="md:pl-64">
+        <main class="min-h-screen pt-20">
+            <div class="mx-auto max-w-[1600px] px-4 pb-10 sm:px-6 lg:px-8">
+                <section class="rounded-[30px] bg-surface-container-low px-5 py-6 sm:px-8 sm:py-8 lg:px-10 lg:py-10">
+                    <header class="mb-8 flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+                        <div class="max-w-3xl">
+                            <p class="mb-3 inline-flex rounded-full bg-tertiary-fixed px-3 py-1 text-[10px] font-bold uppercase tracking-[0.28em] text-tertiary">
+                                Editorial Command
+                            </p>
+                            <h1 class="font-headline text-3xl font-extrabold tracking-tight text-primary-800 sm:text-4xl">
+                                {% block page_header %}{% endblock %}
+                            </h1>
+                            <p class="mt-3 max-w-2xl text-sm leading-6 text-on-surface-variant">
+                                Professional payroll, people, and compliance operations presented with clarity and authority.
+                            </p>
+                        </div>
+                        <div class="min-w-0 text-sm text-secondary-600">
+                            {% block breadcrumbs %}{% endblock %}
+                        </div>
+                    </header>
 
-                    <!-- Flash messages -->
                     {% if messages %}
-                    <div class="mb-6 space-y-2">
+                    <div class="mb-8 space-y-3">
                         {% for message in messages %}
-                        <div x-data="{ show: true }" x-show="show" x-transition:enter="transition ease-out duration-300"
-                            x-transition:enter-start="opacity-0 transform translate-y-2"
-                            x-transition:enter-end="opacity-100 transform translate-y-0"
-                            x-transition:leave="transition ease-in duration-200"
-                            x-transition:leave-start="opacity-100 transform translate-y-0"
-                            x-transition:leave-end="opacity-0 transform translate-y-2"
-                            class="notification rounded-md p-4 flex items-start
-                            {% if message.tags == 'success' %}bg-success-50 text-success-800 border border-success-200{% endif %}
-                            {% if message.tags == 'error' %}bg-danger-50 text-danger-800 border border-danger-200{% endif %}
-                            {% if message.tags == 'info' %}bg-primary-50 text-primary-800 border border-primary-200{% endif %}
-                            {% if message.tags == 'warning' %}bg-warning-50 text-warning-800 border border-warning-200{% endif %}">
-
-                            <div class="flex-shrink-0 mr-3">
-                                {% if message.tags == 'success' %}<i data-lucide="check-circle"
-                                    class="h-5 w-5 text-success-600"></i>{% endif %}
-                                {% if message.tags == 'error' %}<i data-lucide="alert-circle"
-                                    class="h-5 w-5 text-danger-600"></i>{% endif %}
-                                {% if message.tags == 'info' %}<i data-lucide="info"
-                                    class="h-5 w-5 text-primary-600"></i>{% endif %}
-                                {% if message.tags == 'warning' %}<i data-lucide="alert-triangle"
-                                    class="h-5 w-5 text-warning-600"></i>{% endif %}
+                        <div data-dismissible-message
+                             class="notification flex items-start gap-3 rounded-2xl px-4 py-4
+                             {% if message.tags == 'success' %}bg-success-50 text-success-800{% elif message.tags == 'error' %}bg-danger-50 text-danger-800{% elif message.tags == 'warning' %}bg-warning-50 text-warning-900{% else %}bg-secondary-container text-on-secondary-container{% endif %}">
+                            <div class="mt-0.5">
+                                {% if message.tags == 'success' %}<i data-lucide="check-circle-2" class="h-5 w-5"></i>{% elif message.tags == 'error' %}<i data-lucide="alert-circle" class="h-5 w-5"></i>{% elif message.tags == 'warning' %}<i data-lucide="triangle-alert" class="h-5 w-5"></i>{% else %}<i data-lucide="info" class="h-5 w-5"></i>{% endif %}
                             </div>
-                            <div class="flex-grow text-sm">{{ message }}</div>
-                            <div class="ml-3">
-                                <button @click="show = false" type="button"
-                                    class="inline-flex text-secondary-400 hover:text-secondary-600 focus:outline-none">
-                                    <span class="sr-only">Dismiss</span>
-                                    <i data-lucide="x" class="h-4 w-4"></i>
-                                </button>
-                            </div>
+                            <div class="flex-1 text-sm">{{ message }}</div>
+                            <button type="button" data-dismiss-message class="rounded-full p-1 transition hover:bg-white/50">
+                                <i data-lucide="x" class="h-4 w-4"></i>
+                            </button>
                         </div>
                         {% endfor %}
                     </div>
                     {% endif %}
 
-                    <!-- Page content -->
-                    {% block content %}{% endblock %}
-                </div>
+                    <div class="space-y-8">
+                        {% block content %}{% endblock %}
+                    </div>
+                </section>
+
+                <footer class="px-2 py-8 text-center">
+                    <p class="font-headline text-lg font-bold text-primary-800">{{ APP_NAME }}</p>
+                    <p class="mt-1 text-xs font-semibold uppercase tracking-[0.24em] text-secondary-500">
+                        © {% now "Y" %} {{ APP_NAME }}. Professional Editorial Management.
+                    </p>
+                </footer>
             </div>
         </main>
-
-        <!-- Footer -->
-        <footer class="bg-white border-t border-gray-200">
-            <div class="max-w-7xl mx-auto py-4 px-4 sm:px-6 md:px-8">
-                <p class="text-center text-sm text-secondary-500">
-                    © {% now "Y" %} {{ APP_NAME }}. All rights reserved.
-                </p>
-            </div>
-        </footer>
     </div>
 
-    <!-- Initialize Lucide icons -->
     <script>
     (function() {
-        'use strict';
-        
-        // Debounce function to limit how often a function can be called
+        "use strict";
+
         function debounce(func, wait) {
             let timeout;
             return function executedFunction(...args) {
@@ -628,143 +706,209 @@
                 timeout = setTimeout(later, wait);
             };
         }
-        
-        // Initialize Lucide icons once
+
         function initializeIcons() {
-            if (typeof lucide !== 'undefined') {
-                try {
-                    lucide.createIcons();
-                } catch (error) {
-                    console.error('Error initializing Lucide icons:', error);
-                }
+            if (typeof lucide === "undefined") {
+                return;
+            }
+            try {
+                lucide.createIcons();
+            } catch (error) {
+                console.error("Error initializing Lucide icons:", error);
             }
         }
-        
-        // Debounced icon initialization for dynamic content
+
         const debouncedIconInit = debounce(initializeIcons, 100);
-        
-        document.addEventListener('DOMContentLoaded', function () {
-            // Initialize icons once when DOM is ready
+
+        document.addEventListener("DOMContentLoaded", function () {
             initializeIcons();
-            
-            // Load notification count
+            setupChromeInteractions();
             loadNotificationCount();
         });
-        
-        // Optimized MutationObserver - only watch specific containers that might have dynamic content
-        // Instead of watching the entire body, we'll only watch the notification dropdown
-        function setupIconObserver() {
-            const notificationDropdown = document.getElementById('notificationDropdownContent');
-            if (notificationDropdown) {
-                const observer = new MutationObserver(debouncedIconInit);
-                observer.observe(notificationDropdown, {
-                    childList: true,
-                    subtree: true
-                });
+
+        function setupChromeInteractions() {
+            const sidebarButton = document.getElementById("mobileSidebarButton");
+            const sidebarOverlay = document.getElementById("mobileSidebarOverlay");
+            const userMenuButton = document.getElementById("userMenuButton");
+            const userMenuPanel = document.getElementById("userMenuPanel");
+
+            function setSidebarOpen(isOpen) {
+                if (!sidebarButton || !sidebarOverlay) {
+                    return;
+                }
+                sidebarButton.setAttribute("aria-expanded", isOpen ? "true" : "false");
+                sidebarOverlay.classList.toggle("hidden", !isOpen);
             }
+
+            function setUserMenuOpen(isOpen) {
+                if (!userMenuButton || !userMenuPanel) {
+                    return;
+                }
+                userMenuButton.setAttribute("aria-expanded", isOpen ? "true" : "false");
+                userMenuPanel.classList.toggle("hidden", !isOpen);
+            }
+
+            sidebarButton?.addEventListener("click", function () {
+                setSidebarOpen(sidebarOverlay?.classList.contains("hidden"));
+            });
+
+            document.querySelectorAll("[data-sidebar-close]").forEach(function (control) {
+                control.addEventListener("click", function () {
+                    setSidebarOpen(false);
+                });
+            });
+
+            userMenuButton?.addEventListener("click", function (event) {
+                event.stopPropagation();
+                setUserMenuOpen(userMenuPanel?.classList.contains("hidden"));
+            });
+
+            document.addEventListener("click", function (event) {
+                if (
+                    userMenuPanel &&
+                    userMenuButton &&
+                    !userMenuPanel.contains(event.target) &&
+                    !userMenuButton.contains(event.target)
+                ) {
+                    setUserMenuOpen(false);
+                }
+            });
+
+            document.addEventListener("keydown", function (event) {
+                if (event.key !== "Escape") {
+                    return;
+                }
+                setSidebarOpen(false);
+                setUserMenuOpen(false);
+                setNotificationDropdownOpen(false);
+            });
+
+            document.querySelectorAll("[data-dismiss-message]").forEach(function (control) {
+                control.addEventListener("click", function () {
+                    control.closest("[data-dismissible-message]")?.remove();
+                });
+            });
         }
-        
-        // Setup observer after DOM is ready
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', setupIconObserver);
+
+        function setupIconObserver() {
+            const notificationDropdown = document.getElementById("notificationDropdownContent");
+            if (!notificationDropdown) {
+                return;
+            }
+            const observer = new MutationObserver(debouncedIconInit);
+            observer.observe(notificationDropdown, { childList: true, subtree: true });
+        }
+
+        if (document.readyState === "loading") {
+            document.addEventListener("DOMContentLoaded", setupIconObserver);
         } else {
             setupIconObserver();
         }
-    
-        function loadNotificationCount() {
-            fetch('{% url "payroll:notification_count" %}')
-                .then(response => response.json())
-                .then(data => {
-                    updateNotificationBadge(data.unread_count);
-                })
-                .catch(error => console.error('Error loading notification count:', error));
-        }
-    
-        function updateNotificationBadge(count) {
-            const badge = document.getElementById('notificationBadge');
-            if (badge) {
-                if (count > 0) {
-                    badge.textContent = count > 99 ? '99+' : count;
-                    badge.classList.remove('hidden');
-                } else {
-                    badge.classList.add('hidden');
-                }
+
+        function setNotificationDropdownOpen(isOpen) {
+            const button = document.getElementById("notificationButton");
+            const panel = document.getElementById("notificationDropdownPanel");
+            if (!button || !panel) {
+                return;
+            }
+
+            button.setAttribute("aria-expanded", isOpen ? "true" : "false");
+            panel.classList.toggle("hidden", !isOpen);
+
+            if (isOpen) {
+                loadNotifications();
             }
         }
-    
+
+        function isNotificationDropdownOpen() {
+            const panel = document.getElementById("notificationDropdownPanel");
+            return Boolean(panel && !panel.classList.contains("hidden"));
+        }
+
+        function setupNotificationToggle() {
+            const button = document.getElementById("notificationButton");
+            const panel = document.getElementById("notificationDropdownPanel");
+            if (!button || !panel) {
+                return;
+            }
+
+            button.addEventListener("click", function (event) {
+                event.preventDefault();
+                event.stopPropagation();
+                setNotificationDropdownOpen(!isNotificationDropdownOpen());
+            });
+
+            panel.addEventListener("click", function (event) {
+                event.stopPropagation();
+            });
+
+            document.addEventListener("click", function () {
+                setNotificationDropdownOpen(false);
+            });
+
+            document.addEventListener("keydown", function (event) {
+                if (event.key === "Escape") {
+                    setNotificationDropdownOpen(false);
+                }
+            });
+        }
+
+        if (document.readyState === "loading") {
+            document.addEventListener("DOMContentLoaded", setupNotificationToggle);
+        } else {
+            setupNotificationToggle();
+        }
+
+        function updateNotificationBadge(count) {
+            const badge = document.getElementById("notificationBadge");
+            if (!badge) {
+                return;
+            }
+
+            if (count > 0) {
+                badge.textContent = count > 99 ? "99+" : count;
+                badge.classList.remove("hidden");
+                badge.classList.add("flex");
+            } else {
+                badge.classList.add("hidden");
+                badge.classList.remove("flex");
+            }
+        }
+
+        function loadNotificationCount() {
+            fetch('{% url "payroll:notification_count" %}', {
+                credentials: "same-origin",
+                headers: { "X-Requested-With": "XMLHttpRequest" },
+            })
+                .then(response => response.json())
+                .then(data => updateNotificationBadge(data.unread_count))
+                .catch(error => console.error("Error loading notification count:", error));
+        }
+
         function loadNotifications() {
-            fetch('{% url "payroll:notification_dropdown" %}')
+            fetch('{% url "payroll:notification_dropdown" %}', {
+                credentials: "same-origin",
+                headers: { "X-Requested-With": "XMLHttpRequest" },
+            })
                 .then(response => response.text())
                 .then(html => {
-                    const dropdownContent = document.getElementById('notificationDropdownContent');
-                    if (dropdownContent) {
-                        dropdownContent.innerHTML = html;
-                        // Initialize icons only for the newly loaded content
-                        initializeIcons();
+                    const dropdownContent = document.getElementById("notificationDropdownContent");
+                    if (!dropdownContent) {
+                        return;
                     }
+                    dropdownContent.innerHTML = html;
+                    initializeIcons();
                 })
-                .catch(error => console.error('Error loading notifications:', error));
+                .catch(error => console.error("Error loading notifications:", error));
         }
 
-        function markAsRead(notificationId, redirectUrl = null, event = null) {
-            if (event) {
-                event.preventDefault();
-            }
-
-            const request = fetch(`/payroll/notifications/${notificationId}/mark-read/`, {
-                method: 'POST',
-                keepalive: true,
-                credentials: 'same-origin',
-                headers: {
-                    'X-CSRFToken': getCookie('csrftoken'),
-                    'Content-Type': 'application/json',
-                },
-            })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        updateNotificationBadge(data.unread_count);
-                    }
-                    return data;
-                });
-
-            if (redirectUrl) {
-                Promise.race([request, new Promise(resolve => setTimeout(resolve, 150))])
-                    .finally(() => {
-                        window.location.href = redirectUrl;
-                    });
-                return false;
-            }
-
-            request.catch(error => console.error('Error marking notification as read:', error));
-            return true;
-        }
-
-        function markAllAsRead() {
-            fetch('/payroll/notifications/mark-all-read/', {
-                method: 'POST',
-                headers: {
-                    'X-CSRFToken': getCookie('csrftoken'),
-                    'Content-Type': 'application/json',
-                },
-            })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        updateNotificationBadge(data.unread_count);
-                        loadNotifications();
-                    }
-                })
-                .catch(error => console.error('Error marking all notifications as read:', error));
-        }
-    
         function getCookie(name) {
             let cookieValue = null;
-            if (document.cookie && document.cookie !== '') {
-                const cookies = document.cookie.split(';');
+            if (document.cookie && document.cookie !== "") {
+                const cookies = document.cookie.split(";");
                 for (let i = 0; i < cookies.length; i++) {
                     const cookie = cookies[i].trim();
-                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    if (cookie.substring(0, name.length + 1) === (name + "=")) {
                         cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
                         break;
                     }
@@ -773,16 +917,222 @@
             return cookieValue;
         }
 
-        // Expose notification utilities to Alpine expressions and inline handlers.
+        function postNotificationAction(url) {
+            return fetch(url, {
+                method: "POST",
+                credentials: "same-origin",
+                headers: {
+                    "X-CSRFToken": getCookie("csrftoken"),
+                    "Content-Type": "application/json",
+                    "X-Requested-With": "XMLHttpRequest",
+                },
+            })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`Notification request failed: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.success) {
+                        updateNotificationBadge(data.unread_count);
+                    }
+                    return data;
+                });
+        }
+
+        function shouldReloadNotificationPage() {
+            return Boolean(document.querySelector("[data-notification-page]"));
+        }
+
+        function refreshNotificationsAfterAction() {
+            loadNotificationCount();
+            if (shouldReloadNotificationPage()) {
+                window.location.reload();
+                return;
+            }
+            loadNotifications();
+        }
+
+        function markAsRead(notificationId, redirectUrl = null, event = null) {
+            if (event) {
+                event.preventDefault();
+            }
+
+            const url = `{% url "payroll:mark_notification_read" "00000000-0000-0000-0000-000000000000" %}`.replace(
+                "00000000-0000-0000-0000-000000000000",
+                notificationId
+            );
+            const request = postNotificationAction(url);
+
+            if (redirectUrl) {
+                request.finally(() => {
+                    window.location.href = redirectUrl;
+                });
+                return false;
+            }
+
+            request.then(refreshNotificationsAfterAction)
+                .catch(error => console.error("Error marking notification as read:", error));
+            return false;
+        }
+
+        function markAllAsRead() {
+            postNotificationAction("{% url 'payroll:mark_all_read' %}")
+                .then(refreshNotificationsAfterAction)
+                .catch(error => console.error("Error marking all notifications as read:", error));
+        }
+
+        document.addEventListener("click", function (event) {
+            const trigger = event.target.closest("[data-notification-action]");
+            if (!trigger) {
+                return;
+            }
+
+            const action = trigger.dataset.notificationAction;
+            const url = trigger.dataset.notificationUrl;
+            if (!url) {
+                return;
+            }
+
+            const confirmation = trigger.dataset.notificationConfirm;
+            if (confirmation && !window.confirm(confirmation)) {
+                event.preventDefault();
+                return;
+            }
+
+            event.preventDefault();
+
+            if (action === "open") {
+                postNotificationAction(url)
+                    .catch(error => console.error("Error opening notification:", error))
+                    .finally(() => {
+                        window.location.href = trigger.href;
+                    });
+                return;
+            }
+
+            postNotificationAction(url)
+                .then(() => {
+                    if (trigger.dataset.notificationRedirect) {
+                        window.location.href = trigger.dataset.notificationRedirect;
+                        return;
+                    }
+                    refreshNotificationsAfterAction();
+                })
+                .catch(error => console.error(`Error handling notification action ${action}:`, error));
+        });
+
         window.loadNotifications = loadNotifications;
         window.loadNotificationCount = loadNotificationCount;
         window.markAsRead = markAsRead;
         window.markAllAsRead = markAllAsRead;
         window.updateNotificationCount = updateNotificationBadge;
+        window.setNotificationDropdownOpen = setNotificationDropdownOpen;
     })();
     </script>
 
     {% block extra_js %}{% endblock %}
-</body>
 
+    <div id="chat-toast" class="fixed right-6 bottom-24 hidden rounded-xl bg-white px-4 py-3 text-sm font-semibold text-secondary-900 shadow-float">
+        New chat message
+    </div>
+
+    <a href="/chat/" id="chat-float" class="chat-float flex items-center gap-3 rounded-full bg-primary-600 px-5 py-3 text-sm font-semibold text-white">
+        <span class="relative">
+            <i data-lucide="messages-square" class="h-5 w-5"></i>
+            <span id="chat-float-badge" class="absolute -top-2 -right-2 hidden h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-danger-500 px-1 text-[0.65rem] font-semibold text-white"></span>
+        </span>
+        Chat
+    </a>
+
+    <script>
+        (function () {
+            const chatBadge = document.getElementById("chat-float-badge");
+            const chatToast = document.getElementById("chat-toast");
+            if (!chatBadge || !chatToast) {
+                return;
+            }
+            const unreadUrl = "/api/v1/company-chat/rooms/unread/";
+            const storageKey = "chatUnreadCount";
+            const onChatPage = window.location.pathname.startsWith("/chat");
+
+            function updateBadge(count) {
+                if (count > 0) {
+                    chatBadge.textContent = count > 99 ? "99+" : String(count);
+                    chatBadge.classList.remove("hidden");
+                    chatBadge.classList.add("flex");
+                } else {
+                    chatBadge.classList.add("hidden");
+                    chatBadge.classList.remove("flex");
+                }
+            }
+
+            function showToast() {
+                if (onChatPage) {
+                    return;
+                }
+                chatToast.classList.remove("hidden");
+                setTimeout(() => chatToast.classList.add("hidden"), 4000);
+            }
+
+            function getWsHost() {
+                const protocol = window.location.protocol === "https:" ? "wss" : "ws";
+                const host = window.location.hostname;
+                const port = window.location.port || (protocol === "wss" ? "443" : "80");
+                if (port === "8000") {
+                    return `${protocol}://${host}:8001`;
+                }
+                return `${protocol}://${window.location.host}`;
+            }
+
+            function startRealtime() {
+                const socket = new WebSocket(`${getWsHost()}/ws/chat/company/`);
+
+                socket.onmessage = (event) => {
+                    try {
+                        const payload = JSON.parse(event.data || "{}");
+                        if (payload.type === "chat.message") {
+                            const current = parseInt(localStorage.getItem(storageKey) || "0", 10);
+                            const next = current + 1;
+                            updateBadge(next);
+                            localStorage.setItem(storageKey, String(next));
+                            showToast();
+                        }
+                    } catch (error) {
+                        console.warn("Chat realtime parse failed", error);
+                    }
+                };
+
+                socket.onclose = () => {};
+            }
+
+            async function fetchUnread() {
+                try {
+                    const response = await fetch(unreadUrl, {
+                        headers: { "X-Requested-With": "XMLHttpRequest" },
+                        credentials: "same-origin",
+                    });
+                    if (!response.ok) {
+                        return;
+                    }
+                    const payload = await response.json();
+                    const total = payload.total_unread || 0;
+                    const previous = parseInt(localStorage.getItem(storageKey) || "0", 10);
+                    updateBadge(total);
+                    if (total > previous) {
+                        showToast();
+                    }
+                    localStorage.setItem(storageKey, String(total));
+                } catch (error) {
+                    console.warn("Chat unread fetch failed", error);
+                }
+            }
+
+            fetchUnread();
+            startRealtime();
+            setInterval(fetchUnread, 30000);
+        })();
+    </script>
+</body>
 </html>

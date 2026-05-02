@@ -1,0 +1,29 @@
+{% extends "base_new.html" %}
+
+{% block page_header %}Who's Out{% endblock %}
+
+{% block content %}
+<section class="rounded-[1.5rem] bg-white p-6 ghost-border">
+    <p class="text-[10px] font-bold uppercase tracking-[0.24em] text-secondary-500">Today</p>
+    <h2 class="mt-2 font-headline text-3xl font-extrabold text-primary-800">{{ today|date:"F j, Y" }}</h2>
+    <p class="mt-3 text-sm text-secondary-600">People currently unavailable based on approved leave or attendance status.</p>
+
+    <div class="mt-6 space-y-4">
+        {% for entry in out_entries %}
+        <div class="rounded-2xl bg-surface-container-low p-5">
+            <div class="flex items-center justify-between gap-4">
+                <div>
+                    <p class="font-semibold text-secondary-900">{{ entry.employee.first_name }} {{ entry.employee.last_name }}</p>
+                    <p class="mt-1 text-sm text-secondary-600">{{ entry.reason }}</p>
+                </div>
+                <span class="rounded-full bg-white px-3 py-1 text-xs font-bold uppercase tracking-[0.18em] text-secondary-700">{{ entry.source }}</span>
+            </div>
+        </div>
+        {% empty %}
+        <div class="rounded-2xl bg-surface-container-low p-5 text-sm text-secondary-600">
+            Everyone appears available right now.
+        </div>
+        {% endfor %}
+    </div>
+</section>
+{% endblock %}

@@ -18,6 +18,12 @@ class MarketingPublicPagesTests(TestCase):
         self.assertContains(response, 'rel="canonical"')
         self.assertContains(response, "Run compliant payroll")
 
+    def test_landing_page_uses_stitch_editorial_design_language(self):
+        response = self.client.get(reverse("marketing:landing"))
+        self.assertContains(response, "Editorial Command")
+        self.assertContains(response, "Manrope")
+        self.assertContains(response, "Professional Editorial Management")
+
     def test_core_marketing_pages_render(self):
         pages = [
             ("marketing:pricing", "marketing/pricing.html"),

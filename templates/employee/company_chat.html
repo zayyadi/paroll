@@ -1,0 +1,530 @@
+{% extends "base_new.html" %}
+
+{% block page_header %}Company Chat{% endblock %}
+
+{% block content %}
+<div class="grid gap-6 lg:grid-cols-[320px_minmax(0,1fr)]">
+    <aside class="bg-white rounded-xl shadow-soft p-6 space-y-6">
+        <div>
+            <p class="text-xs font-semibold uppercase tracking-[0.2em] text-primary-600">Chat Rooms</p>
+            <h1 class="mt-2 text-2xl font-bold text-secondary-900">Company Chat</h1>
+            <p class="mt-2 text-sm text-secondary-600">
+                Keep conversations organized with shared rooms and direct messages.
+            </p>
+        </div>
+
+        <div class="rounded-xl bg-primary-50 p-4">
+            <p class="text-sm font-medium text-primary-900">Active members</p>
+            <p class="mt-1 text-sm text-primary-800">{{ chat_member_count }} teammates online for chat.</p>
+        </div>
+
+        <div class="space-y-3">
+            <h2 class="text-sm font-semibold text-secondary-900">Your rooms</h2>
+            <div id="chat-rooms" class="space-y-2"></div>
+            <div id="chat-room-empty" class="text-sm text-secondary-500">No rooms yet.</div>
+        </div>
+
+        <div class="space-y-3 rounded-xl border border-secondary-200 p-4">
+            <h3 class="text-sm font-semibold text-secondary-900">Create team room</h3>
+            <form id="chat-room-form" class="space-y-2">
+                <input
+                    id="chat-room-name"
+                    type="text"
+                    class="w-full rounded-lg border border-secondary-200 bg-secondary-50 px-3 py-2 text-sm text-secondary-900"
+                    placeholder="Room name"
+                />
+                <textarea
+                    id="chat-room-description"
+                    rows="2"
+                    class="w-full rounded-lg border border-secondary-200 bg-secondary-50 px-3 py-2 text-sm text-secondary-900"
+                    placeholder="Description (optional)"
+                ></textarea>
+                <button
+                    type="submit"
+                    class="w-full rounded-lg bg-primary-600 px-3 py-2 text-sm font-semibold text-white"
+                >
+                    Create room
+                </button>
+            </form>
+        </div>
+
+        <div class="space-y-3 rounded-xl border border-secondary-200 p-4">
+            <h3 class="text-sm font-semibold text-secondary-900">Search teammates</h3>
+            <input
+                id="chat-invite-search"
+                type="text"
+                class="w-full rounded-lg border border-secondary-200 bg-secondary-50 px-3 py-2 text-sm text-secondary-900"
+                placeholder="Search by name or email"
+            />
+            <div id="chat-invite-results" class="space-y-2 text-sm text-secondary-700"></div>
+            <p class="text-xs text-secondary-500">Only room admins can invite members.</p>
+        </div>
+
+        <div class="space-y-3 rounded-xl border border-secondary-200 p-4">
+            <h3 class="text-sm font-semibold text-secondary-900">Start direct message</h3>
+            <input
+                id="chat-dm-search"
+                type="text"
+                class="w-full rounded-lg border border-secondary-200 bg-secondary-50 px-3 py-2 text-sm text-secondary-900"
+                placeholder="Search by name or email"
+            />
+            <div id="chat-dm-results" class="space-y-2 text-sm text-secondary-700"></div>
+        </div>
+    </aside>
+
+    <section class="bg-white rounded-xl shadow-soft overflow-hidden">
+        <div class="border-b border-secondary-200 px-6 py-5 flex items-center justify-between">
+            <div>
+                <h2 id="chat-room-title" class="text-lg font-semibold text-secondary-900">{{ chat_room.name }}</h2>
+                <p id="chat-status" class="text-sm text-secondary-500">Connecting to realtime chat...</p>
+            </div>
+            <div id="chat-room-pill" class="inline-flex items-center gap-2 rounded-full bg-secondary-100 px-3 py-1 text-xs font-medium text-secondary-700">
+                <span class="h-2.5 w-2.5 rounded-full bg-success-500"></span>
+                Shared room
+            </div>
+        </div>
+
+        <div id="chat-messages" class="h-[30rem] overflow-y-auto bg-secondary-50 px-4 py-5 space-y-3">
+            <div id="chat-empty-state" class="h-full flex items-center justify-center text-center text-secondary-500">
+                <div>
+                    <p class="text-lg font-semibold text-secondary-700">No messages yet</p>
+                    <p class="mt-1 text-sm">Start the conversation with a quick update for the team.</p>
+                </div>
+            </div>
+        </div>
+
+        <form id="chat-form" class="border-t border-secondary-200 px-4 py-4 bg-white">
+            <label for="chat-body" class="sr-only">Message</label>
+            <div class="flex flex-col gap-3 sm:flex-row sm:items-end">
+                <textarea
+                    id="chat-body"
+                    rows="3"
+                    maxlength="2000"
+                    class="w-full rounded-xl border border-secondary-200 bg-secondary-50 px-4 py-3 text-sm text-secondary-900 focus:border-primary-400 focus:ring-primary-300"
+                    placeholder="Share an update, ask a question, or coordinate with the team..."
+                ></textarea>
+                <button
+                    type="submit"
+                    class="editorial-action btn-primary inline-flex items-center justify-center rounded-xl px-5 py-3 text-sm font-semibold"
+                >
+                    Send message
+                </button>
+            </div>
+            <p id="chat-room-hint" class="mt-2 text-xs text-secondary-500">Messages sync instantly for this room.</p>
+        </form>
+    </section>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const currentEmployeeId = {{ chat_employee_id }};
+const defaultRoomId = {{ chat_default_room_id }};
+const chatMessagesUrl = "{% url 'api:v1:company-chat-message-list' %}";
+const chatMarkReadUrl = "{% url 'api:v1:company-chat-message-mark-read' %}";
+const chatRoomsUrl = "{% url 'api:v1:company-chat-room-list' %}";
+const chatDirectRoomUrl = "{% url 'api:v1:company-chat-room-direct' %}";
+const chatCandidatesUrl = "{% url 'api:v1:company-chat-room-candidates' %}";
+const chatStatusEl = document.getElementById("chat-status");
+const chatMessagesEl = document.getElementById("chat-messages");
+const chatEmptyStateEl = document.getElementById("chat-empty-state");
+const chatFormEl = document.getElementById("chat-form");
+const chatBodyEl = document.getElementById("chat-body");
+const chatRoomsEl = document.getElementById("chat-rooms");
+const chatRoomEmptyEl = document.getElementById("chat-room-empty");
+const chatRoomFormEl = document.getElementById("chat-room-form");
+const chatRoomNameEl = document.getElementById("chat-room-name");
+const chatRoomDescriptionEl = document.getElementById("chat-room-description");
+const chatDmSearchEl = document.getElementById("chat-dm-search");
+const chatDmResultsEl = document.getElementById("chat-dm-results");
+const chatInviteSearchEl = document.getElementById("chat-invite-search");
+const chatInviteResultsEl = document.getElementById("chat-invite-results");
+const chatRoomTitleEl = document.getElementById("chat-room-title");
+const chatRoomPillEl = document.getElementById("chat-room-pill");
+const chatRoomHintEl = document.getElementById("chat-room-hint");
+let chatSocket = null;
+let chatRooms = [];
+let activeRoomId = defaultRoomId;
+let inviteAbort = null;
+let inviteTimer = null;
+let dmTimer = null;
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== "") {
+        const cookies = document.cookie.split(";");
+        for (let i = 0; i < cookies.length; i += 1) {
+            const cookie = cookies[i].trim();
+            if (cookie.startsWith(`${name}=`)) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+function escapeHtml(value) {
+    return value
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+}
+
+function formatTimestamp(value) {
+    return new Date(value).toLocaleString([], {
+        dateStyle: "medium",
+        timeStyle: "short",
+    });
+}
+
+function updateEmptyState() {
+    const hasMessages = chatMessagesEl.querySelector("[data-chat-message]") !== null;
+    chatEmptyStateEl.classList.toggle("hidden", hasMessages);
+}
+
+function appendMessage(message) {
+    const existing = chatMessagesEl.querySelector(`[data-chat-message="${message.id}"]`);
+    if (existing) {
+        return;
+    }
+
+    const mine = message.sender.id === currentEmployeeId;
+    const wrapper = document.createElement("article");
+    wrapper.dataset.chatMessage = String(message.id);
+    wrapper.className = mine
+        ? "ml-auto max-w-2xl rounded-2xl bg-primary-600 px-4 py-3 text-white shadow-soft"
+        : "max-w-2xl rounded-2xl bg-white px-4 py-3 text-secondary-900 shadow-soft";
+
+    wrapper.innerHTML = `
+        <div class="flex items-start justify-between gap-4">
+            <div>
+                <p class="text-sm font-semibold ${mine ? "text-white" : "text-secondary-900"}">${escapeHtml(message.sender.full_name || message.sender.email || "Unknown sender")}</p>
+                <p class="mt-2 whitespace-pre-wrap text-sm leading-6 ${mine ? "text-primary-50" : "text-secondary-700"}">${escapeHtml(message.body)}</p>
+            </div>
+            <time class="shrink-0 text-xs ${mine ? "text-primary-100" : "text-secondary-400"}">${formatTimestamp(message.created_at)}</time>
+        </div>
+    `;
+
+    chatMessagesEl.appendChild(wrapper);
+    chatMessagesEl.scrollTop = chatMessagesEl.scrollHeight;
+    updateEmptyState();
+}
+
+async function markRead(messageId = null) {
+    await fetch(chatMarkReadUrl, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "X-CSRFToken": getCookie("csrftoken"),
+        },
+        body: JSON.stringify(
+            messageId
+                ? { message_id: messageId, room_id: activeRoomId }
+                : { room_id: activeRoomId }
+        ),
+    });
+}
+
+async function loadMessages(roomId) {
+    const response = await fetch(`${chatMessagesUrl}?room_id=${roomId}`, {
+        headers: { "X-Requested-With": "XMLHttpRequest" },
+    });
+    if (!response.ok) {
+        chatStatusEl.textContent = "Unable to load the conversation history.";
+        return;
+    }
+
+    const payload = await response.json();
+    const messages = payload.results || payload;
+    chatMessagesEl.innerHTML = "";
+    messages.forEach(appendMessage);
+
+    if (messages.length > 0) {
+        await markRead(messages[messages.length - 1].id);
+    }
+}
+
+async function fallbackPost(body) {
+    const response = await fetch(chatMessagesUrl, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "X-CSRFToken": getCookie("csrftoken"),
+        },
+        body: JSON.stringify({ body, room_id: activeRoomId }),
+    });
+
+    if (!response.ok) {
+        chatStatusEl.textContent = "Message could not be delivered.";
+    }
+}
+
+function connectChat(roomId) {
+    const protocol = window.location.protocol === "https:" ? "wss" : "ws";
+    const host = window.location.hostname;
+    const port = window.location.port || (protocol === "wss" ? "443" : "80");
+    const wsHost = port === "8000" ? `${protocol}://${host}:8001` : `${protocol}://${window.location.host}`;
+    chatSocket = new WebSocket(`${wsHost}/ws/chat/rooms/${roomId}/`);
+
+    chatSocket.onopen = () => {
+        chatStatusEl.textContent = "Connected. Messages sync in real time.";
+    };
+
+    chatSocket.onmessage = async (event) => {
+        const payload = JSON.parse(event.data);
+        if (payload.type === "connection") {
+            chatStatusEl.textContent = "Connected. Messages sync in real time.";
+            return;
+        }
+        if (payload.type === "chat.message") {
+            if (payload.message.room === activeRoomId) {
+                appendMessage(payload.message);
+                await markRead(payload.message.id);
+            }
+            return;
+        }
+        if (payload.type === "error") {
+            chatStatusEl.textContent = payload.message;
+        }
+    };
+
+    chatSocket.onclose = () => {
+        chatStatusEl.textContent = "Realtime connection closed. Falling back to standard delivery.";
+    };
+}
+
+chatFormEl.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const body = chatBodyEl.value.trim();
+    if (!body) {
+        return;
+    }
+
+    chatBodyEl.value = "";
+
+    if (chatSocket && chatSocket.readyState === WebSocket.OPEN) {
+        chatSocket.send(JSON.stringify({ action: "send_message", body }));
+        return;
+    }
+
+    await fallbackPost(body);
+});
+
+function renderRooms() {
+    chatRoomsEl.innerHTML = "";
+    chatRoomEmptyEl.classList.toggle("hidden", chatRooms.length > 0);
+    chatRooms.forEach(room => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = `w-full text-left rounded-lg px-3 py-2 text-sm ${
+            room.id === activeRoomId ? "bg-primary-100 text-primary-700" : "hover:bg-secondary-100 text-secondary-700"
+        }`;
+        const label = room.room_type === "direct" ? "Direct" : room.room_type === "team" ? "Team" : "Company";
+        button.innerHTML = `<div class="flex items-center justify-between">
+            <span>${room.name}</span>
+            <span class="text-xs uppercase tracking-wide text-secondary-400">${label}</span>
+        </div>`;
+        button.addEventListener("click", () => switchRoom(room.id));
+        chatRoomsEl.appendChild(button);
+    });
+}
+
+function updateRoomHeader(room) {
+    chatRoomTitleEl.textContent = room.name;
+    const label = room.room_type === "direct" ? "Direct message" : room.room_type === "team" ? "Team room" : "Shared room";
+    chatRoomPillEl.lastChild.textContent = label;
+    chatRoomHintEl.textContent = room.room_type === "company"
+        ? "Messages sync instantly for everyone in your company."
+        : "Messages sync instantly for this room.";
+}
+
+async function loadRooms() {
+    const response = await fetch(chatRoomsUrl, {
+        headers: { "X-Requested-With": "XMLHttpRequest" },
+    });
+    if (!response.ok) {
+        chatStatusEl.textContent = "Unable to load chat rooms.";
+        return;
+    }
+    const payload = await response.json();
+    chatRooms = payload.results || payload;
+    if (!chatRooms.find(room => room.id === activeRoomId)) {
+        activeRoomId = chatRooms.length ? chatRooms[0].id : defaultRoomId;
+    }
+    renderRooms();
+    const activeRoom = chatRooms.find(room => room.id === activeRoomId) || { name: "Company Chat", room_type: "company" };
+    updateRoomHeader(activeRoom);
+}
+
+async function switchRoom(roomId) {
+    activeRoomId = roomId;
+    renderRooms();
+    const activeRoom = chatRooms.find(room => room.id === activeRoomId);
+    if (activeRoom) {
+        updateRoomHeader(activeRoom);
+    }
+    chatInviteResultsEl.innerHTML = "";
+    if (chatSocket) {
+        chatSocket.close();
+    }
+    await loadMessages(activeRoomId);
+    connectChat(activeRoomId);
+}
+
+chatRoomFormEl.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const name = chatRoomNameEl.value.trim();
+    if (!name) {
+        return;
+    }
+    const response = await fetch(chatRoomsUrl, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "X-CSRFToken": getCookie("csrftoken"),
+        },
+        body: JSON.stringify({
+            name,
+            description: chatRoomDescriptionEl.value.trim(),
+            room_type: "team",
+        }),
+    });
+    if (response.ok) {
+        const room = await response.json();
+        chatRooms.push(room);
+        chatRoomNameEl.value = "";
+        chatRoomDescriptionEl.value = "";
+        await switchRoom(room.id);
+    } else {
+        chatStatusEl.textContent = "Unable to create room.";
+    }
+});
+
+async function startDirectMessage(employeeId) {
+    const response = await fetch(chatDirectRoomUrl, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "X-CSRFToken": getCookie("csrftoken"),
+        },
+        body: JSON.stringify({ employee_id: employeeId }),
+    });
+    if (response.ok) {
+        const room = await response.json();
+        if (!chatRooms.find(item => item.id === room.id)) {
+            chatRooms.push(room);
+        }
+        chatDmSearchEl.value = "";
+        chatDmResultsEl.innerHTML = "";
+        await switchRoom(room.id);
+    } else {
+        chatStatusEl.textContent = "Unable to start direct message.";
+    }
+}
+
+async function searchCandidates(query) {
+    if (inviteAbort) {
+        inviteAbort.abort();
+    }
+    inviteAbort = new AbortController();
+    const url = query ? `${chatCandidatesUrl}?search=${encodeURIComponent(query)}` : chatCandidatesUrl;
+    const response = await fetch(url, { signal: inviteAbort.signal });
+    if (!response.ok) {
+        return [];
+    }
+    return response.json();
+}
+
+function renderCandidates(candidates) {
+    chatInviteResultsEl.innerHTML = "";
+    candidates.forEach(candidate => {
+        const item = document.createElement("button");
+        item.type = "button";
+        item.className = "w-full rounded-lg border border-secondary-200 bg-white px-3 py-2 text-left text-sm hover:bg-secondary-100";
+        item.innerHTML = `<div class="font-semibold text-secondary-900">${candidate.full_name || candidate.email}</div>
+            <div class="text-xs text-secondary-500">${candidate.email || ""}</div>`;
+        item.addEventListener("click", () => inviteMember(candidate.id));
+        chatInviteResultsEl.appendChild(item);
+    });
+    if (candidates.length === 0) {
+        chatInviteResultsEl.innerHTML = `<p class="text-xs text-secondary-500">No matches found.</p>`;
+    }
+}
+
+function renderDmCandidates(candidates) {
+    chatDmResultsEl.innerHTML = "";
+    candidates.forEach(candidate => {
+        const item = document.createElement("button");
+        item.type = "button";
+        item.className = "w-full rounded-lg border border-secondary-200 bg-white px-3 py-2 text-left text-sm hover:bg-secondary-100";
+        item.innerHTML = `<div class="font-semibold text-secondary-900">${candidate.full_name || candidate.email}</div>
+            <div class="text-xs text-secondary-500">${candidate.email || ""}</div>`;
+        item.addEventListener("click", () => startDirectMessage(candidate.id));
+        chatDmResultsEl.appendChild(item);
+    });
+    if (candidates.length === 0) {
+        chatDmResultsEl.innerHTML = `<p class="text-xs text-secondary-500">No matches found.</p>`;
+    }
+}
+
+async function inviteMember(employeeId) {
+    const response = await fetch(`${chatRoomsUrl}${activeRoomId}/add-member/`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "X-CSRFToken": getCookie("csrftoken"),
+        },
+        body: JSON.stringify({ employee_id: employeeId }),
+    });
+    if (!response.ok) {
+        chatStatusEl.textContent = "Unable to invite member. Check your room role.";
+        return;
+    }
+    chatStatusEl.textContent = "Member invited.";
+    chatInviteResultsEl.innerHTML = "";
+    chatInviteSearchEl.value = "";
+}
+
+chatInviteSearchEl.addEventListener("input", () => {
+    const query = chatInviteSearchEl.value.trim();
+    if (inviteTimer) {
+        clearTimeout(inviteTimer);
+    }
+    inviteTimer = setTimeout(async () => {
+        if (!query) {
+            chatInviteResultsEl.innerHTML = "";
+            return;
+        }
+        const candidates = await searchCandidates(query);
+        renderCandidates(candidates);
+    }, 250);
+});
+
+chatDmSearchEl.addEventListener("input", () => {
+    const query = chatDmSearchEl.value.trim();
+    if (dmTimer) {
+        clearTimeout(dmTimer);
+    }
+    dmTimer = setTimeout(async () => {
+        if (!query) {
+            chatDmResultsEl.innerHTML = "";
+            return;
+        }
+        const candidates = await searchCandidates(query);
+        renderDmCandidates(candidates);
+    }, 250);
+});
+
+document.addEventListener("DOMContentLoaded", async () => {
+    await loadRooms();
+    await loadMessages(activeRoomId);
+    connectChat(activeRoomId);
+    if (typeof lucide !== "undefined") {
+        lucide.createIcons();
+    }
+});
+</script>
+{% endblock %}

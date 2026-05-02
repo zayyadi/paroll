@@ -23,7 +23,7 @@
         {% endfor %}
     {% endif %}
 
-    <form method="post" action="{% url 'payroll:notification_type_preferences' %}">
+    <form method="post" action="{% url 'payroll:notification_type_preferences' notification_type %}">
         {% csrf_token %}
 
         <!-- Introduction -->

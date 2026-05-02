@@ -1,5 +1,6 @@
+{% load static %}
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="scroll-smooth">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -10,51 +11,224 @@
     <meta property="og:type" content="website">
     <meta property="og:url" content="{{ request.build_absolute_uri }}">
     <title>{% block title %}PayNest{% endblock %}</title>
+    <script src="{% static 'js/tailwind.min.js' %}"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@700;800&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: "#004355",
+                        "primary-container": "#005c73",
+                        secondary: "#536167",
+                        surface: "#f9f9fa",
+                        "surface-container": "#edeeef",
+                        "surface-container-low": "#f3f4f4",
+                        "surface-container-lowest": "#ffffff",
+                        "surface-container-high": "#e7e8e9",
+                        tertiary: "#5f3201",
+                        "tertiary-fixed": "#ffdcc2",
+                        "outline-variant": "#bfc8cc",
+                        "on-surface": "#1a1c1d",
+                        "on-surface-variant": "#40484c",
+                    },
+                    fontFamily: {
+                        sans: ["Inter", "sans-serif"],
+                        headline: ["Manrope", "sans-serif"],
+                    },
+                },
+            },
+        };
+    </script>
     <style>
-        body { font-family: Arial, sans-serif; margin: 0; color: #0f172a; background: #f8fafc; }
-        .container { max-width: 960px; margin: 0 auto; padding: 24px; }
-        .nav { background: #ffffff; border-bottom: 1px solid #e2e8f0; }
-        .nav a { margin-right: 16px; color: #1e293b; text-decoration: none; }
-        .hero { background: linear-gradient(120deg, #e2e8f0, #f8fafc); border: 1px solid #e2e8f0; border-radius: 12px; padding: 32px; }
-        .button { display: inline-block; padding: 10px 14px; border-radius: 8px; text-decoration: none; border: 1px solid #1d4ed8; }
-        .button.primary { background: #1d4ed8; color: #ffffff; }
-        .button.secondary { color: #1d4ed8; background: #ffffff; }
-        .card { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 20px; margin: 16px 0; }
-        .grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
-        .field { margin-bottom: 12px; }
-        label { display: block; margin-bottom: 6px; font-weight: 600; }
-        input, select, textarea { width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 8px; box-sizing: border-box; }
-        .messages { background: #dcfce7; border: 1px solid #86efac; color: #166534; padding: 10px; border-radius: 8px; margin-bottom: 14px; }
-        footer { margin-top: 24px; color: #64748b; font-size: 14px; }
+        body {
+            font-family: "Inter", sans-serif;
+            background: #f9f9fa;
+            color: #1a1c1d;
+        }
+
+        h1,
+        h2,
+        h3,
+        .font-headline {
+            font-family: "Manrope", sans-serif;
+            letter-spacing: -0.02em;
+        }
+
+        .editorial-gradient {
+            background: linear-gradient(135deg, #004355 0%, #005c73 100%);
+        }
+
+        .ghost-border {
+            outline: 1px solid rgba(191, 200, 204, 0.18);
+        }
+
+        .button {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 0.9rem;
+            padding: 0.95rem 1.4rem;
+            font-weight: 700;
+            transition: transform 180ms ease, filter 180ms ease, background-color 180ms ease;
+            text-decoration: none;
+        }
+
+        .button:hover {
+            transform: translateY(-1px);
+        }
+
+        .button.primary {
+            background: linear-gradient(135deg, #004355 0%, #005c73 100%);
+            color: #ffffff;
+        }
+
+        .button.secondary {
+            background: #ffffff;
+            color: #004355;
+            outline: 1px solid rgba(191, 200, 204, 0.25);
+        }
+
+        .card {
+            background: #ffffff;
+            border-radius: 1.5rem;
+            padding: 2rem;
+            outline: 1px solid rgba(191, 200, 204, 0.16);
+        }
+
+        .hero {
+            background: linear-gradient(135deg, rgba(0, 67, 85, 0.06) 0%, rgba(255, 220, 194, 0.45) 100%);
+            border-radius: 2rem;
+            padding: 2.5rem;
+            outline: 1px solid rgba(191, 200, 204, 0.16);
+        }
+
+        .hero h1,
+        h1 {
+            font-family: "Manrope", sans-serif;
+            font-size: clamp(2.25rem, 5vw, 4.5rem);
+            line-height: 1.05;
+            margin: 0 0 1rem;
+            color: #004355;
+        }
+
+        h3 {
+            font-family: "Manrope", sans-serif;
+            font-size: 1.35rem;
+            margin: 0 0 0.75rem;
+            color: #004355;
+        }
+
+        p {
+            color: #40484c;
+            line-height: 1.75;
+        }
+
+        .grid {
+            display: grid;
+            gap: 1.5rem;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        }
+
+        .field {
+            margin-bottom: 1rem;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.45rem;
+            font-size: 0.875rem;
+            font-weight: 700;
+            color: #40484c;
+        }
+
+        input,
+        select,
+        textarea {
+            width: 100%;
+            border: none;
+            border-radius: 0.9rem;
+            background: #f3f4f4;
+            padding: 0.95rem 1rem;
+            box-sizing: border-box;
+        }
+
+        input:focus,
+        select:focus,
+        textarea:focus {
+            outline: none;
+            box-shadow: 0 0 0 2px rgba(24, 102, 126, 0.22);
+            background: #ffffff;
+        }
+
+        .messages {
+            background: #edeeef;
+            color: #40484c;
+            padding: 0.95rem 1rem;
+            border-radius: 1rem;
+            margin-bottom: 1rem;
+        }
     </style>
 </head>
-<body>
-    <nav class="nav">
-        <div class="container">
-            <a href="{% url 'marketing:landing' %}"><strong>PayNest</strong></a>
-            <a href="{% url 'marketing:pricing' %}">Pricing</a>
-            <a href="{% url 'marketing:about' %}">About</a>
-            <a href="{% url 'marketing:support' %}">Support</a>
-            <a href="{% url 'marketing:security' %}">Security</a>
-            <a href="{% url 'marketing:contact' %}">Contact</a>
-            <a href="{% url 'users:register' %}">Start free trial</a>
+<body class="bg-surface text-on-surface">
+    <nav class="fixed inset-x-0 top-0 z-40 bg-white/80 backdrop-blur-md">
+        <div class="mx-auto flex max-w-7xl items-center justify-between px-6 py-4 lg:px-10">
+            <a href="{% url 'marketing:landing' %}" class="flex items-center gap-3">
+                <div>
+                    <p class="font-headline text-xl font-extrabold text-primary">PayNest</p>
+                    <p class="text-[10px] font-bold uppercase tracking-[0.28em] text-secondary">Editorial Command</p>
+                </div>
+            </a>
+            <div class="hidden items-center gap-6 md:flex">
+                <a href="{% url 'marketing:pricing' %}" class="text-sm font-semibold text-secondary transition hover:text-primary">Pricing</a>
+                <a href="{% url 'marketing:about' %}" class="text-sm font-semibold text-secondary transition hover:text-primary">About</a>
+                <a href="{% url 'marketing:support' %}" class="text-sm font-semibold text-secondary transition hover:text-primary">Support</a>
+                <a href="{% url 'marketing:security' %}" class="text-sm font-semibold text-secondary transition hover:text-primary">Security</a>
+                <a href="{% url 'marketing:contact' %}" class="text-sm font-semibold text-secondary transition hover:text-primary">Contact</a>
+            </div>
+            <a href="{% url 'users:register' %}" class="button primary px-5 py-3 text-sm">Start free trial</a>
         </div>
     </nav>
 
-    <main class="container">
-        {% if messages %}
-            {% for message in messages %}
+    <main class="pt-20">
+        <section class="px-6 py-16 lg:px-10">
+            <div class="mx-auto max-w-7xl rounded-[2rem] bg-surface-container-low px-6 py-10 lg:px-12 lg:py-14">
+                <div class="mb-10 flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+                    <div class="max-w-3xl">
+                        <span class="inline-flex rounded-full bg-tertiary-fixed px-3 py-1 text-[10px] font-bold uppercase tracking-[0.28em] text-tertiary">
+                            Professional Editorial Management
+                        </span>
+                        <h1 class="mt-4 font-headline text-4xl font-extrabold tracking-tight text-primary lg:text-6xl">
+                            Human resources, payroll, and compliance in one calm command layer.
+                        </h1>
+                        <p class="mt-4 max-w-2xl text-base leading-7 text-on-surface-variant">
+                            PayNest adopts the Stitch Editorial Command language across every public page so the product
+                            story feels as disciplined as the platform itself.
+                        </p>
+                    </div>
+                    <a href="{% url 'marketing:contact' %}" class="button secondary text-sm">Book demo</a>
+                </div>
+
+                {% if messages %}
+                {% for message in messages %}
                 <div class="messages">{{ message }}</div>
-            {% endfor %}
-        {% endif %}
-        {% block content %}{% endblock %}
+                {% endfor %}
+                {% endif %}
+
+                <div class="space-y-8">
+                    {% block content %}{% endblock %}
+                </div>
+            </div>
+        </section>
     </main>
 
-    <footer class="container">
-        <a href="{% url 'marketing:privacy' %}">Privacy</a> |
-        <a href="{% url 'marketing:terms' %}">Terms</a> |
-        <a href="{% url 'marketing:cookies' %}">Cookies</a>
-        <div>© 2026 PayNest</div>
+    <footer class="px-6 pb-10 text-center lg:px-10">
+        <a href="{% url 'marketing:privacy' %}" class="mx-2 text-sm text-secondary hover:text-primary">Privacy</a>
+        <a href="{% url 'marketing:terms' %}" class="mx-2 text-sm text-secondary hover:text-primary">Terms</a>
+        <a href="{% url 'marketing:cookies' %}" class="mx-2 text-sm text-secondary hover:text-primary">Cookies</a>
+        <div class="mt-3 text-xs font-bold uppercase tracking-[0.24em] text-secondary">© 2026 PayNest. Professional Editorial Management.</div>
     </footer>
 </body>
 </html>

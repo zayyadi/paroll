@@ -1,0 +1,15 @@
+{{ site_name|default:"Payroll" }} Notification
+
+{{ title|default:"Notification" }}
+
+{{ message }}
+
+{% if metadata %}
+Details:
+{% for key, value in metadata.items %}- {{ key }}: {{ value }}
+{% endfor %}
+{% endif %}
+{% if action_url %}
+View details:
+{{ action_url }}
+{% endif %}

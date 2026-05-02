@@ -24,6 +24,7 @@ from django.utils.http import urlsafe_base64_decode
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.contrib.sites.shortcuts import get_current_site  # For dynamic domain
 from django.contrib.auth.tokens import default_token_generator
+from django.views.decorators.http import require_POST
 
 # from django.http import HttpResponseRedirect  # For returning from form_valid
 from django.utils.encoding import force_bytes
@@ -183,12 +184,12 @@ def password(request):
             form.save()
             update_session_auth_hash(request, form.user)
             messages.success(request, "Your password was successfully updated!")
-            return redirect("password")
+            return redirect("users:password")
         else:
             messages.error(request, "Please correct the error below.")
     else:
         form = PasswordForm(request.user)
-    return render(request, "users/password.html", {"form": form})
+    return render(request, "registration/password_change_form.html", {"form": form})
 
 
 def validate_username(request):
@@ -387,6 +388,7 @@ def get_resend_limit_status(email):
 
 
 @login_required
+@require_POST
 def send_otp_view(request):
     user = request.user
     otp = generate_otp()
