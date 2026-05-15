@@ -20,6 +20,7 @@
                    data-notification-action="open"
                    data-notification-id="{{ notification.id }}"
                    data-notification-url="{% url 'payroll:mark_notification_read' notification.id %}"
+                   aria-label="Open notification: {{ notification.title }}"
                    class="block px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 border-b border-gray-100 dark:border-gray-700 {% if not notification.is_read %}bg-blue-50 dark:bg-blue-900/10{% endif %}"
                 >
                     <div class="flex items-start space-x-3">
@@ -73,7 +74,7 @@
                         </div>
                         {% if not notification.is_read %}
                             <div class="flex-shrink-0">
-                                <span class="w-2 h-2 bg-blue-500 rounded-full"></span>
+                                <span class="inline-block w-2 h-2 bg-blue-500 rounded-full" aria-hidden="true"></span>
                             </div>
                         {% endif %}
                     </div>
@@ -96,6 +97,7 @@
                 <button type="button"
                         data-notification-action="mark-all-read"
                         data-notification-url="{% url 'payroll:mark_all_read' %}"
+                        aria-label="Mark all notifications as read"
                         class="text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300">
                     Mark all as read
                 </button>

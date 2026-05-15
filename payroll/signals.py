@@ -37,18 +37,20 @@ def _deduction_debug_print(message: str) -> None:
 
 
 # Helper function to get or create payroll accounts
-def get_payroll_account(name, account_type, account_number):
+def get_payroll_account(company, name, account_type, account_number):
     """Get or create a payroll account with the specified details."""
-    account = Account.objects.filter(account_number=account_number).first()
+    account = Account.objects.filter(company=company, account_number=account_number).first()
     if not account:
-        account = Account.objects.filter(name=name).first()
+        account = Account.objects.filter(company=company, name=name).first()
 
     if account:
         updated_fields = []
         # Normalize account number to configured mapping when possible.
         if (
             account.account_number != account_number
-            and not Account.objects.filter(account_number=account_number).exclude(
+            and not Account.objects.filter(
+                company=company, account_number=account_number
+            ).exclude(
                 pk=account.pk
             ).exists()
         ):
@@ -57,9 +59,12 @@ def get_payroll_account(name, account_type, account_number):
         if account.type != account_type:
             account.type = account_type
             updated_fields.append("type")
-        if account.name != name and not Account.objects.filter(name=name).exclude(
-            pk=account.pk
-        ).exists():
+        if (
+            account.name != name
+            and not Account.objects.filter(company=company, name=name)
+            .exclude(pk=account.pk)
+            .exists()
+        ):
             account.name = name
             updated_fields.append("name")
         if updated_fields:
@@ -67,6 +72,7 @@ def get_payroll_account(name, account_type, account_number):
         return account
 
     account = Account.objects.create(
+        company=company,
         name=name,
         account_number=account_number,
         type=account_type,
@@ -94,20 +100,21 @@ PAYROLL_ACCOUNTS = {
 }
 
 
-def get_account(account_key):
+def get_account(company, account_key):
     """Get a payroll account by key."""
     if account_key in PAYROLL_ACCOUNTS:
         name, account_type, account_number = PAYROLL_ACCOUNTS[account_key]
-        return get_payroll_account(name, account_type, account_number)
+        return get_payroll_account(company, name, account_type, account_number)
     return None
 
 
-def source_journal_exists(source_object, description_prefix):
+def source_journal_exists(source_object, description_prefix, company=None):
     """Check if a journal already exists for this source object + description prefix."""
     if not source_object or not getattr(source_object, "pk", None):
         return False
     source_ct = ContentType.objects.get_for_model(source_object.__class__)
     return Journal.objects.filter(
+        company=company,
         content_type=source_ct,
         object_id=source_object.pk,
         description__startswith=description_prefix,
@@ -130,7 +137,8 @@ def handle_payroll_period_closure(sender, instance, **kwargs):
 
     # Trigger only when 'closed' changes from False to True
     if not old_instance.closed and instance.closed:
-        if source_journal_exists(instance, "Payroll for period:"):
+        company = instance.company
+        if source_journal_exists(instance, "Payroll for period:", company=company):
             return
         with transaction.atomic():
             pay_run_entries = instance.payroll_run_entries.select_related(
@@ -140,8 +148,8 @@ def handle_payroll_period_closure(sender, instance, **kwargs):
                 raise ValueError("Cannot close a payroll period with no employees.")
 
             # Get fiscal year and period
-            fiscal_year = get_or_create_fiscal_year(instance.paydays.year)
-            period = get_or_create_period(fiscal_year, instance.paydays.month)
+            fiscal_year = get_or_create_fiscal_year(instance.paydays.year, company=company)
+            period = get_or_create_period(fiscal_year, instance.paydays.month, company=company)
             # Build a balanced payroll journal with clear Nigerian payroll liability mapping.
             # Employee-side items (PAYE/Pension/NHF/Health/Other deductions/IOU deductions)
             # are credited to payable/recovery accounts, cash gets net pay, and salary expense
@@ -152,7 +160,7 @@ def handle_payroll_period_closure(sender, instance, **kwargs):
                 amount = Decimal(amount or 0)
                 if amount <= 0:
                     return
-                account = get_account(account_key)
+                account = get_account(company, account_key)
                 if account is None:
                     return
                 key = (account.id, entry_type, memo)
@@ -311,6 +319,7 @@ def handle_payroll_period_closure(sender, instance, **kwargs):
                     journal_date = timezone.now().date().replace(day=1)
 
                 journal = create_journal_with_entries(
+                    company=company,
                     date=journal_date,
                     description=f"Payroll for period: {instance.save_month_str}",
                     entries=entries,
@@ -347,25 +356,26 @@ def handle_iou_approval(sender, instance, **kwargs):
 
     # Trigger only on status change to APPROVED
     if old_instance.status != "APPROVED" and instance.status == "APPROVED":
-        if source_journal_exists(instance, "IOU approved for"):
+        company = instance.employee_id.company
+        if source_journal_exists(instance, "IOU approved for", company=company):
             return
         try:
             with transaction.atomic():
                 # Get fiscal year and period
                 approval_date = instance.approved_at or timezone.now().date()
-                fiscal_year = get_or_create_fiscal_year(approval_date.year)
-                period = get_or_create_period(fiscal_year, approval_date.month)
+                fiscal_year = get_or_create_fiscal_year(approval_date.year, company=company)
+                period = get_or_create_period(fiscal_year, approval_date.month, company=company)
 
                 # Create journal entries
                 entries = [
                     {
-                        "account": get_account("employee_advances"),
+                        "account": get_account(company, "employee_advances"),
                         "entry_type": "DEBIT",
                         "amount": instance.amount,
                         "memo": f"IOU approved for {instance.employee_id.first_name} {instance.employee_id.last_name}",
                     },
                     {
-                        "account": get_account("cash"),
+                        "account": get_account(company, "cash"),
                         "entry_type": "CREDIT",
                         "amount": instance.amount,
                         "memo": f"Cash paid for IOU to {instance.employee_id.first_name} {instance.employee_id.last_name}",
@@ -374,6 +384,7 @@ def handle_iou_approval(sender, instance, **kwargs):
 
                 # Create the journal
                 journal = create_journal_with_entries(
+                    company=company,
                     date=approval_date,
                     description=f"IOU approved for {instance.employee_id.first_name} {instance.employee_id.last_name}",
                     entries=entries,
@@ -426,12 +437,13 @@ def handle_iou_direct_payment(sender, instance, **kwargs):
     if not status_changed_to_paid or instance.payment_method != "DIRECT_PAYMENT":
         return
 
-    if source_journal_exists(instance, "IOU paid (direct) by"):
+    company = instance.employee_id.company
+    if source_journal_exists(instance, "IOU paid (direct) by", company=company):
         return
 
     payment_date = timezone.now().date()
-    fiscal_year = get_or_create_fiscal_year(payment_date.year)
-    period = get_or_create_period(fiscal_year, payment_date.month)
+    fiscal_year = get_or_create_fiscal_year(payment_date.year, company=company)
+    period = get_or_create_period(fiscal_year, payment_date.month, company=company)
 
     principal_amount = Decimal(instance.amount or 0)
     total_repayment = Decimal(instance.total_amount or 0)
@@ -439,13 +451,13 @@ def handle_iou_direct_payment(sender, instance, **kwargs):
 
     entries = [
         {
-            "account": get_account("cash"),
+            "account": get_account(company, "cash"),
             "entry_type": "DEBIT",
             "amount": total_repayment,
             "memo": f"Direct IOU repayment received from {instance.employee_id.first_name} {instance.employee_id.last_name}",
         },
         {
-            "account": get_account("employee_advances"),
+            "account": get_account(company, "employee_advances"),
             "entry_type": "CREDIT",
             "amount": principal_amount,
             "memo": f"IOU principal cleared for {instance.employee_id.first_name} {instance.employee_id.last_name}",
@@ -455,7 +467,7 @@ def handle_iou_direct_payment(sender, instance, **kwargs):
     if interest_amount > 0:
         entries.append(
             {
-                "account": get_account("interest_income"),
+                "account": get_account(company, "interest_income"),
                 "entry_type": "CREDIT",
                 "amount": interest_amount,
                 "memo": f"IOU interest income from {instance.employee_id.first_name} {instance.employee_id.last_name}",
@@ -464,6 +476,7 @@ def handle_iou_direct_payment(sender, instance, **kwargs):
 
     try:
         journal = create_journal_with_entries(
+            company=company,
             date=payment_date,
             description=f"IOU paid (direct) by {instance.employee_id.first_name} {instance.employee_id.last_name}",
             entries=entries,

@@ -86,9 +86,14 @@ class NotificationMarkReadTests(TestCase):
         response = self.client.get(reverse("payroll:notifications"))
 
         self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'href="#main-content"')
+        self.assertContains(response, 'id="main-content"')
+        self.assertContains(response, 'aria-label="View notifications"')
         self.assertContains(response, 'id="notificationButton"')
         self.assertContains(response, 'id="notificationDropdownPanel"')
         self.assertContains(response, 'aria-controls="notificationDropdownPanel"')
+        self.assertContains(response, 'aria-live="polite"')
+        self.assertContains(response, "prefers-reduced-motion")
         self.assertContains(response, "setupNotificationToggle")
         self.assertNotContains(response, "loadNotifications(); notificationsOpen")
 

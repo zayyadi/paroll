@@ -20,6 +20,9 @@
         </div>
         <div class="flex justify-end gap-3 mt-6">
             <a href="{% url 'payroll:leave_requests' %}" class="px-4 py-2.5 rounded-xl border border-secondary-300 text-secondary-700 hover:bg-secondary-50 text-sm font-medium">Back</a>
+            {% if leave_request.processed_leave_allowance %}
+            <a href="{% url 'payroll:leave_allowance_slip' leave_request.processed_leave_allowance.id %}" class="px-4 py-2.5 rounded-xl border border-success-300 text-success-800 hover:bg-success-50 text-sm font-medium">Allowance Slip</a>
+            {% endif %}
             {% if leave_request.status == 'PENDING' and request.user == leave_request.employee.user %}
             <a href="{% url 'payroll:edit_leave_request' leave_request.id %}" class="btn-primary px-4 py-2.5 rounded-xl text-white text-sm font-medium">Edit</a>
             {% endif %}

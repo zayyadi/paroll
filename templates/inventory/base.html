@@ -1,0 +1,133 @@
+{% extends "base_new.html" %}
+{% load static %}
+
+{% block page_title_in_head %}
+<title>{{ APP_NAME }} - Inventory {% if page_title %}| {{ page_title }}{% endif %}</title>
+{% endblock %}
+
+{% block page_header %}{{ page_title|default:"Inventory" }}{% endblock %}
+
+{% block breadcrumbs %}
+<nav class="flex" aria-label="Breadcrumb">
+    <ol class="inline-flex items-center space-x-1 md:space-x-3">
+        <li class="inline-flex items-center">
+            <a href="{% url 'inventory:dashboard' %}" class="inline-flex items-center text-sm font-medium text-secondary-700 hover:text-primary-600">
+                <i data-lucide="home" class="mr-2 w-4 h-4"></i>
+                Inventory
+            </a>
+        </li>
+    </ol>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+    <aside class="lg:col-span-1">
+        <div class="rounded-[1.5rem] bg-white p-5 ghost-border">
+            <p class="text-[10px] font-bold uppercase tracking-[0.24em] text-secondary-500 mb-3">Operations</p>
+            <h3 class="font-headline text-2xl font-extrabold text-primary-800 mb-5">Inventory Menu</h3>
+            <nav class="space-y-1">
+                <a href="{% url 'inventory:dashboard' %}" class="sidebar-link group flex items-center px-3 py-2 text-sm font-medium rounded-md {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
+                    <i data-lucide="layout-dashboard" class="mr-3 h-5 w-5 text-secondary-400 group-hover:text-secondary-500"></i>
+                    Dashboard
+                </a>
+                <a href="{% url 'inventory:item_list' %}" class="sidebar-link group flex items-center px-3 py-2 text-sm font-medium rounded-md {% if 'item' in request.resolver_match.url_name %}active{% endif %}">
+                    <i data-lucide="package" class="mr-3 h-5 w-5 text-secondary-400 group-hover:text-secondary-500"></i>
+                    Items
+                </a>
+                <a href="{% url 'inventory:category_list' %}" class="sidebar-link group flex items-center px-3 py-2 text-sm font-medium rounded-md {% if 'category' in request.resolver_match.url_name %}active{% endif %}">
+                    <i data-lucide="layers" class="mr-3 h-5 w-5 text-secondary-400 group-hover:text-secondary-500"></i>
+                    Categories
+                </a>
+                <a href="{% url 'inventory:warehouse_list' %}" class="sidebar-link group flex items-center px-3 py-2 text-sm font-medium rounded-md {% if 'warehouse' in request.resolver_match.url_name or 'location' in request.resolver_match.url_name %}active{% endif %}">
+                    <i data-lucide="warehouse" class="mr-3 h-5 w-5 text-secondary-400 group-hover:text-secondary-500"></i>
+                    Warehouses
+                </a>
+                <a href="{% url 'inventory:supplier_list' %}" class="sidebar-link group flex items-center px-3 py-2 text-sm font-medium rounded-md {% if 'supplier' in request.resolver_match.url_name %}active{% endif %}">
+                    <i data-lucide="truck" class="mr-3 h-5 w-5 text-secondary-400 group-hover:text-secondary-500"></i>
+                    Suppliers
+                </a>
+                <a href="{% url 'inventory:customer_list' %}" class="sidebar-link group flex items-center px-3 py-2 text-sm font-medium rounded-md {% if 'customer' in request.resolver_match.url_name %}active{% endif %}">
+                    <i data-lucide="store" class="mr-3 h-5 w-5 text-secondary-400 group-hover:text-secondary-500"></i>
+                    Customers
+                </a>
+                <a href="{% url 'inventory:purchase_order_list' %}" class="sidebar-link group flex items-center px-3 py-2 text-sm font-medium rounded-md {% if 'purchase_order' in request.resolver_match.url_name %}active{% endif %}">
+                    <i data-lucide="clipboard-list" class="mr-3 h-5 w-5 text-secondary-400 group-hover:text-secondary-500"></i>
+                    Purchase Orders
+                </a>
+                <div class="pt-2 pb-1">
+                    <p class="px-3 text-xs font-semibold text-secondary-500 uppercase tracking-wider">Postings</p>
+                </div>
+                <a href="{% url 'inventory:posting_account_setup' %}" class="sidebar-link group flex items-center px-3 py-2 text-sm font-medium rounded-md {% if request.resolver_match.url_name == 'posting_account_setup' %}active{% endif %}">
+                    <i data-lucide="settings" class="mr-3 h-5 w-5 text-secondary-400 group-hover:text-secondary-500"></i>
+                    Posting Setup
+                </a>
+                <a href="{% url 'inventory:opening_stock' %}" class="sidebar-link group flex items-center px-3 py-2 text-sm font-medium rounded-md {% if request.resolver_match.url_name == 'opening_stock' %}active{% endif %}">
+                    <i data-lucide="plus-circle" class="mr-3 h-5 w-5 text-secondary-400 group-hover:text-secondary-500"></i>
+                    Opening Stock
+                </a>
+                <a href="{% url 'inventory:purchase_receipt' %}" class="sidebar-link group flex items-center px-3 py-2 text-sm font-medium rounded-md {% if request.resolver_match.url_name == 'purchase_receipt' %}active{% endif %}">
+                    <i data-lucide="package-check" class="mr-3 h-5 w-5 text-secondary-400 group-hover:text-secondary-500"></i>
+                    Purchase Receipt
+                </a>
+                <a href="{% url 'inventory:sales_invoice' %}" class="sidebar-link group flex items-center px-3 py-2 text-sm font-medium rounded-md {% if request.resolver_match.url_name == 'sales_invoice' %}active{% endif %}">
+                    <i data-lucide="receipt" class="mr-3 h-5 w-5 text-secondary-400 group-hover:text-secondary-500"></i>
+                    Sales Invoice
+                </a>
+                <a href="{% url 'inventory:customer_return' %}" class="sidebar-link group flex items-center px-3 py-2 text-sm font-medium rounded-md {% if request.resolver_match.url_name == 'customer_return' %}active{% endif %}">
+                    <i data-lucide="undo-2" class="mr-3 h-5 w-5 text-secondary-400 group-hover:text-secondary-500"></i>
+                    Customer Return
+                </a>
+                <a href="{% url 'inventory:supplier_return' %}" class="sidebar-link group flex items-center px-3 py-2 text-sm font-medium rounded-md {% if request.resolver_match.url_name == 'supplier_return' %}active{% endif %}">
+                    <i data-lucide="redo-2" class="mr-3 h-5 w-5 text-secondary-400 group-hover:text-secondary-500"></i>
+                    Supplier Return
+                </a>
+                <a href="{% url 'inventory:customer_payment' %}" class="sidebar-link group flex items-center px-3 py-2 text-sm font-medium rounded-md {% if request.resolver_match.url_name == 'customer_payment' %}active{% endif %}">
+                    <i data-lucide="banknote" class="mr-3 h-5 w-5 text-secondary-400 group-hover:text-secondary-500"></i>
+                    Customer Payment
+                </a>
+                <a href="{% url 'inventory:supplier_payment' %}" class="sidebar-link group flex items-center px-3 py-2 text-sm font-medium rounded-md {% if request.resolver_match.url_name == 'supplier_payment' %}active{% endif %}">
+                    <i data-lucide="credit-card" class="mr-3 h-5 w-5 text-secondary-400 group-hover:text-secondary-500"></i>
+                    Supplier Payment
+                </a>
+                <a href="{% url 'inventory:tax_remittance' %}" class="sidebar-link group flex items-center px-3 py-2 text-sm font-medium rounded-md {% if request.resolver_match.url_name == 'tax_remittance' %}active{% endif %}">
+                    <i data-lucide="badge-percent" class="mr-3 h-5 w-5 text-secondary-400 group-hover:text-secondary-500"></i>
+                    Tax Remittance
+                </a>
+                <a href="{% url 'inventory:adjustment' %}" class="sidebar-link group flex items-center px-3 py-2 text-sm font-medium rounded-md {% if request.resolver_match.url_name == 'adjustment' %}active{% endif %}">
+                    <i data-lucide="sliders-horizontal" class="mr-3 h-5 w-5 text-secondary-400 group-hover:text-secondary-500"></i>
+                    Adjustment
+                </a>
+                <a href="{% url 'inventory:transfer' %}" class="sidebar-link group flex items-center px-3 py-2 text-sm font-medium rounded-md {% if request.resolver_match.url_name == 'transfer' %}active{% endif %}">
+                    <i data-lucide="arrow-left-right" class="mr-3 h-5 w-5 text-secondary-400 group-hover:text-secondary-500"></i>
+                    Transfer
+                </a>
+                <div class="pt-2 pb-1">
+                    <p class="px-3 text-xs font-semibold text-secondary-500 uppercase tracking-wider">Ledger</p>
+                </div>
+                <a href="{% url 'inventory:movement_list' %}" class="sidebar-link group flex items-center px-3 py-2 text-sm font-medium rounded-md {% if request.resolver_match.url_name == 'movement_list' %}active{% endif %}">
+                    <i data-lucide="list" class="mr-3 h-5 w-5 text-secondary-400 group-hover:text-secondary-500"></i>
+                    Movements
+                </a>
+                <a href="{% url 'inventory:document_list' %}" class="sidebar-link group flex items-center px-3 py-2 text-sm font-medium rounded-md {% if request.resolver_match.url_name == 'document_list' %}active{% endif %}">
+                    <i data-lucide="file-text" class="mr-3 h-5 w-5 text-secondary-400 group-hover:text-secondary-500"></i>
+                    Documents
+                </a>
+            </nav>
+        </div>
+    </aside>
+    <main class="lg:col-span-3">
+        {% block inventory_content %}{% endblock %}
+    </main>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    (function () {
+        if (typeof lucide !== 'undefined') {
+            lucide.createIcons();
+        }
+    })();
+</script>
+{% endblock %}

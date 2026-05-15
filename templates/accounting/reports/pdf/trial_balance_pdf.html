@@ -100,16 +100,16 @@
     <div class="summary">
         <div class="summary-item">
             <span class="summary-label">Total Debits:</span>
-            <span class="summary-value text-danger">₦{{ trial_balance.values|sum:'debit_balance'|floatformat:2|default:"0.00" }}</span>
+            <span class="summary-value text-danger">₦{{ total_debits|floatformat:2|default:"0.00" }}</span>
         </div>
         <div class="summary-item">
             <span class="summary-label">Total Credits:</span>
-            <span class="summary-value text-success">₦{{ trial_balance.values|sum:'credit_balance'|floatformat:2|default:"0.00" }}</span>
+            <span class="summary-value text-success">₦{{ total_credits|floatformat:2|default:"0.00" }}</span>
         </div>
         <div class="summary-item">
             <span class="summary-label">Balanced:</span>
             <span class="summary-value">
-                {% if trial_balance.values|sum:'debit_balance' == trial_balance.values|sum:'credit_balance' %}
+                {% if is_balanced %}
                 <span class="text-success">YES</span>
                 {% else %}
                 <span class="text-danger">NO</span>
@@ -154,8 +154,8 @@
         <tfoot>
             <tr class="font-bold">
                 <td colspan="3" class="text-right">Totals:</td>
-                <td class="text-right text-danger">₦{{ trial_balance.values|sum:'debit_balance'|floatformat:2|default:"0.00" }}</td>
-                <td class="text-right text-success">₦{{ trial_balance.values|sum:'credit_balance'|floatformat:2|default:"0.00" }}</td>
+                <td class="text-right text-danger">₦{{ total_debits|floatformat:2|default:"0.00" }}</td>
+                <td class="text-right text-success">₦{{ total_credits|floatformat:2|default:"0.00" }}</td>
             </tr>
         </tfoot>
     </table>

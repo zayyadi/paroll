@@ -14,7 +14,7 @@ from django.db import transaction
 from django.views.generic import CreateView, UpdateView, DeleteView
 from django.contrib import messages
 from django.contrib.messages.views import SuccessMessageMixin
-from django.http import Http404, HttpResponseForbidden
+from django.http import Http404, HttpResponse, HttpResponseForbidden
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.auth.mixins import (
     LoginRequiredMixin,
@@ -22,6 +22,7 @@ from django.contrib.auth.mixins import (
 )
 from django.conf import settings
 from django.core.cache.backends.base import DEFAULT_TIMEOUT
+from django.core.exceptions import ValidationError
 from django.template.loader import render_to_string
 from payroll.models.payroll import get_leave_balance
 from users.email_backend import send_mail as custom_send_mail
@@ -99,6 +100,7 @@ def _get_payroll_close_journal_transaction_number(payroll_run):
     payroll_ct = ContentType.objects.get_for_model(PayrollRun)
     journal = (
         Journal.objects.filter(
+            company=payroll_run.company,
             content_type=payroll_ct,
             object_id=payroll_run.pk,
             description__startswith="Payroll for period:",
@@ -252,12 +254,24 @@ def add_pay(request):
 
         # Create Journal Entries
         try:
-            salary_expense_account = Account.objects.get(name="Salary Expense")
-            pension_expense_account = Account.objects.get(name="Pension Expense")
-            salaries_payable_account = Account.objects.get(name="Salaries Payable")
-            pension_payable_account = Account.objects.get(name="Pension Payable")
-            tax_payable_account = Account.objects.get(name="PAYE Tax Payable")
-            nsitf_payable_account = Account.objects.get(name="NSITF Payable")
+            salary_expense_account = Account.objects.get(
+                company=company, name="Salary Expense"
+            )
+            pension_expense_account = Account.objects.get(
+                company=company, name="Pension Expense"
+            )
+            salaries_payable_account = Account.objects.get(
+                company=company, name="Salaries Payable"
+            )
+            pension_payable_account = Account.objects.get(
+                company=company, name="Pension Payable"
+            )
+            tax_payable_account = Account.objects.get(
+                company=company, name="PAYE Tax Payable"
+            )
+            nsitf_payable_account = Account.objects.get(
+                company=company, name="NSITF Payable"
+            )
 
             entries = [
                 {
@@ -292,6 +306,7 @@ def add_pay(request):
                 },
             ]
             create_journal_entry(
+                company=company,
                 date=timezone.now().date(),
                 description=f"Payroll for {employee.first_name} {employee.last_name}",
                 entries=entries,
@@ -861,11 +876,14 @@ def leave_requests(request):
         ):
             leave_requests_qs = (
                 LeaveRequest.objects.select_related("employee", "approved_by")
+                .select_related("processed_leave_allowance")
                 .filter(employee__company=company)
                 .order_by("-created_at")
             )
         else:
-            leave_requests_qs = LeaveRequest.objects.filter(employee=employee_profile)
+            leave_requests_qs = LeaveRequest.objects.select_related(
+                "processed_leave_allowance"
+            ).filter(employee=employee_profile)
 
         # Get leave balance for logged-in user (for dashboard display)
         leave_balance = get_leave_balance(employee_profile, current_year)
@@ -951,7 +969,12 @@ def approve_leave(request, pk):
     leave_request.status = "APPROVED"
     leave_request.approved_by = request.user
     # Pass the current user to the save method for audit logging
-    leave_request.save(user=request.user)
+    try:
+        leave_request.save(user=request.user)
+    except ValidationError as exc:
+        message = "; ".join(exc.messages) if exc.messages else str(exc)
+        messages.error(request, message)
+        return redirect("payroll:manage_leave_requests")
     messages.success(request, "Leave request approved.")
     return redirect("payroll:manage_leave_requests")
 
@@ -999,7 +1022,8 @@ def edit_leave_request(request, pk):
         form = LeaveRequestForm(request.POST, instance=leave_request)
         if form.is_valid():
             # Pass the current user to the save method for audit logging
-            form.save(user=request.user)
+            leave_request = form.save(commit=False)
+            leave_request.save(user=request.user)
             messages.success(request, "Leave request updated successfully.")
             return redirect("payroll:leave_requests")
     else:
@@ -1043,6 +1067,85 @@ def view_leave_request(request, pk):
     return render(
         request, "employee/view_leave_request.html", {"leave_request": leave_request}
     )
+
+
+def _can_view_leave_allowance_slip(user, allowance):
+    employee = allowance.employee
+    return (
+        user == employee.user
+        or _can_manage_employee_requests(user)
+        or user.has_perm("payroll.view_allowance")
+        or is_auditor(user)
+    )
+
+
+@login_required
+def leave_allowance_slip(request, pk):
+    allowance = get_object_or_404(
+        Allowance.objects.select_related(
+            "employee__user",
+            "employee__company",
+            "source_leave_request",
+        ),
+        pk=pk,
+        source_leave_request__isnull=False,
+    )
+    if not _can_view_leave_allowance_slip(request.user, allowance):
+        return HttpResponseForbidden(
+            "You are not authorized to view this leave allowance slip."
+        )
+
+    return render(
+        request,
+        "pay/leave_allowance_slip.html",
+        {
+            "allowance": allowance,
+            "leave_request": allowance.source_leave_request,
+            "employee": allowance.employee,
+            "company": allowance.employee.company,
+        },
+    )
+
+
+@login_required
+def leave_allowance_slip_pdf(request, pk):
+    allowance = get_object_or_404(
+        Allowance.objects.select_related(
+            "employee__user",
+            "employee__company",
+            "source_leave_request",
+        ),
+        pk=pk,
+        source_leave_request__isnull=False,
+    )
+    if not _can_view_leave_allowance_slip(request.user, allowance):
+        return HttpResponseForbidden(
+            "You are not authorized to view this leave allowance slip."
+        )
+
+    employee = allowance.employee
+    leave_request = allowance.source_leave_request
+    pdf_content = generate_payslip_pdf(
+        {
+            "allowance": allowance,
+            "amount": allowance.amount,
+            "employee": employee,
+            "employee_name": (
+                f"{employee.first_name or ''} {employee.last_name or ''}".strip()
+                or employee.email
+            ),
+            "leave_request": leave_request,
+            "company": employee.company,
+        },
+        template_path="pay/leave_allowance_slip_pdf.html",
+    )
+    if not pdf_content:
+        raise Http404("Unable to generate leave allowance slip PDF.")
+
+    filename = f"leave_allowance_slip_{employee.emp_id or employee.pk}_{leave_request.start_date:%Y_%m_%d}.pdf"
+    response = HttpResponse(pdf_content, content_type="application/pdf")
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+    return response
 
 
 @login_required

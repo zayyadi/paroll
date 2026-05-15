@@ -43,6 +43,9 @@
                         </td>
                         <td class="px-6 py-4 text-right text-sm font-medium">
                             <a href="{% url 'payroll:view_leave_request' leave_req.id %}" class="text-primary-600 hover:text-primary-900 mr-3">View</a>
+                            {% if leave_req.processed_leave_allowance %}
+                            <a href="{% url 'payroll:leave_allowance_slip' leave_req.processed_leave_allowance.id %}" class="text-success-700 hover:text-success-900 mr-3">Allowance Slip</a>
+                            {% endif %}
                             {% if leave_req.status == 'PENDING' and user == leave_req.employee.user %}
                             <a href="{% url 'payroll:edit_leave_request' leave_req.id %}" class="text-secondary-700 hover:text-secondary-900">Edit</a>
                             {% endif %}

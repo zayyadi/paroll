@@ -125,6 +125,9 @@
             font-family: "Inter", sans-serif;
             background: #f9f9fa;
             color: #1a1c1d;
+            overflow-x: hidden;
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: rgba(0, 92, 115, 0.18);
         }
 
         h1,
@@ -133,7 +136,36 @@
         h4,
         .font-headline {
             font-family: "Manrope", sans-serif;
-            letter-spacing: -0.02em;
+            letter-spacing: 0;
+            text-wrap: balance;
+        }
+
+        a:focus-visible,
+        button:focus-visible,
+        input:focus-visible,
+        select:focus-visible,
+        textarea:focus-visible,
+        [tabindex]:focus-visible {
+            outline: 3px solid rgba(24, 102, 126, 0.58);
+            outline-offset: 3px;
+        }
+
+        .skip-link {
+            position: fixed;
+            left: 1rem;
+            top: 1rem;
+            z-index: 9999;
+            transform: translateY(-150%);
+            border-radius: 0.75rem;
+            background: #004355;
+            color: #ffffff;
+            font-weight: 700;
+            padding: 0.75rem 1rem;
+            transition: transform 160ms ease;
+        }
+
+        .skip-link:focus-visible {
+            transform: translateY(0);
         }
 
         @keyframes fadeIn {
@@ -302,11 +334,28 @@
         .notification {
             animation: slideUp 0.3s ease-out;
         }
+
+        @media (prefers-reduced-motion: reduce) {
+            *,
+            *::before,
+            *::after {
+                animation-duration: 0.001ms !important;
+                animation-iteration-count: 1 !important;
+                scroll-behavior: auto !important;
+                transition-duration: 0.001ms !important;
+            }
+
+            .chat-float {
+                animation: none;
+            }
+        }
     </style>
     {% block page_title_in_head %}<title>{{ APP_NAME }} - {{ APP_TAGLINE }}</title>{% endblock %}
     {% block extra_head %}{% endblock %}
 </head>
 <body class="min-h-screen bg-surface text-on-surface">
+    <a href="#main-content" class="skip-link">Skip to Main Content</a>
+
     <nav class="fixed inset-x-0 top-0 z-50 border-b border-outline-variant/20 bg-white/80 backdrop-blur-xl">
         <div class="mx-auto flex h-16 max-w-[1600px] items-center justify-between px-4 sm:px-6 lg:px-8">
             <div class="flex items-center gap-3 lg:gap-8">
@@ -320,7 +369,7 @@
                 </button>
 
                 <a href="{% url 'payroll:index' %}" class="flex items-center gap-3">
-                    <img src="{{ APP_LOGO_URL }}" alt="{{ APP_NAME }} logo" class="h-9 w-auto rounded-full bg-white p-1 ghost-border">
+                    <img src="{{ APP_LOGO_URL }}" alt="{{ APP_NAME }} logo" width="36" height="36" fetchpriority="high" class="h-9 w-auto rounded-full bg-white p-1 ghost-border">
                     <div>
                         <p class="font-headline text-xl font-extrabold tracking-tight text-primary-800">{{ APP_NAME }}</p>
                         <p class="text-[10px] font-semibold uppercase tracking-[0.28em] text-secondary-500">Editorial Command</p>
@@ -333,7 +382,9 @@
                       action="{% if request.user.is_authenticated and request.user.is_superuser or request.user.is_authenticated and request.user.is_staff %}{% url 'payroll:employee_list' %}{% elif request.user.is_authenticated %}{% url 'payroll:notifications' %}{% else %}{% url 'users:login' %}{% endif %}"
                       class="flex w-full max-w-xl items-center rounded-full bg-surface-container-low px-4 py-2">
                     <i data-lucide="search" class="h-4 w-4 text-secondary-400"></i>
+                    <label for="globalSearchInput" class="sr-only">Search workspace</label>
                     <input type="text"
+                           id="globalSearchInput"
                            name="q"
                            placeholder="{% if request.user.is_authenticated and request.user.is_superuser or request.user.is_authenticated and request.user.is_staff %}Search employees, payroll records, requests...{% elif request.user.is_authenticated %}Search notifications and updates...{% else %}Search the workspace...{% endif %}"
                            class="w-full bg-transparent px-3 py-0 text-sm text-on-surface placeholder:text-secondary-400 focus:ring-0">
@@ -351,6 +402,7 @@
                 <div class="relative">
                     <button type="button"
                             id="notificationButton"
+                            aria-label="View notifications"
                             aria-expanded="false"
                             aria-controls="notificationDropdownPanel"
                             class="relative rounded-full p-2 text-secondary-500 transition hover:bg-surface-container-low hover:text-primary-800">
@@ -360,8 +412,10 @@
                     </button>
 
                     <div id="notificationDropdownPanel"
+                         role="region"
+                         aria-label="Notifications"
                          class="editorial-panel absolute right-0 mt-3 hidden w-80 overflow-hidden bg-white shadow-float">
-                        <div id="notificationDropdownContent"></div>
+                        <div id="notificationDropdownContent" aria-live="polite"></div>
                     </div>
                 </div>
                 {% endif %}
@@ -370,11 +424,12 @@
                     {% if user.is_authenticated %}
                     <button type="button"
                             id="userMenuButton"
+                            aria-label="Open user menu"
                             aria-expanded="false"
                             aria-controls="userMenuPanel"
                             class="flex items-center gap-3 rounded-full bg-white/90 py-1.5 pl-1.5 pr-3 ghost-border transition hover:bg-white">
                         {% if user.employee_user.photo %}
-                        <img class="h-9 w-9 rounded-full object-cover" src="{{ user.employee_user.photo.url }}" alt="User avatar">
+                        <img class="h-9 w-9 rounded-full object-cover" src="{{ user.employee_user.photo.url }}" alt="User avatar" width="36" height="36">
                         {% else %}
                         <div class="flex h-9 w-9 items-center justify-center rounded-full bg-primary-100 text-sm font-bold text-primary-800">
                             {{ user.first_name|first|default:user.email|first|upper }}
@@ -415,7 +470,7 @@
                     <p class="font-headline text-2xl font-extrabold text-primary-800">{{ APP_NAME }}</p>
                     <p class="text-[10px] font-semibold uppercase tracking-[0.28em] text-secondary-500">Editorial Command</p>
                 </div>
-                <button type="button" data-sidebar-close class="rounded-full p-2 text-secondary-500 hover:bg-white">
+                <button type="button" data-sidebar-close aria-label="Close sidebar" class="rounded-full p-2 text-secondary-500 hover:bg-white">
                     <i data-lucide="x" class="h-5 w-5"></i>
                 </button>
             </div>
@@ -445,6 +500,10 @@
                     <a href="{% url 'accounting:dashboard' %}" class="sidebar-link {% if request.resolver_match.app_name == 'accounting' %}active{% endif %}">
                         <i data-lucide="landmark" class="sidebar-icon h-5 w-5 text-secondary-400"></i>
                         <span>Accounting</span>
+                    </a>
+                    <a href="{% url 'inventory:dashboard' %}" class="sidebar-link {% if request.resolver_match.app_name == 'inventory' %}active{% endif %}">
+                        <i data-lucide="boxes" class="sidebar-icon h-5 w-5 text-secondary-400"></i>
+                        <span>Inventory</span>
                     </a>
                     {% elif request.user.is_authenticated %}
                     <a href="{% url 'payroll:profile' request.user.id %}" class="sidebar-link {% if request.resolver_match.url_name == 'profile' %}active{% endif %}">
@@ -533,6 +592,10 @@
             <a href="{% url 'accounting:dashboard' %}" class="sidebar-link {% if request.resolver_match.app_name == 'accounting' %}active{% endif %}">
                 <i data-lucide="landmark" class="sidebar-icon h-5 w-5 text-secondary-400"></i>
                 <span>Accounting</span>
+            </a>
+            <a href="{% url 'inventory:dashboard' %}" class="sidebar-link {% if request.resolver_match.app_name == 'inventory' %}active{% endif %}">
+                <i data-lucide="boxes" class="sidebar-icon h-5 w-5 text-secondary-400"></i>
+                <span>Inventory</span>
             </a>
             {% elif request.user.is_authenticated %}
             <a href="{% url 'payroll:profile' request.user.id %}" class="sidebar-link {% if request.resolver_match.url_name == 'profile' %}active{% endif %}">
@@ -638,7 +701,7 @@
     </aside>
 
     <div class="md:pl-64">
-        <main class="min-h-screen pt-20">
+        <main id="main-content" tabindex="-1" class="min-h-screen pt-20">
             <div class="mx-auto max-w-[1600px] px-4 pb-10 sm:px-6 lg:px-8">
                 <section class="rounded-[30px] bg-surface-container-low px-5 py-6 sm:px-8 sm:py-8 lg:px-10 lg:py-10">
                     <header class="mb-8 flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
@@ -662,13 +725,14 @@
                     <div class="mb-8 space-y-3">
                         {% for message in messages %}
                         <div data-dismissible-message
+                             aria-live="polite"
                              class="notification flex items-start gap-3 rounded-2xl px-4 py-4
                              {% if message.tags == 'success' %}bg-success-50 text-success-800{% elif message.tags == 'error' %}bg-danger-50 text-danger-800{% elif message.tags == 'warning' %}bg-warning-50 text-warning-900{% else %}bg-secondary-container text-on-secondary-container{% endif %}">
                             <div class="mt-0.5">
                                 {% if message.tags == 'success' %}<i data-lucide="check-circle-2" class="h-5 w-5"></i>{% elif message.tags == 'error' %}<i data-lucide="alert-circle" class="h-5 w-5"></i>{% elif message.tags == 'warning' %}<i data-lucide="triangle-alert" class="h-5 w-5"></i>{% else %}<i data-lucide="info" class="h-5 w-5"></i>{% endif %}
                             </div>
                             <div class="flex-1 text-sm">{{ message }}</div>
-                            <button type="button" data-dismiss-message class="rounded-full p-1 transition hover:bg-white/50">
+                            <button type="button" data-dismiss-message aria-label="Dismiss message" class="rounded-full p-1 transition hover:bg-white/50">
                                 <i data-lucide="x" class="h-4 w-4"></i>
                             </button>
                         </div>
@@ -713,6 +777,12 @@
             }
             try {
                 lucide.createIcons();
+                document.querySelectorAll("svg.lucide").forEach(function (icon) {
+                    if (!icon.hasAttribute("aria-label")) {
+                        icon.setAttribute("aria-hidden", "true");
+                    }
+                    icon.setAttribute("focusable", "false");
+                });
             } catch (error) {
                 console.error("Error initializing Lucide icons:", error);
             }
@@ -1034,11 +1104,11 @@
 
     {% block extra_js %}{% endblock %}
 
-    <div id="chat-toast" class="fixed right-6 bottom-24 hidden rounded-xl bg-white px-4 py-3 text-sm font-semibold text-secondary-900 shadow-float">
+    <div id="chat-toast" aria-live="polite" class="fixed right-6 bottom-24 hidden rounded-xl bg-white px-4 py-3 text-sm font-semibold text-secondary-900 shadow-float">
         New chat message
     </div>
 
-    <a href="/chat/" id="chat-float" class="chat-float flex items-center gap-3 rounded-full bg-primary-600 px-5 py-3 text-sm font-semibold text-white">
+    <a href="/chat/" id="chat-float" aria-label="Open company chat" class="chat-float flex items-center gap-3 rounded-full bg-primary-600 px-5 py-3 text-sm font-semibold text-white">
         <span class="relative">
             <i data-lucide="messages-square" class="h-5 w-5"></i>
             <span id="chat-float-badge" class="absolute -top-2 -right-2 hidden h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-danger-500 px-1 text-[0.65rem] font-semibold text-white"></span>

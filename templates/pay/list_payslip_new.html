@@ -12,7 +12,7 @@
                 <p class="text-primary-100">View and download your payslips</p>
             </div>
             <div class="mt-4 md:mt-0">
-                <a href="{% url 'payroll:profile' emp.user.id %}" class="bg-white bg-opacity-20 hover:bg-opacity-30 text-white font-medium py-2 px-4 rounded-lg transition-all inline-flex items-center">
+                <a href="{% url 'payroll:profile' emp.user.id %}" class="bg-white bg-opacity-20 hover:bg-opacity-30 text-white font-medium py-2 px-4 rounded-lg transition-colors inline-flex items-center">
                     <i data-lucide="arrow-left" class="h-4 w-4 mr-2"></i>
                     Back to Profile
                 </a>
@@ -25,7 +25,7 @@
         <div class="flex items-center">
             <div class="flex-shrink-0 h-16 w-16">
                 {% if emp.photo %}
-                <img class="h-16 w-16 rounded-full object-cover" src="{{ emp.photo.url }}" alt="{{ emp.first_name }}">
+                <img class="h-16 w-16 rounded-full object-cover" src="{{ emp.photo.url }}" alt="{{ emp.first_name }} {{ emp.last_name }}" width="64" height="64">
                 {% else %}
                 <div class="h-16 w-16 rounded-full bg-primary-200 flex items-center justify-center">
                     <span class="text-primary-800 font-bold text-lg">{{ emp.first_name|first|upper }}{{ emp.last_name|first|upper }}</span>
@@ -75,10 +75,10 @@
                             </div>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                            <a href="{% url 'payroll:payslip' payday.id %}" class="text-primary-600 hover:text-primary-900 mr-3 inline-flex items-center" title="View Payslip">
+                            <a href="{% url 'payroll:payslip' payday.id %}" class="text-primary-600 hover:text-primary-900 mr-3 inline-flex items-center" aria-label="View {{ payday.payroll_run.paydays|date:'F Y' }} payslip" title="View Payslip">
                                 <i data-lucide="eye" class="h-4 w-4"></i>
                             </a>
-                            <a href="{% url 'payroll:payslip_pdf' payday.id %}" class="text-success-600 hover:text-success-900 inline-flex items-center" title="Download PDF">
+                            <a href="{% url 'payroll:payslip_pdf' payday.id %}" class="text-success-600 hover:text-success-900 inline-flex items-center" aria-label="Download {{ payday.payroll_run.paydays|date:'F Y' }} payslip PDF" title="Download PDF">
                                 <i data-lucide="download" class="h-4 w-4"></i>
                             </a>
                         </td>

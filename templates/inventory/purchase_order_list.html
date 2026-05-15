@@ -1,0 +1,45 @@
+{% extends "inventory/base.html" %}
+
+{% block inventory_content %}
+<div class="bg-white rounded-lg shadow-soft">
+    <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+        <h3 class="text-lg font-semibold text-secondary-900">Purchase Orders</h3>
+        <a href="{% url 'inventory:purchase_order_create' %}" class="btn-primary inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white">
+            <i data-lucide="plus" class="mr-2 h-4 w-4"></i>
+            New Order
+        </a>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">Reference</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">Supplier</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">Date</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">Status</th>
+                    <th class="px-6 py-3 text-right text-xs font-medium text-secondary-500 uppercase tracking-wider">Lines</th>
+                    <th class="px-6 py-3"></th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+                {% for order in purchase_orders %}
+                <tr class="table-row-hover">
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-secondary-900">{{ order.reference|default:order.pk }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-secondary-500">{{ order.supplier.name }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-secondary-500">{{ order.order_date }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-secondary-500">{{ order.get_status_display }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-right text-secondary-500">{{ order.lines.count }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        {% if order.status != "RECEIVED" and order.status != "CANCELLED" %}
+                        <a href="{% url 'inventory:purchase_order_receive' order.pk %}" class="text-primary-600 hover:text-primary-900">Receive</a>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="6" class="px-6 py-8 text-center text-sm text-secondary-500">No purchase orders.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

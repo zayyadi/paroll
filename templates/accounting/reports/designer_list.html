@@ -1,0 +1,35 @@
+{% extends "accounting/base.html" %}
+
+{% block accounting_content %}
+<div class="space-y-6">
+    <div class="bg-white rounded-lg shadow-soft">
+        <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+            <div>
+                <h3 class="text-lg font-semibold text-secondary-900">Report Designer</h3>
+                <p class="mt-1 text-sm text-secondary-600">Build P&L, balance sheet, and management reports by joining the relevant accounts into reporting lines.</p>
+            </div>
+            {% if is_accountant %}
+            <a href="{% url 'accounting:financial_report_create' %}" class="btn-primary inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white">
+                <i data-lucide="plus" class="mr-2 h-4 w-4"></i>
+                New Design
+            </a>
+            {% endif %}
+        </div>
+        <div class="divide-y divide-secondary-100">
+            {% for report in reports %}
+            <a href="{% url 'accounting:financial_report_detail' report.pk %}" class="block px-6 py-4 hover:bg-secondary-50">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-semibold text-secondary-900">{{ report.name }}</p>
+                        <p class="mt-1 text-xs text-secondary-500">{{ report.code }} · {{ report.get_report_type_display }}</p>
+                    </div>
+                    <i data-lucide="chevron-right" class="h-5 w-5 text-secondary-400"></i>
+                </div>
+            </a>
+            {% empty %}
+            <div class="px-6 py-10 text-center text-sm text-secondary-600">No custom report designs yet.</div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,58 @@
+{% extends "accounting/base.html" %}
+
+{% block accounting_content %}
+<div class="space-y-6">
+    <div class="bg-white rounded-lg shadow-soft">
+        <div class="px-6 py-4 border-b border-gray-200 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div>
+                <h3 class="text-lg font-semibold text-secondary-900">{{ report_definition.name }}</h3>
+                <p class="mt-1 text-sm text-secondary-600">{{ report_definition.code }} · {{ report_definition.get_report_type_display }}</p>
+            </div>
+            {% if is_accountant %}
+            <a href="{% url 'accounting:financial_report_line_create' report_definition.pk %}" class="btn-primary inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white">
+                <i data-lucide="plus" class="mr-2 h-4 w-4"></i>
+                Add Line
+            </a>
+            {% endif %}
+        </div>
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-secondary-200">
+                <thead class="bg-secondary-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-secondary-600">Row</th>
+                        <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-secondary-600">Description</th>
+                        <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-secondary-600">Accounts</th>
+                        <th class="px-6 py-3 text-right text-xs font-semibold uppercase tracking-wider text-secondary-600">Amount</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-secondary-100">
+                    {% for row in rendered_report.rows %}
+                    <tr>
+                        <td class="px-6 py-4 text-sm font-medium text-secondary-900">{{ row.row_code }}</td>
+                        <td class="px-6 py-4 text-sm text-secondary-900">{{ row.label }}</td>
+                        <td class="px-6 py-4 text-xs text-secondary-600">
+                            {% for account in row.accounts %}
+                            <span class="inline-flex rounded-md bg-secondary-100 px-2 py-1 mr-1 mb-1">{{ account.account_number }} {{ account.name }}</span>
+                            {% empty %}
+                            <span class="text-secondary-400">No accounts</span>
+                            {% endfor %}
+                        </td>
+                        <td class="px-6 py-4 text-right text-sm font-semibold text-secondary-900">
+                            {% if row.amount != None %}{{ row.amount|floatformat:2 }}{% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="4" class="px-6 py-10 text-center text-sm text-secondary-600">No report lines yet.</td></tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot class="bg-secondary-50">
+                    <tr>
+                        <td colspan="3" class="px-6 py-4 text-right text-sm font-semibold text-secondary-900">Report Total</td>
+                        <td class="px-6 py-4 text-right text-sm font-bold text-secondary-900">{{ rendered_report.total|floatformat:2 }}</td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

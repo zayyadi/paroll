@@ -32,6 +32,7 @@ from payroll.models import (
     Deduction,
     PayrollRunEntry,
     PayslipEmailJob,
+    LeaveAllowanceEmailJob,
     Appraisal,
     Metric,
     Review,
@@ -106,6 +107,11 @@ class PayrollRunEntryResource(resources.ModelResource):
 class PayslipEmailJobResource(resources.ModelResource):
     class Meta:
         model = PayslipEmailJob
+
+
+class LeaveAllowanceEmailJobResource(resources.ModelResource):
+    class Meta:
+        model = LeaveAllowanceEmailJob
 
 
 class AppraisalResource(resources.ModelResource):
@@ -473,6 +479,96 @@ class PayslipEmailJobAdmin(ImportExportModelAdmin):
             request.META.get(
                 "HTTP_REFERER",
                 reverse("admin:payroll_payslipemailjob_change", args=[job.pk]),
+            )
+        )
+
+
+@admin.register(LeaveAllowanceEmailJob)
+class LeaveAllowanceEmailJobAdmin(ImportExportModelAdmin):
+    resource_class = LeaveAllowanceEmailJobResource
+    list_display = (
+        "id",
+        "leave_request",
+        "employee_name",
+        "amount",
+        "status",
+        "queued_at",
+        "started_at",
+        "completed_at",
+        "celery_task_id",
+        "resend_link",
+    )
+    list_filter = (
+        "status",
+        "queued_at",
+        "completed_at",
+        "leave_request__employee__company",
+    )
+    search_fields = (
+        "leave_request__employee__first_name",
+        "leave_request__employee__last_name",
+        "leave_request__employee__emp_id",
+        "celery_task_id",
+        "error_message",
+    )
+    readonly_fields = (
+        "leave_request",
+        "allowance",
+        "amount",
+        "status",
+        "celery_task_id",
+        "error_message",
+        "queued_at",
+        "started_at",
+        "completed_at",
+        "updated_at",
+        "resend_link",
+    )
+    date_hierarchy = "queued_at"
+    actions = ("resend_selected_jobs",)
+
+    def get_urls(self):
+        urls = super().get_urls()
+        custom_urls = [
+            path(
+                "<path:object_id>/resend/",
+                self.admin_site.admin_view(self.resend_job_view),
+                name="payroll_leaveallowanceemailjob_resend",
+            ),
+        ]
+        return custom_urls + urls
+
+    def employee_name(self, obj):
+        employee = obj.leave_request.employee
+        return f"{employee.first_name or ''} {employee.last_name or ''}".strip()
+
+    employee_name.short_description = "Employee"
+
+    def resend_link(self, obj):
+        url = reverse("admin:payroll_leaveallowanceemailjob_resend", args=[obj.pk])
+        return format_html('<a class="button" href="{}">Resend</a>', url)
+
+    resend_link.short_description = "Resend"
+
+    @admin.action(description="Resend selected leave allowance slips")
+    def resend_selected_jobs(self, request, queryset):
+        queued = 0
+        for job in queryset.select_related("leave_request", "allowance"):
+            job.enqueue()
+            queued += 1
+        self.message_user(request, f"Queued {queued} leave allowance slip job(s).")
+
+    def resend_job_view(self, request, object_id):
+        job = get_object_or_404(LeaveAllowanceEmailJob, pk=object_id)
+        if not self.has_change_permission(request, job):
+            raise PermissionDenied
+
+        job.enqueue()
+        self.message_user(request, f"Queued leave allowance slip job #{job.pk}.")
+        return redirect(
+            request.META.get(
+                "HTTP_REFERER",
+                reverse("admin:payroll_leaveallowanceemailjob_change", args=[job.pk]),
             )
         )
 

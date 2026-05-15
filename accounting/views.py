@@ -18,8 +18,12 @@ from weasyprint import HTML, CSS
 import csv
 from decimal import Decimal, InvalidOperation
 
+from company.utils import get_user_company
+
 from .models import (
     Account,
+    FinancialReportDefinition,
+    FinancialReportLine,
     Journal,
     JournalEntry,
     FiscalYear,
@@ -33,6 +37,8 @@ from .models import (
 from .forms import (
     JournalForm,
     AccountForm,
+    FinancialReportDefinitionForm,
+    FinancialReportLineForm,
     JournalApprovalForm,
     JournalReversalForm,
     JournalEntryFormSet,
@@ -51,8 +57,10 @@ from .forms import (
     DisciplinaryAppealForm,
     DisciplinaryAppealReviewForm,
 )
+from .reporting import build_financial_report
 from .utils import (
     get_trial_balance,
+    get_trial_balance_totals,
     get_account_balance_as_of,
     create_journal_with_entries,
     post_journal,
@@ -204,20 +212,24 @@ DISCIPLINARY_SYSTEM_DATA = {
 @login_required
 @accounting_role_required
 def accounting_dashboard(request):
+    company = get_user_company(request.user)
 
     draft_journals_count = Journal.objects.filter(
+        company=company,
         status=Journal.JournalStatus.DRAFT
     ).count()
     pending_journals_count = Journal.objects.filter(
+        company=company,
         status=Journal.JournalStatus.PENDING_APPROVAL
     ).count()
     posted_journals_count = Journal.objects.filter(
+        company=company,
         status=Journal.JournalStatus.POSTED
     ).count()
 
-    recent_journals = Journal.objects.all().order_by("-created_at")[:10]
+    recent_journals = Journal.objects.filter(company=company).order_by("-created_at")[:10]
 
-    active_periods = AccountingPeriod.objects.filter(is_active=True).order_by(
+    active_periods = AccountingPeriod.objects.filter(company=company, is_active=True).order_by(
         "-start_date"
     )[:5]
 
@@ -246,7 +258,9 @@ class AccountListView(LoginRequiredMixin, AccountingRoleRequiredMixin, ListView)
     paginate_by = 20
 
     def get_queryset(self):
-        queryset = Account.objects.all().order_by("account_number")
+        queryset = Account.objects.filter(
+            company=get_user_company(self.request.user)
+        ).order_by("account_number")
         search = self.request.GET.get("search")
         if search:
             queryset = queryset.filter(
@@ -263,6 +277,9 @@ class AccountDetailView(LoginRequiredMixin, AccountingRoleRequiredMixin, DetailV
     model = Account
     template_name = "accounting/account_detail.html"
     context_object_name = "account"
+
+    def get_queryset(self):
+        return Account.objects.filter(company=get_user_company(self.request.user))
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -299,8 +316,132 @@ class AccountCreateView(LoginRequiredMixin, AccountantRequiredMixin, CreateView)
     success_url = reverse_lazy("accounting:account_list")
 
     def form_valid(self, form):
+        form.instance.company = get_user_company(self.request.user)
         messages.success(self.request, "Account created successfully.")
         return super().form_valid(form)
+
+
+class FinancialReportListView(
+    LoginRequiredMixin, AuditorOrAccountantRequiredMixin, ListView
+):
+    model = FinancialReportDefinition
+    template_name = "accounting/reports/designer_list.html"
+    context_object_name = "reports"
+
+    def get_queryset(self):
+        return FinancialReportDefinition.objects.filter(
+            company=get_user_company(self.request.user)
+        ).order_by("name")
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context.update(
+            {
+                "page_title": "Report Designer",
+                "is_auditor": is_auditor(self.request.user),
+                "is_accountant": is_accountant(self.request.user),
+                "is_payroll_processor": is_payroll_processor(self.request.user),
+            }
+        )
+        return context
+
+
+class FinancialReportCreateView(LoginRequiredMixin, AccountantRequiredMixin, CreateView):
+    model = FinancialReportDefinition
+    form_class = FinancialReportDefinitionForm
+    template_name = "accounting/reports/designer_form.html"
+
+    def form_valid(self, form):
+        form.instance.company = get_user_company(self.request.user)
+        messages.success(self.request, "Financial report design created.")
+        return super().form_valid(form)
+
+    def get_success_url(self):
+        return reverse_lazy(
+            "accounting:financial_report_detail", kwargs={"pk": self.object.pk}
+        )
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context.update(
+            {
+                "page_title": "New Report Design",
+                "is_auditor": is_auditor(self.request.user),
+                "is_accountant": is_accountant(self.request.user),
+                "is_payroll_processor": is_payroll_processor(self.request.user),
+            }
+        )
+        return context
+
+
+class FinancialReportDetailView(
+    LoginRequiredMixin, AuditorOrAccountantRequiredMixin, DetailView
+):
+    model = FinancialReportDefinition
+    template_name = "accounting/reports/designer_detail.html"
+    context_object_name = "report_definition"
+
+    def get_queryset(self):
+        return FinancialReportDefinition.objects.filter(
+            company=get_user_company(self.request.user)
+        )
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        rendered_report = build_financial_report(self.object)
+        context.update(
+            {
+                "page_title": self.object.name,
+                "rendered_report": rendered_report,
+                "is_auditor": is_auditor(self.request.user),
+                "is_accountant": is_accountant(self.request.user),
+                "is_payroll_processor": is_payroll_processor(self.request.user),
+            }
+        )
+        return context
+
+
+class FinancialReportLineCreateView(LoginRequiredMixin, AccountantRequiredMixin, CreateView):
+    model = FinancialReportLine
+    form_class = FinancialReportLineForm
+    template_name = "accounting/reports/designer_line_form.html"
+
+    def dispatch(self, request, *args, **kwargs):
+        self.report_definition = get_object_or_404(
+            FinancialReportDefinition,
+            pk=kwargs["pk"],
+            company=get_user_company(request.user),
+        )
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["company"] = self.report_definition.company
+        return kwargs
+
+    def form_valid(self, form):
+        form.instance.report = self.report_definition
+        messages.success(self.request, "Report line added.")
+        return super().form_valid(form)
+
+    def get_success_url(self):
+        return reverse_lazy(
+            "accounting:financial_report_detail",
+            kwargs={"pk": self.report_definition.pk},
+        )
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context.update(
+            {
+                "page_title": "Add Report Line",
+                "report_definition": self.report_definition,
+                "is_auditor": is_auditor(self.request.user),
+                "is_accountant": is_accountant(self.request.user),
+                "is_payroll_processor": is_payroll_processor(self.request.user),
+            }
+        )
+        return context
 
 
 class OpeningBalanceImportView(LoginRequiredMixin, AccountantRequiredMixin, FormView):
@@ -311,6 +452,11 @@ class OpeningBalanceImportView(LoginRequiredMixin, AccountantRequiredMixin, Form
     template_name = "accounting/opening_balance_import.html"
     form_class = OpeningBalanceImportForm
     success_url = reverse_lazy("accounting:account_list")
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["company"] = get_user_company(self.request.user)
+        return kwargs
 
     def _parse_balance(self, value):
         normalized = str(value or "").strip().replace(",", "")
@@ -328,6 +474,7 @@ class OpeningBalanceImportView(LoginRequiredMixin, AccountantRequiredMixin, Form
         return "CREDIT" if debit_normal else "DEBIT"
 
     def form_valid(self, form):
+        company = get_user_company(self.request.user)
         offset_account = form.cleaned_data["offset_account"]
         opening_date = form.cleaned_data["opening_date"]
         base_description = (form.cleaned_data.get("description") or "").strip()
@@ -366,9 +513,11 @@ class OpeningBalanceImportView(LoginRequiredMixin, AccountantRequiredMixin, Form
 
             account = None
             if account_number:
-                account = Account.objects.filter(account_number=account_number).first()
+                account = Account.objects.filter(
+                    company=company, account_number=account_number
+                ).first()
             if not account and account_name:
-                account = Account.objects.filter(name=account_name).first()
+                account = Account.objects.filter(company=company, name=account_name).first()
             if not account:
                 row_errors.append(
                     f"Row {index}: account not found ({account_number or account_name})."
@@ -440,6 +589,7 @@ class OpeningBalanceImportView(LoginRequiredMixin, AccountantRequiredMixin, Form
 
         description = base_description or "Opening balances import"
         journal = create_journal_with_entries(
+            company=company,
             date=opening_date,
             description=description,
             entries=entries,
@@ -466,7 +616,9 @@ class JournalListView(LoginRequiredMixin, AccountingRoleRequiredMixin, ListView)
     paginate_by = 20
 
     def get_queryset(self):
-        queryset = Journal.objects.all().order_by("-created_at")
+        queryset = Journal.objects.filter(
+            company=get_user_company(self.request.user)
+        ).order_by("-created_at")
 
         status = self.request.GET.get("status")
         if status:
@@ -559,12 +711,22 @@ class JournalCreateView(LoginRequiredMixin, AccountantRequiredMixin, CreateView)
     template_name = "accounting/journal_form.html"
     success_url = reverse_lazy("accounting:journal_list")
 
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["company"] = get_user_company(self.request.user)
+        return kwargs
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+        company = get_user_company(self.request.user)
         if self.request.POST:
-            context["entry_formset"] = JournalEntryFormSet(self.request.POST)
+            context["entry_formset"] = JournalEntryFormSet(
+                self.request.POST, form_kwargs={"company": company}
+            )
         else:
-            context["entry_formset"] = JournalEntryFormSet()
+            context["entry_formset"] = JournalEntryFormSet(
+                form_kwargs={"company": company}
+            )
         return context
 
     def form_valid(self, form):
@@ -572,6 +734,7 @@ class JournalCreateView(LoginRequiredMixin, AccountantRequiredMixin, CreateView)
         entry_formset = context["entry_formset"]
 
         with transaction.atomic():
+            form.instance.company = get_user_company(self.request.user)
             form.instance.created_by = self.request.user
             form.instance.status = Journal.JournalStatus.DRAFT
             self.object = form.save()
@@ -597,6 +760,14 @@ class JournalEditView(LoginRequiredMixin, AccountantRequiredMixin, UpdateView):
     template_name = "accounting/journal_form.html"
     success_url = reverse_lazy("accounting:journal_list")
 
+    def get_queryset(self):
+        return Journal.objects.filter(company=get_user_company(self.request.user))
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["company"] = get_user_company(self.request.user)
+        return kwargs
+
     def dispatch(self, request, *args, **kwargs):
         journal = self.get_object()
         if journal.status not in [
@@ -621,6 +792,11 @@ class BalanceAdjustmentView(LoginRequiredMixin, AccountantRequiredMixin, FormVie
     form_class = BalanceAdjustmentForm
     success_url = reverse_lazy("accounting:account_list")
 
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["company"] = get_user_company(self.request.user)
+        return kwargs
+
     def form_valid(self, form):
         entries = form.build_entries()
         description = form.cleaned_data["description"].strip()
@@ -629,6 +805,7 @@ class BalanceAdjustmentView(LoginRequiredMixin, AccountantRequiredMixin, FormVie
 
         try:
             create_journal_with_entries(
+                company=get_user_company(self.request.user),
                 date=timezone.now().date(),
                 description=(
                     f"Balance {adjustment_type} for {account.name}. "
@@ -753,7 +930,9 @@ class FiscalYearListView(
     ordering = ["-year"]
 
     def get_queryset(self):
-        return FiscalYear.objects.annotate(
+        return FiscalYear.objects.filter(
+            company=get_user_company(self.request.user)
+        ).annotate(
             journal_count=Count("periods__journals", distinct=True)
         ).order_by("-year")
 
@@ -769,6 +948,9 @@ class FiscalYearDetailView(
     template_name = "accounting/fiscal_year_detail.html"
     context_object_name = "fiscal_year"
 
+    def get_queryset(self):
+        return FiscalYear.objects.filter(company=get_user_company(self.request.user))
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         fiscal_year = self.get_object()
@@ -776,6 +958,7 @@ class FiscalYearDetailView(
         context["periods"] = fiscal_year.periods.all().order_by("period_number")
 
         context["journal_count"] = Journal.objects.filter(
+            company=fiscal_year.company,
             period__fiscal_year=fiscal_year
         ).count()
 
@@ -795,7 +978,9 @@ class AccountingPeriodListView(
     paginate_by = 20
 
     def get_queryset(self):
-        return AccountingPeriod.objects.all().order_by("-fiscal_year", "-period_number")
+        return AccountingPeriod.objects.filter(
+            company=get_user_company(self.request.user)
+        ).order_by("-fiscal_year", "-period_number")
 
 
 class AccountingPeriodDetailView(
@@ -809,13 +994,17 @@ class AccountingPeriodDetailView(
     template_name = "accounting/period_detail.html"
     context_object_name = "period"
 
+    def get_queryset(self):
+        return AccountingPeriod.objects.filter(company=get_user_company(self.request.user))
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         period = self.get_object()
 
         context["journals"] = Journal.objects.filter(period=period).order_by("-date")
 
-        context["trial_balance"] = get_trial_balance(period=period)
+        context["trial_balance"] = get_trial_balance(period=period, company=period.company)
+        context.update(get_trial_balance_totals(context["trial_balance"]))
 
         context["can_close"] = can_close_period(self.request.user, period)
 
@@ -1333,37 +1522,44 @@ def trial_balance_report(request):
     """
     Generate trial balance report
     """
+    company = get_user_company(request.user)
     period_id = request.GET.get("period")
     as_of_date = request.GET.get("as_of_date")
 
     if period_id:
-        period = get_object_or_404(AccountingPeriod, pk=period_id)
-        trial_balance = get_trial_balance(period=period)
+        period = get_object_or_404(AccountingPeriod, pk=period_id, company=company)
+        trial_balance = get_trial_balance(period=period, company=company)
+        totals = get_trial_balance_totals(trial_balance)
         context = {
             "trial_balance": trial_balance,
             "period": period,
             "report_title": f"Trial Balance - {period}",
+            **totals,
         }
     elif as_of_date:
         try:
             from datetime import datetime
 
             date_obj = datetime.strptime(as_of_date, "%Y-%m-%d").date()
-            trial_balance = get_trial_balance(as_of_date=date_obj)
+            trial_balance = get_trial_balance(as_of_date=date_obj, company=company)
+            totals = get_trial_balance_totals(trial_balance)
             context = {
                 "trial_balance": trial_balance,
                 "as_of_date": as_of_date,
                 "report_title": f"Trial Balance as of {as_of_date}",
+                **totals,
             }
         except ValueError:
             messages.error(request, "Invalid date format")
             return redirect("accounting:reports")
     else:
 
-        trial_balance = get_trial_balance()
+        trial_balance = get_trial_balance(company=company)
+        totals = get_trial_balance_totals(trial_balance)
         context = {
             "trial_balance": trial_balance,
             "report_title": "Trial Balance - Current",
+            **totals,
         }
 
     return render(request, "accounting/reports/trial_balance.html", context)
@@ -1375,12 +1571,13 @@ def account_activity_report(request):
     """
     Generate account activity report
     """
+    company = get_user_company(request.user)
     account_id = request.GET.get("account")
     if not account_id:
         messages.error(request, "Please select an account")
         return redirect("accounting:reports")
 
-    account = get_object_or_404(Account, pk=account_id)
+    account = get_object_or_404(Account, pk=account_id, company=company)
 
     start_date = request.GET.get("start_date")
     end_date = request.GET.get("end_date")
@@ -1421,7 +1618,7 @@ def account_activity_report(request):
         "opening_balance": opening_balance,
         "total_debits": total_debits,
         "total_credits": total_credits,
-        "accounts": Account.objects.all().order_by("account_number", "name"),
+        "accounts": Account.objects.filter(company=company).order_by("account_number", "name"),
     }
 
     return render(request, "accounting/reports/account_activity.html", context)
@@ -1434,13 +1631,14 @@ def reports_index(request):
     Index page for accounting reports (auditors only)
     """
 
-    periods = AccountingPeriod.objects.filter(is_closed=True).order_by(
+    company = get_user_company(request.user)
+    periods = AccountingPeriod.objects.filter(company=company, is_closed=True).order_by(
         "-fiscal_year", "-period_number"
     )
 
     context = {
         "periods": periods,
-        "accounts": Account.objects.all().order_by("account_number"),
+        "accounts": Account.objects.filter(company=company).order_by("account_number"),
     }
 
     return render(request, "accounting/reports/index.html", context)
@@ -1453,41 +1651,47 @@ def unposted_financial_events_report(request):
     Show financial source events that do not yet have a corresponding ledger journal.
     """
     from payroll.models import PayrollRun, IOU
+    company = get_user_company(request.user)
 
     payroll_ct = ContentType.objects.get_for_model(PayrollRun)
     iou_ct = ContentType.objects.get_for_model(IOU)
 
     posted_payroll_ids = set(
         Journal.objects.filter(
+            company=company,
             content_type=payroll_ct,
             description__startswith="Payroll for period:",
         ).values_list("object_id", flat=True)
     )
     posted_iou_approval_ids = set(
         Journal.objects.filter(
+            company=company,
             content_type=iou_ct,
             description__startswith="IOU approved for",
         ).values_list("object_id", flat=True)
     )
     posted_iou_direct_paid_ids = set(
         Journal.objects.filter(
+            company=company,
             content_type=iou_ct,
             description__startswith="IOU paid (direct) by",
         ).values_list("object_id", flat=True)
     )
 
     unposted_closed_payroll = (
-        PayrollRun.objects.filter(closed=True)
+        PayrollRun.objects.filter(company=company, closed=True)
         .exclude(pk__in=posted_payroll_ids)
         .order_by("-paydays")
     )
     unposted_iou_approved = (
-        IOU.objects.filter(status="APPROVED")
+        IOU.objects.filter(employee_id__company=company, status="APPROVED")
         .exclude(pk__in=posted_iou_approval_ids)
         .order_by("-approved_at", "-created_at")
     )
     unposted_iou_direct_paid = (
-        IOU.objects.filter(status="PAID", payment_method="DIRECT_PAYMENT")
+        IOU.objects.filter(
+            employee_id__company=company, status="PAID", payment_method="DIRECT_PAYMENT"
+        )
         .exclude(pk__in=posted_iou_direct_paid_ids)
         .order_by("-due_date", "-created_at")
     )
@@ -1513,13 +1717,14 @@ def account_balance_report(request):
     """
     account_id = request.GET.get("account")
     as_of_date = request.GET.get("as_of_date")
+    company = get_user_company(request.user)
 
-    accounts = Account.objects.all().order_by("account_number", "name")
+    accounts = Account.objects.filter(company=company).order_by("account_number", "name")
     selected_account = None
     selected_balance = None
 
     if account_id:
-        selected_account = get_object_or_404(Account, pk=account_id)
+        selected_account = get_object_or_404(Account, pk=account_id, company=company)
         if as_of_date:
             try:
                 from datetime import datetime
@@ -1563,6 +1768,7 @@ def export_reports(request):
         return redirect(f"{reverse_lazy('accounting:trial_balance_pdf')}{query}")
 
     if export_format in {"excel", "csv"}:
+        company = get_user_company(request.user)
         as_of_date = request.GET.get("as_of_date")
         response = HttpResponse(content_type="text/csv")
         response["Content-Disposition"] = (
@@ -1572,7 +1778,9 @@ def export_reports(request):
         writer = csv.writer(response)
         writer.writerow(["Account Number", "Account Name", "Type", "Balance"])
 
-        accounts = Account.objects.all().order_by("account_number", "name")
+        accounts = Account.objects.filter(company=company).order_by(
+            "account_number", "name"
+        )
         for account in accounts:
             balance = account.get_balance()
             if as_of_date:
@@ -1604,36 +1812,43 @@ def trial_balance_pdf(request):
     """
     Generate PDF version of trial balance report
     """
+    company = get_user_company(request.user)
     period_id = request.GET.get("period")
     as_of_date = request.GET.get("as_of_date")
 
     if period_id:
-        period = get_object_or_404(AccountingPeriod, pk=period_id)
-        trial_balance = get_trial_balance(period=period)
+        period = get_object_or_404(AccountingPeriod, pk=period_id, company=company)
+        trial_balance = get_trial_balance(period=period, company=company)
+        totals = get_trial_balance_totals(trial_balance)
         context = {
             "trial_balance": trial_balance,
             "period": period,
             "report_title": f"Trial Balance - {period}",
+            **totals,
         }
     elif as_of_date:
         try:
             from datetime import datetime
 
             date_obj = datetime.strptime(as_of_date, "%Y-%m-%d").date()
-            trial_balance = get_trial_balance(as_of_date=date_obj)
+            trial_balance = get_trial_balance(as_of_date=date_obj, company=company)
+            totals = get_trial_balance_totals(trial_balance)
             context = {
                 "trial_balance": trial_balance,
                 "as_of_date": as_of_date,
                 "report_title": f"Trial Balance as of {as_of_date}",
+                **totals,
             }
         except ValueError:
             messages.error(request, "Invalid date format")
             return redirect("accounting:trial_balance")
     else:
-        trial_balance = get_trial_balance()
+        trial_balance = get_trial_balance(company=company)
+        totals = get_trial_balance_totals(trial_balance)
         context = {
             "trial_balance": trial_balance,
             "report_title": "Trial Balance - Current",
+            **totals,
         }
 
     html_string = render_to_string(
@@ -1751,11 +1966,14 @@ def general_ledger_report(request):
     period_id = request.GET.get("period")
     start_date = request.GET.get("start_date")
     end_date = request.GET.get("end_date")
+    company = get_user_company(request.user)
 
-    entries = JournalEntry.objects.filter(journal__status=Journal.JournalStatus.POSTED)
+    entries = JournalEntry.objects.filter(
+        journal__company=company, journal__status=Journal.JournalStatus.POSTED
+    )
 
     if period_id:
-        period = get_object_or_404(AccountingPeriod, pk=period_id)
+        period = get_object_or_404(AccountingPeriod, pk=period_id, company=company)
         entries = entries.filter(journal__period=period)
         context = {
             "period": period,
@@ -1795,12 +2013,13 @@ def balance_sheet_report(request):
     """
     Generate balance sheet report
     """
+    company = get_user_company(request.user)
     period_id = request.GET.get("period")
     as_of_date = request.GET.get("as_of_date")
 
     if period_id:
-        period = get_object_or_404(AccountingPeriod, pk=period_id)
-        trial_balance = get_trial_balance(period=period)
+        period = get_object_or_404(AccountingPeriod, pk=period_id, company=company)
+        trial_balance = get_trial_balance(period=period, company=company)
         context = {
             "period": period,
             "report_title": f"Balance Sheet - {period}",
@@ -1810,7 +2029,7 @@ def balance_sheet_report(request):
             from datetime import datetime
 
             date_obj = datetime.strptime(as_of_date, "%Y-%m-%d").date()
-            trial_balance = get_trial_balance(as_of_date=date_obj)
+            trial_balance = get_trial_balance(as_of_date=date_obj, company=company)
             context = {
                 "as_of_date": as_of_date,
                 "report_title": f"Balance Sheet as of {as_of_date}",
@@ -1819,7 +2038,7 @@ def balance_sheet_report(request):
             messages.error(request, "Invalid date format")
             return redirect("accounting:balance_sheet")
     else:
-        trial_balance = get_trial_balance()
+        trial_balance = get_trial_balance(company=company)
         context = {
             "report_title": "Balance Sheet - Current",
         }
@@ -1855,26 +2074,27 @@ def income_statement_report(request):
     """
     Generate income statement report
     """
+    company = get_user_company(request.user)
     period_id = request.GET.get("period")
     start_date = request.GET.get("start_date")
     end_date = request.GET.get("end_date")
 
     if period_id:
-        period = get_object_or_404(AccountingPeriod, pk=period_id)
-        trial_balance = get_trial_balance(period=period)
+        period = get_object_or_404(AccountingPeriod, pk=period_id, company=company)
+        trial_balance = get_trial_balance(period=period, company=company)
         context = {
             "period": period,
             "report_title": f"Income Statement - {period}",
         }
     elif start_date and end_date:
-        trial_balance = get_trial_balance(as_of_date=end_date)
+        trial_balance = get_trial_balance(as_of_date=end_date, company=company)
         context = {
             "start_date": start_date,
             "end_date": end_date,
             "report_title": f"Income Statement - {start_date} to {end_date}",
         }
     else:
-        trial_balance = get_trial_balance()
+        trial_balance = get_trial_balance(company=company)
         context = {
             "report_title": "Income Statement - Current",
         }

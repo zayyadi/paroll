@@ -1,0 +1,70 @@
+{% extends "inventory/base.html" %}
+
+{% block inventory_content %}
+<div class="space-y-6">
+    <div class="grid grid-cols-1 md:grid-cols-7 gap-4">
+        <div class="bg-white rounded-lg shadow-soft p-5">
+            <p class="text-sm font-medium text-secondary-500">Items</p>
+            <p class="mt-2 text-3xl font-bold text-secondary-900">{{ item_count }}</p>
+        </div>
+        <div class="bg-white rounded-lg shadow-soft p-5">
+            <p class="text-sm font-medium text-secondary-500">Warehouses</p>
+            <p class="mt-2 text-3xl font-bold text-secondary-900">{{ warehouse_count }}</p>
+        </div>
+        <div class="bg-white rounded-lg shadow-soft p-5">
+            <p class="text-sm font-medium text-secondary-500">Locations</p>
+            <p class="mt-2 text-3xl font-bold text-secondary-900">{{ location_count }}</p>
+        </div>
+        <div class="bg-white rounded-lg shadow-soft p-5">
+            <p class="text-sm font-medium text-secondary-500">Documents</p>
+            <p class="mt-2 text-3xl font-bold text-secondary-900">{{ document_count }}</p>
+        </div>
+        <div class="bg-white rounded-lg shadow-soft p-5">
+            <p class="text-sm font-medium text-secondary-500">Suppliers</p>
+            <p class="mt-2 text-3xl font-bold text-secondary-900">{{ supplier_count }}</p>
+        </div>
+        <div class="bg-white rounded-lg shadow-soft p-5">
+            <p class="text-sm font-medium text-secondary-500">Customers</p>
+            <p class="mt-2 text-3xl font-bold text-secondary-900">{{ customer_count }}</p>
+        </div>
+        <div class="bg-white rounded-lg shadow-soft p-5">
+            <p class="text-sm font-medium text-secondary-500">Open POs</p>
+            <p class="mt-2 text-3xl font-bold text-secondary-900">{{ open_purchase_order_count }}</p>
+        </div>
+    </div>
+    <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
+        <section class="bg-white rounded-lg shadow-soft">
+            <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+                <h3 class="text-lg font-semibold text-secondary-900">Low Stock</h3>
+                <a href="{% url 'inventory:item_list' %}" class="text-sm font-medium text-primary-600 hover:text-primary-800">View items</a>
+            </div>
+            <div class="divide-y divide-gray-100">
+                {% for item in low_stock_items %}
+                <a href="{% url 'inventory:item_detail' item.pk %}" class="block px-6 py-3 hover:bg-gray-50">
+                    <p class="text-sm font-medium text-secondary-900">{{ item.sku }} - {{ item.name }}</p>
+                    <p class="text-xs text-secondary-500">Reorder point {{ item.reorder_point|floatformat:2 }}</p>
+                </a>
+                {% empty %}
+                <p class="px-6 py-8 text-sm text-secondary-500">No low stock items.</p>
+                {% endfor %}
+            </div>
+        </section>
+        <section class="bg-white rounded-lg shadow-soft">
+            <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+                <h3 class="text-lg font-semibold text-secondary-900">Recent Movements</h3>
+                <a href="{% url 'inventory:movement_list' %}" class="text-sm font-medium text-primary-600 hover:text-primary-800">View ledger</a>
+            </div>
+            <div class="divide-y divide-gray-100">
+                {% for movement in recent_movements %}
+                <div class="px-6 py-3">
+                    <p class="text-sm font-medium text-secondary-900">{{ movement.item.name }}</p>
+                    <p class="text-xs text-secondary-500">{{ movement.get_movement_type_display }} · {{ movement.quantity|floatformat:2 }} · {{ movement.location }}</p>
+                </div>
+                {% empty %}
+                <p class="px-6 py-8 text-sm text-secondary-500">No movements posted.</p>
+                {% endfor %}
+            </div>
+        </section>
+    </div>
+</div>
+{% endblock %}

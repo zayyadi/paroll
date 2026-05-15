@@ -76,19 +76,19 @@
             <div>
                 <p class="text-sm font-medium text-secondary-500">Total Debits</p>
                 <p class="text-2xl font-bold text-danger-600">
-                    ₦{{ trial_balance.values|sum:'debit_balance'|floatformat:2|default:"0.00" }}
+                    ₦{{ total_debits|floatformat:2|default:"0.00" }}
                 </p>
             </div>
             <div>
                 <p class="text-sm font-medium text-secondary-500">Total Credits</p>
                 <p class="text-2xl font-bold text-success-600">
-                    ₦{{ trial_balance.values|sum:'credit_balance'|floatformat:2|default:"0.00" }}
+                    ₦{{ total_credits|floatformat:2|default:"0.00" }}
                 </p>
             </div>
             <div>
                 <p class="text-sm font-medium text-secondary-500">Balanced</p>
                 <p class="text-2xl font-bold">
-                    {% if trial_balance.values|sum:'debit_balance' == trial_balance.values|sum:'credit_balance' %}
+                    {% if is_balanced %}
                     <span class="text-success-600">Yes</span>
                     {% else %}
                     <span class="text-danger-600">No</span>

@@ -13,6 +13,8 @@ from .payroll import (
     CompanyPayrollSetting,
     CompanyHealthInsuranceTier,
     LeaveRequest,
+    LeaveBalance,
+    LeaveAllowanceEmailJob,
     Allowance,
     PayrollRunEntry,
     PayrollRun,

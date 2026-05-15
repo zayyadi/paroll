@@ -8,6 +8,7 @@ from api.v1.viewsets import (
     AuthContextView,
     CompanyChatMessageViewSet,
     CompanyChatRoomViewSet,
+    CustomerViewSet,
     DepartmentViewSet,
     EmployeeViewSet,
     FiscalYearViewSet,
@@ -16,6 +17,10 @@ from api.v1.viewsets import (
     JournalViewSet,
     LeavePolicyViewSet,
     LeaveRequestViewSet,
+    InventoryCategoryViewSet,
+    InventoryDocumentViewSet,
+    InventoryItemViewSet,
+    PurchaseOrderViewSet,
     MyCompaniesView,
     PayrollEntryViewSet,
     PayrollRunEntryViewSet,
@@ -26,6 +31,11 @@ from api.v1.viewsets import (
     StandupQuestionViewSet,
     StandupTeamMemberViewSet,
     StandupTeamViewSet,
+    StockLocationViewSet,
+    StockMovementViewSet,
+    SupplierViewSet,
+    UnitOfMeasureViewSet,
+    WarehouseViewSet,
     SwitchCompanyView,
 )
 
@@ -57,6 +67,16 @@ router.register(r"fiscal-years", FiscalYearViewSet, basename="fiscal-year")
 router.register(r"accounting-periods", AccountingPeriodViewSet, basename="accounting-period")
 router.register(r"journals", JournalViewSet, basename="journal")
 router.register(r"journal-entries", JournalEntryViewSet, basename="journal-entry")
+router.register(r"inventory/units", UnitOfMeasureViewSet, basename="inventory-unit")
+router.register(r"inventory/categories", InventoryCategoryViewSet, basename="inventory-category")
+router.register(r"inventory/items", InventoryItemViewSet, basename="inventory-item")
+router.register(r"inventory/warehouses", WarehouseViewSet, basename="inventory-warehouse")
+router.register(r"inventory/locations", StockLocationViewSet, basename="inventory-location")
+router.register(r"inventory/suppliers", SupplierViewSet, basename="inventory-supplier")
+router.register(r"inventory/customers", CustomerViewSet, basename="inventory-customer")
+router.register(r"inventory/purchase-orders", PurchaseOrderViewSet, basename="inventory-purchase-order")
+router.register(r"inventory/documents", InventoryDocumentViewSet, basename="inventory-document")
+router.register(r"inventory/movements", StockMovementViewSet, basename="inventory-movement")
 
 urlpatterns = [
     path("auth/context/", AuthContextView.as_view(), name="auth-context"),

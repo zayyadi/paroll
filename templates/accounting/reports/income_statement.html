@@ -1,0 +1,115 @@
+{% extends "accounting/base.html" %}
+
+{% block page_title %}Income Statement{% endblock %}
+
+{% block accounting_content %}
+<div class="space-y-6">
+    <div class="rounded-lg bg-white shadow-soft">
+        <div class="border-b border-gray-200 px-6 py-4">
+            <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                <div>
+                    <h3 class="text-lg font-semibold text-secondary-900">{{ report_title|default:"Income Statement" }}</h3>
+                    {% if period %}
+                    <p class="text-sm text-secondary-600">{{ period.name }} ({{ period.fiscal_year.name }})</p>
+                    {% elif start_date and end_date %}
+                    <p class="text-sm text-secondary-600">{{ start_date }} to {{ end_date }}</p>
+                    {% else %}
+                    <p class="text-sm text-secondary-600">Current income and expense balances</p>
+                    {% endif %}
+                </div>
+                <a href="{% url 'accounting:reports' %}" class="inline-flex items-center rounded-md border border-secondary-300 bg-white px-4 py-2 text-sm font-medium text-secondary-700 hover:bg-secondary-50">
+                    <i data-lucide="arrow-left" class="mr-2 h-4 w-4"></i>
+                    Reports
+                </a>
+            </div>
+        </div>
+        <div class="grid grid-cols-1 gap-4 p-6 md:grid-cols-3">
+            <div class="rounded-lg bg-green-50 p-4">
+                <p class="text-sm font-medium text-green-900">Total Revenue</p>
+                <p class="mt-2 text-2xl font-bold text-green-700">₦{{ total_revenue|floatformat:2|default:"0.00" }}</p>
+            </div>
+            <div class="rounded-lg bg-red-50 p-4">
+                <p class="text-sm font-medium text-red-900">Total Expenses</p>
+                <p class="mt-2 text-2xl font-bold text-red-700">₦{{ total_expenses|floatformat:2|default:"0.00" }}</p>
+            </div>
+            <div class="rounded-lg {% if net_income >= 0 %}bg-blue-50{% else %}bg-red-50{% endif %} p-4">
+                <p class="text-sm font-medium {% if net_income >= 0 %}text-blue-900{% else %}text-red-900{% endif %}">Net Income</p>
+                <p class="mt-2 text-2xl font-bold {% if net_income >= 0 %}text-blue-700{% else %}text-red-700{% endif %}">₦{{ net_income|floatformat:2|default:"0.00" }}</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="grid gap-6 xl:grid-cols-2">
+        <section class="rounded-lg bg-white shadow-soft">
+            <div class="border-b border-gray-200 px-6 py-4">
+                <h3 class="text-lg font-semibold text-secondary-900">Revenue</h3>
+            </div>
+            <div class="divide-y divide-gray-100">
+                {% for item in revenue %}
+                <div class="flex items-center justify-between gap-4 px-6 py-4">
+                    <div>
+                        <p class="text-sm font-medium text-secondary-900">{{ item.account.name }}</p>
+                        <p class="text-xs text-secondary-500">{{ item.account.account_number|default:"—" }}</p>
+                    </div>
+                    <p class="text-sm font-semibold text-green-700">₦{{ item.balance|floatformat:2 }}</p>
+                </div>
+                {% empty %}
+                <div class="px-6 py-8 text-center text-sm text-secondary-500">No revenue balances found.</div>
+                {% endfor %}
+            </div>
+        </section>
+
+        <section class="rounded-lg bg-white shadow-soft">
+            <div class="border-b border-gray-200 px-6 py-4">
+                <h3 class="text-lg font-semibold text-secondary-900">Expenses</h3>
+            </div>
+            <div class="divide-y divide-gray-100">
+                {% for item in expenses %}
+                <div class="flex items-center justify-between gap-4 px-6 py-4">
+                    <div>
+                        <p class="text-sm font-medium text-secondary-900">{{ item.account.name }}</p>
+                        <p class="text-xs text-secondary-500">{{ item.account.account_number|default:"—" }}</p>
+                    </div>
+                    <p class="text-sm font-semibold text-red-700">₦{{ item.balance|floatformat:2 }}</p>
+                </div>
+                {% empty %}
+                <div class="px-6 py-8 text-center text-sm text-secondary-500">No expense balances found.</div>
+                {% endfor %}
+            </div>
+        </section>
+    </div>
+
+    <div class="rounded-lg bg-white shadow-soft">
+        <div class="border-b border-gray-200 px-6 py-4">
+            <h3 class="text-lg font-semibold text-secondary-900">Generate Different Income Statement</h3>
+        </div>
+        <div class="px-6 py-4">
+            <form method="get" class="grid grid-cols-1 gap-4 md:grid-cols-4">
+                <div>
+                    <label for="period" class="mb-1 block text-sm font-medium text-secondary-700">Period</label>
+                    <select name="period" id="period" class="form-input block w-full rounded-md border border-secondary-300 px-3 py-2">
+                        <option value="">Select a period</option>
+                        {% for period in periods %}
+                        <option value="{{ period.pk }}" {% if period.pk == request.GET.period|add:"0" %}selected{% endif %}>{{ period.name }} ({{ period.fiscal_year.name }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label for="start_date" class="mb-1 block text-sm font-medium text-secondary-700">Start Date</label>
+                    <input type="date" name="start_date" id="start_date" value="{{ request.GET.start_date }}" class="form-input block w-full rounded-md border border-secondary-300 px-3 py-2">
+                </div>
+                <div>
+                    <label for="end_date" class="mb-1 block text-sm font-medium text-secondary-700">End Date</label>
+                    <input type="date" name="end_date" id="end_date" value="{{ request.GET.end_date }}" class="form-input block w-full rounded-md border border-secondary-300 px-3 py-2">
+                </div>
+                <div class="flex items-end">
+                    <button type="submit" class="btn-primary inline-flex items-center rounded-md px-4 py-2 text-sm font-medium text-white">
+                        <i data-lucide="refresh-cw" class="mr-2 h-4 w-4"></i>
+                        Update Report
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

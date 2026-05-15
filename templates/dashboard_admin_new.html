@@ -28,7 +28,7 @@
                 </div>
                 <div class="ml-4">
                     <p class="text-sm font-medium text-secondary-600">Total Employees</p>
-                    <p class="text-2xl font-semibold text-secondary-900">{{ total_employees|default:156 }}</p>
+                    <p class="text-2xl font-semibold text-secondary-900">{{ total_employees|default:0 }}</p>
                 </div>
             </div>
         </div>
@@ -40,7 +40,7 @@
                 </div>
                 <div class="ml-4">
                     <p class="text-sm font-medium text-secondary-600">Active Users</p>
-                    <p class="text-2xl font-semibold text-secondary-900">{{ active_users|default:142 }}</p>
+                    <p class="text-2xl font-semibold text-secondary-900">{{ active_users|default:0 }}</p>
                 </div>
             </div>
         </div>
@@ -52,7 +52,7 @@
                 </div>
                 <div class="ml-4">
                     <p class="text-sm font-medium text-secondary-600">Pending Tasks</p>
-                    <p class="text-2xl font-semibold text-secondary-900">{{ pending_tasks|default:8 }}</p>
+                    <p class="text-2xl font-semibold text-secondary-900">{{ pending_tasks|default:0 }}</p>
                 </div>
             </div>
         </div>
@@ -95,7 +95,7 @@
                 </div>
             </div>
             <div class="mt-4">
-                <a href="#" class="text-primary-600 hover:text-primary-800 text-sm font-medium">View Logs →</a>
+                <a href="{% url 'payroll:audit_trail_list' %}" class="text-primary-600 hover:text-primary-800 text-sm font-medium">View Logs →</a>
             </div>
         </div>
 
@@ -110,19 +110,19 @@
             <div class="space-y-2">
                 <div class="flex items-center justify-between text-sm">
                     <span class="text-secondary-600">Admin Users</span>
-                    <span class="text-secondary-900 font-medium">{{ admin_users|default:5 }}</span>
+                    <span class="text-secondary-900 font-medium">{{ admin_users|default:0 }}</span>
                 </div>
                 <div class="flex items-center justify-between text-sm">
                     <span class="text-secondary-600">HR Users</span>
-                    <span class="text-secondary-900 font-medium">{{ hr_users|default:12 }}</span>
+                    <span class="text-secondary-900 font-medium">{{ hr_users|default:0 }}</span>
                 </div>
                 <div class="flex items-center justify-between text-sm">
                     <span class="text-secondary-600">Regular Users</span>
-                    <span class="text-secondary-900 font-medium">{{ regular_users|default:139 }}</span>
+                    <span class="text-secondary-900 font-medium">{{ regular_users|default:0 }}</span>
                 </div>
             </div>
             <div class="mt-4">
-                <a href="#" class="text-primary-600 hover:text-primary-800 text-sm font-medium">Manage Users →</a>
+                <a href="{% url 'payroll:employee_list' %}" class="text-primary-600 hover:text-primary-800 text-sm font-medium">Manage Users →</a>
             </div>
         </div>
 
@@ -149,7 +149,7 @@
                 </div>
             </div>
             <div class="mt-4">
-                <a href="#" class="text-primary-600 hover:text-primary-800 text-sm font-medium">Settings →</a>
+                <a href="{% url 'payroll:company_payroll_settings' %}" class="text-primary-600 hover:text-primary-800 text-sm font-medium">Settings →</a>
             </div>
         </div>
     </div>
@@ -159,7 +159,7 @@
         <h2 class="text-lg font-semibold text-secondary-900 mb-4">Quick Links</h2>
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <a href="{% url 'payroll:employee_list' %}"
-                class="group flex items-center p-4 border border-secondary-200 rounded-lg hover:border-primary-300 hover:bg-primary-50 transition-all">
+                class="group flex items-center p-4 border border-secondary-200 rounded-lg hover:border-primary-300 hover:bg-primary-50 transition-colors">
                 <div class="flex-shrink-0 bg-primary-100 rounded-lg p-3 group-hover:bg-primary-200 transition-colors">
                     <i data-lucide="users" class="h-5 w-5 text-primary-600"></i>
                 </div>
@@ -170,7 +170,7 @@
             </a>
 
             <a href="{% url 'payroll:audit_trail_list' %}"
-                class="group flex items-center p-4 border border-secondary-200 rounded-lg hover:border-primary-300 hover:bg-primary-50 transition-all">
+                class="group flex items-center p-4 border border-secondary-200 rounded-lg hover:border-primary-300 hover:bg-primary-50 transition-colors">
                 <div class="flex-shrink-0 bg-purple-100 rounded-lg p-3 group-hover:bg-purple-200 transition-colors">
                     <i data-lucide="history" class="h-5 w-5 text-purple-600"></i>
                 </div>
@@ -181,7 +181,7 @@
             </a>
 
             <a href="{% url 'payroll:add_pay' %}"
-                class="group flex items-center p-4 border border-secondary-200 rounded-lg hover:border-primary-300 hover:bg-primary-50 transition-all">
+                class="group flex items-center p-4 border border-secondary-200 rounded-lg hover:border-primary-300 hover:bg-primary-50 transition-colors">
                 <div class="flex-shrink-0 bg-success-100 rounded-lg p-3 group-hover:bg-success-200 transition-colors">
                     <i data-lucide="plus-circle" class="h-5 w-5 text-success-600"></i>
                 </div>
@@ -192,7 +192,7 @@
             </a>
 
             <a href="{% url 'payroll:bank' %}"
-                class="group flex items-center p-4 border border-secondary-200 rounded-lg hover:border-primary-300 hover:bg-primary-50 transition-all">
+                class="group flex items-center p-4 border border-secondary-200 rounded-lg hover:border-primary-300 hover:bg-primary-50 transition-colors">
                 <div class="flex-shrink-0 bg-warning-100 rounded-lg p-3 group-hover:bg-warning-200 transition-colors">
                     <i data-lucide="credit-card" class="h-5 w-5 text-warning-600"></i>
                 </div>
@@ -203,7 +203,7 @@
             </a>
 
             <a href="{% url 'payroll:hr_dashboard' %}"
-                class="group flex items-center p-4 border border-secondary-200 rounded-lg hover:border-primary-300 hover:bg-primary-50 transition-all">
+                class="group flex items-center p-4 border border-secondary-200 rounded-lg hover:border-primary-300 hover:bg-primary-50 transition-colors">
                 <div class="flex-shrink-0 bg-indigo-100 rounded-lg p-3 group-hover:bg-indigo-200 transition-colors">
                     <i data-lucide="bar-chart-2" class="h-5 w-5 text-indigo-600"></i>
                 </div>
@@ -214,7 +214,7 @@
             </a>
 
             <a href="{% url 'payroll:appraisal_list' %}"
-                class="group flex items-center p-4 border border-secondary-200 rounded-lg hover:border-primary-300 hover:bg-primary-50 transition-all">
+                class="group flex items-center p-4 border border-secondary-200 rounded-lg hover:border-primary-300 hover:bg-primary-50 transition-colors">
                 <div class="flex-shrink-0 bg-pink-100 rounded-lg p-3 group-hover:bg-pink-200 transition-colors">
                     <i data-lucide="star" class="h-5 w-5 text-pink-600"></i>
                 </div>
@@ -233,45 +233,29 @@
                 <i data-lucide="activity" class="h-5 w-5 mr-2 text-primary-600"></i>
                 Recent Activity
             </h2>
-            <a href="#" class="text-sm text-primary-600 hover:text-primary-800">View all</a>
+            <a href="{% url 'payroll:audit_trail_list' %}" class="text-sm text-primary-600 hover:text-primary-800">View All</a>
         </div>
         <div class="space-y-3">
+            {% if recent_activities %}
+            {% for activity in recent_activities %}
             <div class="flex items-start space-x-3 p-3 bg-secondary-50 rounded-lg">
                 <div class="flex-shrink-0">
-                    <div class="h-2 w-2 bg-success-500 rounded-full mt-2"></div>
+                    <div class="h-2 w-2 bg-primary-500 rounded-full mt-2" aria-hidden="true"></div>
                 </div>
                 <div class="flex-1">
-                    <p class="text-sm text-secondary-900">System backup completed successfully</p>
-                    <p class="text-xs text-secondary-500">10 minutes ago</p>
+                    <p class="text-sm text-secondary-900">{{ activity.title }}</p>
+                    <p class="text-xs text-secondary-500">{{ activity.description|default:"Recent system activity" }}</p>
                 </div>
             </div>
+            {% endfor %}
+            {% else %}
             <div class="flex items-start space-x-3 p-3 bg-secondary-50 rounded-lg">
-                <div class="flex-shrink-0">
-                    <div class="h-2 w-2 bg-primary-500 rounded-full mt-2"></div>
-                </div>
                 <div class="flex-1">
-                    <p class="text-sm text-secondary-900">New user registered: jane.doe@example.com</p>
-                    <p class="text-xs text-secondary-500">1 hour ago</p>
+                    <p class="text-sm text-secondary-900">No recent admin activity available.</p>
+                    <p class="text-xs text-secondary-500">Operational events will appear here when available.</p>
                 </div>
             </div>
-            <div class="flex items-start space-x-3 p-3 bg-secondary-50 rounded-lg">
-                <div class="flex-shrink-0">
-                    <div class="h-2 w-2 bg-warning-500 rounded-full mt-2"></div>
-                </div>
-                <div class="flex-1">
-                    <p class="text-sm text-secondary-900">Payroll processing for October 2023 initiated</p>
-                    <p class="text-xs text-secondary-500">2 hours ago</p>
-                </div>
-            </div>
-            <div class="flex items-start space-x-3 p-3 bg-secondary-50 rounded-lg">
-                <div class="flex-shrink-0">
-                    <div class="h-2 w-2 bg-danger-500 rounded-full mt-2"></div>
-                </div>
-                <div class="flex-1">
-                    <p class="text-sm text-secondary-900">Failed login attempt from unknown IP</p>
-                    <p class="text-xs text-secondary-500">3 hours ago</p>
-                </div>
-            </div>
+            {% endif %}
         </div>
     </div>
 </div>

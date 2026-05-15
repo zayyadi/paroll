@@ -1,0 +1,126 @@
+{% load humanize %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Leave Allowance Slip</title>
+  <style>
+    @page {
+      size: A4;
+      margin: 18mm 14mm 16mm;
+    }
+
+    body {
+      font-family: "Helvetica", "Arial", sans-serif;
+      font-size: 11px;
+      color: #1f2937;
+      margin: 0;
+    }
+
+    .header {
+      border-bottom: 2px solid #0f172a;
+      padding-bottom: 10px;
+      margin-bottom: 14px;
+    }
+
+    .title {
+      font-size: 21px;
+      font-weight: 700;
+      color: #0f172a;
+      margin: 0;
+      line-height: 1.2;
+    }
+
+    .subtitle {
+      font-size: 11px;
+      color: #475569;
+      margin: 2px 0 0;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 12px;
+    }
+
+    td,
+    th {
+      border: 1px solid #cbd5e1;
+      padding: 7px 8px;
+      vertical-align: top;
+    }
+
+    th {
+      background: #f8fafc;
+      color: #0f172a;
+      font-weight: 700;
+      text-align: left;
+    }
+
+    .label {
+      color: #64748b;
+      width: 34%;
+    }
+
+    .value {
+      color: #0f172a;
+      font-weight: 700;
+    }
+
+    .money {
+      text-align: right;
+      font-weight: 700;
+    }
+
+    .note {
+      color: #475569;
+      font-size: 10px;
+      line-height: 1.5;
+      margin-top: 14px;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1 class="title">Leave Allowance Slip</h1>
+    <p class="subtitle">{{ company.name|default:"Company" }}</p>
+  </div>
+
+  <table>
+    <tr>
+      <td class="label">Employee</td>
+      <td class="value">{{ employee.first_name }} {{ employee.last_name }}</td>
+      <td class="label">Employee ID</td>
+      <td class="value">{{ employee.emp_id|default:"N/A" }}</td>
+    </tr>
+    <tr>
+      <td class="label">Leave Type</td>
+      <td class="value">{{ leave_request.get_leave_type_display }}</td>
+      <td class="label">Approved Period</td>
+      <td class="value">{{ leave_request.start_date }} to {{ leave_request.end_date }}</td>
+    </tr>
+    <tr>
+      <td class="label">Days</td>
+      <td class="value">{{ leave_request.duration }}</td>
+      <td class="label">Processed Date</td>
+      <td class="value">{{ allowance.created_at|date:"Y-m-d" }}</td>
+    </tr>
+  </table>
+
+  <table>
+    <tr>
+      <th>Description</th>
+      <th class="money">Amount</th>
+    </tr>
+    <tr>
+      <td>Leave Allowance</td>
+      <td class="money">₦{{ allowance.amount|floatformat:2|intcomma }}</td>
+    </tr>
+  </table>
+
+  <p class="note">
+    This slip confirms that the leave allowance attached to the approved leave
+    request has been processed. Contact HR or payroll if any detail is incorrect.
+  </p>
+</body>
+</html>

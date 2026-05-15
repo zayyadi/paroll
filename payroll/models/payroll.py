@@ -445,6 +445,14 @@ class Allowance(models.Model):
         verbose_name=(_("Amount of allowance earned")),
     )
     created_at = models.DateTimeField(default=timezone.now)
+    source_leave_request = models.OneToOneField(
+        "LeaveRequest",
+        on_delete=models.SET_NULL,
+        related_name="processed_leave_allowance",
+        null=True,
+        blank=True,
+        help_text="Leave request that generated this automatic leave allowance.",
+    )
 
     class Meta:
         verbose_name_plural = "Allowances"
@@ -559,16 +567,32 @@ class PayrollEntry(models.Model):
 
         payroll_month = payroll_run_entry.payroll_run.paydays.month
         payroll_year = payroll_run_entry.payroll_run.paydays.year
+        month_start = date(payroll_year, payroll_month, 1)
+        month_end = date(
+            payroll_year,
+            payroll_month,
+            monthrange(payroll_year, payroll_month)[1],
+        )
 
         total_allowance = Decimal(0)
-        for allowance in self.pays.allowances.filter(
-            created_at__month=payroll_month, created_at__year=payroll_year
-        ):
+        period_allowances = self.pays.allowances.filter(
+            models.Q(
+                source_leave_request__isnull=True,
+                created_at__month=payroll_month,
+                created_at__year=payroll_year,
+            )
+            | models.Q(
+                source_leave_request__isnull=False,
+                source_leave_request__start_date__lte=month_end,
+                source_leave_request__end_date__gte=month_start,
+            )
+        )
+        for allowance in period_allowances:
             total_allowance += allowance.amount
 
         total_allowance += self._get_auto_leave_allowance(
-            payroll_month=payroll_month,
-            payroll_year=payroll_year,
+            month_start=month_start,
+            month_end=month_end,
         )
         total_allowance += self._get_auto_thirteenth_month_allowance(payroll_month)
 
@@ -580,7 +604,7 @@ class PayrollEntry(models.Model):
             return None
         return CompanyPayrollSetting.objects.filter(company=company).first()
 
-    def _get_auto_leave_allowance(self, payroll_month: int, payroll_year: int) -> Decimal:
+    def _get_auto_leave_allowance(self, month_start: date, month_end: date) -> Decimal:
         payroll = self.pays.employee_pay
         if not payroll:
             return Decimal("0.00")
@@ -595,16 +619,11 @@ class PayrollEntry(models.Model):
         if leave_allowance_percentage <= 0:
             return Decimal("0.00")
 
-        month_start = date(payroll_year, payroll_month, 1)
-        month_end = date(
-            payroll_year,
-            payroll_month,
-            monthrange(payroll_year, payroll_month)[1],
-        )
         is_on_approved_leave = self.pays.leave_requests.filter(
             status="APPROVED",
             start_date__lte=month_end,
             end_date__gte=month_start,
+            processed_leave_allowance__isnull=True,
         ).exists()
         if not is_on_approved_leave:
             return Decimal("0.00")
@@ -868,6 +887,61 @@ class PayslipEmailJob(models.Model):
 
         result = send_payslips_for_payroll_run_task.apply_async(
             args=[self.payroll_run_id, self.id],
+            queue="notifications_normal",
+        )
+        self.status = self.Status.QUEUED
+        self.celery_task_id = result.id or ""
+        self.error_message = ""
+        self.save(update_fields=["status", "celery_task_id", "error_message", "updated_at"])
+        return result
+
+
+class LeaveAllowanceEmailJob(models.Model):
+    class Status(models.TextChoices):
+        QUEUED = "queued", "Queued"
+        RUNNING = "running", "Running"
+        SENT = "sent", "Sent"
+        FAILED = "failed", "Failed"
+
+    leave_request = models.OneToOneField(
+        "LeaveRequest",
+        on_delete=models.CASCADE,
+        related_name="allowance_email_job",
+    )
+    allowance = models.OneToOneField(
+        Allowance,
+        on_delete=models.CASCADE,
+        related_name="leave_allowance_email_job",
+    )
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.QUEUED,
+        db_index=True,
+    )
+    celery_task_id = models.CharField(max_length=255, blank=True)
+    error_message = models.TextField(blank=True)
+    queued_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    started_at = models.DateTimeField(null=True, blank=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ("-queued_at",)
+        indexes = [
+            models.Index(fields=["status", "queued_at"]),
+            models.Index(fields=["leave_request", "status"]),
+        ]
+
+    def __str__(self):
+        return f"Leave allowance slip for leave #{self.leave_request_id} ({self.get_status_display()})"
+
+    def enqueue(self):
+        from payroll.tasks.leave_allowance_tasks import send_leave_allowance_slip_task
+
+        result = send_leave_allowance_slip_task.apply_async(
+            args=[self.leave_request_id, self.id],
             queue="notifications_normal",
         )
         self.status = self.Status.QUEUED
@@ -1223,6 +1297,10 @@ class LeaveRequest(models.Model):
                     balance.paternity_leave -= days
 
                 balance.save()
+
+            from payroll.services.leave_allowance import process_leave_allowance_for_request
+
+            process_leave_allowance_for_request(self)
 
         # Audit logging
         action = "CREATED" if is_new else f"STATUS_CHANGED_TO_{self.status}"

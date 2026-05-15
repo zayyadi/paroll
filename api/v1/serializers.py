@@ -13,6 +13,19 @@ from accounting.models import (
 )
 from company.models import CompanyMembership
 from company.utils import get_user_company
+from inventory.models import (
+    Customer,
+    InventoryCategory,
+    InventoryDocument,
+    InventoryItem,
+    PurchaseOrder,
+    PurchaseOrderLine,
+    StockLocation,
+    StockMovement,
+    Supplier,
+    UnitOfMeasure,
+    Warehouse,
+)
 from payroll.models import (
     CompanyChatMessage,
     CompanyChatReadState,
@@ -429,6 +442,7 @@ class AccountSerializer(serializers.ModelSerializer):
         model = Account
         fields = [
             "id",
+            "company",
             "name",
             "account_number",
             "type",
@@ -437,7 +451,7 @@ class AccountSerializer(serializers.ModelSerializer):
             "updated_at",
             "balance",
         ]
-        read_only_fields = ["id", "created_at", "updated_at", "balance"]
+        read_only_fields = ["id", "company", "created_at", "updated_at", "balance"]
 
 
 class FiscalYearSerializer(serializers.ModelSerializer):
@@ -445,6 +459,7 @@ class FiscalYearSerializer(serializers.ModelSerializer):
         model = FiscalYear
         fields = [
             "id",
+            "company",
             "year",
             "name",
             "start_date",
@@ -456,7 +471,7 @@ class FiscalYearSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "closed_at", "closed_by", "created_at", "updated_at"]
+        read_only_fields = ["id", "company", "closed_at", "closed_by", "created_at", "updated_at"]
 
 
 class AccountingPeriodSerializer(serializers.ModelSerializer):
@@ -464,6 +479,7 @@ class AccountingPeriodSerializer(serializers.ModelSerializer):
         model = AccountingPeriod
         fields = [
             "id",
+            "company",
             "fiscal_year",
             "period_number",
             "name",
@@ -476,7 +492,7 @@ class AccountingPeriodSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "closed_at", "closed_by", "created_at", "updated_at"]
+        read_only_fields = ["id", "company", "closed_at", "closed_by", "created_at", "updated_at"]
 
 
 class JournalEntrySerializer(serializers.ModelSerializer):
@@ -503,6 +519,7 @@ class JournalSerializer(serializers.ModelSerializer):
         model = Journal
         fields = [
             "id",
+            "company",
             "transaction_number",
             "description",
             "date",
@@ -523,6 +540,7 @@ class JournalSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = [
             "id",
+            "company",
             "transaction_number",
             "created_by",
             "approved_by",
@@ -533,6 +551,442 @@ class JournalSerializer(serializers.ModelSerializer):
             "updated_at",
             "entries",
         ]
+
+
+class UnitOfMeasureSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UnitOfMeasure
+        fields = [
+            "id",
+            "company",
+            "name",
+            "abbreviation",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "company", "created_at", "updated_at"]
+
+
+class InventoryCategorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = InventoryCategory
+        fields = [
+            "id",
+            "company",
+            "name",
+            "costing_method",
+            "inventory_account",
+            "opening_balance_equity_account",
+            "adjustment_gain_account",
+            "shrinkage_expense_account",
+            "sales_revenue_account",
+            "cogs_account",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "company", "created_at", "updated_at"]
+
+
+class InventoryItemSerializer(serializers.ModelSerializer):
+    stock_on_hand = serializers.SerializerMethodField()
+
+    class Meta:
+        model = InventoryItem
+        fields = [
+            "id",
+            "company",
+            "category",
+            "sku",
+            "name",
+            "item_type",
+            "base_unit",
+            "barcode",
+            "track_batch",
+            "track_expiry",
+            "allow_negative_stock",
+            "reorder_point",
+            "standard_cost",
+            "default_sales_price",
+            "default_vat_rate",
+            "default_wht_rate",
+            "is_active",
+            "stock_on_hand",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "company", "stock_on_hand", "created_at", "updated_at"]
+
+    def get_stock_on_hand(self, obj):
+        from inventory.services import get_stock_on_hand
+
+        return str(get_stock_on_hand(obj))
+
+
+class WarehouseSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Warehouse
+        fields = [
+            "id",
+            "company",
+            "code",
+            "name",
+            "is_active",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "company", "created_at", "updated_at"]
+
+
+class StockLocationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = StockLocation
+        fields = [
+            "id",
+            "company",
+            "warehouse",
+            "code",
+            "name",
+            "is_active",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "company", "created_at", "updated_at"]
+
+
+class SupplierSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Supplier
+        fields = [
+            "id",
+            "company",
+            "name",
+            "contact_name",
+            "email",
+            "phone",
+            "payable_account",
+            "wht_payable_account",
+            "default_wht_rate",
+            "is_active",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "company", "created_at", "updated_at"]
+
+    def validate_payable_account(self, value):
+        request = self.context.get("request")
+        company = get_user_company(request.user if request else None)
+        if value and company and value.company_id != company.id:
+            raise serializers.ValidationError("Payable account must belong to your company.")
+        return value
+
+
+class CustomerSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Customer
+        fields = [
+            "id",
+            "company",
+            "name",
+            "contact_name",
+            "email",
+            "phone",
+            "receivable_account",
+            "wht_receivable_account",
+            "default_wht_rate",
+            "is_active",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "company", "created_at", "updated_at"]
+
+    def validate_receivable_account(self, value):
+        request = self.context.get("request")
+        company = get_user_company(request.user if request else None)
+        if value and company and value.company_id != company.id:
+            raise serializers.ValidationError("Receivable account must belong to your company.")
+        return value
+
+    def validate_wht_receivable_account(self, value):
+        request = self.context.get("request")
+        company = get_user_company(request.user if request else None)
+        if value and company and value.company_id != company.id:
+            raise serializers.ValidationError("WHT account must belong to your company.")
+        return value
+
+
+class PurchaseOrderLineSerializer(serializers.ModelSerializer):
+    remaining_quantity = serializers.DecimalField(max_digits=14, decimal_places=4, read_only=True)
+
+    class Meta:
+        model = PurchaseOrderLine
+        fields = [
+            "id",
+            "item",
+            "quantity",
+            "received_quantity",
+            "remaining_quantity",
+            "unit_cost",
+            "total_cost",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = [
+            "id",
+            "received_quantity",
+            "remaining_quantity",
+            "total_cost",
+            "created_at",
+            "updated_at",
+        ]
+
+
+class PurchaseOrderSerializer(serializers.ModelSerializer):
+    lines = PurchaseOrderLineSerializer(many=True)
+
+    class Meta:
+        model = PurchaseOrder
+        fields = [
+            "id",
+            "company",
+            "supplier",
+            "order_date",
+            "expected_date",
+            "reference",
+            "status",
+            "notes",
+            "lines",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "company", "status", "created_at", "updated_at"]
+
+    def validate_supplier(self, value):
+        request = self.context.get("request")
+        company = get_user_company(request.user if request else None)
+        if value and company and value.company_id != company.id:
+            raise serializers.ValidationError("Supplier must belong to your company.")
+        return value
+
+    def validate_lines(self, value):
+        if not value:
+            raise serializers.ValidationError("At least one purchase order line is required.")
+        request = self.context.get("request")
+        company = get_user_company(request.user if request else None)
+        for line in value:
+            item = line.get("item")
+            if item and company and item.company_id != company.id:
+                raise serializers.ValidationError("Line items must belong to your company.")
+        return value
+
+    def create(self, validated_data):
+        request = self.context.get("request")
+        company = get_user_company(request.user if request else None)
+        lines = validated_data.pop("lines")
+        from inventory.services import create_purchase_order
+
+        return create_purchase_order(
+            company=company,
+            supplier=validated_data["supplier"],
+            lines=lines,
+            order_date=validated_data.get("order_date"),
+            expected_date=validated_data.get("expected_date"),
+            reference=validated_data.get("reference", ""),
+            notes=validated_data.get("notes", ""),
+        )
+
+
+class InventoryDocumentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = InventoryDocument
+        fields = [
+            "id",
+            "company",
+            "document_type",
+            "status",
+            "document_date",
+            "reference",
+            "reason",
+            "journal",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = [
+            "id",
+            "company",
+            "document_type",
+            "status",
+            "journal",
+            "created_at",
+            "updated_at",
+        ]
+
+
+class StockMovementSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = StockMovement
+        fields = [
+            "id",
+            "company",
+            "document",
+            "item",
+            "location",
+            "movement_type",
+            "quantity",
+            "unit_cost",
+            "total_cost",
+            "movement_date",
+            "memo",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = fields
+
+
+class OpeningStockSerializer(serializers.Serializer):
+    item = serializers.PrimaryKeyRelatedField(queryset=InventoryItem.objects.all())
+    location = serializers.PrimaryKeyRelatedField(queryset=StockLocation.objects.all())
+    quantity = serializers.DecimalField(max_digits=14, decimal_places=4)
+    unit_cost = serializers.DecimalField(max_digits=14, decimal_places=4)
+    posting_date = serializers.DateField(required=False)
+    reference = serializers.CharField(required=False, allow_blank=True, max_length=80)
+    reason = serializers.CharField(required=False, allow_blank=True, max_length=255)
+
+
+class PurchaseReceiptSerializer(serializers.Serializer):
+    supplier = serializers.PrimaryKeyRelatedField(queryset=Supplier.objects.all())
+    item = serializers.PrimaryKeyRelatedField(queryset=InventoryItem.objects.all())
+    location = serializers.PrimaryKeyRelatedField(queryset=StockLocation.objects.all())
+    quantity = serializers.DecimalField(max_digits=14, decimal_places=4)
+    unit_cost = serializers.DecimalField(max_digits=14, decimal_places=4)
+    vat_rate = serializers.DecimalField(max_digits=7, decimal_places=4, required=False)
+    wht_rate = serializers.DecimalField(max_digits=7, decimal_places=4, required=False)
+    vat_input_account = serializers.PrimaryKeyRelatedField(
+        queryset=Account.objects.all(), required=False, allow_null=True
+    )
+    posting_date = serializers.DateField(required=False)
+    reference = serializers.CharField(required=False, allow_blank=True, max_length=80)
+    reason = serializers.CharField(required=False, allow_blank=True, max_length=255)
+
+
+class SalesInvoiceSerializer(serializers.Serializer):
+    customer = serializers.PrimaryKeyRelatedField(queryset=Customer.objects.all())
+    item = serializers.PrimaryKeyRelatedField(queryset=InventoryItem.objects.all())
+    location = serializers.PrimaryKeyRelatedField(queryset=StockLocation.objects.all())
+    quantity = serializers.DecimalField(max_digits=14, decimal_places=4)
+    unit_price = serializers.DecimalField(max_digits=14, decimal_places=4)
+    vat_rate = serializers.DecimalField(max_digits=7, decimal_places=4, required=False)
+    wht_rate = serializers.DecimalField(max_digits=7, decimal_places=4, required=False)
+    vat_output_account = serializers.PrimaryKeyRelatedField(
+        queryset=Account.objects.all(), required=False, allow_null=True
+    )
+    posting_date = serializers.DateField(required=False)
+    reference = serializers.CharField(required=False, allow_blank=True, max_length=80)
+    reason = serializers.CharField(required=False, allow_blank=True, max_length=255)
+
+
+class CustomerReturnSerializer(serializers.Serializer):
+    customer = serializers.PrimaryKeyRelatedField(queryset=Customer.objects.all())
+    item = serializers.PrimaryKeyRelatedField(queryset=InventoryItem.objects.all())
+    location = serializers.PrimaryKeyRelatedField(queryset=StockLocation.objects.all())
+    quantity = serializers.DecimalField(max_digits=14, decimal_places=4)
+    unit_price = serializers.DecimalField(max_digits=14, decimal_places=4)
+    unit_cost = serializers.DecimalField(max_digits=14, decimal_places=4)
+    vat_rate = serializers.DecimalField(max_digits=7, decimal_places=4, required=False)
+    wht_rate = serializers.DecimalField(max_digits=7, decimal_places=4, required=False)
+    vat_output_account = serializers.PrimaryKeyRelatedField(
+        queryset=Account.objects.all(), required=False, allow_null=True
+    )
+    posting_date = serializers.DateField(required=False)
+    reference = serializers.CharField(required=False, allow_blank=True, max_length=80)
+    reason = serializers.CharField(required=False, allow_blank=True, max_length=255)
+
+
+class SupplierReturnSerializer(serializers.Serializer):
+    supplier = serializers.PrimaryKeyRelatedField(queryset=Supplier.objects.all())
+    item = serializers.PrimaryKeyRelatedField(queryset=InventoryItem.objects.all())
+    location = serializers.PrimaryKeyRelatedField(queryset=StockLocation.objects.all())
+    quantity = serializers.DecimalField(max_digits=14, decimal_places=4)
+    unit_cost = serializers.DecimalField(max_digits=14, decimal_places=4)
+    vat_rate = serializers.DecimalField(max_digits=7, decimal_places=4, required=False)
+    wht_rate = serializers.DecimalField(max_digits=7, decimal_places=4, required=False)
+    vat_input_account = serializers.PrimaryKeyRelatedField(
+        queryset=Account.objects.all(), required=False, allow_null=True
+    )
+    posting_date = serializers.DateField(required=False)
+    reference = serializers.CharField(required=False, allow_blank=True, max_length=80)
+    reason = serializers.CharField(required=False, allow_blank=True, max_length=255)
+
+
+class CustomerPaymentSerializer(serializers.Serializer):
+    customer = serializers.PrimaryKeyRelatedField(queryset=Customer.objects.all())
+    cash_account = serializers.PrimaryKeyRelatedField(queryset=Account.objects.all())
+    amount = serializers.DecimalField(max_digits=14, decimal_places=2)
+    posting_date = serializers.DateField(required=False)
+    reference = serializers.CharField(required=False, allow_blank=True, max_length=80)
+    reason = serializers.CharField(required=False, allow_blank=True, max_length=255)
+
+
+class SupplierPaymentSerializer(serializers.Serializer):
+    supplier = serializers.PrimaryKeyRelatedField(queryset=Supplier.objects.all())
+    cash_account = serializers.PrimaryKeyRelatedField(queryset=Account.objects.all())
+    amount = serializers.DecimalField(max_digits=14, decimal_places=2)
+    posting_date = serializers.DateField(required=False)
+    reference = serializers.CharField(required=False, allow_blank=True, max_length=80)
+    reason = serializers.CharField(required=False, allow_blank=True, max_length=255)
+
+
+class TaxRemittanceSerializer(serializers.Serializer):
+    cash_account = serializers.PrimaryKeyRelatedField(queryset=Account.objects.all())
+    vat_output_account = serializers.PrimaryKeyRelatedField(
+        queryset=Account.objects.all(), required=False, allow_null=True
+    )
+    vat_input_account = serializers.PrimaryKeyRelatedField(
+        queryset=Account.objects.all(), required=False, allow_null=True
+    )
+    wht_payable_account = serializers.PrimaryKeyRelatedField(
+        queryset=Account.objects.all(), required=False, allow_null=True
+    )
+    vat_output_amount = serializers.DecimalField(max_digits=14, decimal_places=2, required=False)
+    vat_input_amount = serializers.DecimalField(max_digits=14, decimal_places=2, required=False)
+    wht_amount = serializers.DecimalField(max_digits=14, decimal_places=2, required=False)
+    posting_date = serializers.DateField(required=False)
+    reference = serializers.CharField(required=False, allow_blank=True, max_length=80)
+    reason = serializers.CharField(required=False, allow_blank=True, max_length=255)
+
+
+class PurchaseOrderReceiveLineSerializer(serializers.Serializer):
+    purchase_order_line = serializers.PrimaryKeyRelatedField(
+        queryset=PurchaseOrderLine.objects.all()
+    )
+    quantity = serializers.DecimalField(max_digits=14, decimal_places=4)
+
+
+class PurchaseOrderReceiveSerializer(serializers.Serializer):
+    location = serializers.PrimaryKeyRelatedField(queryset=StockLocation.objects.all())
+    lines = PurchaseOrderReceiveLineSerializer(many=True)
+    posting_date = serializers.DateField(required=False)
+    reference = serializers.CharField(required=False, allow_blank=True, max_length=80)
+    reason = serializers.CharField(required=False, allow_blank=True, max_length=255)
+
+
+class InventoryAdjustmentSerializer(serializers.Serializer):
+    item = serializers.PrimaryKeyRelatedField(queryset=InventoryItem.objects.all())
+    location = serializers.PrimaryKeyRelatedField(queryset=StockLocation.objects.all())
+    quantity_delta = serializers.DecimalField(max_digits=14, decimal_places=4)
+    unit_cost = serializers.DecimalField(max_digits=14, decimal_places=4, required=False)
+    posting_date = serializers.DateField(required=False)
+    reference = serializers.CharField(required=False, allow_blank=True, max_length=80)
+    reason = serializers.CharField(required=False, allow_blank=True, max_length=255)
+
+
+class StockTransferSerializer(serializers.Serializer):
+    item = serializers.PrimaryKeyRelatedField(queryset=InventoryItem.objects.all())
+    from_location = serializers.PrimaryKeyRelatedField(queryset=StockLocation.objects.all())
+    to_location = serializers.PrimaryKeyRelatedField(queryset=StockLocation.objects.all())
+    quantity = serializers.DecimalField(max_digits=14, decimal_places=4)
+    posting_date = serializers.DateField(required=False)
+    reference = serializers.CharField(required=False, allow_blank=True, max_length=80)
+    reason = serializers.CharField(required=False, allow_blank=True, max_length=255)
 
 
 class StandupTeamSerializer(serializers.ModelSerializer):

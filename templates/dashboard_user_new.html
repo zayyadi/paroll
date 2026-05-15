@@ -232,7 +232,9 @@
                                     {% if assignment.appraisee.photo %}
                                     <img class="h-8 w-8 rounded-full object-cover"
                                         src="{{ assignment.appraisee.photo.url }}"
-                                        alt="{{ assignment.appraisee.first_name }}">
+                                        alt="{{ assignment.appraisee.first_name }} {{ assignment.appraisee.last_name }}"
+                                        width="32"
+                                        height="32">
                                     {% else %}
                                     <div class="h-8 w-8 rounded-full bg-primary-200 flex items-center justify-center">
                                         <span class="text-primary-800 font-medium text-xs">{{
