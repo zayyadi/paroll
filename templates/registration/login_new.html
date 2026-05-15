@@ -32,8 +32,9 @@
                 <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                     <i data-lucide="mail" class="h-5 w-5 text-secondary-400"></i>
                 </div>
-                <input type="text" name="{{ form.username.html_name }}" id="{{ form.username.id_for_label }}"
+                <input type="email" name="{{ form.username.html_name }}" id="{{ form.username.id_for_label }}"
                     value="{{ form.username.value|default:'' }}" autofocus required
+                    autocomplete="email" inputmode="email" spellcheck="false"
                     class="form-input w-full pl-10 pr-3 py-3 border border-secondary-300 rounded-xl focus:ring-primary-500 focus:border-primary-500 text-sm {% if form.username.errors %}border-danger-500{% endif %}">
             </div>
             {% if form.username.errors %}
@@ -56,6 +57,7 @@
                 </div>
                 <input type="password" name="{{ form.password.html_name }}" id="{{ form.password.id_for_label }}"
                     required
+                    autocomplete="current-password"
                     class="form-input w-full pl-10 pr-3 py-3 border border-secondary-300 rounded-xl focus:ring-primary-500 focus:border-primary-500 text-sm {% if form.password.errors %}border-danger-500{% endif %}">
             </div>
             {% if form.password.errors %}
@@ -90,8 +92,8 @@
 
     <div>
         <a href="{% url 'users:socials' %}"
-            class="w-full flex items-center justify-center px-4 py-3 border border-secondary-300 rounded-xl shadow-sm text-sm font-medium text-secondary-700 bg-white hover:bg-secondary-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-all">
-            <svg class="w-5 h-5 mr-2" viewBox="0 0 24 24" fill="currentColor">
+            class="w-full flex items-center justify-center px-4 py-3 border border-secondary-300 rounded-xl shadow-sm text-sm font-medium text-secondary-700 bg-white hover:bg-secondary-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-colors">
+            <svg class="w-5 h-5 mr-2" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false">
                 <path
                     d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
                     fill="#4285F4" />

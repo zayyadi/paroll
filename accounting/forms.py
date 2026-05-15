@@ -4,6 +4,8 @@ from django.forms.models import inlineformset_factory
 from django.utils import timezone
 from .models import (
     Account,
+    FinancialReportDefinition,
+    FinancialReportLine,
     Journal,
     JournalEntry,
     FiscalYear,
@@ -52,6 +54,69 @@ class AccountForm(forms.ModelForm):
         }
 
 
+class FinancialReportDefinitionForm(forms.ModelForm):
+    class Meta:
+        model = FinancialReportDefinition
+        fields = ["name", "code", "report_type", "description", "is_active"]
+        widgets = {
+            "description": forms.Textarea(attrs={"rows": 3}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        base_class = (
+            "form-input block w-full px-3 py-2 border border-secondary-300 rounded-md "
+            "leading-5 bg-white text-secondary-900 focus:outline-none "
+            "focus:ring-1 focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+        )
+        for field in self.fields.values():
+            if isinstance(field.widget, forms.CheckboxInput):
+                field.widget.attrs["class"] = "rounded border-secondary-300 text-primary-600"
+            else:
+                field.widget.attrs["class"] = base_class
+
+
+class FinancialReportLineForm(forms.ModelForm):
+    accounts = forms.ModelMultipleChoiceField(
+        queryset=Account.objects.none(),
+        required=False,
+        widget=forms.SelectMultiple,
+        help_text="Select the accounts to join into this report line.",
+    )
+
+    class Meta:
+        model = FinancialReportLine
+        fields = [
+            "line_number",
+            "row_code",
+            "label",
+            "line_type",
+            "accounts",
+            "formula",
+            "invert_sign",
+            "show_zero",
+        ]
+
+    def __init__(self, *args, **kwargs):
+        company = kwargs.pop("company", None)
+        super().__init__(*args, **kwargs)
+        if company is not None:
+            self.fields["accounts"].queryset = Account.objects.filter(
+                company=company
+            ).order_by("account_number", "name")
+
+        base_class = (
+            "form-input block w-full px-3 py-2 border border-secondary-300 rounded-md "
+            "leading-5 bg-white text-secondary-900 focus:outline-none "
+            "focus:ring-1 focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+        )
+        for field in self.fields.values():
+            if isinstance(field.widget, forms.CheckboxInput):
+                field.widget.attrs["class"] = "rounded border-secondary-300 text-primary-600"
+            else:
+                field.widget.attrs["class"] = base_class
+
+
 class JournalForm(forms.ModelForm):
     """
     Form for creating and editing journals
@@ -64,6 +129,14 @@ class JournalForm(forms.ModelForm):
             "date": forms.DateInput(attrs={"type": "date"}),
             "description": forms.TextInput(attrs={"class": "form-control"}),
         }
+
+    def __init__(self, *args, **kwargs):
+        company = kwargs.pop("company", None)
+        super().__init__(*args, **kwargs)
+        if company is not None:
+            self.fields["period"].queryset = AccountingPeriod.objects.filter(
+                company=company
+            ).order_by("-fiscal_year__year", "-period_number")
 
 
 class JournalEntryForm(forms.ModelForm):
@@ -78,6 +151,14 @@ class JournalEntryForm(forms.ModelForm):
             "amount": forms.NumberInput(attrs={"step": "0.01", "min": "0"}),
             "memo": forms.TextInput(attrs={"class": "form-control"}),
         }
+
+    def __init__(self, *args, **kwargs):
+        company = kwargs.pop("company", None)
+        super().__init__(*args, **kwargs)
+        if company is not None:
+            self.fields["account"].queryset = Account.objects.filter(
+                company=company
+            ).order_by("account_number", "name")
 
 
 # Create formset for journal entries
@@ -151,6 +232,14 @@ class AccountingPeriodForm(forms.ModelForm):
             "end_date": forms.DateInput(attrs={"type": "date"}),
         }
 
+    def __init__(self, *args, **kwargs):
+        company = kwargs.pop("company", None)
+        super().__init__(*args, **kwargs)
+        if company is not None:
+            self.fields["fiscal_year"].queryset = FiscalYear.objects.filter(
+                company=company
+            ).order_by("-year")
+
 
 class AccountSearchForm(forms.Form):
     """
@@ -204,6 +293,14 @@ class TrialBalanceForm(forms.Form):
         label="As of date (if no period selected)",
     )
 
+    def __init__(self, *args, **kwargs):
+        company = kwargs.pop("company", None)
+        super().__init__(*args, **kwargs)
+        if company is not None:
+            self.fields["period"].queryset = AccountingPeriod.objects.filter(
+                company=company
+            ).order_by("-fiscal_year__year", "-period_number")
+
 
 class AccountActivityForm(forms.Form):
     """
@@ -220,6 +317,14 @@ class AccountActivityForm(forms.Form):
     end_date = forms.DateField(
         required=False, widget=forms.DateInput(attrs={"type": "date"})
     )
+
+    def __init__(self, *args, **kwargs):
+        company = kwargs.pop("company", None)
+        super().__init__(*args, **kwargs)
+        if company is not None:
+            self.fields["account"].queryset = Account.objects.filter(
+                company=company
+            ).order_by("account_number", "name")
 
 
 class OpeningBalanceImportForm(forms.Form):
@@ -248,7 +353,12 @@ class OpeningBalanceImportForm(forms.Form):
     )
 
     def __init__(self, *args, **kwargs):
+        company = kwargs.pop("company", None)
         super().__init__(*args, **kwargs)
+        if company is not None:
+            self.fields["offset_account"].queryset = Account.objects.filter(
+                company=company
+            ).order_by("account_number", "name")
         base_class = (
             "w-full px-3 py-2 border border-secondary-300 rounded-md "
             "focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
@@ -297,7 +407,14 @@ class BalanceAdjustmentForm(forms.Form):
     )
 
     def __init__(self, *args, **kwargs):
+        company = kwargs.pop("company", None)
         super().__init__(*args, **kwargs)
+        if company is not None:
+            account_queryset = Account.objects.filter(company=company).order_by(
+                "account_number", "name"
+            )
+            self.fields["account"].queryset = account_queryset
+            self.fields["offset_account"].queryset = account_queryset
         base_class = (
             "w-full px-3 py-2 border border-secondary-300 rounded-md "
             "focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500"

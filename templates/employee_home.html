@@ -10,7 +10,7 @@
         <div class="grid gap-6 p-6 lg:grid-cols-[1.2fr_0.8fr] lg:p-8">
             <div class="flex flex-col gap-5 sm:flex-row sm:items-center">
                 {% if emp.photo %}
-                <img src="{{ emp.photo.url }}" alt="{{ emp.first_name }} {{ emp.last_name }}" class="h-24 w-24 rounded-3xl object-cover">
+                <img src="{{ emp.photo.url }}" alt="{{ emp.first_name }} {{ emp.last_name }}" width="96" height="96" fetchpriority="high" class="h-24 w-24 rounded-3xl object-cover">
                 {% else %}
                 <div class="flex h-24 w-24 items-center justify-center rounded-3xl bg-primary-100 font-headline text-3xl font-extrabold text-primary-800">
                     {{ emp.first_name|first|upper }}{{ emp.last_name|first|upper }}
@@ -116,10 +116,10 @@
                         <p class="mt-1 text-sm text-secondary-600">Net pay ₦{{ payslip.payroll_entry.netpay|floatformat:"0"|intcomma }}</p>
                     </div>
                     <div class="flex items-center gap-2">
-                        <a href="{% url 'payroll:payslip' payslip.id %}" class="rounded-xl bg-surface-container-low p-2 text-secondary-600 transition hover:text-primary-800" title="View payslip">
+                        <a href="{% url 'payroll:payslip' payslip.id %}" class="rounded-xl bg-surface-container-low p-2 text-secondary-600 transition hover:text-primary-800" aria-label="View {{ payslip.payroll_run.paydays|date:'F Y' }} payslip" title="View payslip">
                             <i data-lucide="eye" class="h-4 w-4"></i>
                         </a>
-                        <a href="{% url 'payroll:payslip_pdf' payslip.id %}" class="rounded-xl bg-surface-container-low p-2 text-secondary-600 transition hover:text-primary-800" title="Download PDF">
+                        <a href="{% url 'payroll:payslip_pdf' payslip.id %}" class="rounded-xl bg-surface-container-low p-2 text-secondary-600 transition hover:text-primary-800" aria-label="Download {{ payslip.payroll_run.paydays|date:'F Y' }} payslip PDF" title="Download PDF">
                             <i data-lucide="download" class="h-4 w-4"></i>
                         </a>
                     </div>

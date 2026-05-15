@@ -256,6 +256,18 @@ class UserRouteHardeningTests(TestCase):
         response = self.client.get(reverse("users:password"))
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "registration/password_change_form.html")
+        self.assertContains(response, 'href="#main-content"')
+        self.assertContains(response, 'autocomplete="current-password"')
+        self.assertNotContains(response, "../base/base.html")
+        self.assertNotContains(response, "Cool stuff")
+
+    def test_social_login_uses_link_navigation_without_inline_handlers(self):
+        response = self.client.get(reverse("users:socials"))
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "registration/socials.html")
+        self.assertContains(response, "Continue With GitHub")
+        self.assertContains(response, 'href="#main-content"')
+        self.assertNotContains(response, "onclick=")
 
     def test_password_view_redirects_with_namespace_after_success(self):
         response = self.client.post(

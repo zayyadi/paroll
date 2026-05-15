@@ -1,0 +1,53 @@
+{% extends "base_new.html" %}
+{% load humanize %}
+
+{% block page_header %}Leave Allowance Slip{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <div class="bg-white rounded-xl shadow-soft p-6 border border-secondary-100 flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+        <div>
+            <p class="text-sm font-medium text-secondary-500">Allowance processed</p>
+            <h2 class="mt-1 text-2xl font-semibold text-secondary-900">Leave Allowance Slip</h2>
+            <p class="mt-2 text-sm text-secondary-600">{{ leave_request.get_leave_type_display }} for {{ employee.first_name }} {{ employee.last_name }}</p>
+        </div>
+        <a href="{% url 'payroll:leave_allowance_slip_pdf' allowance.id %}" class="btn-primary px-4 py-2.5 rounded-xl text-white text-sm font-medium">Download PDF</a>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div class="lg:col-span-2 bg-white rounded-xl shadow-soft border border-secondary-100 overflow-hidden">
+            <div class="px-6 py-4 border-b border-secondary-100">
+                <h3 class="text-base font-semibold text-secondary-900">Payment Details</h3>
+            </div>
+            <dl class="divide-y divide-secondary-100">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-2 px-6 py-4">
+                    <dt class="text-sm font-medium text-secondary-500">Employee</dt>
+                    <dd class="md:col-span-2 text-sm text-secondary-900">{{ employee.first_name }} {{ employee.last_name }}</dd>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-2 px-6 py-4">
+                    <dt class="text-sm font-medium text-secondary-500">Employee ID</dt>
+                    <dd class="md:col-span-2 text-sm text-secondary-900">{{ employee.emp_id|default:"N/A" }}</dd>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-2 px-6 py-4">
+                    <dt class="text-sm font-medium text-secondary-500">Leave period</dt>
+                    <dd class="md:col-span-2 text-sm text-secondary-900">{{ leave_request.start_date|date:"d M Y" }} - {{ leave_request.end_date|date:"d M Y" }}</dd>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-2 px-6 py-4">
+                    <dt class="text-sm font-medium text-secondary-500">Reason</dt>
+                    <dd class="md:col-span-2 text-sm text-secondary-900">{{ leave_request.reason|default:"N/A" }}</dd>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-2 px-6 py-4">
+                    <dt class="text-sm font-medium text-secondary-500">Amount paid</dt>
+                    <dd class="md:col-span-2 text-sm font-semibold text-secondary-900">₦{{ allowance.amount|floatformat:2|intcomma }}</dd>
+                </div>
+            </dl>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-soft border border-secondary-100 p-6">
+            <p class="text-sm font-medium text-secondary-500">Status</p>
+            <p class="mt-2 inline-flex px-3 py-1 rounded-full bg-success-100 text-success-800 text-xs font-semibold">Processed</p>
+            <p class="mt-4 text-sm text-secondary-600">This allowance has been recorded for payroll and posted to the accounting ledger.</p>
+        </div>
+    </div>
+</div>
+{% endblock %}

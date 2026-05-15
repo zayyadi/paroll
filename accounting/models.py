@@ -32,8 +32,11 @@ class Account(BaseModel):
         REVENUE = "REVENUE", _("Revenue")
         EXPENSE = "EXPENSE", _("Expense")
 
-    name = models.CharField(max_length=255, unique=True)
-    account_number = models.CharField(max_length=20, unique=True, null=True, blank=True)
+    company = models.ForeignKey(
+        "company.Company", on_delete=models.CASCADE, related_name="accounts"
+    )
+    name = models.CharField(max_length=255)
+    account_number = models.CharField(max_length=20, null=True, blank=True)
     type = models.CharField(max_length=10, choices=AccountType.choices)
     description = models.TextField(blank=True, null=True)
 
@@ -67,12 +70,114 @@ class Account(BaseModel):
         verbose_name = "Account"
         verbose_name_plural = "Accounts"
         ordering = ["account_number"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["company", "name"], name="uniq_account_company_name"
+            ),
+            models.UniqueConstraint(
+                fields=["company", "account_number"],
+                name="uniq_account_company_account_number",
+            ),
+        ]
+
+
+class FinancialReportDefinition(BaseModel):
+    class ReportType(models.TextChoices):
+        PROFIT_LOSS = "PROFIT_LOSS", _("Profit and Loss")
+        BALANCE_SHEET = "BALANCE_SHEET", _("Balance Sheet")
+        CUSTOM = "CUSTOM", _("Custom Report")
+
+    company = models.ForeignKey(
+        "company.Company",
+        on_delete=models.CASCADE,
+        related_name="financial_report_definitions",
+    )
+    name = models.CharField(max_length=255)
+    code = models.CharField(max_length=40)
+    report_type = models.CharField(
+        max_length=20,
+        choices=ReportType.choices,
+        default=ReportType.PROFIT_LOSS,
+    )
+    description = models.TextField(blank=True)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ["name"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["company", "code"],
+                name="uniq_financial_report_company_code",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.code} - {self.name}"
+
+
+class FinancialReportLine(BaseModel):
+    class LineType(models.TextChoices):
+        HEADING = "HEADING", _("Heading")
+        ACCOUNT_SUM = "ACCOUNT_SUM", _("Account Sum")
+        FORMULA = "FORMULA", _("Formula")
+
+    report = models.ForeignKey(
+        FinancialReportDefinition,
+        on_delete=models.CASCADE,
+        related_name="lines",
+    )
+    line_number = models.PositiveIntegerField()
+    row_code = models.CharField(max_length=40)
+    label = models.CharField(max_length=255)
+    line_type = models.CharField(
+        max_length=20,
+        choices=LineType.choices,
+        default=LineType.ACCOUNT_SUM,
+    )
+    accounts = models.ManyToManyField(
+        Account,
+        blank=True,
+        related_name="financial_report_lines",
+    )
+    formula = models.CharField(
+        max_length=255,
+        blank=True,
+        help_text="Use row codes with + and - operators, for example REV-COGS.",
+    )
+    invert_sign = models.BooleanField(
+        default=False,
+        help_text="Display this line as the opposite sign for contribution-style reports.",
+    )
+    show_zero = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ["line_number", "row_code"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["report", "line_number"],
+                name="uniq_financial_report_line_number",
+            ),
+            models.UniqueConstraint(
+                fields=["report", "row_code"],
+                name="uniq_financial_report_row_code",
+            ),
+        ]
+
+    @property
+    def company(self):
+        return self.report.company
+
+    def __str__(self):
+        return f"{self.report.code} {self.row_code} - {self.label}"
 
 
 class FiscalYear(BaseModel):
     """Represents a fiscal year for accounting purposes"""
 
-    year = models.PositiveIntegerField(unique=True)
+    company = models.ForeignKey(
+        "company.Company", on_delete=models.CASCADE, related_name="fiscal_years"
+    )
+    year = models.PositiveIntegerField()
     name = models.CharField(max_length=50)
     start_date = models.DateField()
     end_date = models.DateField()
@@ -91,6 +196,11 @@ class FiscalYear(BaseModel):
         ordering = ["-year"]
         verbose_name = "Fiscal Year"
         verbose_name_plural = "Fiscal Years"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["company", "year"], name="uniq_fiscal_year_company_year"
+            )
+        ]
 
     def __str__(self):
         return f"FY {self.year} ({self.name})"
@@ -102,7 +212,8 @@ class FiscalYear(BaseModel):
         # Check for overlapping fiscal years
         overlapping = FiscalYear.objects.filter(
             models.Q(start_date__lte=self.end_date)
-            & models.Q(end_date__gte=self.start_date)
+            & models.Q(end_date__gte=self.start_date),
+            company=self.company,
         ).exclude(pk=self.pk)
 
         if overlapping.exists():
@@ -131,6 +242,9 @@ class AccountingPeriod(BaseModel):
     fiscal_year = models.ForeignKey(
         FiscalYear, on_delete=models.CASCADE, related_name="periods"
     )
+    company = models.ForeignKey(
+        "company.Company", on_delete=models.CASCADE, related_name="accounting_periods"
+    )
     period_number = models.PositiveIntegerField()
     name = models.CharField(max_length=50)
     start_date = models.DateField()
@@ -148,16 +262,29 @@ class AccountingPeriod(BaseModel):
 
     class Meta:
         ordering = ["fiscal_year", "period_number"]
-        unique_together = ["fiscal_year", "period_number"]
         verbose_name = "Accounting Period"
         verbose_name_plural = "Accounting Periods"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["company", "fiscal_year", "period_number"],
+                name="uniq_period_company_fiscal_year_number",
+            )
+        ]
 
     def __str__(self):
         return f"{self.fiscal_year.name} - Period {self.period_number} ({self.name})"
 
+    def save(self, *args, **kwargs):
+        if self.fiscal_year_id and not self.company_id:
+            self.company = self.fiscal_year.company
+        super().save(*args, **kwargs)
+
     def clean(self):
         if self.start_date >= self.end_date:
             raise ValidationError("Start date must be before end date")
+
+        if self.fiscal_year_id and self.company_id != self.fiscal_year.company_id:
+            raise ValidationError("Period company must match fiscal year company")
 
         # Check if period is within fiscal year dates
         if (
@@ -170,6 +297,7 @@ class AccountingPeriod(BaseModel):
         overlapping = AccountingPeriod.objects.filter(
             models.Q(start_date__lte=self.end_date)
             & models.Q(end_date__gte=self.start_date),
+            company=self.company,
             fiscal_year=self.fiscal_year,
         ).exclude(pk=self.pk)
 
@@ -251,6 +379,13 @@ class AccountingAuditTrail(BaseModel):
         CLOSE_PERIOD = "CLOSE_PERIOD", "Close Period"
         CLOSE_FISCAL_YEAR = "CLOSE_FISCAL_YEAR", "Close Fiscal Year"
 
+    company = models.ForeignKey(
+        "company.Company",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="accounting_audit_trails",
+    )
     user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
     action = models.CharField(max_length=20, choices=ActionType.choices)
     timestamp = models.DateTimeField(auto_now_add=True)
@@ -303,6 +438,7 @@ class AccountingAuditTrail(BaseModel):
         def create_audit_entry():
             try:
                 return cls.objects.create(
+                    company=getattr(instance, "company", None),
                     user=user,
                     action=action,
                     content_type=ContentType.objects.get_for_model(instance),
@@ -349,6 +485,9 @@ class Journal(BaseModel):
         REVERSED = "REVERSED", _("Reversed")
 
     # Basic fields
+    company = models.ForeignKey(
+        "company.Company", on_delete=models.CASCADE, related_name="journals"
+    )
     transaction_number = models.CharField(max_length=20, unique=True, editable=False)
     description = models.CharField(max_length=255)
     date = models.DateField(default=timezone.now)
@@ -405,15 +544,19 @@ class Journal(BaseModel):
         return f"{self.transaction_number} - {self.description} ({self.get_status_display()})"
 
     def save(self, *args, **kwargs):
+        if self.period_id and not self.company_id:
+            self.company = self.period.company
+
         # Generate transaction number if new
         if not self.pk and not self.transaction_number:
             current_year = timezone.now().year
             fiscal_year = FiscalYear.objects.filter(
-                year=current_year, is_active=True
+                company=self.company, year=current_year, is_active=True
             ).first()
             if not fiscal_year:
                 # Create or get current fiscal year
                 fiscal_year, _ = FiscalYear.objects.get_or_create(
+                    company=self.company,
                     year=current_year,
                     defaults={
                         "name": f"FY {current_year}",
@@ -428,14 +571,18 @@ class Journal(BaseModel):
         # Set period if not set
         if not self.period_id:
             current_year = timezone.now().year
-            fiscal_year = FiscalYear.objects.get(year=current_year, is_active=True)
+            fiscal_year = FiscalYear.objects.get(
+                company=self.company, year=current_year, is_active=True
+            )
             current_month = timezone.now().month
             period = AccountingPeriod.objects.filter(
+                company=self.company,
                 fiscal_year=fiscal_year, period_number=current_month
             ).first()
             if not period:
                 # Create monthly period
                 period = AccountingPeriod.objects.create(
+                    company=self.company,
                     fiscal_year=fiscal_year,
                     period_number=current_month,
                     name=f"Month {current_month}",
@@ -448,6 +595,9 @@ class Journal(BaseModel):
         super(Journal, self).save(*args, **kwargs)
 
     def clean(self):
+        if self.period_id and self.company_id != self.period.company_id:
+            raise ValidationError("Journal company must match accounting period company")
+
         # Basic validation
         if self.status == self.JournalStatus.POSTED:
             if not self.entries.exists():
@@ -518,6 +668,7 @@ class Journal(BaseModel):
         with transaction.atomic():
             # Create reversal journal
             reversal_journal = Journal.objects.create(
+                company=self.company,
                 description=f"REVERSAL: {self.description}",
                 date=timezone.now().date(),
                 period=self.period,
@@ -556,6 +707,9 @@ class Journal(BaseModel):
             raise ValidationError(
                 "Cannot add entries to a posted or cancelled journal."
             )
+
+        if account.company_id != self.company_id:
+            raise ValidationError("Journal entry account must belong to the journal company")
 
         return JournalEntry.objects.create(
             journal=self,
@@ -601,6 +755,12 @@ class JournalEntry(BaseModel):
     def clean(self):
         if self.amount <= 0:
             raise ValidationError("Amount must be greater than zero")
+        if (
+            self.journal_id
+            and self.account_id
+            and self.account.company_id != self.journal.company_id
+        ):
+            raise ValidationError("Account must belong to the journal company")
 
     class Meta:
         verbose_name = "Journal Entry"

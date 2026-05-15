@@ -93,6 +93,26 @@ urlpatterns = [
     path("audit/<int:pk>/", views.AuditTrailDetailView.as_view(), name="audit_detail"),
     # Report URLs
     path("reports/", views.reports_index, name="reports"),
+    path(
+        "reports/designer/",
+        views.FinancialReportListView.as_view(),
+        name="financial_report_list",
+    ),
+    path(
+        "reports/designer/new/",
+        views.FinancialReportCreateView.as_view(),
+        name="financial_report_create",
+    ),
+    path(
+        "reports/designer/<int:pk>/",
+        views.FinancialReportDetailView.as_view(),
+        name="financial_report_detail",
+    ),
+    path(
+        "reports/designer/<int:pk>/lines/new/",
+        views.FinancialReportLineCreateView.as_view(),
+        name="financial_report_line_create",
+    ),
     path("reports/trial-balance/", views.trial_balance_report, name="trial_balance"),
     path(
         "reports/account-activity/",

@@ -20,6 +20,7 @@ urlpatterns = [
     # path("account/", include("django.contrib.auth.urls")),
     path("", include("payroll.urls", namespace="payroll")),
     path("accounting/", include("accounting.urls", namespace="accounting")),
+    path("inventory/", include("inventory.urls", namespace="inventory")),
     # path(
     #     "__reload__/",
     #     include("django_browser_reload.urls"),

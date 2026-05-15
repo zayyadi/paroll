@@ -12,12 +12,14 @@ from django.utils import timezone
 from unittest.mock import patch
 
 from company.models import Company
-from accounting.models import DisciplinaryCase, DisciplinarySanction
+from accounting.models import DisciplinaryCase, DisciplinarySanction, Journal, JournalEntry
 from payroll.forms import PayrollRunCreateForm, IOURequestForm, IOUApprovalForm
 from payroll.models import (
     CompanyPayrollSetting,
     EmployeeProfile,
     LeaveRequest,
+    LeaveAllowanceEmailJob,
+    Allowance,
     Payroll,
     PayrollEntry,
     PayrollRun,
@@ -52,6 +54,7 @@ from payroll.views.payroll_view import (
     _send_payslips_for_payroll_run,
 )
 from payroll.tasks.payslip_tasks import send_payslips_for_payroll_run_task
+from payroll.tasks.leave_allowance_tasks import send_leave_allowance_slip_task
 from payroll.notification_signals import _dispatch_iou_rejected_event
 from payroll.models import IOU
 
@@ -106,6 +109,84 @@ class PayrollAllowanceRulesTests(TestCase):
 
         # 15% of monthly basic salary (120,000) = 18,000
         self.assertEqual(payroll_entry.calc_allowance, Decimal("18000.00"))
+
+    @patch("payroll.models.payroll.LeaveAllowanceEmailJob.enqueue")
+    def test_approving_leave_processes_allowance_and_queues_slip_email(self, mocked_enqueue):
+        leave_request = LeaveRequest.objects.create(
+            employee=self.employee,
+            leave_type="ANNUAL",
+            start_date=date(2026, 3, 10),
+            end_date=date(2026, 3, 14),
+            reason="Annual vacation",
+        )
+
+        with self.captureOnCommitCallbacks(execute=True):
+            leave_request.status = "APPROVED"
+            leave_request.save()
+
+        allowance = Allowance.objects.get(source_leave_request=leave_request)
+        self.assertEqual(allowance.employee, self.employee)
+        self.assertEqual(allowance.allowance_type, "LV")
+        self.assertEqual(allowance.amount, Decimal("18000.00"))
+
+        job = LeaveAllowanceEmailJob.objects.get(leave_request=leave_request)
+        self.assertEqual(job.amount, Decimal("18000.00"))
+        self.assertEqual(job.status, LeaveAllowanceEmailJob.Status.QUEUED)
+        mocked_enqueue.assert_called_once()
+
+        journal = Journal.objects.get(description__startswith="Leave allowance paid to Jane Doe")
+        self.assertEqual(journal.status, Journal.JournalStatus.POSTED)
+        self.assertEqual(journal.content_object, allowance)
+        entries = {
+            entry.account.name: entry
+            for entry in journal.entries.select_related("account")
+        }
+        self.assertEqual(
+            entries["Allowances Expense"].entry_type,
+            JournalEntry.EntryType.DEBIT,
+        )
+        self.assertEqual(entries["Allowances Expense"].amount, Decimal("18000.00"))
+        self.assertEqual(
+            entries["Cash and Cash Equivalents"].entry_type,
+            JournalEntry.EntryType.CREDIT,
+        )
+        self.assertEqual(
+            entries["Cash and Cash Equivalents"].amount,
+            Decimal("18000.00"),
+        )
+
+        payroll_entry = self._create_payroll_entry_for_month(payroll_month=3)
+        self.assertEqual(payroll_entry.calc_allowance, Decimal("18000.00"))
+
+    @patch("payroll.models.payroll.LeaveAllowanceEmailJob.enqueue")
+    def test_reapproving_leave_does_not_duplicate_allowance_or_email_job(self, mocked_enqueue):
+        leave_request = LeaveRequest.objects.create(
+            employee=self.employee,
+            leave_type="ANNUAL",
+            start_date=date(2026, 4, 1),
+            end_date=date(2026, 4, 5),
+            reason="Annual vacation",
+        )
+
+        with self.captureOnCommitCallbacks(execute=True):
+            leave_request.status = "APPROVED"
+            leave_request.save()
+
+        mocked_enqueue.reset_mock()
+        leave_request.reason = "Updated note after approval"
+        with self.captureOnCommitCallbacks(execute=True):
+            leave_request.save()
+
+        self.assertEqual(Allowance.objects.filter(source_leave_request=leave_request).count(), 1)
+        self.assertEqual(
+            LeaveAllowanceEmailJob.objects.filter(leave_request=leave_request).count(),
+            1,
+        )
+        self.assertEqual(
+            Journal.objects.filter(description__startswith="Leave allowance paid to Jane Doe").count(),
+            1,
+        )
+        mocked_enqueue.assert_not_called()
 
     def test_december_includes_thirteenth_month_as_percentage_of_annual_salary(self):
         payroll_entry = self._create_payroll_entry_for_month(payroll_month=12)
@@ -536,6 +617,63 @@ class PayrollRunPayslipEmailTests(TestCase):
         self.assertEqual(job.status, PayslipEmailJob.Status.SENT)
         self.assertEqual(job.sent_count, 2)
         self.assertEqual(job.skipped_count, 0)
+        self.assertIsNotNone(job.started_at)
+        self.assertIsNotNone(job.completed_at)
+
+    @patch("payroll.tasks.leave_allowance_tasks.custom_send_mail")
+    @patch("payroll.tasks.leave_allowance_tasks.generate_payslip_pdf")
+    def test_leave_allowance_task_sends_pdf_slip_and_marks_job_sent(
+        self, mocked_generate_pdf, mocked_send_mail
+    ):
+        mocked_generate_pdf.return_value = b"%PDF leave allowance"
+        company = Company.objects.create(name="Leave Allowance Mail Co")
+        payroll = Payroll.objects.create(
+            company=company,
+            basic_salary=Decimal("200000.00"),
+        )
+        user = User.objects.create_user(
+            email="allowance.employee@test.com",
+            password="testpass123",
+            company=company,
+            active_company=company,
+        )
+        employee = user.employee_user
+        employee.company = company
+        employee.employee_pay = payroll
+        employee.save(update_fields=["company", "employee_pay"])
+        CompanyPayrollSetting.objects.create(
+            company=company,
+            leave_allowance_percentage=Decimal("10.00"),
+        )
+        leave_request = LeaveRequest.objects.create(
+            employee=employee,
+            leave_type="ANNUAL",
+            start_date=date(2026, 5, 4),
+            end_date=date(2026, 5, 8),
+            reason="Annual vacation",
+            status="APPROVED",
+        )
+        allowance = Allowance.objects.get(source_leave_request=leave_request)
+        job = LeaveAllowanceEmailJob.objects.get(leave_request=leave_request)
+
+        result = send_leave_allowance_slip_task(leave_request.id, job.id)
+
+        self.assertTrue(result["success"])
+        self.assertEqual(result["amount"], "20000.00")
+        mocked_generate_pdf.assert_called_once()
+        mocked_send_mail.assert_called_once()
+        kwargs = mocked_send_mail.call_args.kwargs
+        self.assertEqual(kwargs["recipient_list"], [user.email])
+        self.assertEqual(kwargs["template_name"], "email/leave_allowance_slip_email.html")
+        self.assertEqual(kwargs["context"]["allowance"], allowance)
+        attachment = kwargs["attachments"][0]
+        self.assertTrue(attachment["filename"].endswith(".pdf"))
+        self.assertIn("leave_allowance_slip_", attachment["filename"])
+        self.assertEqual(attachment["content"], mocked_generate_pdf.return_value)
+        self.assertEqual(attachment["mimetype"], "application/pdf")
+
+        job.refresh_from_db()
+        self.assertEqual(job.status, LeaveAllowanceEmailJob.Status.SENT)
         self.assertIsNotNone(job.started_at)
         self.assertIsNotNone(job.completed_at)
 

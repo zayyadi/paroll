@@ -1,0 +1,37 @@
+{% extends "inventory/base.html" %}
+
+{% block inventory_content %}
+<div class="bg-white rounded-lg shadow-soft">
+    <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+        <h3 class="text-lg font-semibold text-secondary-900">Suppliers</h3>
+        <a href="{% url 'inventory:supplier_create' %}" class="btn-primary inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white">
+            <i data-lucide="plus" class="mr-2 h-4 w-4"></i>
+            New Supplier
+        </a>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">Supplier</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">Contact</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">Phone</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">Payable Account</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+                {% for supplier in suppliers %}
+                <tr class="table-row-hover">
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-secondary-900">{{ supplier.name }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-secondary-500">{{ supplier.contact_name|default:"-" }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-secondary-500">{{ supplier.phone|default:"-" }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-secondary-500">{{ supplier.payable_account }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="4" class="px-6 py-8 text-center text-sm text-secondary-500">No suppliers.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

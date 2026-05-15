@@ -26,6 +26,7 @@ class PayrollClosePostingTests(TestCase):
     def setUp(self):
         self.company = Company.objects.create(name="Test Payroll Co")
         self.cash_account, _ = Account.objects.get_or_create(
+            company=self.company,
             account_number="1100",
             defaults={
                 "name": "Cash and Cash Equivalents",
@@ -33,6 +34,7 @@ class PayrollClosePostingTests(TestCase):
             },
         )
         self.employee_advances_account, _ = Account.objects.get_or_create(
+            company=self.company,
             account_number="1400",
             defaults={
                 "name": "Employee Advances",
@@ -40,6 +42,7 @@ class PayrollClosePostingTests(TestCase):
             },
         )
         self.opening_equity_account, _ = Account.objects.get_or_create(
+            company=self.company,
             account_number="3000",
             defaults={
                 "name": "Opening Balance Equity",
@@ -49,6 +52,7 @@ class PayrollClosePostingTests(TestCase):
 
         # Seed opening balances so payroll-close asset credits pass balance validation.
         create_journal_with_entries(
+            company=self.company,
             date=date.today().replace(day=1),
             description="Opening balances for payroll posting tests",
             entries=[

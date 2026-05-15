@@ -54,6 +54,7 @@ INSTALLED_APPS = [
     "social_django",
     "accounting",
     "company",
+    "inventory",
     "standup",
     "marketing",
     # Channels for real-time notifications
@@ -440,6 +441,10 @@ CELERY_TASK_ROUTES = {
         "routing_key": "notifications.normal",
     },
     "payroll.send_payslips_for_payroll_run": {
+        "queue": "notifications_normal",
+        "routing_key": "notifications.normal",
+    },
+    "payroll.send_leave_allowance_slip": {
         "queue": "notifications_normal",
         "routing_key": "notifications.normal",
     },

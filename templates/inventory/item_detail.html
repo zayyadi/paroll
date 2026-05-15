@@ -1,0 +1,44 @@
+{% extends "inventory/base.html" %}
+
+{% block inventory_content %}
+<div class="space-y-6">
+    <section class="bg-white rounded-lg shadow-soft">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h3 class="text-lg font-semibold text-secondary-900">{{ item.sku }} - {{ item.name }}</h3>
+            <p class="text-sm text-secondary-500">{{ item.category.name }} · {{ item.get_item_type_display }}</p>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 p-6">
+            <div>
+                <p class="text-sm font-medium text-secondary-500">Stock on hand</p>
+                <p class="mt-1 text-2xl font-bold text-secondary-900">{{ stock_on_hand|floatformat:2 }}</p>
+            </div>
+            <div>
+                <p class="text-sm font-medium text-secondary-500">Inventory value</p>
+                <p class="mt-1 text-2xl font-bold text-secondary-900">₦{{ inventory_value|floatformat:2 }}</p>
+            </div>
+            <div>
+                <p class="text-sm font-medium text-secondary-500">Average cost</p>
+                <p class="mt-1 text-2xl font-bold text-secondary-900">₦{{ average_unit_cost|floatformat:4 }}</p>
+            </div>
+        </div>
+    </section>
+    <section class="bg-white rounded-lg shadow-soft">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h3 class="text-lg font-semibold text-secondary-900">Recent Movements</h3>
+        </div>
+        <div class="divide-y divide-gray-100">
+            {% for movement in movements %}
+            <div class="px-6 py-3 flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-secondary-900">{{ movement.get_movement_type_display }}</p>
+                    <p class="text-xs text-secondary-500">{{ movement.location }} · {{ movement.movement_date }}</p>
+                </div>
+                <p class="text-sm font-medium text-secondary-900">{{ movement.quantity|floatformat:2 }}</p>
+            </div>
+            {% empty %}
+            <p class="px-6 py-8 text-sm text-secondary-500">No movements posted.</p>
+            {% endfor %}
+        </div>
+    </section>
+</div>
+{% endblock %}

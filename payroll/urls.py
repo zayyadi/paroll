@@ -187,6 +187,16 @@ urlpatterns = [
         views.view_leave_request,
         name="view_leave_request",
     ),
+    path(
+        "leave-allowance-slip/<int:pk>/",
+        views.leave_allowance_slip,
+        name="leave_allowance_slip",
+    ),
+    path(
+        "leave-allowance-slip/<int:pk>/pdf/",
+        views.leave_allowance_slip_pdf,
+        name="leave_allowance_slip_pdf",
+    ),
     path("request-iou/", views.request_iou, name="request_iou"),
     path("approve-iou/<int:iou_id>/", views.approve_iou, name="approve_iou"),
     path("iou/<int:pk>/update/", views.IOUUpdateView.as_view(), name="iou_update"),

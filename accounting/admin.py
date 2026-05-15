@@ -14,6 +14,8 @@ except ImportError:  # pragma: no cover - optional admin dependency
     ImportExportModelAdmin = admin.ModelAdmin
 from .models import (
     Account,
+    FinancialReportDefinition,
+    FinancialReportLine,
     Journal,
     JournalEntry,
     DisciplinaryCase,
@@ -38,12 +40,26 @@ class JournalEntryResource(resources.ModelResource):
         model = JournalEntry
 
 
+class FinancialReportLineInline(admin.TabularInline):
+    model = FinancialReportLine
+    extra = 0
+    filter_horizontal = ("accounts",)
+
+
+@admin.register(FinancialReportDefinition)
+class FinancialReportDefinitionAdmin(admin.ModelAdmin):
+    list_display = ("company", "code", "name", "report_type", "is_active")
+    list_filter = ("company", "report_type", "is_active")
+    search_fields = ("company__name", "code", "name")
+    inlines = [FinancialReportLineInline]
+
+
 @admin.register(Account)
 class AccountAdmin(ImportExportModelAdmin):
     resource_class = AccountResource
-    list_display = ("account_number", "name", "type", "balance")
-    list_filter = ("type",)
-    search_fields = ("name", "account_number")
+    list_display = ("company", "account_number", "name", "type", "balance")
+    list_filter = ("company", "type")
+    search_fields = ("company__name", "name", "account_number")
     readonly_fields = ("balance",)
 
     def balance(self, obj):
@@ -66,6 +82,7 @@ class JournalEntryInline(admin.TabularInline):
 class JournalAdmin(ImportExportModelAdmin):
     resource_class = JournalResource
     list_display = (
+        "company",
         "description",
         "date",
         "total_debits",

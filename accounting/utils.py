@@ -31,6 +31,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import ValidationError
 from datetime import date, timedelta
+from decimal import Decimal
 import json
 
 User = get_user_model()
@@ -50,7 +51,9 @@ def get_next_transaction_number(fiscal_year, prefix="TXN"):
     return TransactionNumber.get_next_number(fiscal_year, prefix)
 
 
-def get_or_create_fiscal_year(year=None, name=None, start_date=None, end_date=None):
+def get_or_create_fiscal_year(
+    year=None, name=None, start_date=None, end_date=None, company=None
+):
     """
     Get or create a fiscal year for the specified year.
 
@@ -66,7 +69,11 @@ def get_or_create_fiscal_year(year=None, name=None, start_date=None, end_date=No
     if year is None:
         year = timezone.now().year
 
+    if company is None:
+        raise ValueError("company is required for fiscal year accounting scope")
+
     fiscal_year, created = FiscalYear.objects.get_or_create(
+        company=company,
         year=year,
         defaults={
             "name": name or f"FY {year}",
@@ -80,7 +87,7 @@ def get_or_create_fiscal_year(year=None, name=None, start_date=None, end_date=No
 
 
 def get_or_create_period(
-    fiscal_year, period_number=None, name=None, start_date=None, end_date=None
+    fiscal_year, period_number=None, name=None, start_date=None, end_date=None, company=None
 ):
     """
     Get or create an accounting period within a fiscal year.
@@ -108,7 +115,10 @@ def get_or_create_period(
             else:
                 end_date = date(year, period_number + 1, 1) - timedelta(days=1)
 
+    company = company or fiscal_year.company
+
     period, created = AccountingPeriod.objects.get_or_create(
+        company=company,
         fiscal_year=fiscal_year,
         period_number=period_number,
         defaults={
@@ -147,6 +157,28 @@ def validate_journal_entries(entries):
         raise ValidationError(
             f"Debits ({debits}) and credits ({credits}) must be equal for a journal."
         )
+
+
+def validate_entries_company(entries, company):
+    for entry in entries:
+        account = entry.get("account")
+        if getattr(account, "company_id", None) != company.id:
+            raise ValueError("All journal entry accounts must belong to the journal company")
+
+
+def _serialize_journal_entries_for_audit(entries):
+    serialized_entries = []
+    for entry in entries:
+        account = entry.get("account")
+        serialized_entry = {
+            "account_id": getattr(account, "pk", None),
+            "account_name": getattr(account, "name", str(account)),
+            "entry_type": entry.get("entry_type"),
+            "amount": str(entry.get("amount", "")),
+            "memo": entry.get("memo", ""),
+        }
+        serialized_entries.append(serialized_entry)
+    return serialized_entries
 
 
 def validate_period_status(period, status_required=None):
@@ -258,6 +290,7 @@ def create_journal_with_entries(
     date,
     description,
     entries,
+    company=None,
     user=None,
     fiscal_year=None,
     period=None,
@@ -275,6 +308,7 @@ def create_journal_with_entries(
         description: Journal description
         entries: List of dictionaries with 'account', 'entry_type', 'amount', 'memo'
         user: User creating the journal
+        company: Company instance that owns the accounting transaction
         fiscal_year: FiscalYear instance (will be determined if not provided)
         period: AccountingPeriod instance (will be determined if not provided)
         auto_post: Whether to automatically post the journal
@@ -286,17 +320,36 @@ def create_journal_with_entries(
     Returns:
         Created Journal instance
     """
+    if company is None and period is not None:
+        company = period.company
+    if company is None and fiscal_year is not None:
+        company = fiscal_year.company
+    if company is None:
+        entry_company_ids = {
+            getattr(entry.get("account"), "company_id", None) for entry in entries
+        }
+        entry_company_ids.discard(None)
+        if len(entry_company_ids) == 1:
+            company = entries[0]["account"].company
+    if company is None:
+        raise ValueError("company is required to create an accounting journal")
+
     with transaction.atomic():
         # Validate entries
         validate_journal_entries(entries)
+        validate_entries_company(entries, company)
 
         # Determine fiscal year if not provided
         if not fiscal_year:
-            fiscal_year = get_or_create_fiscal_year(date.year)
+            fiscal_year = get_or_create_fiscal_year(date.year, company=company)
+        elif fiscal_year.company_id != company.id:
+            raise ValueError("Fiscal year must belong to the journal company")
 
         # Determine period if not provided
         if not period:
-            period = get_or_create_period(fiscal_year, date.month)
+            period = get_or_create_period(fiscal_year, date.month, company=company)
+        elif period.company_id != company.id:
+            raise ValueError("Accounting period must belong to the journal company")
 
         # Validate period status
         validate_period_status(period)
@@ -306,6 +359,7 @@ def create_journal_with_entries(
 
         # Create journal
         journal = Journal.objects.create(
+            company=company,
             transaction_number=transaction_number,
             description=description,
             date=date,
@@ -345,7 +399,7 @@ def create_journal_with_entries(
             user=user,
             action=AccountingAuditTrail.ActionType.CREATE,
             instance=journal,
-            changes={"entries": entries},
+            changes={"entries": _serialize_journal_entries_for_audit(entries)},
             ip_address=ip_address,
             user_agent=user_agent,
         )
@@ -469,6 +523,7 @@ def reverse_journal_partial(
 
         # Create partial reversal journal
         reversal_journal = Journal.objects.create(
+            company=journal.company,
             description=f"PARTIAL REVERSAL: {journal.description}",
             date=timezone.now().date(),
             period=journal.period,
@@ -674,6 +729,7 @@ def create_journal_entry(
     date,
     description,
     entries,
+    company=None,
     user=None,
     fiscal_year=None,
     period=None,
@@ -702,6 +758,7 @@ def create_journal_entry(
         Created Journal instance
     """
     return create_journal_with_entries(
+        company=company,
         date=date,
         description=description,
         entries=entries,
@@ -803,13 +860,14 @@ def get_account_balance_as_of(account, as_of_date):
         return credits - debits
 
 
-def get_trial_balance(period=None, as_of_date=None):
+def get_trial_balance(period=None, as_of_date=None, company=None):
     """
     Generate a trial balance for a period or as of a specific date.
 
     Args:
         period: AccountingPeriod instance (optional)
         as_of_date: Date to generate trial balance as of (optional)
+        company: Company instance to scope accounts and balances
 
     Returns:
         Dictionary with account balances
@@ -821,7 +879,12 @@ def get_trial_balance(period=None, as_of_date=None):
 
     trial_balance = {}
 
-    for account in Account.objects.all():
+    if period is not None:
+        company = company or period.company
+    if company is None:
+        raise ValueError("company is required for trial balance")
+
+    for account in Account.objects.filter(company=company):
         balance = get_account_balance_as_of(account, as_of_date)
         if balance != 0:
             trial_balance[account.id] = {
@@ -842,3 +905,28 @@ def get_trial_balance(period=None, as_of_date=None):
             }
 
     return trial_balance
+
+
+def get_trial_balance_totals(trial_balance):
+    """
+    Calculate display totals for a trial balance dictionary.
+
+    Django templates do not provide a built-in aggregate filter, so views should
+    compute report totals before rendering HTML or PDF templates.
+    """
+    balances = (
+        list(trial_balance.values()) if hasattr(trial_balance, "values") else trial_balance
+    )
+    total_debits = sum(
+        (item.get("debit_balance", 0) for item in balances), Decimal("0.00")
+    )
+
+    total_credits = sum(
+        (item.get("credit_balance", 0) for item in balances), Decimal("0.00")
+    )
+
+    return {
+        "total_debits": total_debits,
+        "total_credits": total_credits,
+        "is_balanced": total_debits == total_credits,
+    }
