@@ -2,7 +2,7 @@ from datetime import date
 from decimal import Decimal
 from io import StringIO
 
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Permission
 from django.core.exceptions import ValidationError
@@ -48,6 +48,16 @@ from payroll.models import (
     CourseEnrollment,
     BenefitPlan,
     BenefitEnrollment,
+    HiringCandidate,
+    HiringStage,
+    HiringStageScorecard,
+    JobOffer,
+    JobRequisition,
+    create_standard_hiring_stages,
+    advance_candidate,
+    record_candidate_scorecard,
+    create_job_offer,
+    accept_job_offer,
 )
 from payroll.views.payroll_view import (
     _queue_payslip_emails_for_payroll_run,
@@ -463,6 +473,7 @@ class AppraisalWorkflowStandardsTests(TestCase):
 
 
 class AppraisalAssignmentEmailTests(TestCase):
+    @override_settings(NOTIFICATION_SIGNALS_ENABLED=True)
     @patch("payroll.notification_signals.NotificationService.send_notification")
     @patch("payroll.notification_signals.custom_send_mail")
     def test_assignment_sends_email_to_appraisee_and_appraiser(
@@ -1361,3 +1372,145 @@ class WorkforceExpansionFoundationTests(TestCase):
         self.assertEqual(response.numeric_response, 4)
         self.assertEqual(enrollment.course, course)
         self.assertEqual(benefit_enrollment.plan, benefit)
+
+
+class HiringWorkflowFoundationTests(TestCase):
+    def setUp(self):
+        self.company = Company.objects.create(name="Hiring Workflow Co")
+        self.hr_user = User.objects.create_user(
+            email="hiring-hr@example.com",
+            password="password123",
+            first_name="Hiring",
+            last_name="HR",
+            company=self.company,
+            active_company=self.company,
+        )
+        self.position = Position.objects.create(
+            company=self.company,
+            title="Senior Payroll Specialist",
+            employment_type=Position.EmploymentType.FULL_TIME,
+            status=Position.Status.OPEN,
+        )
+
+    def test_standard_hiring_stages_are_created_in_objective_order(self):
+        stages = create_standard_hiring_stages(self.company)
+
+        self.assertEqual(
+            [stage.stage_type for stage in stages],
+            [
+                HiringStage.StageType.SOURCED,
+                HiringStage.StageType.SCREENING,
+                HiringStage.StageType.STRUCTURED_INTERVIEW,
+                HiringStage.StageType.SCORECARD_REVIEW,
+                HiringStage.StageType.REFERENCE_CHECK,
+                HiringStage.StageType.OFFER,
+                HiringStage.StageType.HIRED,
+            ],
+        )
+        self.assertTrue(all(stage.requires_scorecard for stage in stages[2:4]))
+        self.assertTrue(all(stage.is_active for stage in stages))
+
+    def test_candidate_cannot_advance_past_scorecard_stage_without_scorecard(self):
+        stages = create_standard_hiring_stages(self.company)
+        requisition = JobRequisition.objects.create(
+            company=self.company,
+            position=self.position,
+            title="Senior Payroll Specialist",
+            hiring_manager=self.hr_user,
+            opened_by=self.hr_user,
+        )
+        candidate = HiringCandidate.objects.create(
+            company=self.company,
+            requisition=requisition,
+            first_name="Ada",
+            last_name="Candidate",
+            email="ada@example.com",
+            current_stage=stages[1],
+        )
+
+        with self.assertRaisesMessage(ValueError, "scorecard"):
+            advance_candidate(candidate, stages[2], advanced_by=self.hr_user)
+
+    def test_scorecard_allows_structured_candidate_progression(self):
+        stages = create_standard_hiring_stages(self.company)
+        requisition = JobRequisition.objects.create(
+            company=self.company,
+            position=self.position,
+            title="Senior Payroll Specialist",
+            hiring_manager=self.hr_user,
+            opened_by=self.hr_user,
+        )
+        candidate = HiringCandidate.objects.create(
+            company=self.company,
+            requisition=requisition,
+            first_name="Tomi",
+            last_name="Candidate",
+            email="tomi@example.com",
+            current_stage=stages[1],
+        )
+
+        scorecard = record_candidate_scorecard(
+            candidate=candidate,
+            stage=stages[2],
+            interviewer=self.hr_user,
+            competency_scores={
+                "role_fit": 4,
+                "technical_depth": 5,
+                "values_alignment": 4,
+            },
+            recommendation=HiringStageScorecard.Recommendation.STRONG_YES,
+            notes="Evidence-based structured interview.",
+        )
+        advance_candidate(candidate, stages[2], advanced_by=self.hr_user)
+
+        candidate.refresh_from_db()
+        self.assertEqual(scorecard.average_score, Decimal("4.33"))
+        self.assertEqual(candidate.current_stage, stages[2])
+        self.assertEqual(candidate.status, HiringCandidate.Status.IN_PROCESS)
+
+    def test_accepting_offer_marks_candidate_hired_and_starts_onboarding(self):
+        stages = create_standard_hiring_stages(self.company)
+        onboarding_template = WorkflowTemplate.objects.create(
+            company=self.company,
+            name="New Hire Onboarding",
+            workflow_type=WorkflowTemplate.WorkflowType.ONBOARDING,
+            trigger_event="candidate.hired",
+        )
+        requisition = JobRequisition.objects.create(
+            company=self.company,
+            position=self.position,
+            title="Senior Payroll Specialist",
+            hiring_manager=self.hr_user,
+            opened_by=self.hr_user,
+            headcount=1,
+        )
+        candidate = HiringCandidate.objects.create(
+            company=self.company,
+            requisition=requisition,
+            first_name="Mira",
+            last_name="Hire",
+            email="mira@example.com",
+            current_stage=stages[5],
+            status=HiringCandidate.Status.OFFER,
+        )
+        offer = create_job_offer(
+            candidate=candidate,
+            title="Senior Payroll Specialist",
+            employment_type=Position.EmploymentType.FULL_TIME,
+            salary_amount=Decimal("450000.00"),
+            currency="NGN",
+            start_date=date(2026, 7, 1),
+            created_by=self.hr_user,
+        )
+
+        execution = accept_job_offer(offer, accepted_by=self.hr_user)
+
+        candidate.refresh_from_db()
+        requisition.refresh_from_db()
+        offer.refresh_from_db()
+        self.assertEqual(candidate.status, HiringCandidate.Status.HIRED)
+        self.assertEqual(candidate.current_stage.stage_type, HiringStage.StageType.HIRED)
+        self.assertEqual(offer.status, JobOffer.Status.ACCEPTED)
+        self.assertEqual(requisition.status, JobRequisition.Status.FILLED)
+        self.assertEqual(execution.template, onboarding_template)
+        self.assertEqual(execution.context["candidate_email"], "mira@example.com")

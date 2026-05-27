@@ -1,13 +1,14 @@
 from datetime import date
 
 from django.contrib.auth import get_user_model
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 
 from company.models import Company
 from payroll.models import EmployeeProfile, Payroll, PayrollEntry, PayrollRun, PayrollRunEntry
 
 
+@override_settings(SECURE_SSL_REDIRECT=False)
 class PayrollSecurityHardeningTests(TestCase):
     def setUp(self):
         self.User = get_user_model()

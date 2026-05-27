@@ -44,6 +44,16 @@ from .chat import (
 )
 from .workforce import (
     Position,
+    HiringCandidate,
+    HiringStage,
+    HiringStageScorecard,
+    JobOffer,
+    JobRequisition,
+    create_standard_hiring_stages,
+    advance_candidate,
+    record_candidate_scorecard,
+    create_job_offer,
+    accept_job_offer,
     Skill,
     EmployeeSkill,
     AttendanceRecord,

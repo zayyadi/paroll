@@ -805,6 +805,14 @@ class DisciplinaryCase(BaseModel):
         EXECUTIVE = "EXECUTIVE", "Executive Oversight"
 
     case_number = models.CharField(max_length=30, unique=True, editable=False)
+    company = models.ForeignKey(
+        "company.Company",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="disciplinary_cases",
+        db_index=True,
+    )
     allegation_summary = models.CharField(max_length=255)
     allegation_details = models.TextField()
     incident_date = models.DateField(null=True, blank=True)
@@ -882,6 +890,15 @@ class DisciplinaryCase(BaseModel):
         return f"{self.case_number} - {self.allegation_summary}"
 
     def save(self, *args, **kwargs):
+        if self.company_id is None:
+            respondent_company = getattr(self.respondent, "active_company", None) or getattr(
+                self.respondent, "company", None
+            )
+            reporter_company = getattr(self.reporter, "active_company", None) or getattr(
+                self.reporter, "company", None
+            )
+            self.company = respondent_company or reporter_company
+
         if not self.case_number:
             year = timezone.now().year
             prefix = f"DISC-{year}-"

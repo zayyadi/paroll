@@ -17,6 +17,7 @@ from api.v1.viewsets import (
     JournalViewSet,
     LeavePolicyViewSet,
     LeaveRequestViewSet,
+    MobileConfigView,
     InventoryCategoryViewSet,
     InventoryDocumentViewSet,
     InventoryItemViewSet,
@@ -79,6 +80,7 @@ router.register(r"inventory/documents", InventoryDocumentViewSet, basename="inve
 router.register(r"inventory/movements", StockMovementViewSet, basename="inventory-movement")
 
 urlpatterns = [
+    path("mobile/config/", MobileConfigView.as_view(), name="mobile-config"),
     path("auth/context/", AuthContextView.as_view(), name="auth-context"),
     path("auth/switch-company/", SwitchCompanyView.as_view(), name="switch-company"),
     path("auth/companies/", MyCompaniesView.as_view(), name="my-companies"),

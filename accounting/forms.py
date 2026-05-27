@@ -1,4 +1,5 @@
 from django import forms
+from django.db import models
 from django.forms import formset_factory
 from django.forms.models import inlineformset_factory
 from django.utils import timezone
@@ -671,7 +672,14 @@ class DisciplinaryCaseForm(forms.ModelForm):
         }
 
     def __init__(self, *args, **kwargs):
+        company = kwargs.pop("company", None)
         super().__init__(*args, **kwargs)
+        if company is not None:
+            self.fields["respondent"].queryset = self.fields[
+                "respondent"
+            ].queryset.filter(
+                models.Q(company=company) | models.Q(active_company=company)
+            )
         base_class = (
             "w-full px-3 py-2 border border-secondary-300 rounded-md "
             "focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500"

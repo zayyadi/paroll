@@ -1,41 +1,59 @@
+# Environment and local secrets
 .env
-venv
-*venv/
-/venv/
-venv/
-db.sqlite3
-mail_test.py
-.Dockerignore
+.env.*
+!.env-example
+!.env.example
 cryptokey.txt
-templ
-todo.md
-*templ
-.pyc
-*.pyc
-__pycache__/
-/__pycache__
-__pycache__
-staticfiles/
-static/admin/
-static/jazzmin/
-node_modules/
-templ
-testing.py
-tmp/
-theme/
-.vscode
-.pytest_cache
-.qodo
-templ
-templ
-*.jpg
 resume.json
 workflow.json
-junks
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Virtual environments
+venv/
+*venv/
+.venv/
+
+# Django/runtime output
+db.sqlite3
+test_db.sqlite3
+staticfiles/
+media/cache/
+tmp/
+
+# Frontend dependencies and generated assets
+node_modules/
+static/admin/
+static/jazzmin/
+
+# Local editor/tool state
+.vscode/
+.qodo/
 .agents/
 .agent/
 .omx/
 .codex
-test_db.sqlite3
-.env.example
-test_db.sqlite3
+.codex/
+
+# Scratch and one-off local files
+mail_test.py
+testing.py
+todo.md
+templ/
+utils/templ
+junks/
+theme/
+*.jpg
+
+# OS/editor noise
+.DS_Store
+Thumbs.db
+*~
+*.swp
+*.swo

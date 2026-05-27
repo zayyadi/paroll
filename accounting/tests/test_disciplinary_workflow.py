@@ -1,30 +1,51 @@
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 from datetime import date
 
 from accounting.models import DisciplinaryCase, DisciplinarySanction
+from company.models import Company
 from payroll.models import EmployeeProfile
 
 
 User = get_user_model()
 
 
+@override_settings(
+    ACCOUNTING_SUPERUSER_ONLY_UNTIL_TENANT_SCOPED=False,
+    SECURE_SSL_REDIRECT=False,
+)
 class DisciplinaryWorkflowTests(TestCase):
     def setUp(self):
+        self.company = Company.objects.create(name="Acme Ltd")
+        self.other_company = Company.objects.create(name="Beta Ltd")
         self.user = User.objects.create_user(
-            username="accounting_user",
             email="accounting@example.com",
             password="testpass123",
+            first_name="Accounting",
+            last_name="User",
+            company=self.company,
+            active_company=self.company,
         )
         group, _ = Group.objects.get_or_create(name="Accountant")
         self.user.groups.add(group)
 
         self.respondent = User.objects.create_user(
-            username="respondent_user",
             email="respondent@example.com",
             password="testpass123",
+            first_name="Respondent",
+            last_name="User",
+            company=self.company,
+            active_company=self.company,
+        )
+        self.other_respondent = User.objects.create_user(
+            email="other-respondent@example.com",
+            password="testpass123",
+            first_name="Other",
+            last_name="Respondent",
+            company=self.other_company,
+            active_company=self.other_company,
         )
         self.client.force_login(self.user)
 
@@ -38,6 +59,7 @@ class DisciplinaryWorkflowTests(TestCase):
         )
         self.assertTrue(case.case_number.startswith("DISC-"))
         self.assertEqual(case.required_review_level, DisciplinaryCase.ReviewLevel.HR_LEAD)
+        self.assertEqual(case.company, self.company)
 
     def test_create_case_view(self):
         response = self.client.post(
@@ -60,6 +82,47 @@ class DisciplinaryWorkflowTests(TestCase):
         self.assertEqual(response.status_code, 302)
         case = DisciplinaryCase.objects.get(allegation_summary="Policy breach")
         self.assertEqual(case.reporter, self.user)
+        self.assertEqual(case.company, self.company)
+
+    def test_create_case_view_rejects_cross_company_respondent(self):
+        response = self.client.post(
+            reverse("payroll:discipline_case_create"),
+            {
+                "allegation_summary": "Cross company policy breach",
+                "allegation_details": "Should not be accepted.",
+                "incident_date": "2026-02-01",
+                "respondent": self.other_respondent.pk,
+                "violation_level": DisciplinaryCase.ViolationLevel.LEVEL_3,
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(
+            DisciplinaryCase.objects.filter(
+                allegation_summary="Cross company policy breach"
+            ).exists()
+        )
+
+    def test_case_list_excludes_other_company_cases(self):
+        own_case = DisciplinaryCase.objects.create(
+            allegation_summary="Own company issue",
+            allegation_details="Details",
+            respondent=self.respondent,
+            reporter=self.user,
+        )
+        DisciplinaryCase.objects.create(
+            company=self.other_company,
+            allegation_summary="Other company issue",
+            allegation_details="Details",
+            respondent=self.other_respondent,
+            reporter=self.other_respondent,
+        )
+
+        response = self.client.get(reverse("payroll:discipline_case_list"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, own_case.case_number)
+        self.assertNotContains(response, "Other company issue")
 
     def test_start_investigation_endpoint(self):
         case = DisciplinaryCase.objects.create(

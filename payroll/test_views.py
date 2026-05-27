@@ -29,6 +29,13 @@ from payroll.models import (
     PayrollEntry,
     PayrollRun,
     PayrollRunEntry,
+    Position,
+    HiringCandidate,
+    HiringStage,
+    JobOffer,
+    JobRequisition,
+    HiringStageScorecard,
+    create_standard_hiring_stages,
 )
 from company.models import Company
 from datetime import date
@@ -496,6 +503,211 @@ class WorkflowExecutionViewTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Workflow Operations")
         self.assertContains(response, "Standard Onboarding")
+
+    def test_workflow_overview_shows_hiring_pipeline_health(self):
+        position = Position.objects.create(
+            company=self.company,
+            department=self.department,
+            title="People Operations Lead",
+            status=Position.Status.OPEN,
+        )
+        stage = HiringStage.objects.create(
+            company=self.company,
+            name="Structured Interview",
+            stage_type=HiringStage.StageType.STRUCTURED_INTERVIEW,
+            sequence=3,
+            requires_scorecard=True,
+        )
+        requisition = JobRequisition.objects.create(
+            company=self.company,
+            position=position,
+            title="People Operations Lead",
+            hiring_manager=self.admin_user,
+            opened_by=self.admin_user,
+        )
+        candidate = HiringCandidate.objects.create(
+            company=self.company,
+            requisition=requisition,
+            first_name="Pipeline",
+            last_name="Candidate",
+            email="pipeline@example.com",
+            current_stage=stage,
+            status=HiringCandidate.Status.IN_PROCESS,
+        )
+        JobOffer.objects.create(
+            company=self.company,
+            candidate=candidate,
+            title="People Operations Lead",
+            employment_type=Position.EmploymentType.FULL_TIME,
+            salary_amount=Decimal("500000.00"),
+            currency="NGN",
+            start_date=date(2026, 7, 1),
+            status=JobOffer.Status.SENT,
+            created_by=self.admin_user,
+        )
+
+        response = self.client.get(reverse("payroll:workflow_overview"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Hiring Pipeline")
+        self.assertContains(response, "People Operations Lead")
+        self.assertContains(response, "Pipeline Candidate")
+        self.assertContains(response, "Structured Interview")
+        self.assertContains(response, "Open offers")
+
+    def test_hiring_workspace_renders_operational_forms(self):
+        response = self.client.get(reverse("payroll:hiring_workspace"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Hiring Workspace")
+        self.assertContains(response, "Open a Requisition")
+        self.assertContains(response, "Add Candidate")
+        self.assertContains(response, "Offer Decisions")
+
+    def test_hiring_workspace_supports_requisition_and_candidate_intake(self):
+        position = Position.objects.create(
+            company=self.company,
+            department=self.department,
+            title="HR Business Partner",
+            status=Position.Status.OPEN,
+        )
+
+        response = self.client.post(
+            reverse("payroll:hiring_requisition_create"),
+            {
+                "position": position.id,
+                "title": "HR Business Partner",
+                "hiring_manager": self.admin_user.id,
+                "headcount": 1,
+                "status": JobRequisition.Status.OPEN,
+                "compensation_min": "450000.00",
+                "compensation_max": "650000.00",
+                "currency": "NGN",
+                "outcomes_90_days": "Stabilize HR operations and improve hiring cadence.",
+                "must_have_criteria": "HR operations\nStructured interviewing",
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        requisition = JobRequisition.objects.get(title="HR Business Partner")
+        self.assertEqual(requisition.company, self.company)
+        self.assertEqual(requisition.opened_by, self.admin_user)
+        self.assertEqual(requisition.must_have_criteria, ["HR operations", "Structured interviewing"])
+
+        response = self.client.post(
+            reverse("payroll:hiring_candidate_create"),
+            {
+                "requisition": requisition.id,
+                "first_name": "Ada",
+                "last_name": "People",
+                "email": "ada.people@example.com",
+                "phone": "+2348000000000",
+                "source": "Referral",
+                "consent_to_process": "on",
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        candidate = HiringCandidate.objects.get(email="ada.people@example.com")
+        self.assertEqual(candidate.company, self.company)
+        self.assertEqual(candidate.current_stage.stage_type, HiringStage.StageType.SOURCED)
+        self.assertTrue(candidate.consent_to_process)
+
+    def test_hiring_workspace_runs_scorecard_offer_and_onboarding_flow(self):
+        stages = create_standard_hiring_stages(self.company)
+        interview_stage = next(
+            stage for stage in stages if stage.stage_type == HiringStage.StageType.STRUCTURED_INTERVIEW
+        )
+        review_stage = next(
+            stage for stage in stages if stage.stage_type == HiringStage.StageType.SCORECARD_REVIEW
+        )
+        position = Position.objects.create(
+            company=self.company,
+            department=self.department,
+            title="Talent Lead",
+            status=Position.Status.OPEN,
+        )
+        requisition = JobRequisition.objects.create(
+            company=self.company,
+            position=position,
+            title="Talent Lead",
+            hiring_manager=self.admin_user,
+            opened_by=self.admin_user,
+        )
+        candidate = HiringCandidate.objects.create(
+            company=self.company,
+            requisition=requisition,
+            first_name="Structured",
+            last_name="Candidate",
+            email="structured@example.com",
+            current_stage=interview_stage,
+            status=HiringCandidate.Status.IN_PROCESS,
+            consent_to_process=True,
+        )
+        WorkflowTemplate.objects.create(
+            company=self.company,
+            name="Candidate Onboarding",
+            workflow_type=WorkflowTemplate.WorkflowType.ONBOARDING,
+            trigger_event="candidate.hired",
+        )
+
+        response = self.client.post(
+            reverse("payroll:hiring_scorecard_create", args=[candidate.id]),
+            {
+                "stage": review_stage.id,
+                "recommendation": HiringStageScorecard.Recommendation.STRONG_YES,
+                "competency_scores": '{"role_fit": 5, "values": 4}',
+                "notes": "Evidence is job-related and consistently strong.",
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        scorecard = HiringStageScorecard.objects.get(candidate=candidate, stage=review_stage)
+        self.assertEqual(scorecard.average_score, Decimal("4.50"))
+
+        response = self.client.post(
+            reverse("payroll:hiring_candidate_advance", args=[candidate.id]),
+            {"next_stage": review_stage.id},
+        )
+
+        self.assertEqual(response.status_code, 302)
+        candidate.refresh_from_db()
+        self.assertEqual(candidate.current_stage, review_stage)
+
+        response = self.client.post(
+            reverse("payroll:hiring_offer_create", args=[candidate.id]),
+            {
+                "title": "Talent Lead",
+                "employment_type": Position.EmploymentType.FULL_TIME,
+                "salary_amount": "850000.00",
+                "currency": "NGN",
+                "start_date": "2026-08-01",
+                "expires_at": "2026-07-15",
+                "terms": '{"probation_months": 6}',
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        offer = JobOffer.objects.get(candidate=candidate)
+        self.assertEqual(offer.created_by, self.admin_user)
+        candidate.refresh_from_db()
+        self.assertEqual(candidate.status, HiringCandidate.Status.OFFER)
+
+        response = self.client.post(reverse("payroll:hiring_offer_accept", args=[offer.id]))
+
+        self.assertEqual(response.status_code, 302)
+        candidate.refresh_from_db()
+        requisition.refresh_from_db()
+        offer.refresh_from_db()
+        self.assertEqual(candidate.status, HiringCandidate.Status.HIRED)
+        self.assertEqual(requisition.status, JobRequisition.Status.FILLED)
+        self.assertEqual(offer.status, JobOffer.Status.ACCEPTED)
+        self.assertTrue(
+            WorkflowExecution.objects.filter(
+                company=self.company,
+                context__candidate_email="structured@example.com",
+            ).exists()
+        )
 
 
 class EmployeeDocumentViewTests(TestCase):

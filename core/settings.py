@@ -642,6 +642,24 @@ SIMPLE_JWT = {
     "UPDATE_LAST_LOGIN": True,
 }
 
+MOBILE_API = {
+    "API_VERSION": os.getenv("MOBILE_API_VERSION", "v1"),
+    "MIN_SUPPORTED_APP_VERSION": os.getenv("MOBILE_MIN_SUPPORTED_APP_VERSION", "1.0.0"),
+    "CURRENT_APP_VERSION": os.getenv("MOBILE_CURRENT_APP_VERSION", "1.0.0"),
+    "SUPPORT_EMAIL": os.getenv(
+        "MOBILE_SUPPORT_EMAIL", os.getenv("DEFAULT_FROM_EMAIL", "")
+    ),
+    "SUPPORT_URL": os.getenv("MOBILE_SUPPORT_URL", "/support/"),
+    "PRIVACY_URL": os.getenv("MOBILE_PRIVACY_URL", "/legal/privacy/"),
+    "TERMS_URL": os.getenv("MOBILE_TERMS_URL", "/legal/terms/"),
+    "ENABLE_PAYROLL": env_bool("MOBILE_ENABLE_PAYROLL", True),
+    "ENABLE_ACCOUNTING": env_bool("MOBILE_ENABLE_ACCOUNTING", True),
+    "ENABLE_INVENTORY": env_bool("MOBILE_ENABLE_INVENTORY", True),
+    "ENABLE_STANDUPS": env_bool("MOBILE_ENABLE_STANDUPS", True),
+    "ENABLE_CHAT": env_bool("MOBILE_ENABLE_CHAT", True),
+    "ENABLE_NOTIFICATIONS": env_bool("MOBILE_ENABLE_NOTIFICATIONS", True),
+}
+
 try:
     import rest_framework_simplejwt  # noqa: F401
 
