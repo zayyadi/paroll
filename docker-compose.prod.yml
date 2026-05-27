@@ -1,0 +1,100 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-payroll_db}
+      POSTGRES_USER: ${DB_USER:-payroll_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-payroll_password}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-payroll_user} -d ${DB_NAME:-payroll_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  web:
+    image: ${IMAGE_REF:?Set IMAGE_REF to the image tag to deploy}
+    restart: unless-stopped
+    command: gunicorn core.wsgi:application --bind 0.0.0.0:8000
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./.env
+    environment:
+      - DJANGO_SETTINGS_MODULE=${DJANGO_SETTINGS_MODULE:-core.settings_saas}
+    volumes:
+      - staticfiles:/app/staticfiles
+      - media:/app/media
+    depends_on:
+      - db
+      - redis
+
+  celery-worker:
+    image: ${IMAGE_REF:?Set IMAGE_REF to the image tag to deploy}
+    restart: unless-stopped
+    command: celery -A core worker -l INFO -Q notifications_critical,notifications_high,notifications_normal,notifications_low --concurrency=4
+    env_file:
+      - ./.env
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/2
+      - CELERY_RESULT_BACKEND=redis://redis:6379/2
+      - DJANGO_SETTINGS_MODULE=${DJANGO_SETTINGS_MODULE:-core.settings_saas}
+    depends_on:
+      - db
+      - redis
+
+  celery-beat:
+    image: ${IMAGE_REF:?Set IMAGE_REF to the image tag to deploy}
+    restart: unless-stopped
+    command: celery -A core beat -l INFO --scheduler django_celery_beat.schedulers:DatabaseScheduler
+    env_file:
+      - ./.env
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/2
+      - CELERY_RESULT_BACKEND=redis://redis:6379/2
+      - DJANGO_SETTINGS_MODULE=${DJANGO_SETTINGS_MODULE:-core.settings_saas}
+    depends_on:
+      - db
+      - redis
+
+  daphne:
+    image: ${IMAGE_REF:?Set IMAGE_REF to the image tag to deploy}
+    restart: unless-stopped
+    command: daphne -b 0.0.0.0 -p 8001 core.asgi:application
+    ports:
+      - "8001:8001"
+    env_file:
+      - ./.env
+    environment:
+      - DJANGO_SETTINGS_MODULE=${DJANGO_SETTINGS_MODULE:-core.settings_saas}
+    volumes:
+      - staticfiles:/app/staticfiles
+      - media:/app/media
+    depends_on:
+      - redis
+
+volumes:
+  postgres_data:
+  redis_data:
+  staticfiles:
+  media:
+
+networks:
+  default:
+    name: payroll_network

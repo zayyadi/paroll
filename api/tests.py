@@ -2,6 +2,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Permission
 from django.contrib.contenttypes.models import ContentType
 from django.conf import settings
+from django.test import override_settings
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
@@ -13,6 +14,7 @@ from payroll.models import Department, EmployeeProfile, IOU, LeaveRequest
 User = get_user_model()
 
 
+@override_settings(SECURE_SSL_REDIRECT=False)
 class APIV1TenantTests(APITestCase):
     @staticmethod
     def grant_model_perms(user, model, codenames):
@@ -146,6 +148,59 @@ class APIV1TenantTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIn("access", response.data)
         self.assertIn("refresh", response.data)
+
+    def test_mobile_config_is_public_and_describes_api_contract(self):
+        url = reverse("api:v1:mobile-config")
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["api"]["version"], "v1")
+        if getattr(settings, "SIMPLE_JWT_ENABLED", False):
+            self.assertIn("token", response.data["auth"]["grant_types"])
+            self.assertIn("refresh", response.data["auth"]["grant_types"])
+            self.assertIsNotNone(response.data["auth"]["token_url"])
+            self.assertIsNotNone(response.data["auth"]["refresh_url"])
+        else:
+            self.assertEqual(response.data["auth"]["grant_types"], [])
+        self.assertIn("employees", response.data["features"])
+        self.assertIn("payroll", response.data["features"])
+        self.assertIn("inventory", response.data["features"])
+
+    def test_auth_context_includes_mobile_navigation_metadata(self):
+        self.client.force_authenticate(self.user_a)
+        url = reverse("api:v1:auth-context")
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["user"]["email"], self.user_a.email)
+        self.assertIn("employee_profile", response.data)
+        self.assertEqual(response.data["employee_profile"]["id"], self.employee_a.id)
+        self.assertIn("permissions", response.data)
+        self.assertIn("features", response.data)
+        self.assertIn("navigation", response.data)
+        self.assertIn("payroll", response.data["features"])
+
+    @override_settings(
+        MOBILE_API={
+            **settings.MOBILE_API,
+            "ENABLE_PAYROLL": False,
+            "ENABLE_NOTIFICATIONS": False,
+        }
+    )
+    def test_mobile_feature_flags_shape_config_and_navigation(self):
+        config_response = self.client.get(reverse("api:v1:mobile-config"))
+
+        self.assertEqual(config_response.status_code, status.HTTP_200_OK)
+        self.assertNotIn("payroll", config_response.data["features"])
+        self.assertNotIn("notifications", config_response.data["features"])
+
+        self.client.force_authenticate(self.user_a)
+        context_response = self.client.get(reverse("api:v1:auth-context"))
+
+        self.assertEqual(context_response.status_code, status.HTTP_200_OK)
+        self.assertNotIn("leave", context_response.data["navigation"])
+        self.assertNotIn("ious", context_response.data["navigation"])
+        self.assertNotIn("notifications", context_response.data["navigation"])
 
     def test_employee_list_is_tenant_scoped(self):
         self.client.force_authenticate(self.user_a)

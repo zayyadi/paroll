@@ -4,14 +4,16 @@ from datetime import date
 from zoneinfo import ZoneInfo
 
 from django.db import models, transaction
+from django.conf import settings
 from django.shortcuts import get_object_or_404
+from django.urls import NoReverseMatch, reverse
 from django.utils.dateparse import parse_date
 from django.utils import timezone
 from django.utils.text import slugify
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied, ValidationError as DRFValidationError
-from rest_framework.permissions import DjangoModelPermissions, IsAuthenticated
+from rest_framework.permissions import AllowAny, DjangoModelPermissions, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from drf_spectacular.utils import extend_schema, inline_serializer
@@ -128,6 +130,69 @@ from payroll.services.chat_service import (
     is_room_member,
     mark_company_chat_read,
 )
+
+
+MOBILE_FEATURES = {
+    "employees": "Employee directory, profile, and self-service context.",
+    "payroll": "Payroll records, payroll runs, payslips, leave, and IOUs.",
+    "accounting": "Accounts, fiscal years, periods, journals, and reports.",
+    "inventory": "Items, warehouses, suppliers, customers, purchase orders, and stock movements.",
+    "standups": "Team standups, questions, check-ins, blockers, and follows.",
+    "chat": "Company chat rooms, direct rooms, messages, and read state.",
+    "notifications": "Notification inbox, preferences, and delivery state.",
+}
+
+
+def _enabled_mobile_features():
+    mobile_settings = getattr(settings, "MOBILE_API", {})
+    flags = {
+        "payroll": mobile_settings.get("ENABLE_PAYROLL", True),
+        "accounting": mobile_settings.get("ENABLE_ACCOUNTING", True),
+        "inventory": mobile_settings.get("ENABLE_INVENTORY", True),
+        "standups": mobile_settings.get("ENABLE_STANDUPS", True),
+        "chat": mobile_settings.get("ENABLE_CHAT", True),
+        "notifications": mobile_settings.get("ENABLE_NOTIFICATIONS", True),
+    }
+    return {
+        key: description
+        for key, description in MOBILE_FEATURES.items()
+        if key == "employees" or flags.get(key, True)
+    }
+
+
+def _mobile_navigation_for_user(user):
+    enabled_features = _enabled_mobile_features()
+    navigation = ["home", "profile"]
+    if "notifications" in enabled_features:
+        navigation.append("notifications")
+    if "payroll" in enabled_features and (
+        user.has_perm("payroll.view_payrollrun")
+        or user.has_perm("payroll.view_payrollentry")
+    ):
+        navigation.append("payroll")
+    if "payroll" in enabled_features and user.has_perm("payroll.view_leaverequest"):
+        navigation.append("leave")
+    if "payroll" in enabled_features and user.has_perm("payroll.view_iou"):
+        navigation.append("ious")
+    if "accounting" in enabled_features and (
+        user.has_perm("accounting.view_journal")
+        or user.groups.filter(
+            name__in=["Accountant", "Auditor", "Payroll Processor"]
+        ).exists()
+    ):
+        navigation.append("accounting")
+    if "inventory" in enabled_features and user.has_perm(
+        "inventory.view_inventoryitem"
+    ):
+        navigation.append("inventory")
+    return navigation
+
+
+def _absolute_api_url(request, url_name):
+    try:
+        return request.build_absolute_uri(reverse(url_name))
+    except NoReverseMatch:
+        return None
 
 
 class TenantScopedModelViewSet(viewsets.ModelViewSet):
@@ -1336,6 +1401,24 @@ class AuthContextView(APIView):
                     allow_null=True,
                 ),
                 "memberships": CompanyMembershipSerializer(many=True),
+                "employee_profile": inline_serializer(
+                    name="AuthContextEmployeeProfile",
+                    fields={
+                        "id": drf_serializers.IntegerField(),
+                        "emp_id": drf_serializers.CharField(),
+                        "full_name": drf_serializers.CharField(),
+                    },
+                    allow_null=True,
+                ),
+                "permissions": drf_serializers.ListField(
+                    child=drf_serializers.CharField()
+                ),
+                "features": drf_serializers.DictField(
+                    child=drf_serializers.CharField()
+                ),
+                "navigation": drf_serializers.ListField(
+                    child=drf_serializers.CharField()
+                ),
             },
         )
     )
@@ -1343,6 +1426,8 @@ class AuthContextView(APIView):
         company = get_user_company(request.user)
         memberships = request.user.company_memberships.select_related("company").all()
         serializer = CompanyMembershipSerializer(memberships, many=True)
+        employee = getattr(request.user, "employee_user", None)
+        permissions = sorted(request.user.get_all_permissions())
         return Response(
             {
                 "user": {
@@ -1357,6 +1442,90 @@ class AuthContextView(APIView):
                     else None
                 ),
                 "memberships": serializer.data,
+                "employee_profile": (
+                    {
+                        "id": employee.id,
+                        "emp_id": employee.emp_id,
+                        "full_name": " ".join(
+                            part
+                            for part in [employee.first_name, employee.last_name]
+                            if part
+                        ).strip()
+                        or request.user.email,
+                    }
+                    if employee
+                    else None
+                ),
+                "permissions": permissions,
+                "features": _enabled_mobile_features(),
+                "navigation": _mobile_navigation_for_user(request.user),
+            }
+        )
+
+
+class MobileConfigView(APIView):
+    permission_classes = [AllowAny]
+
+    @extend_schema(
+        responses=inline_serializer(
+            name="MobileConfigResponse",
+            fields={
+                "api": drf_serializers.DictField(),
+                "auth": drf_serializers.DictField(),
+                "app": drf_serializers.DictField(),
+                "features": drf_serializers.DictField(
+                    child=drf_serializers.CharField()
+                ),
+                "links": drf_serializers.DictField(),
+                "pagination": drf_serializers.DictField(),
+            },
+        )
+    )
+    def get(self, request):
+        mobile_settings = getattr(settings, "MOBILE_API", {})
+        token_url = _absolute_api_url(request, "api:v1:token-obtain-pair")
+        refresh_url = _absolute_api_url(request, "api:v1:token-refresh")
+        grant_types = []
+        if token_url:
+            grant_types.append("token")
+        if refresh_url:
+            grant_types.append("refresh")
+        return Response(
+            {
+                "api": {
+                    "version": mobile_settings.get("API_VERSION", "v1"),
+                    "schema_url": _absolute_api_url(request, "api:v1:schema"),
+                    "swagger_url": _absolute_api_url(request, "api:v1:swagger-ui"),
+                    "redoc_url": _absolute_api_url(request, "api:v1:redoc"),
+                },
+                "auth": {
+                    "grant_types": grant_types,
+                    "token_url": token_url,
+                    "refresh_url": refresh_url,
+                    "context_url": _absolute_api_url(request, "api:v1:auth-context"),
+                },
+                "app": {
+                    "min_supported_version": mobile_settings.get(
+                        "MIN_SUPPORTED_APP_VERSION", "1.0.0"
+                    ),
+                    "current_version": mobile_settings.get(
+                        "CURRENT_APP_VERSION", "1.0.0"
+                    ),
+                },
+                "features": _enabled_mobile_features(),
+                "links": {
+                    "support": mobile_settings.get("SUPPORT_URL", "/support/"),
+                    "privacy": mobile_settings.get("PRIVACY_URL", "/legal/privacy/"),
+                    "terms": mobile_settings.get("TERMS_URL", "/legal/terms/"),
+                    "support_email": mobile_settings.get("SUPPORT_EMAIL", ""),
+                },
+                "pagination": {
+                    "style": "page-number",
+                    "default_page_size": settings.REST_FRAMEWORK.get(
+                        "PAGE_SIZE", 25
+                    ),
+                    "page_query_param": "page",
+                },
             }
         )
 

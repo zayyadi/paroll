@@ -1107,6 +1107,15 @@ def disciplinary_system_view(request):
     return render(request, "accounting/disciplinary_system.html", context)
 
 
+def _disciplinary_case_queryset_for_user(user):
+    company = get_user_company(user)
+    return DisciplinaryCase.objects.filter(company=company)
+
+
+def _get_disciplinary_case_for_user(user, pk):
+    return get_object_or_404(_disciplinary_case_queryset_for_user(user), pk=pk)
+
+
 class DisciplinaryCaseListView(
     LoginRequiredMixin, DisciplineAccessRequiredMixin, ListView
 ):
@@ -1117,7 +1126,8 @@ class DisciplinaryCaseListView(
 
     def get_queryset(self):
         queryset = (
-            DisciplinaryCase.objects.select_related(
+            _disciplinary_case_queryset_for_user(self.request.user)
+            .select_related(
                 "respondent", "reporter", "investigator", "decided_by"
             )
             .prefetch_related("sanctions", "appeals")
@@ -1161,7 +1171,7 @@ class DisciplinaryCaseDetailView(
     context_object_name = "disciplinary_case"
 
     def get_queryset(self):
-        return DisciplinaryCase.objects.select_related(
+        return _disciplinary_case_queryset_for_user(self.request.user).select_related(
             "respondent", "reporter", "investigator", "decided_by"
         ).prefetch_related(
             "evidence_items", "sanctions", "appeals", "appeals__reviewed_by"
@@ -1193,6 +1203,11 @@ class DisciplinaryCaseCreateView(
     form_class = DisciplinaryCaseForm
     template_name = "accounting/discipline/case_form.html"
 
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["company"] = get_user_company(self.request.user)
+        return kwargs
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["page_title"] = "Report Disciplinary Case"
@@ -1210,6 +1225,7 @@ class DisciplinaryCaseCreateView(
         return context
 
     def form_valid(self, form):
+        form.instance.company = get_user_company(self.request.user)
         form.instance.reporter = self.request.user
         response = super().form_valid(form)
         self.object.mark_due_process_notice()
@@ -1228,6 +1244,14 @@ class DisciplinaryCaseUpdateView(
     model = DisciplinaryCase
     form_class = DisciplinaryCaseForm
     template_name = "accounting/discipline/case_form.html"
+
+    def get_queryset(self):
+        return _disciplinary_case_queryset_for_user(self.request.user)
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["company"] = get_user_company(self.request.user)
+        return kwargs
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -1264,7 +1288,7 @@ class DisciplinaryCaseUpdateView(
 @login_required
 @discipline_access_required
 def disciplinary_case_start_investigation(request, pk):
-    disciplinary_case = get_object_or_404(DisciplinaryCase, pk=pk)
+    disciplinary_case = _get_disciplinary_case_for_user(request.user, pk)
     if request.method != "POST":
         return HttpResponseForbidden("Invalid request method.")
 
@@ -1283,7 +1307,9 @@ class DisciplinaryEvidenceCreateView(
     template_name = "accounting/discipline/evidence_form.html"
 
     def dispatch(self, request, *args, **kwargs):
-        self.disciplinary_case = get_object_or_404(DisciplinaryCase, pk=kwargs["pk"])
+        self.disciplinary_case = _get_disciplinary_case_for_user(
+            request.user, kwargs["pk"]
+        )
         return super().dispatch(request, *args, **kwargs)
 
     def form_valid(self, form):
@@ -1330,6 +1356,9 @@ class DisciplinaryDecisionUpdateView(
     form_class = DisciplinaryDecisionForm
     template_name = "accounting/discipline/decision_form.html"
 
+    def get_queryset(self):
+        return _disciplinary_case_queryset_for_user(self.request.user)
+
     def form_valid(self, form):
         disciplinary_case = form.save(commit=False)
         disciplinary_case.decide(
@@ -1373,7 +1402,9 @@ class DisciplinarySanctionCreateView(
     template_name = "accounting/discipline/sanction_form.html"
 
     def dispatch(self, request, *args, **kwargs):
-        self.disciplinary_case = get_object_or_404(DisciplinaryCase, pk=kwargs["pk"])
+        self.disciplinary_case = _get_disciplinary_case_for_user(
+            request.user, kwargs["pk"]
+        )
         return super().dispatch(request, *args, **kwargs)
 
     def form_valid(self, form):
@@ -1421,7 +1452,9 @@ class DisciplinaryAppealCreateView(
     template_name = "accounting/discipline/appeal_form.html"
 
     def dispatch(self, request, *args, **kwargs):
-        self.disciplinary_case = get_object_or_404(DisciplinaryCase, pk=kwargs["pk"])
+        self.disciplinary_case = _get_disciplinary_case_for_user(
+            request.user, kwargs["pk"]
+        )
         return super().dispatch(request, *args, **kwargs)
 
     def form_valid(self, form):
@@ -1470,6 +1503,11 @@ class DisciplinaryAppealReviewView(
     form_class = DisciplinaryAppealReviewForm
     template_name = "accounting/discipline/appeal_review_form.html"
     context_object_name = "appeal"
+
+    def get_queryset(self):
+        return DisciplinaryAppeal.objects.select_related("case").filter(
+            case__company=get_user_company(self.request.user)
+        )
 
     def form_valid(self, form):
         appeal = form.save(commit=False)

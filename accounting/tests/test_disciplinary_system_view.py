@@ -1,13 +1,17 @@
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from django.contrib.auth.models import Permission
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 
 
 User = get_user_model()
 
 
+@override_settings(
+    ACCOUNTING_SUPERUSER_ONLY_UNTIL_TENANT_SCOPED=False,
+    SECURE_SSL_REDIRECT=False,
+)
 class DisciplinarySystemViewTests(TestCase):
     def setUp(self):
         self.url = reverse("payroll:disciplinary_system")

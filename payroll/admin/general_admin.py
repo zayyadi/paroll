@@ -41,6 +41,11 @@ from payroll.models import (
     CompanyPayrollSetting,
     CompanyHealthInsuranceTier,
     Position,
+    HiringCandidate,
+    HiringStage,
+    HiringStageScorecard,
+    JobOffer,
+    JobRequisition,
     Skill,
     EmployeeSkill,
     AttendanceRecord,
@@ -631,6 +636,41 @@ class PositionAdmin(ImportExportModelAdmin):
     list_display = ("title", "company", "department", "employment_type", "status")
     list_filter = ("company", "employment_type", "status")
     search_fields = ("title", "code")
+
+
+@admin.register(HiringStage)
+class HiringStageAdmin(admin.ModelAdmin):
+    list_display = ("name", "company", "stage_type", "sequence", "requires_scorecard", "requires_approval", "is_active")
+    list_filter = ("company", "stage_type", "requires_scorecard", "requires_approval", "is_active")
+    search_fields = ("name",)
+
+
+@admin.register(JobRequisition)
+class JobRequisitionAdmin(admin.ModelAdmin):
+    list_display = ("title", "company", "position", "status", "headcount", "hiring_manager", "opened_at")
+    list_filter = ("company", "status", "opened_at")
+    search_fields = ("title", "position__title", "hiring_manager__email")
+
+
+@admin.register(HiringCandidate)
+class HiringCandidateAdmin(admin.ModelAdmin):
+    list_display = ("first_name", "last_name", "email", "requisition", "current_stage", "status", "applied_at")
+    list_filter = ("company", "status", "current_stage")
+    search_fields = ("first_name", "last_name", "email", "requisition__title")
+
+
+@admin.register(HiringStageScorecard)
+class HiringStageScorecardAdmin(admin.ModelAdmin):
+    list_display = ("candidate", "stage", "interviewer", "average_score", "recommendation", "submitted_at")
+    list_filter = ("company", "stage", "recommendation", "submitted_at")
+    search_fields = ("candidate__first_name", "candidate__last_name", "candidate__email", "interviewer__email")
+
+
+@admin.register(JobOffer)
+class JobOfferAdmin(admin.ModelAdmin):
+    list_display = ("candidate", "title", "salary_amount", "currency", "status", "start_date")
+    list_filter = ("company", "status", "start_date")
+    search_fields = ("candidate__first_name", "candidate__last_name", "candidate__email", "title")
 
 
 @admin.register(Skill)

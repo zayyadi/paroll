@@ -20,6 +20,63 @@
     </section>
 
     <section class="rounded-[1.5rem] bg-white p-6 ghost-border">
+        <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+                <p class="text-[10px] font-bold uppercase tracking-[0.24em] text-secondary-500">Recruiting</p>
+                <h2 class="mt-2 font-headline text-2xl font-extrabold text-primary-800">Hiring Pipeline</h2>
+            </div>
+            <a href="{% url 'payroll:hiring_workspace' %}" class="inline-flex items-center justify-center rounded-xl bg-primary-700 px-4 py-2 text-sm font-bold text-white">Open Hiring Workspace</a>
+        </div>
+        <div class="mt-6 grid gap-4 md:grid-cols-3">
+            <div class="rounded-2xl bg-surface-container-low p-5">
+                <p class="text-xs font-bold uppercase tracking-[0.2em] text-secondary-500">Open requisitions</p>
+                <p class="mt-2 font-headline text-3xl font-extrabold text-secondary-900">{{ open_requisition_count }}</p>
+            </div>
+            <div class="rounded-2xl bg-surface-container-low p-5">
+                <p class="text-xs font-bold uppercase tracking-[0.2em] text-secondary-500">Active candidates</p>
+                <p class="mt-2 font-headline text-3xl font-extrabold text-secondary-900">{{ active_candidate_count }}</p>
+            </div>
+            <div class="rounded-2xl bg-surface-container-low p-5">
+                <p class="text-xs font-bold uppercase tracking-[0.2em] text-secondary-500">Open offers</p>
+                <p class="mt-2 font-headline text-3xl font-extrabold text-secondary-900">{{ open_offer_count }}</p>
+            </div>
+        </div>
+
+        <div class="mt-6 grid gap-6 xl:grid-cols-2">
+            <div class="rounded-2xl bg-surface-container-low p-5">
+                <h3 class="font-headline text-xl font-extrabold text-secondary-900">Open Requisitions</h3>
+                <div class="mt-4 space-y-3">
+                    {% for requisition in open_requisitions %}
+                    <div class="rounded-xl bg-white p-4">
+                        <p class="font-semibold text-secondary-900">{{ requisition.title }}</p>
+                        <p class="mt-1 text-sm text-secondary-600">
+                            {{ requisition.position.get_employment_type_display }} · {{ requisition.candidates.count }} candidate{{ requisition.candidates.count|pluralize }}
+                        </p>
+                    </div>
+                    {% empty %}
+                    <p class="text-sm text-secondary-600">No open requisitions.</p>
+                    {% endfor %}
+                </div>
+            </div>
+            <div class="rounded-2xl bg-surface-container-low p-5">
+                <h3 class="font-headline text-xl font-extrabold text-secondary-900">Active Candidates</h3>
+                <div class="mt-4 space-y-3">
+                    {% for candidate in active_candidates %}
+                    <div class="rounded-xl bg-white p-4">
+                        <p class="font-semibold text-secondary-900">{{ candidate.first_name }} {{ candidate.last_name }}</p>
+                        <p class="mt-1 text-sm text-secondary-600">
+                            {{ candidate.requisition.title }} · {% if candidate.current_stage %}{{ candidate.current_stage.name }}{% else %}No stage{% endif %}
+                        </p>
+                    </div>
+                    {% empty %}
+                    <p class="text-sm text-secondary-600">No active candidates.</p>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="rounded-[1.5rem] bg-white p-6 ghost-border">
         <p class="text-[10px] font-bold uppercase tracking-[0.24em] text-secondary-500">Templates</p>
         <h2 class="mt-2 font-headline text-2xl font-extrabold text-primary-800">Active Workflow Templates</h2>
         <div class="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">

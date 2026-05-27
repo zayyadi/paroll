@@ -11,11 +11,16 @@ Multi-tenant payroll and employee management SaaS built with Django, Celery, Cha
 
 ## Core Modules
 
-- `payroll/`: employee lifecycle, payroll runs, leave, IOU, payslips, reports.
-- `accounting/`: journals, periods, fiscal year workflows, audit.
+- `payroll/`: employee lifecycle, HR workflows, hiring, payroll runs, leave, IOU, payslips, reports.
+- `accounting/`: journals, periods, fiscal year workflows, audit, disciplinary workflows, reporting.
+- `inventory/`: items, warehouses, suppliers, purchase orders, stock movements, and approval workflows.
 - `company/`: tenant/company model, membership, tenant utilities and SaaS management command.
 - `users/`: auth, registration, OTP, company switch flow.
 - `api/`: DRF endpoints scoped to active tenant.
+- `integrations/`: external integration configuration and sync services.
+- `marketing/`: public marketing pages.
+
+See [docs/repo_organization.md](docs/repo_organization.md) for a fuller project map and cleanup rules.
 
 ## Quick Start (Local)
 
@@ -26,7 +31,7 @@ Multi-tenant payroll and employee management SaaS built with Django, Celery, Cha
    ```
 3. Configure env:
    ```bash
-   cp .env-example .env
+   cp .env.example .env
    ```
 4. Run migrations:
    ```bash
@@ -108,7 +113,7 @@ Important env vars:
 - `SESSION_COOKIE_SECURE`
 - `CSRF_COOKIE_SECURE`
 
-See `.env-example` for defaults.
+See `.env.example` for defaults.
 
 ## Docker Compose
 
@@ -126,6 +131,16 @@ Run:
 ```bash
 docker compose up --build
 ```
+
+## CI/CD and Deployment
+
+Professional CI/CD is documented in:
+
+- [docs/ci_cd_pipeline.md](docs/ci_cd_pipeline.md)
+- [docs/deployment_runbook.md](docs/deployment_runbook.md)
+
+The pipeline uses GitHub Actions for pull request checks, Docker image builds,
+GitHub Container Registry publishing, and protected VPS deployments.
 
 ## Tenant Isolation Notes
 

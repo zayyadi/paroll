@@ -1,0 +1,95 @@
+name: Build And Deploy
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: "Image tag to deploy. Defaults to this workflow commit SHA."
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  build:
+    name: Build and publish image
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    outputs:
+      image-ref: ${{ steps.image.outputs.image-ref }}
+      image-tag: ${{ steps.image.outputs.image-tag }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set image metadata
+        id: image
+        run: |
+          IMAGE_TAG="${{ github.event.inputs.image_tag || github.sha }}"
+          IMAGE_REF="${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}"
+          echo "image-tag=${IMAGE_TAG}" >> "$GITHUB_OUTPUT"
+          echo "image-ref=${IMAGE_REF}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ steps.image.outputs.image-ref }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    name: Deploy to production VPS
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: build
+    environment: production
+
+    steps:
+      - name: Deploy over SSH
+        uses: appleboy/ssh-action@v1.2.0
+        env:
+          DEPLOY_REF: ${{ github.sha }}
+          IMAGE_REF: ${{ needs.build.outputs.image-ref }}
+          IMAGE_TAG: ${{ needs.build.outputs.image-tag }}
+          PRODUCTION_ENV: ${{ secrets.PRODUCTION_ENV }}
+          GHCR_USERNAME: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          envs: DEPLOY_REF,IMAGE_REF,IMAGE_TAG,PRODUCTION_ENV,GHCR_USERNAME,GHCR_TOKEN
+          script: |
+            set -euo pipefail
+            cd "${APP_DIR:-/opt/payroll/paroll}"
+            git fetch --prune origin
+            git checkout main
+            git pull --ff-only origin main
+            git checkout "$DEPLOY_REF"
+            echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USERNAME" --password-stdin
+            IMAGE_REF="$IMAGE_REF" IMAGE_TAG="$IMAGE_TAG" PRODUCTION_ENV="$PRODUCTION_ENV" ./scripts/deploy.sh

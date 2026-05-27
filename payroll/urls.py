@@ -46,6 +46,37 @@ urlpatterns = [
     path("benefits/<int:plan_id>/enroll/", views.enroll_benefit, name="enroll_benefit"),
     path("benefits/overview/", views.benefit_overview, name="benefit_overview"),
     path("workflows/", views.workflow_overview, name="workflow_overview"),
+    path("hiring/", views.hiring_workspace, name="hiring_workspace"),
+    path(
+        "hiring/requisitions/create/",
+        views.hiring_requisition_create,
+        name="hiring_requisition_create",
+    ),
+    path(
+        "hiring/candidates/create/",
+        views.hiring_candidate_create,
+        name="hiring_candidate_create",
+    ),
+    path(
+        "hiring/candidates/<int:candidate_id>/scorecards/create/",
+        views.hiring_scorecard_create,
+        name="hiring_scorecard_create",
+    ),
+    path(
+        "hiring/candidates/<int:candidate_id>/advance/",
+        views.hiring_candidate_advance,
+        name="hiring_candidate_advance",
+    ),
+    path(
+        "hiring/candidates/<int:candidate_id>/offers/create/",
+        views.hiring_offer_create,
+        name="hiring_offer_create",
+    ),
+    path(
+        "hiring/offers/<int:offer_id>/accept/",
+        views.hiring_offer_accept,
+        name="hiring_offer_accept",
+    ),
     path("attendance/my-day/", views.attendance_my_day, name="attendance_my_day"),
     path("attendance/clock/", views.attendance_clock, name="attendance_clock"),
     path("attendance/", views.attendance_overview, name="attendance_overview"),
@@ -91,8 +122,8 @@ urlpatterns = [
     ),
     path("pay-period/", views.pay_period_list, name="pay_period_list"),
     path(
-        "pay-period/create/", views.AddPay.as_view(), name="payday"
-    ),  # Existing create view, renamed for clarity if desired or keep as 'payday'
+        "pay-period/create/", payroll_view.payday_create_new, name="payday"
+    ),  # Legacy route kept, delegated to the enhanced create flow.
     path(
         "pay-period/create-new/",
         payroll_view.payday_create_new,

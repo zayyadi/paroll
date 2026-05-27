@@ -25,11 +25,13 @@ class TenancyHelpersTestCase(TestCase):
             company=self.company_a,
             active_company=self.company_a,
         )
-        CompanyMembership.objects.create(
+        CompanyMembership.objects.update_or_create(
             user=self.user,
             company=self.company_a,
-            role=CompanyMembership.ROLE_OWNER,
-            is_default=True,
+            defaults={
+                "role": CompanyMembership.ROLE_OWNER,
+                "is_default": True,
+            },
         )
 
     def test_scoped_queryset_filters_to_current_company(self):
@@ -55,6 +57,9 @@ class ActiveCompanyMiddlewareTestCase(TestCase):
             first_name="No",
             last_name="Company",
         )
+        CompanyMembership.objects.filter(user=user).delete()
+        User.objects.filter(pk=user.pk).update(company=None, active_company=None)
+        user.refresh_from_db()
         request = self.factory.get("/payroll/dashboard")
         request.user = user
         response = self.middleware(request)
@@ -74,11 +79,13 @@ class ActiveCompanyMiddlewareTestCase(TestCase):
             company=company,
             active_company=company,
         )
-        CompanyMembership.objects.create(
+        CompanyMembership.objects.update_or_create(
             user=user,
             company=company,
-            role=CompanyMembership.ROLE_MEMBER,
-            is_default=True,
+            defaults={
+                "role": CompanyMembership.ROLE_MEMBER,
+                "is_default": True,
+            },
         )
         request = self.factory.get("/payroll/dashboard")
         request.user = user
