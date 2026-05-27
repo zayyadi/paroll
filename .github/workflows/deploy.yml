@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - master
   workflow_dispatch:
     inputs:
       image_tag:
@@ -73,6 +74,7 @@ jobs:
       - name: Deploy over SSH
         uses: appleboy/ssh-action@v1.2.0
         env:
+          DEPLOY_BRANCH: ${{ github.ref_name }}
           DEPLOY_REF: ${{ github.sha }}
           IMAGE_REF: ${{ needs.build.outputs.image-ref }}
           IMAGE_TAG: ${{ needs.build.outputs.image-tag }}
@@ -83,13 +85,13 @@ jobs:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
-          envs: DEPLOY_REF,IMAGE_REF,IMAGE_TAG,PRODUCTION_ENV,GHCR_USERNAME,GHCR_TOKEN
+          envs: DEPLOY_BRANCH,DEPLOY_REF,IMAGE_REF,IMAGE_TAG,PRODUCTION_ENV,GHCR_USERNAME,GHCR_TOKEN
           script: |
             set -euo pipefail
             cd "${APP_DIR:-/opt/payroll/paroll}"
             git fetch --prune origin
-            git checkout main
-            git pull --ff-only origin main
+            git checkout "$DEPLOY_BRANCH"
+            git pull --ff-only origin "$DEPLOY_BRANCH"
             git checkout "$DEPLOY_REF"
             echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USERNAME" --password-stdin
             IMAGE_REF="$IMAGE_REF" IMAGE_TAG="$IMAGE_TAG" PRODUCTION_ENV="$PRODUCTION_ENV" ./scripts/deploy.sh
