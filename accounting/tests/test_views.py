@@ -7,6 +7,7 @@ from decimal import Decimal
 from datetime import date
 from django.test import TestCase, Client
 from django.contrib.auth import get_user_model
+from django.contrib.contenttypes.models import ContentType
 from django.urls import reverse
 from django.utils import timezone
 from accounting.models import (
@@ -17,6 +18,7 @@ from accounting.models import (
     JournalEntry,
     AccountingAuditTrail,
 )
+from company.models import Company
 from accounting.tests.fixtures import (
     UserFactory,
     AccountFactory,
@@ -293,6 +295,65 @@ class JournalViewTest(TestCase):
         self.assertEqual(approved_journal.posted_by, self.accountant)
 
 
+class JournalPaginationViewTest(TestCase):
+    """Pagination edge case tests for journal views"""
+
+    def setUp(self):
+        self.client = Client()
+        self.company = Company.objects.create(name="Journal Pagination Co")
+        self.user = User.objects.create_superuser(
+            email="journal-pagination@example.com",
+            password="testpass123",
+            company=self.company,
+            active_company=self.company,
+        )
+        self.period = AccountingPeriod.objects.create(
+            company=self.company,
+            fiscal_year=FiscalYear.objects.create(
+                company=self.company,
+                year=2026,
+                name="FY 2026",
+                start_date=date(2026, 1, 1),
+                end_date=date(2026, 12, 31),
+                is_active=True,
+            ),
+            period_number=1,
+            name="January",
+            start_date=date(2026, 1, 1),
+            end_date=date(2026, 1, 31),
+            is_active=True,
+        )
+        for index in range(21):
+            Journal.objects.create(
+                company=self.company,
+                period=self.period,
+                description=f"Pagination Journal {index + 1}",
+                date=date(2026, 1, 15),
+            )
+
+    def test_journal_list_clamps_page_numbers_below_one(self):
+        self.client.force_login(self.user)
+
+        response = self.client.get(
+            reverse("accounting:journal_list"), {"page": "0"}, follow=True
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["page_obj"].number, 1)
+        self.assertContains(response, "Pagination Journal")
+
+    def test_journal_list_renders_last_page_without_next_link_error(self):
+        self.client.force_login(self.user)
+
+        response = self.client.get(
+            reverse("accounting:journal_list"), {"page": "2"}, follow=True
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["page_obj"].number, 2)
+        self.assertContains(response, "Pagination Journal")
+
+
 class FiscalYearViewTest(TestCase):
     """Test cases for fiscal year views"""
 
@@ -407,9 +468,7 @@ class AuditTrailViewTest(TestCase):
         audit_entry = AccountingAuditTrail.objects.create(
             user=self.auditor,
             action=AccountingAuditTrail.ActionType.CREATE,
-            content_type=self.account._meta.get_field(
-                "content_type"
-            ).remote_field.model.objects.get_for_model(self.account),
+            content_type=ContentType.objects.get_for_model(self.account),
             object_id=self.account.pk,
             reason="Test audit entry",
         )

@@ -1,10 +1,18 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.urls import NoReverseMatch, reverse
 from django.shortcuts import redirect, render
 
 from company.utils import get_user_company
 from payroll import models
 from payroll.services.chat_service import get_company_chat_room
+
+
+def _optional_url(name):
+    try:
+        return reverse(name)
+    except NoReverseMatch:
+        return ""
 
 
 @login_required
@@ -25,5 +33,10 @@ def company_chat(request):
         "chat_employee_id": employee.id,
         "chat_member_count": models.EmployeeProfile.objects.filter(company=company, status="active").count(),
         "chat_default_room_id": room.id,
+        "chat_messages_url": _optional_url("api:v1:company-chat-message-list"),
+        "chat_mark_read_url": _optional_url("api:v1:company-chat-message-mark-read"),
+        "chat_rooms_url": _optional_url("api:v1:company-chat-room-list"),
+        "chat_direct_room_url": _optional_url("api:v1:company-chat-room-direct"),
+        "chat_candidates_url": _optional_url("api:v1:company-chat-room-candidates"),
     }
     return render(request, "employee/company_chat.html", context)

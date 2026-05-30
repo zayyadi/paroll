@@ -6,81 +6,158 @@ Provides factory methods for creating test data.
 from decimal import Decimal
 from datetime import date, timedelta
 from django.contrib.auth import get_user_model
+from django.contrib.auth.models import Group, Permission
+from django.contrib.contenttypes.models import ContentType
 from django.utils import timezone
 from accounting.models import (
     Account,
+    AccountingAuditTrail,
     FiscalYear,
     AccountingPeriod,
     Journal,
     JournalEntry,
     TransactionNumber,
 )
+from company.models import Company
 
 User = get_user_model()
+
+
+def get_test_company():
+    company, _ = Company.objects.get_or_create(name="Default Company")
+    return company
 
 
 class UserFactory:
     """Factory for creating test users with different roles"""
 
     @staticmethod
+    def _grant_role(user, group_name, permissions):
+        group, _ = Group.objects.get_or_create(name=group_name)
+        resolved_permissions = []
+        for model, codenames in permissions:
+            content_type = ContentType.objects.get_for_model(model)
+            for codename in codenames:
+                permission, _ = Permission.objects.get_or_create(
+                    content_type=content_type,
+                    codename=codename,
+                    defaults={"name": codename.replace("_", " ").title()},
+                )
+                resolved_permissions.append(permission)
+        group.permissions.set(resolved_permissions)
+        user.groups.add(group)
+        for cache_name in ("_perm_cache", "_user_perm_cache", "_group_perm_cache"):
+            if hasattr(user, cache_name):
+                delattr(user, cache_name)
+        return user
+
+    @staticmethod
+    def _create_user(email, password="testpass123", **extra_fields):
+        company = extra_fields.setdefault("company", get_test_company())
+        extra_fields.setdefault("active_company", company)
+        user, created = User.objects.get_or_create(email=email, defaults=extra_fields)
+        if created:
+            user.set_password(password)
+            user.save()
+        elif not user.active_company_id:
+            user.company = company
+            user.active_company = company
+            user.save(update_fields=["company", "active_company"])
+        return user
+
+    @staticmethod
     def create_auditor(username="test_auditor", email="auditor@test.com"):
         """Create a user with auditor role"""
-        user = User.objects.create_user(
-            username=username,
+        user = UserFactory._create_user(
             email=email,
             password="testpass123",
             first_name="Test",
             last_name="Auditor",
         )
-        # Add auditor role (implementation depends on your user role system)
-        if hasattr(user, "groups"):
-            from django.contrib.auth.models import Group
-
-            auditor_group, _ = Group.objects.get_or_create(name="Auditors")
-            user.groups.add(auditor_group)
-        return user
+        return UserFactory._grant_role(
+            user,
+            "Auditor",
+            [
+                (
+                    Account,
+                    [
+                        "view_account",
+                        "view_trial_balance",
+                        "view_general_ledger",
+                        "view_account_activity",
+                    ],
+                ),
+                (Journal, ["view_journal"]),
+                (JournalEntry, ["view_journalentry"]),
+                (FiscalYear, ["view_fiscalyear"]),
+                (AccountingPeriod, ["view_accountingperiod"]),
+                (
+                    AccountingAuditTrail,
+                    [
+                        "view_accountingaudittrail",
+                        "add_accountingaudittrail",
+                        "change_accountingaudittrail",
+                    ],
+                ),
+            ],
+        )
 
     @staticmethod
     def create_accountant(username="test_accountant", email="accountant@test.com"):
         """Create a user with accountant role"""
-        user = User.objects.create_user(
-            username=username,
+        user = UserFactory._create_user(
             email=email,
             password="testpass123",
             first_name="Test",
             last_name="Accountant",
         )
-        # Add accountant role
-        if hasattr(user, "groups"):
-            from django.contrib.auth.models import Group
-
-            accountant_group, _ = Group.objects.get_or_create(name="Accountants")
-            user.groups.add(accountant_group)
-        return user
+        return UserFactory._grant_role(
+            user,
+            "Accountant",
+            [
+                (
+                    Account,
+                    [
+                        "view_account",
+                        "add_account",
+                        "change_account",
+                        "view_trial_balance",
+                        "view_general_ledger",
+                        "view_account_activity",
+                    ],
+                ),
+                (Journal, ["view_journal", "add_journal", "change_journal", "post_journal"]),
+                (JournalEntry, ["view_journalentry", "add_journalentry", "change_journalentry"]),
+                (FiscalYear, ["view_fiscalyear"]),
+                (AccountingPeriod, ["view_accountingperiod", "change_accountingperiod"]),
+            ],
+        )
 
     @staticmethod
     def create_payroll_processor(username="test_payroll", email="payroll@test.com"):
         """Create a user with payroll processor role"""
-        user = User.objects.create_user(
-            username=username,
+        user = UserFactory._create_user(
             email=email,
             password="testpass123",
             first_name="Test",
             last_name="Payroll",
         )
-        # Add payroll processor role
-        if hasattr(user, "groups"):
-            from django.contrib.auth.models import Group
-
-            payroll_group, _ = Group.objects.get_or_create(name="Payroll Processors")
-            user.groups.add(payroll_group)
-        return user
+        return UserFactory._grant_role(
+            user,
+            "Payroll Processor",
+            [
+                (Account, ["view_account"]),
+                (Journal, ["view_journal"]),
+                (JournalEntry, ["view_journalentry", "add_journalentry"]),
+                (FiscalYear, ["view_fiscalyear"]),
+                (AccountingPeriod, ["view_accountingperiod"]),
+            ],
+        )
 
     @staticmethod
     def create_admin(username="test_admin", email="admin@test.com"):
         """Create an admin user"""
-        user = User.objects.create_user(
-            username=username,
+        user = UserFactory._create_user(
             email=email,
             password="testpass123",
             first_name="Test",
@@ -97,11 +174,13 @@ class AccountFactory:
     @staticmethod
     def create_chart_of_accounts():
         """Create a complete chart of accounts for testing"""
+        company = get_test_company()
         accounts = []
 
         # Assets
         accounts.append(
             Account.objects.create(
+                company=company,
                 name="Cash",
                 account_number="1000",
                 type=Account.AccountType.ASSET,
@@ -110,6 +189,7 @@ class AccountFactory:
         )
         accounts.append(
             Account.objects.create(
+                company=company,
                 name="Accounts Receivable",
                 account_number="1100",
                 type=Account.AccountType.ASSET,
@@ -118,6 +198,7 @@ class AccountFactory:
         )
         accounts.append(
             Account.objects.create(
+                company=company,
                 name="Inventory",
                 account_number="1200",
                 type=Account.AccountType.ASSET,
@@ -126,6 +207,7 @@ class AccountFactory:
         )
         accounts.append(
             Account.objects.create(
+                company=company,
                 name="Equipment",
                 account_number="1300",
                 type=Account.AccountType.ASSET,
@@ -134,6 +216,7 @@ class AccountFactory:
         )
         accounts.append(
             Account.objects.create(
+                company=company,
                 name="Accumulated Depreciation",
                 account_number="1310",
                 type=Account.AccountType.ASSET,
@@ -144,6 +227,7 @@ class AccountFactory:
         # Liabilities
         accounts.append(
             Account.objects.create(
+                company=company,
                 name="Accounts Payable",
                 account_number="2000",
                 type=Account.AccountType.LIABILITY,
@@ -152,6 +236,7 @@ class AccountFactory:
         )
         accounts.append(
             Account.objects.create(
+                company=company,
                 name="Accrued Expenses",
                 account_number="2100",
                 type=Account.AccountType.LIABILITY,
@@ -160,6 +245,7 @@ class AccountFactory:
         )
         accounts.append(
             Account.objects.create(
+                company=company,
                 name="Taxes Payable",
                 account_number="2200",
                 type=Account.AccountType.LIABILITY,
@@ -170,6 +256,7 @@ class AccountFactory:
         # Equity
         accounts.append(
             Account.objects.create(
+                company=company,
                 name="Common Stock",
                 account_number="3000",
                 type=Account.AccountType.EQUITY,
@@ -178,6 +265,7 @@ class AccountFactory:
         )
         accounts.append(
             Account.objects.create(
+                company=company,
                 name="Retained Earnings",
                 account_number="3100",
                 type=Account.AccountType.EQUITY,
@@ -188,6 +276,7 @@ class AccountFactory:
         # Revenue
         accounts.append(
             Account.objects.create(
+                company=company,
                 name="Sales Revenue",
                 account_number="4000",
                 type=Account.AccountType.REVENUE,
@@ -196,6 +285,7 @@ class AccountFactory:
         )
         accounts.append(
             Account.objects.create(
+                company=company,
                 name="Service Revenue",
                 account_number="4100",
                 type=Account.AccountType.REVENUE,
@@ -206,6 +296,7 @@ class AccountFactory:
         # Expenses
         accounts.append(
             Account.objects.create(
+                company=company,
                 name="Salaries Expense",
                 account_number="5000",
                 type=Account.AccountType.EXPENSE,
@@ -214,6 +305,7 @@ class AccountFactory:
         )
         accounts.append(
             Account.objects.create(
+                company=company,
                 name="Rent Expense",
                 account_number="5100",
                 type=Account.AccountType.EXPENSE,
@@ -222,6 +314,7 @@ class AccountFactory:
         )
         accounts.append(
             Account.objects.create(
+                company=company,
                 name="Utilities Expense",
                 account_number="5200",
                 type=Account.AccountType.EXPENSE,
@@ -230,6 +323,7 @@ class AccountFactory:
         )
         accounts.append(
             Account.objects.create(
+                company=company,
                 name="Office Supplies",
                 account_number="5300",
                 type=Account.AccountType.EXPENSE,
@@ -238,6 +332,7 @@ class AccountFactory:
         )
         accounts.append(
             Account.objects.create(
+                company=company,
                 name="Depreciation Expense",
                 account_number="5400",
                 type=Account.AccountType.EXPENSE,
@@ -246,6 +341,7 @@ class AccountFactory:
         )
         accounts.append(
             Account.objects.create(
+                company=company,
                 name="Payroll Tax Expense",
                 account_number="5500",
                 type=Account.AccountType.EXPENSE,
@@ -256,31 +352,40 @@ class AccountFactory:
         return accounts
 
     @staticmethod
-    def create_account(name, account_number, account_type, description=""):
+    def create_account(name, account_number, account_type, description="", company=None):
         """Create a single account"""
-        return Account.objects.create(
-            name=name,
+        company = company or get_test_company()
+        account, _ = Account.objects.get_or_create(
+            company=company,
             account_number=account_number,
-            type=account_type,
-            description=description,
+            defaults={
+                "name": name,
+                "type": account_type,
+                "description": description,
+            },
         )
+        return account
 
 
 class FiscalYearFactory:
     """Factory for creating fiscal years and periods"""
 
     @staticmethod
-    def create_fiscal_year(year=None, is_active=True):
+    def create_fiscal_year(year=None, is_active=True, company=None):
         """Create a fiscal year with monthly periods"""
         if year is None:
             year = timezone.now().year
+        company = company or get_test_company()
 
-        fiscal_year = FiscalYear.objects.create(
+        fiscal_year, _ = FiscalYear.objects.get_or_create(
+            company=company,
             year=year,
-            name=f"FY {year}",
-            start_date=date(year, 1, 1),
-            end_date=date(year, 12, 31),
-            is_active=is_active,
+            defaults={
+                "name": f"FY {year}",
+                "start_date": date(year, 1, 1),
+                "end_date": date(year, 12, 31),
+                "is_active": is_active,
+            },
         )
 
         # Create monthly periods
@@ -291,13 +396,16 @@ class FiscalYearFactory:
             else:
                 end_date = date(year, month + 1, 1) - timedelta(days=1)
 
-            AccountingPeriod.objects.create(
+            AccountingPeriod.objects.get_or_create(
+                company=company,
                 fiscal_year=fiscal_year,
                 period_number=month,
-                name=f"Month {month}",
-                start_date=start_date,
-                end_date=end_date,
-                is_active=(month == timezone.now().month),
+                defaults={
+                    "name": f"Month {month}",
+                    "start_date": start_date,
+                    "end_date": end_date,
+                    "is_active": (month == timezone.now().month),
+                },
             )
 
         return fiscal_year
@@ -325,7 +433,7 @@ class JournalFactory:
             date = timezone.now().date()
 
         if user is None:
-            user = UserFactory.create_accountant()
+            user = UserFactory.create_accountant(email="journal_creator@test.com")
 
         # Get current period
         current_year = timezone.now().year
@@ -356,10 +464,17 @@ class JournalFactory:
     ):
         """Create a journal with balanced debit and credit entries"""
         journal = JournalFactory.create_journal(description, date, user)
+        company = journal.company
+        AccountFactory.create_account("Cash", "1000", Account.AccountType.ASSET, company=company)
+        AccountFactory.create_account(
+            "Sales Revenue", "4000", Account.AccountType.REVENUE, company=company
+        )
 
         # Get accounts
-        cash = Account.objects.get(account_number="1000")  # Cash
-        sales_revenue = Account.objects.get(account_number="4000")  # Sales Revenue
+        cash = Account.objects.get(company=company, account_number="1000")  # Cash
+        sales_revenue = Account.objects.get(
+            company=company, account_number="4000"
+        )  # Sales Revenue
 
         # Create balanced entries
         JournalEntry.objects.create(
@@ -442,6 +557,7 @@ class JournalFactory:
         journal = JournalFactory.create_journal_with_entries(
             description, amount, user=accountant
         )
+        journal.submit_for_approval()
         journal.approve(accountant)
         return journal
 
@@ -541,6 +657,7 @@ class LargeDatasetFactory:
         for i in range(num_accounts):
             account_type = account_types[i % len(account_types)]
             account = Account.objects.create(
+                company=get_test_company(),
                 name=f"Test Account {i+1}",
                 account_number=f"{9000 + i}",
                 type=account_type,

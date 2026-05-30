@@ -1,0 +1,60 @@
+{% extends "accounting/base.html" %}
+
+{% block page_title %}Month-End Close Checklist{% endblock %}
+
+{% block accounting_content %}
+<div class="space-y-6">
+  <div>
+    <h2 class="font-headline text-2xl font-extrabold text-primary-800">Month-End Close Checklist</h2>
+    <p class="text-sm text-secondary-500 mt-1">Verify readiness before closing your accounting period</p>
+  </div>
+
+  <form method="get" class="max-w-sm">
+    <select name="period" class="form-input block w-full rounded-md border-secondary-300 text-sm" onchange="this.form.submit()">
+      <option value="">Select a period...</option>
+      {% for p in periods %}
+      <option value="{{ p.pk }}" {% if selected_period and selected_period.pk == p.pk %}selected{% endif %}>{{ p.name }}</option>
+      {% endfor %}
+    </select>
+  </form>
+
+  {% if checklist %}
+  <div class="bg-white ghost-border rounded-[1rem] overflow-hidden">
+    <div class="px-6 py-4 border-b border-secondary-100">
+      <h3 class="font-headline text-lg font-bold text-primary-800">{{ checklist.period.name }}</h3>
+    </div>
+    <div class="divide-y divide-secondary-100">
+      {% for item in checklist.checks %}
+      <div class="px-6 py-4 flex items-start space-x-3">
+        <span class="mt-0.5 flex-shrink-0">
+          {% if item.passed %}
+          <i data-lucide="check-circle" class="h-5 w-5 text-green-500"></i>
+          {% else %}
+          <i data-lucide="x-circle" class="h-5 w-5 text-red-500"></i>
+          {% endif %}
+        </span>
+        <div>
+          <p class="text-sm font-medium text-primary-900">{{ item.label }}</p>
+          <p class="text-xs text-secondary-500">{{ item.detail }}</p>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    <div class="px-6 py-4 bg-secondary-50">
+      <div class="flex items-center justify-between">
+        <span class="text-sm font-medium">
+          {% if checklist.all_passed %}
+          <span class="text-green-700">All checks passed — ready to close</span>
+          {% else %}
+          <span class="text-red-600">Some checks failed — resolve before closing</span>
+          {% endif %}
+        </span>
+        {% if checklist.all_passed and selected_period %}
+        <a href="{% url 'accounting:close_period' selected_period.pk %}" class="px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-md hover:bg-primary-700">Close Period</a>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

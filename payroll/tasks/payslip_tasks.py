@@ -64,7 +64,7 @@ def send_payslips_for_payroll_run_task(self, payroll_run_id, job_id=None):
             "message": message,
         }
 
-    from payroll.views.payroll_view import _send_payslips_for_payroll_run
+    from payroll.views.payroll_payslips import _send_payslips_for_payroll_run
 
     try:
         sent_count, skipped_details = _send_payslips_for_payroll_run(payroll_run)

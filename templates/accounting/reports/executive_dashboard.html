@@ -1,0 +1,91 @@
+{% extends "accounting/base.html" %}
+
+{% block page_title %}Executive Dashboard{% endblock %}
+
+{% block accounting_content %}
+<div class="space-y-6">
+  <div>
+    <h2 class="font-headline text-2xl font-extrabold text-primary-800">Executive Financial Dashboard</h2>
+    <p class="text-sm text-secondary-500 mt-1">As of {{ metrics.as_of_date }}</p>
+  </div>
+
+  <!-- P&L Summary -->
+  <div class="bg-white ghost-border rounded-[1.25rem] p-6">
+    <h3 class="font-headline text-lg font-bold text-primary-800 mb-4">Profit &amp; Loss</h3>
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div>
+        <p class="text-xs text-secondary-500 uppercase">Revenue</p>
+        <p class="text-2xl font-bold font-mono text-primary-800">{{ metrics.total_revenue|floatformat:2 }}</p>
+      </div>
+      <div>
+        <p class="text-xs text-secondary-500 uppercase">Expenses</p>
+        <p class="text-2xl font-bold font-mono text-primary-800">{{ metrics.total_expenses|floatformat:2 }}</p>
+      </div>
+      <div>
+        <p class="text-xs text-secondary-500 uppercase">Net Income</p>
+        <p class="text-2xl font-bold font-mono {% if metrics.net_income >= 0 %}text-green-700{% else %}text-red-600{% endif %}">{{ metrics.net_income|floatformat:2 }}</p>
+      </div>
+      <div>
+        <p class="text-xs text-secondary-500 uppercase">Revenue Change</p>
+        <p class="text-2xl font-bold font-mono {% if metrics.revenue_change_pct >= 0 %}text-green-700{% else %}text-red-600{% endif %}">{{ metrics.revenue_change_pct }}%</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Balance Sheet Summary -->
+  <div class="bg-white ghost-border rounded-[1.25rem] p-6">
+    <h3 class="font-headline text-lg font-bold text-primary-800 mb-4">Balance Sheet</h3>
+    <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+      <div>
+        <p class="text-xs text-secondary-500 uppercase">Total Assets</p>
+        <p class="text-2xl font-bold font-mono text-primary-800">{{ metrics.total_assets|floatformat:2 }}</p>
+      </div>
+      <div>
+        <p class="text-xs text-secondary-500 uppercase">Total Liabilities</p>
+        <p class="text-2xl font-bold font-mono text-primary-800">{{ metrics.total_liabilities|floatformat:2 }}</p>
+      </div>
+      <div>
+        <p class="text-xs text-secondary-500 uppercase">Total Equity</p>
+        <p class="text-2xl font-bold font-mono text-primary-800">{{ metrics.total_equity|floatformat:2 }}</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Key Ratios -->
+  <div class="bg-white ghost-border rounded-[1.25rem] p-6">
+    <h3 class="font-headline text-lg font-bold text-primary-800 mb-4">Key Ratios</h3>
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div>
+        <p class="text-xs text-secondary-500 uppercase">Current Ratio</p>
+        <p class="text-xl font-bold font-mono text-primary-800">{{ ratios.current_ratio }}</p>
+      </div>
+      <div>
+        <p class="text-xs text-secondary-500 uppercase">Debt Ratio</p>
+        <p class="text-xl font-bold font-mono text-primary-800">{{ ratios.debt_ratio }}</p>
+      </div>
+      <div>
+        <p class="text-xs text-secondary-500 uppercase">Profit Margin</p>
+        <p class="text-xl font-bold font-mono text-primary-800">{{ ratios.profit_margin_pct }}%</p>
+      </div>
+      <div>
+        <p class="text-xs text-secondary-500 uppercase">ROE</p>
+        <p class="text-xl font-bold font-mono text-primary-800">{{ ratios.roe_pct }}%</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- AR/AP -->
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div class="bg-white ghost-border rounded-[1rem] p-5">
+      <h3 class="font-headline text-lg font-bold text-primary-800 mb-2">Total Receivables</h3>
+      <p class="text-2xl font-bold font-mono text-primary-800">{{ total_ar|floatformat:2 }}</p>
+      <a href="{% url 'accounting:ar_aging' %}" class="text-sm text-primary-600 hover:underline mt-2 inline-block">View AR Aging →</a>
+    </div>
+    <div class="bg-white ghost-border rounded-[1rem] p-5">
+      <h3 class="font-headline text-lg font-bold text-primary-800 mb-2">Total Payables</h3>
+      <p class="text-2xl font-bold font-mono text-primary-800">{{ total_ap|floatformat:2 }}</p>
+      <a href="{% url 'accounting:ap_aging' %}" class="text-sm text-primary-600 hover:underline mt-2 inline-block">View AP Aging →</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

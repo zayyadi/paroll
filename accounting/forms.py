@@ -3,6 +3,10 @@ from django.db import models
 from django.forms import formset_factory
 from django.forms.models import inlineformset_factory
 from django.utils import timezone
+from django.core.exceptions import ValidationError
+from decimal import Decimal
+import csv
+import io
 from .models import (
     Account,
     FinancialReportDefinition,
@@ -15,6 +19,7 @@ from .models import (
     DisciplinaryEvidence,
     DisciplinarySanction,
     DisciplinaryAppeal,
+    AccountReconciliation,
 )
 from .utils import get_entry_type_for_balance_adjustment
 
@@ -133,8 +138,10 @@ class JournalForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         company = kwargs.pop("company", None)
+        self.company = company
         super().__init__(*args, **kwargs)
         if company is not None:
+            self.instance.company = company
             self.fields["period"].queryset = AccountingPeriod.objects.filter(
                 company=company
             ).order_by("-fiscal_year__year", "-period_number")
@@ -185,13 +192,16 @@ class JournalApprovalForm(forms.Form):
     ]
 
     action = forms.ChoiceField(
-        choices=ACTION_CHOICES, widget=forms.RadioSelect, label="Action"
+        choices=ACTION_CHOICES, widget=forms.RadioSelect, label="Action", required=False
     )
     reason = forms.CharField(
         widget=forms.Textarea(attrs={"rows": 3}),
         required=False,
         label="Reason (optional)",
     )
+
+    def clean_action(self):
+        return self.cleaned_data.get("action") or "approve"
 
 
 class JournalReversalForm(forms.Form):
@@ -639,12 +649,14 @@ class JournalReversalConfirmationForm(forms.Form):
     confirm = forms.BooleanField(
         label="I confirm that I want to reverse this journal",
         help_text="This action cannot be undone. Please confirm you want to proceed.",
+        required=False,
     )
 
     final_reason = forms.CharField(
         widget=forms.Textarea(attrs={"rows": 3}),
         label="Final confirmation reason",
         help_text="Please restate the reason for this reversal for audit purposes.",
+        required=False,
     )
 
 
@@ -738,6 +750,87 @@ class DisciplinaryDecisionForm(forms.ModelForm):
         )
         for field in self.fields.values():
             field.widget.attrs["class"] = base_class
+
+
+class ReconciliationCreateForm(forms.Form):
+    account = forms.ModelChoiceField(
+        queryset=Account.objects.none(),
+        label="Bank/Cash Account",
+    )
+    period = forms.ModelChoiceField(
+        queryset=AccountingPeriod.objects.none(),
+        required=False,
+        label="Period",
+    )
+
+    def __init__(self, *args, company=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.company = company
+        if company:
+            self.fields["account"].queryset = Account.objects.filter(
+                company=company, type=Account.AccountType.ASSET, status=Account.AccountStatus.ACTIVE
+            )
+            self.fields["period"].queryset = AccountingPeriod.objects.filter(
+                company=company
+            ).order_by("-end_date")
+
+    def clean_account(self):
+        account = self.cleaned_data["account"]
+        if account.type != Account.AccountType.ASSET:
+            raise ValidationError("Reconciliation is only supported for asset (bank/cash) accounts.")
+        return account
+
+
+class BankTransactionImportForm(forms.Form):
+    account = forms.ModelChoiceField(
+        queryset=Account.objects.none(),
+        label="Bank/Cash Account",
+    )
+    period = forms.ModelChoiceField(
+        queryset=AccountingPeriod.objects.none(),
+        required=False,
+        label="Period",
+    )
+    csv_file = forms.FileField(label="Bank Statement CSV")
+
+    def __init__(self, *args, company=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.company = company
+        if company:
+            self.fields["account"].queryset = Account.objects.filter(
+                company=company, type=Account.AccountType.ASSET, status=Account.AccountStatus.ACTIVE
+            )
+            self.fields["period"].queryset = AccountingPeriod.objects.filter(
+                company=company
+            ).order_by("-end_date")
+
+    def get_bank_transactions(self):
+        """Parse CSV and return list of bank transaction dicts."""
+        csv_file = self.cleaned_data["csv_file"]
+        txs = []
+        decoded = csv_file.read().decode("utf-8", errors="replace")
+        reader = csv.DictReader(io.StringIO(decoded))
+
+        if not reader.fieldnames:
+            raise ValidationError("CSV file appears to be empty or has no header row.")
+
+        for row_num, row in enumerate(reader, start=2):
+            try:
+                amount = Decimal(row.get("amount", row.get("Amount", "0")).strip())
+                txs.append({
+                    "transaction_date": row.get("date", row.get("Date", "")).strip(),
+                    "description": row.get("description", row.get("Description", "")).strip(),
+                    "reference": row.get("reference", row.get("Reference", "")).strip(),
+                    "amount": abs(amount),
+                    "transaction_type": "CREDIT" if amount > 0 else "DEBIT",
+                })
+            except Exception:
+                raise ValidationError(f"Invalid data in row {row_num}. Ensure date, description, and amount columns exist.")
+
+        if not txs:
+            raise ValidationError("No valid bank transactions found in the CSV file.")
+
+        return txs
 
 
 class DisciplinarySanctionForm(forms.ModelForm):

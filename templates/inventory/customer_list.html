@@ -22,7 +22,9 @@
             <tbody class="bg-white divide-y divide-gray-200">
                 {% for customer in customers %}
                 <tr class="table-row-hover">
-                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-secondary-900">{{ customer.name }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-secondary-900">
+                        <a href="{% url 'inventory:customer_detail' customer.pk %}" class="text-primary-600 hover:text-primary-900 hover:underline">{{ customer.name }}</a>
+                    </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-secondary-500">{{ customer.contact_name|default:"-" }}</td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-secondary-500">{{ customer.phone|default:"-" }}</td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-secondary-500">{{ customer.receivable_account }}</td>

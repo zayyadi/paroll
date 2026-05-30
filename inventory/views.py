@@ -4,6 +4,7 @@ from django.http import Http404
 from django.shortcuts import redirect
 from django.urls import reverse_lazy
 from django.views.generic import CreateView, DetailView, FormView, ListView, TemplateView
+from decimal import Decimal
 
 from accounting.models import Account
 from company.utils import get_user_company
@@ -30,13 +31,17 @@ from inventory.forms import (
 )
 from inventory.models import (
     Customer,
+    CustomerPayment,
     InventoryCategory,
     InventoryDocument,
     InventoryItem,
     PurchaseOrder,
+    PurchaseReceipt,
+    SalesInvoice,
     StockLocation,
     StockMovement,
     Supplier,
+    SupplierPayment,
     Warehouse,
 )
 from inventory.models import UnitOfMeasure
@@ -308,6 +313,41 @@ class SupplierCreateView(InventoryCompanyMixin, CreateView):
         return super().form_valid(form)
 
 
+class SupplierDetailView(InventoryCompanyMixin, DetailView):
+    model = Supplier
+    template_name = "inventory/supplier_detail.html"
+    context_object_name = "supplier"
+    page_title = "Supplier Detail"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        supplier = self.object
+        from inventory.services import get_accounts_payable_aging, receipt_total
+
+        aging = get_accounts_payable_aging(supplier.company)
+        supplier_aging = [r for r in aging if r["supplier"].id == supplier.id]
+        total_outstanding = sum(r["outstanding"] for r in supplier_aging)
+
+        receipts = PurchaseReceipt.objects.filter(
+            supplier=supplier,
+        ).select_related("document").order_by("-document__document_date", "-created_at")[:30]
+
+        payments = SupplierPayment.objects.filter(
+            supplier=supplier,
+        ).select_related("document", "receipt").order_by("-payment_date", "-created_at")[:20]
+
+        balance = supplier.payable_account.get_balance() if supplier.payable_account else Decimal("0.00")
+
+        context.update({
+            "aging": supplier_aging,
+            "total_outstanding": total_outstanding,
+            "receipts": receipts,
+            "payments": payments,
+            "balance": balance,
+        })
+        return context
+
+
 class CustomerListView(InventoryCompanyMixin, ListView):
     model = Customer
     template_name = "inventory/customer_list.html"
@@ -328,6 +368,40 @@ class CustomerCreateView(InventoryCompanyMixin, CreateView):
     def form_valid(self, form):
         messages.success(self.request, "Customer created.")
         return super().form_valid(form)
+
+
+class CustomerDetailView(InventoryCompanyMixin, DetailView):
+    model = Customer
+    template_name = "inventory/customer_detail.html"
+    context_object_name = "customer"
+    page_title = "Customer Detail"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        customer = self.object
+        from inventory.services import get_accounts_receivable_aging, invoice_total, get_customer_statement
+
+        statement = get_customer_statement(customer)
+        total_outstanding = sum(r["outstanding"] for r in statement)
+
+        invoices = SalesInvoice.objects.filter(
+            customer=customer,
+        ).select_related("document").order_by("-document__document_date", "-created_at")[:30]
+
+        payments = CustomerPayment.objects.filter(
+            customer=customer,
+        ).select_related("document", "invoice").order_by("-payment_date", "-created_at")[:20]
+
+        balance = customer.receivable_account.get_balance() if customer.receivable_account else Decimal("0.00")
+
+        context.update({
+            "aging": statement,
+            "total_outstanding": total_outstanding,
+            "invoices": invoices,
+            "payments": payments,
+            "balance": balance,
+        })
+        return context
 
 
 class PurchaseOrderListView(InventoryCompanyMixin, ListView):
@@ -412,6 +486,7 @@ class PurchaseOrderReceiveView(InventoryCompanyMixin, FormView):
                         "quantity": data["quantity"],
                     }
                 ],
+                vat_input_account=data.get("vat_input_account"),
                 posting_date=data.get("posting_date"),
                 reference=data.get("reference", ""),
                 reason=data.get("reason") or "Purchase order receipt",

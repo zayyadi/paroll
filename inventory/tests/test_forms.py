@@ -4,11 +4,14 @@ from accounting.models import Account
 from company.models import Company
 from inventory.forms import (
     CustomerForm,
+    InventoryItemForm,
     InventoryCategoryForm,
+    PurchaseOrderReceiveForm,
     PurchaseReceiptForm,
     SalesInvoiceForm,
     SupplierForm,
     TaxRemittanceForm,
+    UnitOfMeasureForm,
 )
 
 
@@ -79,11 +82,17 @@ class InventoryAccountDropdownTests(TestCase):
 
     def test_transaction_tax_account_fields_show_relevant_accounts(self):
         purchase_form = PurchaseReceiptForm(company=self.company)
+        po_receive_form = PurchaseOrderReceiveForm(company=self.company)
         sales_form = SalesInvoiceForm(company=self.company)
         tax_form = TaxRemittanceForm(company=self.company)
 
         self.assertFieldAccounts(
             purchase_form,
+            "vat_input_account",
+            [self.receivable, self.asset, self.input_vat],
+        )
+        self.assertFieldAccounts(
+            po_receive_form,
             "vat_input_account",
             [self.receivable, self.asset, self.input_vat],
         )
@@ -102,3 +111,22 @@ class InventoryAccountDropdownTests(TestCase):
             "wht_payable_account",
             [self.payable, self.output_vat, self.wht_payable],
         )
+
+    def test_master_data_forms_expose_audit_control_fields(self):
+        uom_form = UnitOfMeasureForm(company=self.company)
+        item_form = InventoryItemForm(company=self.company)
+        supplier_form = SupplierForm(company=self.company)
+        customer_form = CustomerForm(company=self.company)
+
+        self.assertIn("base_unit", uom_form.fields)
+        self.assertIn("conversion_factor", uom_form.fields)
+        self.assertIn("decimal_places", uom_form.fields)
+        self.assertIn("barcode_format", item_form.fields)
+        self.assertIn("payment_terms", supplier_form.fields)
+        self.assertIn("default_due_days", supplier_form.fields)
+        self.assertIn("discount_terms", supplier_form.fields)
+        self.assertIn("credit_limit", supplier_form.fields)
+        self.assertIn("payment_terms", customer_form.fields)
+        self.assertIn("default_due_days", customer_form.fields)
+        self.assertIn("credit_limit", customer_form.fields)
+        self.assertIn("collections_status", customer_form.fields)

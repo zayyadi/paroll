@@ -31,6 +31,8 @@ from inventory.models import (
     StockLocation,
     StockMovement,
     Supplier,
+    TaxJurisdiction,
+    TaxRule,
     UnitOfMeasure,
     Warehouse,
 )
@@ -113,6 +115,8 @@ from api.v1.serializers import (
     StockMovementSerializer,
     StockTransferSerializer,
     SupplierSerializer,
+    TaxJurisdictionSerializer,
+    TaxRuleSerializer,
     SalesInvoiceSerializer,
     SupplierPaymentSerializer,
     SupplierReturnSerializer,
@@ -787,6 +791,24 @@ class InventoryItemViewSet(TenantScopedModelViewSet):
     ordering_fields = ["sku", "name", "created_at", "reorder_point"]
 
 
+class TaxJurisdictionViewSet(TenantScopedModelViewSet):
+    queryset = TaxJurisdiction.objects.select_related("company").all().order_by(
+        "country_code", "code"
+    )
+    serializer_class = TaxJurisdictionSerializer
+    search_fields = ["code", "name", "country_code"]
+    ordering_fields = ["code", "name", "country_code", "created_at"]
+
+
+class TaxRuleViewSet(TenantScopedModelViewSet):
+    queryset = TaxRule.objects.select_related("company", "jurisdiction").all().order_by(
+        "jurisdiction__code", "tax_type", "-effective_from"
+    )
+    serializer_class = TaxRuleSerializer
+    search_fields = ["jurisdiction__code", "jurisdiction__name", "tax_type"]
+    ordering_fields = ["tax_type", "transaction_type", "rate", "effective_from"]
+
+
 class WarehouseViewSet(TenantScopedModelViewSet):
     queryset = Warehouse.objects.select_related("company").all().order_by("code")
     serializer_class = WarehouseSerializer
@@ -842,6 +864,7 @@ class PurchaseOrderViewSet(TenantScopedModelViewSet):
                 purchase_order=purchase_order,
                 location=data["location"],
                 lines=data["lines"],
+                vat_input_account=data.get("vat_input_account"),
                 posting_date=data.get("posting_date"),
                 reference=data.get("reference", ""),
                 reason=data.get("reason", "Purchase order receipt"),
@@ -892,20 +915,21 @@ class InventoryDocumentViewSet(TenantScopedModelViewSet):
         serializer.is_valid(raise_exception=True)
         company = self.get_company()
         data = serializer.validated_data
+        line = {
+            "item": data["item"],
+            "quantity": data["quantity"],
+            "unit_cost": data["unit_cost"],
+        }
+        if "vat_rate" in data:
+            line["vat_rate"] = data["vat_rate"]
+        if "wht_rate" in data:
+            line["wht_rate"] = data["wht_rate"]
         try:
             document = post_purchase_receipt(
                 company=company,
                 supplier=data["supplier"],
                 location=data["location"],
-                lines=[
-                    {
-                        "item": data["item"],
-                        "quantity": data["quantity"],
-                        "unit_cost": data["unit_cost"],
-                        "vat_rate": data.get("vat_rate", 0),
-                        "wht_rate": data.get("wht_rate", 0),
-                    }
-                ],
+                lines=[line],
                 vat_input_account=data.get("vat_input_account"),
                 posting_date=data.get("posting_date"),
                 reference=data.get("reference", ""),
@@ -924,20 +948,21 @@ class InventoryDocumentViewSet(TenantScopedModelViewSet):
         serializer.is_valid(raise_exception=True)
         company = self.get_company()
         data = serializer.validated_data
+        line = {
+            "item": data["item"],
+            "quantity": data["quantity"],
+            "unit_price": data["unit_price"],
+        }
+        if "vat_rate" in data:
+            line["vat_rate"] = data["vat_rate"]
+        if "wht_rate" in data:
+            line["wht_rate"] = data["wht_rate"]
         try:
             document = post_sales_invoice(
                 company=company,
                 customer=data["customer"],
                 location=data["location"],
-                lines=[
-                    {
-                        "item": data["item"],
-                        "quantity": data["quantity"],
-                        "unit_price": data["unit_price"],
-                        "vat_rate": data.get("vat_rate", 0),
-                        "wht_rate": data.get("wht_rate", 0),
-                    }
-                ],
+                lines=[line],
                 vat_output_account=data.get("vat_output_account"),
                 posting_date=data.get("posting_date"),
                 reference=data.get("reference", ""),

@@ -35,6 +35,8 @@ from api.v1.viewsets import (
     StockLocationViewSet,
     StockMovementViewSet,
     SupplierViewSet,
+    TaxJurisdictionViewSet,
+    TaxRuleViewSet,
     UnitOfMeasureViewSet,
     WarehouseViewSet,
     SwitchCompanyView,
@@ -71,6 +73,8 @@ router.register(r"journal-entries", JournalEntryViewSet, basename="journal-entry
 router.register(r"inventory/units", UnitOfMeasureViewSet, basename="inventory-unit")
 router.register(r"inventory/categories", InventoryCategoryViewSet, basename="inventory-category")
 router.register(r"inventory/items", InventoryItemViewSet, basename="inventory-item")
+router.register(r"inventory/tax-jurisdictions", TaxJurisdictionViewSet, basename="inventory-tax-jurisdiction")
+router.register(r"inventory/tax-rules", TaxRuleViewSet, basename="inventory-tax-rule")
 router.register(r"inventory/warehouses", WarehouseViewSet, basename="inventory-warehouse")
 router.register(r"inventory/locations", StockLocationViewSet, basename="inventory-location")
 router.register(r"inventory/suppliers", SupplierViewSet, basename="inventory-supplier")

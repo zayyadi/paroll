@@ -1,0 +1,40 @@
+{% extends "accounting/base.html" %}
+
+{% block page_title %}{{ report_type|title|default:"Report" }} — Async Generation{% endblock %}
+
+{% block accounting_content %}
+<div class="space-y-6">
+  <div>
+    <h2 class="font-headline text-2xl font-extrabold text-primary-800">
+      Generate {{ report_type|title|default:"Report" }}
+    </h2>
+    <p class="text-sm text-secondary-500 mt-1">The report will be generated asynchronously and available for download.</p>
+  </div>
+
+  <div class="bg-white ghost-border rounded-[1rem] p-6 max-w-lg">
+    <form method="post">
+      {% csrf_token %}
+      <div class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-secondary-700 mb-1">Period (optional)</label>
+          <select name="period" class="form-input block w-full rounded-md border-secondary-300 text-sm">
+            <option value="">Current / As-of date</option>
+            {% for p in periods %}
+            <option value="{{ p.pk }}">{{ p.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-secondary-700 mb-1">As-of Date (optional)</label>
+          <input type="date" name="as_of_date" class="form-input block w-full rounded-md border-secondary-300 text-sm">
+        </div>
+        <div>
+          <button type="submit" class="px-6 py-2 text-sm font-medium text-white bg-primary-600 rounded-md hover:bg-primary-700">
+            <i data-lucide="loader" class="mr-2 h-4 w-4 inline"></i>Generate Report
+          </button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

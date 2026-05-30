@@ -1,0 +1,32 @@
+{% extends "accounting/base.html" %}
+
+{% block page_title %}Create Reconciliation{% endblock %}
+
+{% block accounting_content %}
+<div class="space-y-6">
+  <div>
+    <h2 class="font-headline text-2xl font-extrabold text-primary-800">Create Reconciliation</h2>
+    <p class="text-sm text-secondary-500 mt-1">Start a new reconciliation for a bank or cash account</p>
+  </div>
+
+  <div class="bg-white ghost-border rounded-[1rem] p-6 max-w-lg">
+    <form method="post">
+      {% csrf_token %}
+      <div class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-secondary-700 mb-1">{{ form.account.label }}</label>
+          {{ form.account }}
+          {% if form.account.errors %}<p class="text-red-500 text-xs mt-1">{{ form.account.errors.0 }}</p>{% endif %}
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-secondary-700 mb-1">{{ form.period.label }} <span class="text-secondary-400">(optional)</span></label>
+          {{ form.period }}
+        </div>
+        <div>
+          <button type="submit" class="px-6 py-2 text-sm font-medium text-white bg-primary-600 rounded-md hover:bg-primary-700">Create Reconciliation</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

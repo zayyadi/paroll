@@ -1,7 +1,7 @@
 from django.test import SimpleTestCase
 from django.urls import resolve, reverse
 
-from payroll.views import payroll_view
+
 
 
 class PayrollUrlConsolidationTests(SimpleTestCase):

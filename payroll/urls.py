@@ -1,8 +1,6 @@
 from django.urls import path
 
 from payroll import views
-from payroll.views import payroll_view
-from payroll.views.payroll_view import payslips, payslip_detail
 from payroll.views import notification_view
 from accounting import views as accounting_views
 
@@ -82,6 +80,7 @@ urlpatterns = [
     path("attendance/", views.attendance_overview, name="attendance_overview"),
     path("attendance/who-is-out/", views.who_is_out, name="who_is_out"),
     path("employee-profile/", views.update_employee_profile, name="employee_profile"),
+    path("employee-profile/export/", views.employee_data_export, name="employee_data_export"),
     path("hr-dashboard/", views.hr_dashboard, name="hr_dashboard"),
     path("employees/", views.employee_list, name="employee_list"),
     path("add_employee", views.add_employee, name="add_employee"),  # Changed name
@@ -103,15 +102,15 @@ urlpatterns = [
         name="company_payroll_settings_edit",
     ),
     path("list_payslip/<slug:emp_slug>/", views.list_payslip, name="list-payslip"),
-    path("payslips/", payslips, name="payslips"),
+    path("payslips/", views.payslips, name="payslips"),
     path("add_allowance/", views.create_allowance, name="add-allowance"),
-    path("add_deduction/", payroll_view.AddDeduction.as_view(), name="add-deduction"),
+    path("add_deduction/", views.AddDeduction.as_view(), name="add-deduction"),
     path("edit_allowance/<int:id>/", views.edit_allowance, name="edit-allowance"),
     path("delete-allowance", views.delete_allowance, name="delete-allowance"),
     path("varview/", views.varview, name="varview"),
     path(
         "varview/create-new/",
-        payroll_view.payvar_create_new,
+        views.payvar_create_new,
         name="payvar_create_new",
     ),  # New enhanced view with efficient employee selection
     path("varview/<str:paydays>/", views.varview_report, name="varview-report"),
@@ -122,11 +121,11 @@ urlpatterns = [
     ),
     path("pay-period/", views.pay_period_list, name="pay_period_list"),
     path(
-        "pay-period/create/", payroll_view.payday_create_new, name="payday"
+        "pay-period/create/", views.payday_create_new, name="payday"
     ),  # Legacy route kept, delegated to the enhanced create flow.
     path(
         "pay-period/create-new/",
-        payroll_view.payday_create_new,
+        views.payday_create_new,
         name="payday_create_new",
     ),  # New enhanced view with efficient employee selection
     path("pay-periods/<slug:slug>/", views.pay_period_detail, name="pay_period_detail"),
@@ -140,7 +139,7 @@ urlpatterns = [
         views.PayPeriodDeleteView.as_view(),
         name="pay_period_delete",
     ),
-    path("payslip/<int:id>/", payslip_detail, name="payslip"),
+    path("payslip/<int:id>/", views.payslip_detail, name="payslip"),
     path("payslip/pdf/<int:id>/", views.payslip_pdf, name="payslip_pdf"),
     path("bank", views.bank_reports, name="bank"),
     path("bank/<int:pay_id>/", views.bank_report, name="bankReport"),

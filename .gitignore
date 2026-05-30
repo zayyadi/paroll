@@ -57,3 +57,12 @@ Thumbs.db
 *~
 *.swp
 *.swo
+.commandcode/
+.omx/
+.qodo/
+.agent/
+.agents/
+ACCOUNTING_INVENTORY_AUDIT_REPORT.md
+RECOMMENDATION.md
+RECOMMENDATION_AUDIT.md
+docs/

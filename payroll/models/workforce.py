@@ -1,6 +1,6 @@
 from django.conf import settings
 from django.db import models
-from decimal import Decimal, ROUND_HALF_UP
+from datetime import timedelta
 from django.utils import timezone
 
 from payroll.models.utils import SoftDeleteModel
@@ -162,6 +162,9 @@ class HiringCandidate(SoftDeleteModel):
     source = models.CharField(max_length=120, blank=True)
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.NEW)
     consent_to_process = models.BooleanField(default=False)
+    consent_recorded_at = models.DateTimeField(null=True, blank=True)
+    consent_expires_at = models.DateTimeField(null=True, blank=True)
+    consent_version = models.CharField(max_length=50, blank=True)
     structured_notes = models.JSONField(default=dict, blank=True)
     applied_at = models.DateTimeField(default=timezone.now)
     hired_at = models.DateTimeField(null=True, blank=True)
@@ -175,6 +178,17 @@ class HiringCandidate(SoftDeleteModel):
 
     def __str__(self):
         return f"{self.first_name} {self.last_name}"
+
+    @property
+    def is_consent_expired(self):
+        return bool(self.consent_expires_at and self.consent_expires_at <= timezone.now())
+
+    def save(self, *args, **kwargs):
+        if self.consent_to_process and self.consent_recorded_at is None:
+            self.consent_recorded_at = timezone.now()
+        if self.consent_to_process and self.consent_expires_at is None:
+            self.consent_expires_at = timezone.now() + timedelta(days=365)
+        super().save(*args, **kwargs)
 
 
 class HiringStageScorecard(SoftDeleteModel):
@@ -534,78 +548,35 @@ class WorkflowExecution(SoftDeleteModel):
         return f"{self.template} - {self.status}"
 
 
-STANDARD_HIRING_STAGE_BLUEPRINT = [
-    (HiringStage.StageType.SOURCED, "Sourced", False, False),
-    (HiringStage.StageType.SCREENING, "Screening", False, False),
-    (HiringStage.StageType.STRUCTURED_INTERVIEW, "Structured Interview", True, False),
-    (HiringStage.StageType.SCORECARD_REVIEW, "Scorecard Review", True, True),
-    (HiringStage.StageType.REFERENCE_CHECK, "Reference Check", False, False),
-    (HiringStage.StageType.OFFER, "Offer", False, True),
-    (HiringStage.StageType.HIRED, "Hired", False, False),
-]
-
-
 def create_standard_hiring_stages(company):
-    stages = []
-    for sequence, (stage_type, name, requires_scorecard, requires_approval) in enumerate(
-        STANDARD_HIRING_STAGE_BLUEPRINT, start=1
-    ):
-        stage, _created = HiringStage.objects.update_or_create(
-            company=company,
-            stage_type=stage_type,
-            defaults={
-                "name": name,
-                "sequence": sequence,
-                "requires_scorecard": requires_scorecard,
-                "requires_approval": requires_approval,
-                "is_active": True,
-            },
-        )
-        stages.append(stage)
-    return stages
+    from payroll.services.hiring import create_standard_hiring_stages as service
+
+    return service(company)
 
 
 def record_candidate_scorecard(*, candidate, stage, interviewer, competency_scores, recommendation, notes=""):
-    if candidate.company_id != stage.company_id:
-        raise ValueError("Candidate and hiring stage must belong to the same company")
-    numeric_scores = [Decimal(str(score)) for score in competency_scores.values()]
-    average_score = Decimal("0.00")
-    if numeric_scores:
-        average_score = (sum(numeric_scores) / len(numeric_scores)).quantize(
-            Decimal("0.01"), rounding=ROUND_HALF_UP
-        )
-    return HiringStageScorecard.objects.create(
-        company=candidate.company,
+    from payroll.services.hiring import record_candidate_scorecard as service
+
+    return service(
         candidate=candidate,
         stage=stage,
         interviewer=interviewer,
         competency_scores=competency_scores,
-        average_score=average_score,
         recommendation=recommendation,
         notes=notes,
     )
 
 
 def advance_candidate(candidate, next_stage, advanced_by=None):
-    if candidate.company_id != next_stage.company_id:
-        raise ValueError("Candidate and hiring stage must belong to the same company")
-    if next_stage.requires_scorecard and not candidate.scorecards.filter(stage=next_stage).exists():
-        raise ValueError("A structured scorecard is required before advancing to this stage")
-    candidate.current_stage = next_stage
-    candidate.status = (
-        HiringCandidate.Status.HIRED
-        if next_stage.stage_type == HiringStage.StageType.HIRED
-        else HiringCandidate.Status.IN_PROCESS
-    )
-    if candidate.status == HiringCandidate.Status.HIRED:
-        candidate.hired_at = timezone.now()
-    candidate.save(update_fields=["current_stage", "status", "hired_at", "updated_at"])
-    return candidate
+    from payroll.services.hiring import advance_candidate as service
+
+    return service(candidate, next_stage, advanced_by=advanced_by)
 
 
 def create_job_offer(*, candidate, title, employment_type, salary_amount, currency, start_date, created_by=None, terms=None):
-    offer = JobOffer.objects.create(
-        company=candidate.company,
+    from payroll.services.hiring import create_job_offer as service
+
+    return service(
         candidate=candidate,
         title=title,
         employment_type=employment_type,
@@ -613,67 +584,14 @@ def create_job_offer(*, candidate, title, employment_type, salary_amount, curren
         currency=currency,
         start_date=start_date,
         created_by=created_by,
-        terms=terms or {},
+        terms=terms,
     )
-    candidate.status = HiringCandidate.Status.OFFER
-    candidate.save(update_fields=["status", "updated_at"])
-    return offer
 
 
 def accept_job_offer(offer, accepted_by=None):
-    offer.status = JobOffer.Status.ACCEPTED
-    offer.accepted_at = timezone.now()
-    offer.save(update_fields=["status", "accepted_at", "updated_at"])
+    from payroll.services.hiring import accept_job_offer as service
 
-    stages = create_standard_hiring_stages(offer.company)
-    hired_stage = next(stage for stage in stages if stage.stage_type == HiringStage.StageType.HIRED)
-    candidate = offer.candidate
-    candidate.current_stage = hired_stage
-    candidate.status = HiringCandidate.Status.HIRED
-    candidate.hired_at = timezone.now()
-    candidate.save(update_fields=["current_stage", "status", "hired_at", "updated_at"])
-
-    requisition = candidate.requisition
-    hired_count = requisition.candidates.filter(status=HiringCandidate.Status.HIRED).count()
-    if hired_count >= requisition.headcount:
-        requisition.status = JobRequisition.Status.FILLED
-        requisition.closed_at = timezone.now()
-        requisition.position.status = Position.Status.FILLED
-        requisition.position.save(update_fields=["status", "updated_at"])
-        requisition.save(update_fields=["status", "closed_at", "updated_at"])
-
-    template = (
-        WorkflowTemplate.objects.filter(
-            company=offer.company,
-            workflow_type=WorkflowTemplate.WorkflowType.ONBOARDING,
-            trigger_event="candidate.hired",
-            is_active=True,
-        )
-        .order_by("name")
-        .first()
-    )
-    if template is None:
-        template = WorkflowTemplate.objects.create(
-            company=offer.company,
-            name="Candidate Onboarding",
-            workflow_type=WorkflowTemplate.WorkflowType.ONBOARDING,
-            trigger_event="candidate.hired",
-        )
-    return WorkflowExecution.objects.create(
-        company=offer.company,
-        template=template,
-        started_by=accepted_by,
-        status=WorkflowExecution.Status.PENDING,
-        context={
-            "trigger_event": "candidate.hired",
-            "candidate_id": candidate.pk,
-            "candidate_email": candidate.email,
-            "candidate_name": str(candidate),
-            "requisition_id": requisition.pk,
-            "position_title": requisition.title,
-            "start_date": offer.start_date.isoformat(),
-        },
-    )
+    return service(offer, accepted_by=accepted_by)
 
 
 class Goal(SoftDeleteModel):

@@ -1,0 +1,34 @@
+{% extends "accounting/base.html" %}
+
+{% block page_title %}Cash Flow Statement{% endblock %}
+
+{% block accounting_content %}
+<div class="space-y-6">
+  <div class="flex items-center justify-between">
+    <div>
+      <h2 class="font-headline text-2xl font-extrabold text-primary-800">Cash Flow Statement</h2>
+      <p class="text-sm text-secondary-500 mt-1">{{ start_date|date:"M d, Y" }} — {{ end_date|date:"M d, Y" }}</p>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <div class="bg-white ghost-border rounded-[1rem] p-5">
+      <p class="text-xs text-secondary-500 uppercase tracking-wider">Operating</p>
+      <p class="text-2xl font-bold font-mono {% if operating_cash_flow >= 0 %}text-green-700{% else %}text-red-600{% endif %}">{{ operating_cash_flow|floatformat:2 }}</p>
+    </div>
+    <div class="bg-white ghost-border rounded-[1rem] p-5">
+      <p class="text-xs text-secondary-500 uppercase tracking-wider">Investing</p>
+      <p class="text-2xl font-bold font-mono {% if investing_cash_flow >= 0 %}text-green-700{% else %}text-red-600{% endif %}">{{ investing_cash_flow|floatformat:2 }}</p>
+    </div>
+    <div class="bg-white ghost-border rounded-[1rem] p-5">
+      <p class="text-xs text-secondary-500 uppercase tracking-wider">Financing</p>
+      <p class="text-2xl font-bold font-mono {% if financing_cash_flow >= 0 %}text-green-700{% else %}text-red-600{% endif %}">{{ financing_cash_flow|floatformat:2 }}</p>
+    </div>
+  </div>
+
+  <div class="bg-white ghost-border rounded-[1rem] p-5">
+    <p class="text-xs text-secondary-500 uppercase tracking-wider">Net Cash Flow</p>
+    <p class="text-3xl font-bold font-mono {% if net_cash_flow >= 0 %}text-green-700{% else %}text-red-600{% endif %}">{{ net_cash_flow|floatformat:2 }}</p>
+  </div>
+</div>
+{% endblock %}

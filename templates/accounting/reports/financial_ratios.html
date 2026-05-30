@@ -1,0 +1,50 @@
+{% extends "accounting/base.html" %}
+
+{% block page_title %}Financial Ratios{% endblock %}
+
+{% block accounting_content %}
+<div class="space-y-6">
+  <div>
+    <h2 class="font-headline text-2xl font-extrabold text-primary-800">Financial Ratios</h2>
+    <p class="text-sm text-secondary-500 mt-1">As of {{ ratios.as_of_date }}</p>
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div class="bg-white ghost-border rounded-[1rem] p-5">
+      <h3 class="font-headline text-lg font-bold text-primary-800 mb-3">Liquidity</h3>
+      <dl class="space-y-3 text-sm">
+        <div class="flex justify-between py-2 border-b border-secondary-100">
+          <dt class="text-secondary-500">Current Ratio</dt><dd class="font-mono font-medium">{{ ratios.current_ratio }}</dd>
+        </div>
+        <div class="flex justify-between py-2 border-b border-secondary-100">
+          <dt class="text-secondary-500">Quick Ratio</dt><dd class="font-mono font-medium">{{ ratios.quick_ratio }}</dd>
+        </div>
+      </dl>
+    </div>
+    <div class="bg-white ghost-border rounded-[1rem] p-5">
+      <h3 class="font-headline text-lg font-bold text-primary-800 mb-3">Profitability</h3>
+      <dl class="space-y-3 text-sm">
+        <div class="flex justify-between py-2 border-b border-secondary-100">
+          <dt class="text-secondary-500">Profit Margin</dt><dd class="font-mono font-medium">{{ ratios.profit_margin_pct }}%</dd>
+        </div>
+        <div class="flex justify-between py-2 border-b border-secondary-100">
+          <dt class="text-secondary-500">Return on Equity</dt><dd class="font-mono font-medium">{{ ratios.roe_pct }}%</dd>
+        </div>
+      </dl>
+    </div>
+    <div class="bg-white ghost-border rounded-[1rem] p-5 md:col-span-2">
+      <h3 class="font-headline text-lg font-bold text-primary-800 mb-3">Balance Sheet Summary</h3>
+      <dl class="grid grid-cols-3 gap-4 text-sm">
+        <div><dt class="text-secondary-500">Total Assets</dt><dd class="font-mono font-medium">{{ ratios.total_assets }}</dd></div>
+        <div><dt class="text-secondary-500">Total Liabilities</dt><dd class="font-mono font-medium">{{ ratios.total_liabilities }}</dd></div>
+        <div><dt class="text-secondary-500">Total Equity</dt><dd class="font-mono font-medium">{{ ratios.total_equity }}</dd></div>
+      </dl>
+      <dl class="grid grid-cols-1 mt-3 text-sm">
+        <div class="flex justify-between py-2 border-b border-secondary-100">
+          <dt class="text-secondary-500">Debt Ratio</dt><dd class="font-mono font-medium">{{ ratios.debt_ratio }}</dd>
+        </div>
+      </dl>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,183 @@
+{% extends "inventory/base.html" %}
+
+{% block inventory_content %}
+<div class="space-y-6">
+  <div class="flex items-center justify-between">
+    <div>
+      <h2 class="font-headline text-2xl font-extrabold text-primary-800">{{ supplier.name }}</h2>
+      <p class="text-sm text-secondary-500">Supplier · {{ supplier.contact_name|default:"No contact" }}</p>
+    </div>
+    <a href="{% url 'inventory:supplier_list' %}" class="text-sm text-primary-600 hover:text-primary-800">← Back to suppliers</a>
+  </div>
+
+  <!-- Info & Balance Cards -->
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <div class="bg-white ghost-border rounded-[1rem] p-5">
+      <p class="text-xs text-secondary-500 uppercase tracking-wider">Outstanding Payable</p>
+      <p class="text-2xl font-bold font-mono {% if total_outstanding > 0 %}text-red-600{% else %}text-green-700{% endif %}">{{ total_outstanding|floatformat:2 }}</p>
+    </div>
+    <div class="bg-white ghost-border rounded-[1rem] p-5">
+      <p class="text-xs text-secondary-500 uppercase tracking-wider">GL Balance</p>
+      <p class="text-2xl font-bold font-mono text-primary-800">{{ balance|floatformat:2 }}</p>
+    </div>
+    <div class="bg-white ghost-border rounded-[1rem] p-5">
+      <p class="text-xs text-secondary-500 uppercase tracking-wider">Payment Terms</p>
+      <p class="text-xl font-bold text-primary-800">{{ supplier.payment_terms|default:"Net 30" }}</p>
+      <p class="text-xs text-secondary-500">Due days: {{ supplier.default_due_days }}</p>
+    </div>
+  </div>
+
+  <!-- Full Info -->
+  <div class="bg-white ghost-border rounded-[1.25rem] p-5">
+    <h3 class="font-headline text-lg font-bold text-primary-800 mb-3">Supplier Information</h3>
+    <dl class="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+      <div>
+        <dt class="text-secondary-500">Account</dt>
+        <dd class="font-mono font-medium">{{ supplier.payable_account }}</dd>
+      </div>
+      <div>
+        <dt class="text-secondary-500">WHT Account</dt>
+        <dd class="font-mono">{{ supplier.wht_payable_account|default:"—" }}</dd>
+      </div>
+      <div>
+        <dt class="text-secondary-500">WHT Rate</dt>
+        <dd class="font-mono">{{ supplier.default_wht_rate }}</dd>
+      </div>
+      <div>
+        <dt class="text-secondary-500">Credit Limit</dt>
+        <dd class="font-mono">{{ supplier.credit_limit|floatformat:2 }}</dd>
+      </div>
+      <div>
+        <dt class="text-secondary-500">Email</dt>
+        <dd>{{ supplier.email|default:"—" }}</dd>
+      </div>
+      <div>
+        <dt class="text-secondary-500">Phone</dt>
+        <dd>{{ supplier.phone|default:"—" }}</dd>
+      </div>
+      <div>
+        <dt class="text-secondary-500">Discount Terms</dt>
+        <dd>{{ supplier.discount_terms|default:"—" }}</dd>
+      </div>
+      <div>
+        <dt class="text-secondary-500">Status</dt>
+        <dd><span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium {% if supplier.is_active %}bg-green-100 text-green-800{% else %}bg-red-100 text-red-800{% endif %}">{{ supplier.is_active|yesno:"Active,Inactive" }}</span></dd>
+      </div>
+    </dl>
+  </div>
+
+  <!-- AP Aging -->
+  <div class="bg-white ghost-border rounded-[1.25rem] overflow-hidden">
+    <div class="px-6 py-4 border-b border-secondary-100">
+      <h3 class="font-headline text-lg font-bold text-primary-800">Outstanding Payables</h3>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="min-w-full divide-y divide-secondary-200">
+        <thead class="bg-secondary-50">
+          <tr>
+            <th class="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase">Document</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase">Due Date</th>
+            <th class="px-6 py-3 text-right text-xs font-medium text-secondary-500 uppercase">Amount</th>
+            <th class="px-6 py-3 text-center text-xs font-medium text-secondary-500 uppercase">Days Overdue</th>
+            <th class="px-6 py-3 text-center text-xs font-medium text-secondary-500 uppercase">Age</th>
+          </tr>
+        </thead>
+        <tbody class="bg-white divide-y divide-secondary-200">
+          {% for row in aging %}
+          <tr class="hover:bg-secondary-50 {% if row.days_overdue > 90 %}bg-red-50{% endif %}">
+            <td class="px-6 py-3 text-sm font-mono text-secondary-900">{{ row.receipt.document.reference|default:row.receipt.document_id }}</td>
+            <td class="px-6 py-3 text-sm text-secondary-600">{{ row.due_date|date:"M d, Y" }}</td>
+            <td class="px-6 py-3 text-sm text-right font-mono">{{ row.outstanding|floatformat:2 }}</td>
+            <td class="px-6 py-3 text-sm text-center {% if row.days_overdue > 60 %}text-red-600 font-semibold{% endif %}">{{ row.days_overdue }}</td>
+            <td class="px-6 py-3 text-center">
+              <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium
+                {% if row.bucket == 'CURRENT' %}bg-green-100 text-green-800
+                {% elif row.bucket == '1-30' %}bg-blue-100 text-blue-800
+                {% elif row.bucket == '31-60' %}bg-yellow-100 text-yellow-800
+                {% elif row.bucket == '61-90' %}bg-orange-100 text-orange-800
+                {% else %}bg-red-100 text-red-800{% endif %}">
+                {{ row.bucket }}
+              </span>
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="5" class="px-6 py-8 text-center text-sm text-secondary-500">No outstanding payables.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Recent Receipts -->
+  <div class="bg-white ghost-border rounded-[1.25rem] overflow-hidden">
+    <div class="px-6 py-4 border-b border-secondary-100">
+      <h3 class="font-headline text-lg font-bold text-primary-800">Recent Purchase Receipts</h3>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="min-w-full divide-y divide-secondary-200">
+        <thead class="bg-secondary-50">
+          <tr>
+            <th class="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase">Doc Ref</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase">Date</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase">Due Date</th>
+            <th class="px-6 py-3 text-right text-xs font-medium text-secondary-500 uppercase">Amount</th>
+            <th class="px-6 py-3 text-center text-xs font-medium text-secondary-500 uppercase">Status</th>
+          </tr>
+        </thead>
+        <tbody class="bg-white divide-y divide-secondary-200">
+          {% for receipt in receipts %}
+          <tr class="hover:bg-secondary-50">
+            <td class="px-6 py-3 text-sm font-mono">{{ receipt.document.reference|default:"—" }}</td>
+            <td class="px-6 py-3 text-sm text-secondary-600">{{ receipt.document.document_date|date:"M d, Y" }}</td>
+            <td class="px-6 py-3 text-sm text-secondary-600">{{ receipt.due_date|date:"M d, Y"|default:"—" }}</td>
+            <td class="px-6 py-3 text-sm text-right font-mono">{{ receipt.paid_amount|floatformat:2 }}</td>
+            <td class="px-6 py-3 text-center">
+              <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium
+                {% if receipt.payment_status == 'PAID' %}bg-green-100 text-green-800
+                {% elif receipt.payment_status == 'PARTIAL' %}bg-blue-100 text-blue-800
+                {% elif receipt.payment_status == 'DISPUTED' %}bg-red-100 text-red-800
+                {% else %}bg-warning-100 text-warning-800{% endif %}">
+                {{ receipt.get_payment_status_display }}
+              </span>
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="5" class="px-6 py-8 text-center text-sm text-secondary-500">No receipts recorded.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Payment History -->
+  <div class="bg-white ghost-border rounded-[1.25rem] overflow-hidden">
+    <div class="px-6 py-4 border-b border-secondary-100">
+      <h3 class="font-headline text-lg font-bold text-primary-800">Payment History</h3>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="min-w-full divide-y divide-secondary-200">
+        <thead class="bg-secondary-50">
+          <tr>
+            <th class="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase">Date</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase">Reference</th>
+            <th class="px-6 py-3 text-right text-xs font-medium text-secondary-500 uppercase">Amount</th>
+            <th class="px-6 py-3 text-right text-xs font-medium text-secondary-500 uppercase">Discount</th>
+          </tr>
+        </thead>
+        <tbody class="bg-white divide-y divide-secondary-200">
+          {% for payment in payments %}
+          <tr class="hover:bg-secondary-50">
+            <td class="px-6 py-3 text-sm text-secondary-600">{{ payment.payment_date|date:"M d, Y" }}</td>
+            <td class="px-6 py-3 text-sm font-mono">{{ payment.reference|default:"—" }}</td>
+            <td class="px-6 py-3 text-sm text-right font-mono">{{ payment.amount|floatformat:2 }}</td>
+            <td class="px-6 py-3 text-sm text-right font-mono text-secondary-500">{{ payment.discount_taken|floatformat:2 }}</td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="4" class="px-6 py-8 text-center text-sm text-secondary-500">No payments recorded.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

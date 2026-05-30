@@ -2,20 +2,28 @@ from datetime import date
 from decimal import Decimal
 
 from django.db import IntegrityError
-from django.test import TestCase
+from django.test import TestCase, override_settings
 
-from accounting.models import Account, Journal
+from accounting.models import Account, Journal, PostingValidationFailure
 from company.models import Company
 from inventory.models import (
     Customer,
     InventoryCategory,
     InventoryItem,
+    InventoryValuationLayer,
     PurchaseOrder,
+    StockCount,
     StockMovement,
     Supplier,
+    TaxJurisdiction,
+    TaxRule,
 )
 from inventory.services import (
+    approve_inventory_document,
+    calculate_inventory_line_taxes,
     create_purchase_order,
+    get_accounts_payable_aging,
+    get_accounts_receivable_aging,
     get_stock_on_hand,
     post_inventory_adjustment,
     post_opening_stock,
@@ -27,7 +35,9 @@ from inventory.services import (
     post_supplier_return,
     post_tax_remittance,
     receive_purchase_order,
+    reconcile_inventory_to_gl,
     post_stock_transfer,
+    post_stock_count_adjustments,
 )
 
 
@@ -166,6 +176,46 @@ class InventoryCoreTests(TestCase):
                 sku="MED-001",
                 name="Duplicate Paracetamol",
             )
+
+    def test_tax_rules_calculate_vat_and_wht_by_jurisdiction(self):
+        jurisdiction = TaxJurisdiction.objects.create(
+            company=self.company_a,
+            code="NG-FCT",
+            name="Nigeria FCT",
+            country_code="NG",
+            is_default=True,
+        )
+        TaxRule.objects.create(
+            company=self.company_a,
+            jurisdiction=jurisdiction,
+            tax_type=TaxRule.TaxType.VAT,
+            transaction_type=TaxRule.TransactionType.SALE,
+            rate=Decimal("7.5000"),
+            effective_from=date(2026, 1, 1),
+        )
+        TaxRule.objects.create(
+            company=self.company_a,
+            jurisdiction=jurisdiction,
+            tax_type=TaxRule.TaxType.WHT,
+            transaction_type=TaxRule.TransactionType.SALE,
+            rate=Decimal("5.0000"),
+            effective_from=date(2026, 1, 1),
+        )
+
+        taxes = calculate_inventory_line_taxes(
+            company=self.company_a,
+            item=self.item,
+            quantity=Decimal("4"),
+            unit_price=Decimal("100.00"),
+            transaction_type=TaxRule.TransactionType.SALE,
+            tax_date=date(2026, 5, 20),
+        )
+
+        self.assertEqual(taxes["taxable_amount"], Decimal("400.00"))
+        self.assertEqual(taxes["vat_rate"], Decimal("7.5000"))
+        self.assertEqual(taxes["vat_amount"], Decimal("30.00"))
+        self.assertEqual(taxes["wht_rate"], Decimal("5.0000"))
+        self.assertEqual(taxes["wht_amount"], Decimal("20.00"))
 
     def test_opening_stock_posts_stock_movement_and_balanced_journal(self):
         document = post_opening_stock(
@@ -385,10 +435,72 @@ class InventoryCoreTests(TestCase):
         self.assertEqual(purchase_order.lines.get().received_quantity, Decimal("10.0000"))
         self.assertEqual(get_stock_on_hand(self.item, self.main_location), Decimal("10.0000"))
 
+    def test_purchase_order_receipt_posts_purchase_vat_with_input_account(self):
+        self.item.default_vat_rate = Decimal("7.50")
+        self.item.save(update_fields=["default_vat_rate"])
+        supplier = Supplier.objects.create(
+            company=self.company_a,
+            name="PO VAT Supplier",
+            payable_account=self.accounts["payable"],
+        )
+        purchase_order = create_purchase_order(
+            company=self.company_a,
+            supplier=supplier,
+            lines=[
+                {
+                    "item": self.item,
+                    "quantity": Decimal("10"),
+                    "unit_cost": Decimal("100.00"),
+                }
+            ],
+            reference="PO-VAT-001",
+        )
+
+        receipt = receive_purchase_order(
+            company=self.company_a,
+            purchase_order=purchase_order,
+            location=self.main_location,
+            lines=[
+                {
+                    "purchase_order_line": purchase_order.lines.get(),
+                    "quantity": Decimal("10"),
+                }
+            ],
+            vat_input_account=self.accounts["vat_input"],
+            posting_date=date(2026, 5, 6),
+            reference="GRN-PO-VAT-001",
+        )
+
+        entries = receipt.journal.entries.select_related("account")
+        self.assertEqual(entries.get(account=self.accounts["vat_input"]).amount, Decimal("75.00"))
+
     def test_sales_invoice_posts_revenue_tax_cogs_and_reduces_stock(self):
         self.category.sales_revenue_account = self.accounts["sales"]
         self.category.cogs_account = self.accounts["cogs"]
         self.category.save()
+        jurisdiction = TaxJurisdiction.objects.create(
+            company=self.company_a,
+            code="NG-LA",
+            name="Nigeria Lagos",
+            country_code="NG",
+            is_default=True,
+        )
+        TaxRule.objects.create(
+            company=self.company_a,
+            jurisdiction=jurisdiction,
+            tax_type=TaxRule.TaxType.VAT,
+            transaction_type=TaxRule.TransactionType.SALE,
+            rate=Decimal("7.5000"),
+            effective_from=date(2026, 1, 1),
+        )
+        TaxRule.objects.create(
+            company=self.company_a,
+            jurisdiction=jurisdiction,
+            tax_type=TaxRule.TaxType.WHT,
+            transaction_type=TaxRule.TransactionType.SALE,
+            rate=Decimal("5.0000"),
+            effective_from=date(2026, 1, 1),
+        )
         customer = Customer.objects.create(
             company=self.company_a,
             name="Wholesale Customer",
@@ -412,8 +524,6 @@ class InventoryCoreTests(TestCase):
                     "item": self.item,
                     "quantity": Decimal("4"),
                     "unit_price": Decimal("100.00"),
-                    "vat_rate": Decimal("7.50"),
-                    "wht_rate": Decimal("5.00"),
                 }
             ],
             vat_output_account=self.accounts["vat_output"],
@@ -619,3 +729,206 @@ class InventoryCoreTests(TestCase):
         self.assertEqual(entries.get(account=self.accounts["vat_input"]).amount, Decimal("7.50"))
         self.assertEqual(entries.get(account=self.accounts["wht_payable"]).entry_type, "DEBIT")
         self.assertEqual(entries.get(account=self.accounts["wht_payable"]).amount, Decimal("5.00"))
+
+    def test_posting_validation_rejects_inactive_or_wrong_type_accounts(self):
+        self.accounts["inventory"].status = Account.AccountStatus.INACTIVE
+        self.accounts["inventory"].save(update_fields=["status"])
+
+        with self.assertRaises(ValueError):
+            post_opening_stock(
+                company=self.company_a,
+                item=self.item,
+                location=self.main_location,
+                quantity=Decimal("1"),
+                unit_cost=Decimal("10.00"),
+            )
+
+        failure = PostingValidationFailure.objects.get(company=self.company_a)
+        self.assertIn("inactive", failure.message.lower())
+
+    def test_fifo_sales_consume_oldest_valuation_layers_for_cogs(self):
+        self.category.costing_method = InventoryCategory.CostingMethod.FIFO
+        self.category.sales_revenue_account = self.accounts["sales"]
+        self.category.cogs_account = self.accounts["cogs"]
+        self.category.save()
+        customer = Customer.objects.create(
+            company=self.company_a,
+            name="FIFO Customer",
+            receivable_account=self.accounts["receivable"],
+        )
+        post_opening_stock(
+            company=self.company_a,
+            item=self.item,
+            location=self.main_location,
+            quantity=Decimal("3"),
+            unit_cost=Decimal("10.00"),
+            posting_date=date(2026, 5, 1),
+        )
+        post_purchase_receipt(
+            company=self.company_a,
+            supplier=Supplier.objects.create(
+                company=self.company_a,
+                name="FIFO Supplier",
+                payable_account=self.accounts["payable"],
+            ),
+            location=self.main_location,
+            lines=[{"item": self.item, "quantity": Decimal("5"), "unit_cost": Decimal("20.00")}],
+            posting_date=date(2026, 5, 2),
+        )
+
+        invoice = post_sales_invoice(
+            company=self.company_a,
+            customer=customer,
+            location=self.main_location,
+            lines=[{"item": self.item, "quantity": Decimal("4"), "unit_price": Decimal("40.00")}],
+            posting_date=date(2026, 5, 3),
+        )
+
+        sale_line = invoice.sales_invoice.lines.get()
+        self.assertEqual(sale_line.cogs_amount, Decimal("50.00"))
+        self.assertEqual(sale_line.unit_cost, Decimal("12.5000"))
+        self.assertEqual(
+            list(
+                InventoryValuationLayer.objects.filter(item=self.item, quantity__gt=0)
+                .order_by("created_at", "id")
+                .values_list("remaining_quantity", flat=True)
+            ),
+            [Decimal("0.0000"), Decimal("4.0000")],
+        )
+
+    def test_customer_credit_limit_blocks_excess_invoice(self):
+        self.category.sales_revenue_account = self.accounts["sales"]
+        self.category.cogs_account = self.accounts["cogs"]
+        self.category.save()
+        customer = Customer.objects.create(
+            company=self.company_a,
+            name="Credit Customer",
+            receivable_account=self.accounts["receivable"],
+            credit_limit=Decimal("100.00"),
+        )
+        post_opening_stock(
+            company=self.company_a,
+            item=self.item,
+            location=self.main_location,
+            quantity=Decimal("10"),
+            unit_cost=Decimal("10.00"),
+        )
+
+        with self.assertRaises(ValueError):
+            post_sales_invoice(
+                company=self.company_a,
+                customer=customer,
+                location=self.main_location,
+                lines=[{"item": self.item, "quantity": Decimal("2"), "unit_price": Decimal("60.00")}],
+            )
+
+    def test_ar_ap_aging_reports_track_invoice_and_payment_balances(self):
+        self.category.sales_revenue_account = self.accounts["sales"]
+        self.category.cogs_account = self.accounts["cogs"]
+        self.category.save()
+        supplier = Supplier.objects.create(
+            company=self.company_a,
+            name="Aging Supplier",
+            payable_account=self.accounts["payable"],
+            default_due_days=10,
+        )
+        customer = Customer.objects.create(
+            company=self.company_a,
+            name="Aging Customer",
+            receivable_account=self.accounts["receivable"],
+            default_due_days=10,
+        )
+        post_opening_stock(
+            company=self.company_a,
+            item=self.item,
+            location=self.main_location,
+            quantity=Decimal("10"),
+            unit_cost=Decimal("25.00"),
+            posting_date=date(2026, 5, 1),
+        )
+        post_purchase_receipt(
+            company=self.company_a,
+            supplier=supplier,
+            location=self.main_location,
+            lines=[{"item": self.item, "quantity": Decimal("2"), "unit_cost": Decimal("50.00")}],
+            posting_date=date(2026, 5, 1),
+            reference="AP-AGING",
+        )
+        invoice = post_sales_invoice(
+            company=self.company_a,
+            customer=customer,
+            location=self.main_location,
+            lines=[{"item": self.item, "quantity": Decimal("1"), "unit_price": Decimal("80.00")}],
+            posting_date=date(2026, 5, 1),
+            reference="AR-AGING",
+        )
+        post_customer_payment(
+            company=self.company_a,
+            customer=customer,
+            cash_account=self.accounts["bank"],
+            amount=Decimal("30.00"),
+            invoice=invoice.sales_invoice,
+            posting_date=date(2026, 5, 5),
+        )
+
+        ar = get_accounts_receivable_aging(self.company_a, as_of=date(2026, 5, 20))
+        ap = get_accounts_payable_aging(self.company_a, as_of=date(2026, 5, 20))
+        self.assertEqual(ar[0]["outstanding"], Decimal("50.00"))
+        self.assertEqual(ar[0]["bucket"], "1-30")
+        self.assertEqual(ap[0]["outstanding"], Decimal("100.00"))
+        self.assertEqual(ap[0]["bucket"], "1-30")
+
+    def test_stock_count_adjustment_requires_approval_and_reconciles_to_gl(self):
+        post_opening_stock(
+            company=self.company_a,
+            item=self.item,
+            location=self.main_location,
+            quantity=Decimal("10"),
+            unit_cost=Decimal("10.00"),
+        )
+        stock_count = StockCount.objects.create(
+            company=self.company_a,
+            location=self.main_location,
+            status=StockCount.Status.COUNTED,
+            reason="Cycle count",
+        )
+        stock_count.lines.create(
+            item=self.item,
+            system_quantity=Decimal("10.0000"),
+            counted_quantity=Decimal("8.0000"),
+            variance_reason="BREAKAGE",
+            investigation_status="APPROVED",
+        )
+
+        with self.assertRaises(ValueError):
+            post_stock_count_adjustments(stock_count=stock_count)
+
+        approve_inventory_document(stock_count)
+        document = post_stock_count_adjustments(stock_count=stock_count)
+        reconciliation = reconcile_inventory_to_gl(self.company_a)
+
+        self.assertEqual(document.status, document.Status.POSTED)
+        self.assertEqual(get_stock_on_hand(self.item, self.main_location), Decimal("8.0000"))
+        self.assertEqual(reconciliation["variance"], Decimal("0.00"))
+
+    @override_settings(INVENTORY_ADJUSTMENT_APPROVAL_THRESHOLD=Decimal("100.00"))
+    def test_large_direct_inventory_adjustment_requires_stock_count_approval(self):
+        post_opening_stock(
+            company=self.company_a,
+            item=self.item,
+            location=self.main_location,
+            quantity=Decimal("10"),
+            unit_cost=Decimal("60.00"),
+        )
+
+        with self.assertRaisesMessage(
+            ValueError,
+            "Inventory adjustment exceeds approval threshold",
+        ):
+            post_inventory_adjustment(
+                company=self.company_a,
+                item=self.item,
+                location=self.main_location,
+                quantity_delta=Decimal("-2"),
+                reason="Unapproved shrinkage",
+            )

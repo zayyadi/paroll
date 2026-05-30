@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 from asgiref.sync import async_to_sync
-from channels.layers import get_channel_layer
+try:
+    from channels.layers import get_channel_layer
+except ImportError:  # pragma: no cover - chat is optional when Channels is not installed.
+    get_channel_layer = None
 from django.utils import timezone
 
 from payroll.models import (
@@ -144,6 +147,8 @@ def serialize_company_chat_message(message: CompanyChatMessage) -> dict:
 
 
 def broadcast_company_chat_message(message: CompanyChatMessage) -> None:
+    if get_channel_layer is None:
+        return
     channel_layer = get_channel_layer()
     if channel_layer is None:
         return

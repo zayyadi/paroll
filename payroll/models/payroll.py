@@ -424,6 +424,43 @@ class Payroll(models.Model):
         super(Payroll, self).save(*args, **kwargs)
 
 
+class SalaryHistory(models.Model):
+    employee = models.ForeignKey(
+        EmployeeProfile,
+        on_delete=models.CASCADE,
+        related_name="salary_history",
+    )
+    salary_config = models.ForeignKey(
+        Payroll,
+        on_delete=models.PROTECT,
+        related_name="employee_history",
+    )
+    effective_date = models.DateField(default=timezone.localdate)
+    changed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="salary_changes",
+    )
+    approved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="approved_salary_changes",
+    )
+    note = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-effective_date", "-id"]
+        unique_together = ("employee", "salary_config", "effective_date")
+
+    def __str__(self):
+        return f"{self.employee} salary from {self.effective_date}"
+
+
 class Allowance(models.Model):
     employee = models.ForeignKey(
         EmployeeProfile,
@@ -1126,6 +1163,9 @@ class LeavePolicy(models.Model):
     )
     leave_type = models.CharField(max_length=20, choices=LEAVE_TYPES)
     max_days = models.PositiveIntegerField()
+    statutory_min_days = models.PositiveIntegerField(default=6)
+    carryover_days = models.PositiveIntegerField(default=0)
+    carryover_expires_after_days = models.PositiveIntegerField(default=90)
 
     class Meta:
         unique_together = (("company", "leave_type"),)
@@ -1133,9 +1173,44 @@ class LeavePolicy(models.Model):
     def __str__(self):
         return f"{self.leave_type} - {self.max_days} days"
 
+    def clean(self):
+        super().clean()
+        if self.leave_type == "ANNUAL" and self.max_days < self.statutory_min_days:
+            raise ValidationError("Annual leave cannot be below the statutory minimum.")
+
+
+class LeaveBlackoutPeriod(models.Model):
+    company = models.ForeignKey(
+        "company.Company",
+        on_delete=models.CASCADE,
+        related_name="leave_blackout_periods",
+    )
+    name = models.CharField(max_length=120)
+    start_date = models.DateField()
+    end_date = models.DateField()
+    department = models.ForeignKey(
+        "payroll.Department",
+        null=True,
+        blank=True,
+        on_delete=models.CASCADE,
+        related_name="leave_blackout_periods",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["start_date", "name"]
+
+    def clean(self):
+        super().clean()
+        if self.end_date < self.start_date:
+            raise ValidationError("Blackout end date cannot be before start date.")
+
+    def __str__(self):
+        return self.name
+
 
 class LeaveBalance(models.Model):
-    employee = models.OneToOneField(
+    employee = models.ForeignKey(
         EmployeeProfile, on_delete=models.CASCADE, related_name="leave_balance"
     )
 
@@ -1146,6 +1221,8 @@ class LeaveBalance(models.Model):
     casual_leave = models.PositiveIntegerField(default=3)
     maternity_leave = models.PositiveIntegerField(default=40)
     paternity_leave = models.PositiveIntegerField(default=14)
+    carried_over_annual_leave = models.PositiveIntegerField(default=0)
+    carryover_expires_at = models.DateField(null=True, blank=True)
 
     class Meta:
         unique_together = ("employee", "year")
@@ -1191,6 +1268,15 @@ class LeaveRequest(models.Model):
 
     hr_override = models.BooleanField(default=False)
     override_reason = models.TextField(blank=True, null=True)
+    manager_approved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="manager_approved_leaves",
+    )
+    manager_approved_at = models.DateTimeField(null=True, blank=True)
+    hr_approved_at = models.DateTimeField(null=True, blank=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -1237,6 +1323,17 @@ class LeaveRequest(models.Model):
         if self.start_date > self.end_date:
             raise ValidationError("End date cannot be before start date.")
 
+        blackout_qs = LeaveBlackoutPeriod.objects.filter(
+            company=self.employee.company,
+            start_date__lte=self.end_date,
+            end_date__gte=self.start_date,
+        ).filter(
+            models.Q(department__isnull=True)
+            | models.Q(department=self.employee.department)
+        )
+        if not self.hr_override and blackout_qs.exists():
+            raise ValidationError("Leave request falls within a blackout period.")
+
         if self.status == "APPROVED" and not self.hr_override:
             balance = get_leave_balance(self.employee, self.start_date.year)
             days = self.duration
@@ -1281,6 +1378,24 @@ class LeaveRequest(models.Model):
 
         # Deduct leave only once
         if self.status == "APPROVED" and previous_status != "APPROVED":
+            if self.approved_by_id and not self.manager_approved_by_id:
+                approval_time = timezone.now()
+                self.manager_approved_by = self.approved_by
+                self.manager_approved_at = approval_time
+                self.hr_approved_at = approval_time
+                LeaveRequest.objects.filter(pk=self.pk).update(
+                    manager_approved_by=self.manager_approved_by,
+                    manager_approved_at=self.manager_approved_at,
+                    hr_approved_at=self.hr_approved_at,
+                )
+                LeaveApproval.objects.get_or_create(
+                    leave_request=self,
+                    step="manager",
+                    defaults={
+                        "approver": self.approved_by,
+                        "approved_at": approval_time,
+                    },
+                )
             balance = get_leave_balance(self.employee, self.start_date.year)
             days = self.duration
 
@@ -1301,6 +1416,10 @@ class LeaveRequest(models.Model):
             from payroll.services.leave_allowance import process_leave_allowance_for_request
 
             process_leave_allowance_for_request(self)
+
+            from payroll.services.attendance import populate_attendance_for_leave
+
+            populate_attendance_for_leave(self)
 
         # Audit logging
         action = "CREATED" if is_new else f"STATUS_CHANGED_TO_{self.status}"
@@ -1326,19 +1445,68 @@ class LeaveAuditLog(models.Model):
         return f"{self.action} - {self.leave_request}"
 
 
+class LeaveApproval(models.Model):
+    leave_request = models.ForeignKey(
+        LeaveRequest,
+        on_delete=models.CASCADE,
+        related_name="approvals",
+    )
+    approver = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="leave_approval_steps",
+    )
+    step = models.CharField(
+        max_length=20,
+        choices=(("manager", "Manager"), ("hr", "HR"), ("director", "Director")),
+    )
+    approved_at = models.DateTimeField(default=timezone.now)
+    note = models.TextField(blank=True)
+    is_escalated = models.BooleanField(default=False)
+    escalated_to = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="escalated_approvals",
+    )
+
+    class Meta:
+        unique_together = ("leave_request", "step")
+        ordering = ["approved_at"]
+
+
 def get_leave_balance(employee, year=None):
     if not year:
         year = date.today().year
 
+    defaults = {
+        "annual_leave": 20,
+        "sick_leave": 10,
+        "casual_leave": 7,
+        "maternity_leave": 90,
+        "paternity_leave": 14,
+    }
+    previous = LeaveBalance.objects.filter(employee=employee, year=year - 1).first()
+    if previous:
+        carryover = previous.annual_leave
+        policy = LeavePolicy.objects.filter(
+            company=employee.company,
+            leave_type="ANNUAL",
+        ).first()
+        if policy:
+            carryover = min(carryover, policy.carryover_days or carryover)
+            defaults["carryover_expires_at"] = date(year, 1, 1) + timedelta(
+                days=policy.carryover_expires_after_days
+            )
+        defaults["annual_leave"] += carryover
+        defaults["carried_over_annual_leave"] = carryover
+
     balance, _ = LeaveBalance.objects.get_or_create(
         employee=employee,
         year=year,
-        defaults={
-            "annual_leave": 20,
-            "sick_leave": 10,
-            "casual_leave": 7,
-            "maternity_leave": 90,
-            "paternity_leave": 14,
-        },
+        defaults=defaults,
     )
     return balance

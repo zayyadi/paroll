@@ -62,9 +62,17 @@ class CompanyScopedModelForm(forms.ModelForm):
 
 
 class UnitOfMeasureForm(CompanyScopedModelForm):
+    company_scoped_fields = (("base_unit", UnitOfMeasure),)
+
     class Meta:
         model = UnitOfMeasure
-        fields = ["name", "abbreviation"]
+        fields = [
+            "name",
+            "abbreviation",
+            "base_unit",
+            "conversion_factor",
+            "decimal_places",
+        ]
 
 
 class InventoryCategoryForm(CompanyScopedModelForm):
@@ -119,6 +127,7 @@ class InventoryItemForm(CompanyScopedModelForm):
             "item_type",
             "base_unit",
             "barcode",
+            "barcode_format",
             "track_batch",
             "track_expiry",
             "allow_negative_stock",
@@ -177,12 +186,23 @@ class SupplierForm(CompanyScopedModelForm):
             "payable_account",
             "wht_payable_account",
             "default_wht_rate",
+            "payment_terms",
+            "default_due_days",
+            "discount_terms",
+            "credit_limit",
             "is_active",
         ]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["default_wht_rate"].required = False
+        for field_name in [
+            "default_wht_rate",
+            "payment_terms",
+            "default_due_days",
+            "discount_terms",
+            "credit_limit",
+        ]:
+            self.fields[field_name].required = False
         if self.company is not None:
             liabilities = _accounts_for(self.company, Account.AccountType.LIABILITY)
             self.fields["payable_account"].queryset = liabilities
@@ -190,6 +210,12 @@ class SupplierForm(CompanyScopedModelForm):
 
     def clean_default_wht_rate(self):
         return self.cleaned_data.get("default_wht_rate") or Decimal("0")
+
+    def clean_default_due_days(self):
+        return self.cleaned_data.get("default_due_days") or 30
+
+    def clean_credit_limit(self):
+        return self.cleaned_data.get("credit_limit") or Decimal("0")
 
 
 class CustomerForm(CompanyScopedModelForm):
@@ -203,12 +229,23 @@ class CustomerForm(CompanyScopedModelForm):
             "receivable_account",
             "wht_receivable_account",
             "default_wht_rate",
+            "payment_terms",
+            "default_due_days",
+            "credit_limit",
+            "collections_status",
             "is_active",
         ]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["default_wht_rate"].required = False
+        for field_name in [
+            "default_wht_rate",
+            "payment_terms",
+            "default_due_days",
+            "credit_limit",
+            "collections_status",
+        ]:
+            self.fields[field_name].required = False
         if self.company is not None:
             assets = _accounts_for(self.company, Account.AccountType.ASSET)
             self.fields["receivable_account"].queryset = assets
@@ -216,6 +253,15 @@ class CustomerForm(CompanyScopedModelForm):
 
     def clean_default_wht_rate(self):
         return self.cleaned_data.get("default_wht_rate") or Decimal("0")
+
+    def clean_default_due_days(self):
+        return self.cleaned_data.get("default_due_days") or 30
+
+    def clean_credit_limit(self):
+        return self.cleaned_data.get("credit_limit") or Decimal("0")
+
+    def clean_collections_status(self):
+        return self.cleaned_data.get("collections_status") or "CURRENT"
 
 
 class InventoryActionForm(forms.Form):
@@ -248,14 +294,23 @@ class PurchaseOrderReceiveForm(InventoryActionForm):
     purchase_order_line = forms.ModelChoiceField(queryset=PurchaseOrderLine.objects.none())
     location = forms.ModelChoiceField(queryset=StockLocation.objects.none())
     quantity = forms.DecimalField(max_digits=14, decimal_places=4, min_value=0)
+    vat_input_account = forms.ModelChoiceField(queryset=Account.objects.none(), required=False)
+
+    @staticmethod
+    def label_purchase_order_line(line):
+        return line.item.name
 
     def __init__(self, *args, company=None, purchase_order=None, **kwargs):
         self.purchase_order = purchase_order
         super().__init__(*args, company=company, **kwargs)
+        self.fields["purchase_order_line"].label_from_instance = self.label_purchase_order_line
         if company is not None:
             self.fields["location"].queryset = StockLocation.objects.filter(
                 company=company, is_active=True
             ).select_related("warehouse")
+            self.fields["vat_input_account"].queryset = _accounts_for(
+                company, Account.AccountType.ASSET
+            )
         if purchase_order is not None:
             self.fields["purchase_order_line"].queryset = purchase_order.lines.filter(
                 received_quantity__lt=F("quantity")

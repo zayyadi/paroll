@@ -120,11 +120,11 @@
 <script>
 const currentEmployeeId = {{ chat_employee_id }};
 const defaultRoomId = {{ chat_default_room_id }};
-const chatMessagesUrl = "{% url 'api:v1:company-chat-message-list' %}";
-const chatMarkReadUrl = "{% url 'api:v1:company-chat-message-mark-read' %}";
-const chatRoomsUrl = "{% url 'api:v1:company-chat-room-list' %}";
-const chatDirectRoomUrl = "{% url 'api:v1:company-chat-room-direct' %}";
-const chatCandidatesUrl = "{% url 'api:v1:company-chat-room-candidates' %}";
+const chatMessagesUrl = "{{ chat_messages_url }}";
+const chatMarkReadUrl = "{{ chat_mark_read_url }}";
+const chatRoomsUrl = "{{ chat_rooms_url }}";
+const chatDirectRoomUrl = "{{ chat_direct_room_url }}";
+const chatCandidatesUrl = "{{ chat_candidates_url }}";
 const chatStatusEl = document.getElementById("chat-status");
 const chatMessagesEl = document.getElementById("chat-messages");
 const chatEmptyStateEl = document.getElementById("chat-empty-state");

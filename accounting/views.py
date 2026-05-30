@@ -14,7 +14,11 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.template.loader import render_to_string
 from django.contrib.auth import get_user_model
 from django.contrib.contenttypes.models import ContentType
-from weasyprint import HTML, CSS
+from datetime import datetime, timedelta
+try:
+    from weasyprint import HTML, CSS
+except ImportError:  # pragma: no cover - optional PDF dependency.
+    HTML = CSS = None
 import csv
 from decimal import Decimal, InvalidOperation
 
@@ -33,6 +37,9 @@ from .models import (
     DisciplinaryEvidence,
     DisciplinarySanction,
     DisciplinaryAppeal,
+    AccountReconciliation,
+    BankTransaction,
+    ReconciliationItem,
 )
 from .forms import (
     JournalForm,
@@ -69,6 +76,12 @@ from .utils import (
     reverse_journal_with_correction,
     batch_reverse_journals,
     close_accounting_period,
+    get_dashboard_metrics,
+    get_cash_flow_statement,
+    get_financial_ratios,
+    get_month_end_checklist,
+    get_inventory_turnover,
+    get_gross_margin_by_product,
 )
 from .permissions import (
     is_auditor,
@@ -81,6 +94,7 @@ from .permissions import (
     can_close_period,
 )
 from .decorators import (
+    accountant_required,
     auditor_required,
     accounting_role_required,
     auditor_or_accountant_required,
@@ -213,35 +227,45 @@ DISCIPLINARY_SYSTEM_DATA = {
 @accounting_role_required
 def accounting_dashboard(request):
     company = get_user_company(request.user)
+    period_id = request.GET.get("period")
+    period = None
+    if period_id:
+        period = get_object_or_404(AccountingPeriod, pk=period_id, company=company)
 
-    draft_journals_count = Journal.objects.filter(
-        company=company,
-        status=Journal.JournalStatus.DRAFT
-    ).count()
-    pending_journals_count = Journal.objects.filter(
-        company=company,
-        status=Journal.JournalStatus.PENDING_APPROVAL
-    ).count()
-    posted_journals_count = Journal.objects.filter(
-        company=company,
-        status=Journal.JournalStatus.POSTED
-    ).count()
-
+    metrics = get_dashboard_metrics(company, period=period)
+    ratios = get_financial_ratios(company, as_of_date=metrics["as_of_date"])
     recent_journals = Journal.objects.filter(company=company).order_by("-created_at")[:10]
+    active_periods = AccountingPeriod.objects.filter(
+        company=company, is_active=True
+    ).order_by("-start_date")[:6]
 
-    active_periods = AccountingPeriod.objects.filter(company=company, is_active=True).order_by(
-        "-start_date"
-    )[:5]
+    # AR/AP summaries
+    try:
+        from inventory.services import get_accounts_receivable_aging, get_accounts_payable_aging
+        ar = get_accounts_receivable_aging(company)
+        ap = get_accounts_payable_aging(company)
+        total_ar = sum(row["outstanding"] for row in ar)
+        total_ap = sum(row["outstanding"] for row in ap)
+        overdue_ar = sum(row["outstanding"] for row in ar if row["days_overdue"] > 30)
+    except Exception:
+        total_ar = Decimal("0.00")
+        total_ap = Decimal("0.00")
+        overdue_ar = Decimal("0.00")
 
     context = {
-        "draft_journals_count": draft_journals_count,
-        "pending_journals_count": pending_journals_count,
-        "posted_journals_count": posted_journals_count,
+        "draft_journals_count": metrics["draft_journals"],
+        "pending_journals_count": metrics["pending_journals"],
+        "posted_journals_count": metrics["posted_journals"],
         "recent_journals": recent_journals,
         "active_periods": active_periods,
         "is_auditor": is_auditor(request.user),
         "is_accountant": is_accountant(request.user),
         "is_payroll_processor": is_payroll_processor(request.user),
+        "metrics": metrics,
+        "ratios": ratios,
+        "total_ar": total_ar,
+        "total_ap": total_ap,
+        "overdue_ar": overdue_ar,
     }
 
     return render(request, "accounting/dashboard.html", context)
@@ -318,6 +342,23 @@ class AccountCreateView(LoginRequiredMixin, AccountantRequiredMixin, CreateView)
     def form_valid(self, form):
         form.instance.company = get_user_company(self.request.user)
         messages.success(self.request, "Account created successfully.")
+        return super().form_valid(form)
+
+
+class AccountUpdateView(LoginRequiredMixin, AccountantRequiredMixin, UpdateView):
+    model = Account
+    form_class = AccountForm
+    template_name = "accounting/account_form.html"
+
+    def get_queryset(self):
+        return Account.objects.filter(company=get_user_company(self.request.user))
+
+    def get_success_url(self):
+        return reverse_lazy("accounting:account_detail", kwargs={"pk": self.object.pk})
+
+    def form_valid(self, form):
+        form.instance.company = get_user_company(self.request.user)
+        messages.success(self.request, "Account updated successfully.")
         return super().form_valid(form)
 
 
@@ -615,6 +656,28 @@ class JournalListView(LoginRequiredMixin, AccountingRoleRequiredMixin, ListView)
     context_object_name = "journals"
     paginate_by = 20
 
+    def paginate_queryset(self, queryset, page_size):
+        page = (
+            self.kwargs.get(self.page_kwarg)
+            or self.request.GET.get(self.page_kwarg)
+            or 1
+        )
+        try:
+            page_number = int(page)
+        except (TypeError, ValueError):
+            return super().paginate_queryset(queryset, page_size)
+
+        if page_number >= 1:
+            return super().paginate_queryset(queryset, page_size)
+
+        paginator = self.get_paginator(
+            queryset,
+            page_size,
+            allow_empty_first_page=self.get_allow_empty(),
+        )
+        page = paginator.page(1)
+        return paginator, page, page.object_list, page.has_other_pages()
+
     def get_queryset(self):
         queryset = Journal.objects.filter(
             company=get_user_company(self.request.user)
@@ -860,10 +923,7 @@ class JournalApprovalView(LoginRequiredMixin, JournalApprovalMixin, FormView):
         try:
             if action == "approve":
                 journal.approve(self.request.user)
-                post_journal(journal, self.request.user)
-                messages.success(
-                    self.request, "Journal approved and posted successfully."
-                )
+                messages.success(self.request, "Journal approved successfully.")
             else:
                 journal.status = Journal.JournalStatus.CANCELLED
                 journal.save()
@@ -886,6 +946,23 @@ class JournalApprovalView(LoginRequiredMixin, JournalApprovalMixin, FormView):
         )
 
         return redirect("accounting:journal_detail", pk=journal.pk)
+
+
+@login_required
+@accountant_required
+def journal_post_view(request, pk):
+    journal = get_object_or_404(
+        Journal, pk=pk, company=get_user_company(request.user)
+    )
+    if request.method != "POST":
+        return redirect("accounting:journal_detail", pk=journal.pk)
+
+    try:
+        post_journal(journal, request.user)
+        messages.success(request, "Journal posted successfully.")
+    except ValidationError as exc:
+        messages.error(request, ", ".join(exc.messages))
+    return redirect("accounting:journal_detail", pk=journal.pk)
 
 
 class JournalReversalView(LoginRequiredMixin, JournalReversalMixin, FormView):
@@ -1231,6 +1308,204 @@ class DisciplinaryCaseCreateView(
         self.object.mark_due_process_notice()
         messages.success(self.request, "Disciplinary case created successfully.")
         return response
+
+
+@login_required
+@auditor_or_accountant_required
+def export_journals_csv_view(request):
+    company = get_user_company(request.user)
+    end_date = timezone.now().date()
+    start_date = end_date - timedelta(days=90)
+    if request.GET.get("start_date"):
+        start_date = datetime.strptime(request.GET["start_date"], "%Y-%m-%d").date()
+    if request.GET.get("end_date"):
+        end_date = datetime.strptime(request.GET["end_date"], "%Y-%m-%d").date()
+
+    from integrations.export_connectors import export_journals_to_csv
+    csv_data = export_journals_to_csv(company, start_date, end_date)
+    response = HttpResponse(csv_data, content_type="text/csv")
+    response["Content-Disposition"] = f'attachment; filename="paroll_journals_{start_date}_{end_date}.csv"'
+    return response
+
+
+@login_required
+@auditor_or_accountant_required
+def export_chart_of_accounts_csv_view(request):
+    company = get_user_company(request.user)
+    from integrations.export_connectors import export_chart_of_accounts_csv
+    csv_data = export_chart_of_accounts_csv(company)
+    response = HttpResponse(csv_data, content_type="text/csv")
+    response["Content-Disposition"] = 'attachment; filename="paroll_chart_of_accounts.csv"'
+    return response
+
+
+@login_required
+@auditor_or_accountant_required
+def export_suppliers_csv_view(request):
+    company = get_user_company(request.user)
+    from integrations.export_connectors import export_suppliers_csv
+    csv_data = export_suppliers_csv(company)
+    response = HttpResponse(csv_data, content_type="text/csv")
+    response["Content-Disposition"] = 'attachment; filename="paroll_suppliers.csv"'
+    return response
+
+
+@login_required
+@auditor_or_accountant_required
+def export_customers_csv_view(request):
+    company = get_user_company(request.user)
+    from integrations.export_connectors import export_customers_csv
+    csv_data = export_customers_csv(company)
+    response = HttpResponse(csv_data, content_type="text/csv")
+    response["Content-Disposition"] = 'attachment; filename="paroll_customers.csv"'
+    return response
+
+
+@login_required
+@auditor_or_accountant_required
+def cash_flow_report(request):
+    company = get_user_company(request.user)
+    end_date = timezone.now().date()
+    start_date = end_date.replace(day=1)
+    period_id = request.GET.get("period")
+    if period_id:
+        period = get_object_or_404(AccountingPeriod, pk=period_id, company=company)
+        start_date = period.start_date
+        end_date = period.end_date
+
+    if request.GET.get("start_date"):
+        start_date = datetime.strptime(request.GET["start_date"], "%Y-%m-%d").date()
+    if request.GET.get("end_date"):
+        end_date = datetime.strptime(request.GET["end_date"], "%Y-%m-%d").date()
+
+    cf = get_cash_flow_statement(company, start_date, end_date)
+    return render(request, "accounting/reports/cash_flow.html", cf)
+
+
+@login_required
+@auditor_or_accountant_required
+def financial_ratios_report(request):
+    company = get_user_company(request.user)
+    period_id = request.GET.get("period")
+    as_of_date = None
+    if period_id:
+        period = get_object_or_404(AccountingPeriod, pk=period_id, company=company)
+        as_of_date = period.end_date
+    ratios = get_financial_ratios(company, as_of_date=as_of_date)
+    return render(request, "accounting/reports/financial_ratios.html", {"ratios": ratios})
+
+
+@login_required
+@auditor_or_accountant_required
+def ar_aging_report(request):
+    company = get_user_company(request.user)
+    from inventory.services import get_accounts_receivable_aging
+    aging = get_accounts_receivable_aging(company)
+    total = sum(row["outstanding"] for row in aging)
+    return render(request, "accounting/reports/ar_aging.html", {
+        "aging": aging, "total_outstanding": total,
+    })
+
+
+@login_required
+@auditor_or_accountant_required
+def ap_aging_report(request):
+    company = get_user_company(request.user)
+    from inventory.services import get_accounts_payable_aging
+    aging = get_accounts_payable_aging(company)
+    total = sum(row["outstanding"] for row in aging)
+    return render(request, "accounting/reports/ap_aging.html", {
+        "aging": aging, "total_outstanding": total,
+    })
+
+
+@login_required
+@auditor_or_accountant_required
+def inventory_turnover_report(request):
+    company = get_user_company(request.user)
+    end_date = timezone.now().date()
+    start_date = end_date - timedelta(days=365)
+    period_id = request.GET.get("period")
+    if period_id:
+        period = get_object_or_404(AccountingPeriod, pk=period_id, company=company)
+        start_date = period.start_date
+        end_date = period.end_date
+    data = get_inventory_turnover(company, start_date, end_date)
+    return render(request, "accounting/reports/inventory_turnover.html", data)
+
+
+@login_required
+@auditor_or_accountant_required
+def gross_margin_report(request):
+    company = get_user_company(request.user)
+    end_date = timezone.now().date()
+    start_date = end_date - timedelta(days=365)
+    period_id = request.GET.get("period")
+    if period_id:
+        period = get_object_or_404(AccountingPeriod, pk=period_id, company=company)
+        start_date = period.start_date
+        end_date = period.end_date
+    products = get_gross_margin_by_product(company, start_date, end_date)
+    return render(request, "accounting/reports/gross_margin.html", {
+        "products": products, "start_date": start_date, "end_date": end_date,
+    })
+
+
+@login_required
+@auditor_or_accountant_required
+def month_end_checklist_view(request):
+    company = get_user_company(request.user)
+    period_id = request.GET.get("period")
+    period = None
+    checklist = None
+    if period_id:
+        period = get_object_or_404(AccountingPeriod, pk=period_id, company=company)
+        checklist = get_month_end_checklist(company, period)
+    periods = AccountingPeriod.objects.filter(company=company, is_closed=False).order_by("-end_date")
+    return render(request, "accounting/reports/month_end_checklist.html", {
+        "checklist": checklist, "periods": periods, "selected_period": period,
+    })
+
+
+@login_required
+@auditor_or_accountant_required
+def executive_dashboard(request):
+    company = get_user_company(request.user)
+    metrics = get_dashboard_metrics(company)
+    ratios = get_financial_ratios(company, as_of_date=metrics["as_of_date"])
+    try:
+        from inventory.services import get_accounts_receivable_aging, get_accounts_payable_aging
+        ar = get_accounts_receivable_aging(company)
+        ap = get_accounts_payable_aging(company)
+        total_ar = sum(row["outstanding"] for row in ar)
+        total_ap = sum(row["outstanding"] for row in ap)
+    except Exception:
+        total_ar = Decimal("0.00")
+        total_ap = Decimal("0.00")
+
+    return render(request, "accounting/reports/executive_dashboard.html", {
+        "metrics": metrics,
+        "ratios": ratios,
+        "total_ar": total_ar,
+        "total_ap": total_ap,
+    })
+
+
+@login_required
+def mfa_verify_view(request):
+    """Step-up MFA verification for sensitive accounting operations."""
+    if request.method == "POST":
+        password = request.POST.get("password", "")
+        if request.user.check_password(password):
+            from accounting.mfa import mark_mfa_verified
+            mark_mfa_verified(request.user)
+            messages.success(request, "Verification successful.")
+            return_url = request.session.pop("mfa_return_url", None) or "/"
+            return redirect(return_url)
+        else:
+            messages.error(request, "Incorrect password.")
+
+    return render(request, "accounting/mfa_verify.html")
 
     def get_success_url(self):
         return reverse_lazy(
@@ -1663,6 +1938,15 @@ def account_activity_report(request):
 
 
 @login_required
+@auditor_or_accountant_required
+def account_activity_report_for_account(request, pk):
+    query = request.GET.copy()
+    query["account"] = str(pk)
+    request.GET = query
+    return account_activity_report(request)
+
+
+@login_required
 @auditor_required
 def reports_index(request):
     """
@@ -1993,6 +2277,15 @@ def account_activity_pdf(request):
         f'attachment; filename="account_activity_{account.name}_{timezone.now().date()}.pdf"'
     )
     return response
+
+
+@login_required
+@auditor_or_accountant_required
+def account_activity_pdf_for_account(request, pk):
+    query = request.GET.copy()
+    query["account"] = str(pk)
+    request.GET = query
+    return account_activity_pdf(request)
 
 
 @login_required
@@ -2365,7 +2658,12 @@ class JournalReversalConfirmationView(
         journal = get_object_or_404(Journal, pk=self.kwargs["pk"])
         reversal_data = self.request.session.get("reversal_data", {})
         original_reason = reversal_data.get("reason", "")
-        final_reason = form.cleaned_data["final_reason"]
+        final_reason = (
+            form.cleaned_data.get("final_reason")
+            or self.request.POST.get("reason")
+            or original_reason
+            or "Journal reversal"
+        )
 
         try:
             reversal_journal = reverse_journal(
@@ -2386,7 +2684,7 @@ class JournalReversalConfirmationView(
             return self.form_invalid(form)
 
 
-class BatchJournalReversalView(LoginRequiredMixin, JournalReversalMixin, FormView):
+class BatchJournalReversalView(LoginRequiredMixin, AccountingRoleRequiredMixin, FormView):
     """
     View to handle batch journal reversals
     """
@@ -2477,3 +2775,286 @@ class JournalReversalHistoryView(
         context["audit_entries"] = audit_entries
 
         return context
+
+
+# ── Bank Reconciliation Views ────────────────────────────────────────────────
+
+class ReconciliationListView(LoginRequiredMixin, AccountingRoleRequiredMixin, ListView):
+    model = AccountReconciliation
+    template_name = "accounting/reconciliation_list.html"
+    context_object_name = "reconciliations"
+    paginate_by = 25
+
+    def get_queryset(self):
+        company = get_user_company(self.request.user)
+        qs = AccountReconciliation.objects.filter(company=company).select_related(
+            "account", "period", "approved_by"
+        ).prefetch_related("items", "bank_transactions")
+        account_id = self.request.GET.get("account")
+        if account_id:
+            qs = qs.filter(account_id=account_id)
+        status = self.request.GET.get("status")
+        if status:
+            qs = qs.filter(status=status)
+        return qs
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        company = get_user_company(self.request.user)
+        context["asset_accounts"] = Account.objects.filter(
+            company=company, type=Account.AccountType.ASSET, status=Account.AccountStatus.ACTIVE
+        )
+        return context
+
+
+class ReconciliationCreateView(LoginRequiredMixin, AccountingRoleRequiredMixin, FormView):
+    template_name = "accounting/reconciliation_create.html"
+
+    def get_form_class(self):
+        from .forms import ReconciliationCreateForm
+        return ReconciliationCreateForm
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["company"] = get_user_company(self.request.user)
+        return kwargs
+
+    def form_valid(self, form):
+        company = get_user_company(self.request.user)
+        bank_txs = None
+        if form.cleaned_data.get("bank_transactions"):
+            bank_txs = form.cleaned_data["bank_transactions"]
+
+        from .utils import create_bank_reconciliation
+        recon = create_bank_reconciliation(
+            company=company,
+            account=form.cleaned_data["account"],
+            period=form.cleaned_data.get("period"),
+            user=self.request.user,
+            bank_transactions_data=bank_txs,
+        )
+        messages.success(self.request, f"Reconciliation created for {recon.account.name}.")
+        return redirect("accounting:reconciliation_detail", pk=recon.pk)
+
+
+class ReconciliationDetailView(LoginRequiredMixin, AccountingRoleRequiredMixin, DetailView):
+    model = AccountReconciliation
+    template_name = "accounting/reconciliation_detail.html"
+    context_object_name = "reconciliation"
+
+    def get_queryset(self):
+        return AccountReconciliation.objects.filter(
+            company=get_user_company(self.request.user)
+        ).select_related("account", "period", "approved_by").prefetch_related(
+            "items__bank_transaction", "items__journal_entry", "bank_transactions"
+        )
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        recon = self.object
+        company = get_user_company(self.request.user)
+
+        # Journal entries for the account in this period
+        from .utils import get_account_balance_as_of
+        context["ledger_entries"] = JournalEntry.objects.filter(
+            account=recon.account,
+            journal__company=company,
+            journal__status=Journal.JournalStatus.POSTED,
+        ).select_related("journal").order_by("journal__date")
+
+        if recon.period:
+            context["ledger_entries"] = context["ledger_entries"].filter(
+                journal__date__gte=recon.period.start_date,
+                journal__date__lte=recon.period.end_date,
+            )
+
+        context["matched_items"] = recon.items.filter(status="MATCHED")
+        context["unmatched_items"] = recon.items.filter(status__startswith="UNMATCHED")
+        context["can_approve"] = recon.status in ("OPEN", "INVESTIGATING")
+        context["can_match"] = recon.status not in ("APPROVED",)
+        return context
+
+
+class ReconciliationMatchView(LoginRequiredMixin, AccountingRoleRequiredMixin, DetailView):
+    model = AccountReconciliation
+    template_name = "accounting/reconciliation_match.html"
+    context_object_name = "reconciliation"
+
+    def get_queryset(self):
+        return AccountReconciliation.objects.filter(
+            company=get_user_company(self.request.user)
+        ).select_related("account", "period").prefetch_related(
+            "bank_transactions", "items"
+        )
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        recon = self.object
+        company = get_user_company(self.request.user)
+
+        context["unmatched_bank"] = recon.bank_transactions.filter(is_matched=False)
+
+        # Already matched journal entry IDs
+        matched_entry_ids = recon.items.filter(
+            journal_entry__isnull=False
+        ).values_list("journal_entry_id", flat=True)
+
+        context["ledger_entries"] = JournalEntry.objects.filter(
+            account=recon.account,
+            journal__company=company,
+            journal__status=Journal.JournalStatus.POSTED,
+            journal__date__lte=recon.period.end_date if recon.period else timezone.now().date(),
+        ).exclude(id__in=matched_entry_ids).select_related("journal").order_by("journal__date")
+
+        return context
+
+    def post(self, request, *args, **kwargs):
+        self.object = self.get_object()
+        recon = self.object
+
+        matches = []
+        bank_tx_ids = request.POST.getlist("bank_transaction")
+        entry_ids = request.POST.getlist("journal_entry")
+        amounts = request.POST.getlist("amount_matched")
+        notes = request.POST.getlist("match_note")
+
+        for i in range(len(bank_tx_ids)):
+            if i < len(entry_ids) and entry_ids[i]:
+                matches.append({
+                    "bank_transaction_id": int(bank_tx_ids[i]),
+                    "journal_entry_id": int(entry_ids[i]),
+                    "amount_matched": Decimal(amounts[i]) if i < len(amounts) else None,
+                    "note": notes[i] if i < len(notes) else "",
+                })
+
+        if not matches:
+            messages.warning(request, "No matches selected.")
+            return redirect("accounting:reconciliation_match", pk=recon.pk)
+
+        from .utils import match_reconciliation_items
+        match_reconciliation_items(recon, matches)
+        messages.success(request, f"Matched {len(matches)} transactions.")
+        return redirect("accounting:reconciliation_detail", pk=recon.pk)
+
+
+@login_required
+def reconciliation_approve(request, pk):
+    recon = get_object_or_404(
+        AccountReconciliation.objects.filter(company=get_user_company(request.user)),
+        pk=pk,
+    )
+    if request.method == "POST":
+        from .utils import approve_reconciliation
+        approve_reconciliation(recon, request.user)
+        messages.success(request, "Reconciliation approved.")
+        return redirect("accounting:reconciliation_detail", pk=recon.pk)
+    return render(request, "accounting/reconciliation_approve.html", {"reconciliation": recon})
+
+
+@login_required
+def reconciliation_import(request):
+    """Import bank transactions from CSV for a given account."""
+    company = get_user_company(request.user)
+
+    if request.method == "POST":
+        from .forms import BankTransactionImportForm
+        form = BankTransactionImportForm(request.POST, request.FILES, company=company)
+        if form.is_valid():
+            account = form.cleaned_data["account"]
+            period = form.cleaned_data.get("period")
+            txs = form.get_bank_transactions()
+            from .utils import create_bank_reconciliation
+            recon = create_bank_reconciliation(
+                company=company, account=account, period=period,
+                user=request.user, bank_transactions_data=txs,
+            )
+            messages.success(request, f"Imported {len(txs)} bank transactions for {account.name}.")
+            return redirect("accounting:reconciliation_detail", pk=recon.pk)
+    else:
+        from .forms import BankTransactionImportForm
+        form = BankTransactionImportForm(company=company)
+
+    return render(request, "accounting/reconciliation_import.html", {"form": form})
+
+
+@login_required
+@auditor_or_accountant_required
+def queue_async_report(request, report_type):
+    """Queue a financial report for async generation."""
+    company = get_user_company(request.user)
+
+    if report_type not in ("trial_balance", "balance_sheet", "income_statement", "general_ledger"):
+        messages.error(request, "Invalid report type.")
+        return redirect("accounting:reports")
+
+    if request.method == "POST":
+        period_id = request.POST.get("period") or None
+        as_of_date = request.POST.get("as_of_date") or None
+
+        period = None
+        if period_id:
+            from accounting.models import AccountingPeriod
+            period = get_object_or_404(AccountingPeriod, pk=period_id, company=company)
+
+        from accounting.models import FinancialReportJob
+        job = FinancialReportJob.objects.create(
+            company=company,
+            user=request.user,
+            report_type=report_type.upper(),
+            period=period,
+            as_of_date=as_of_date if as_of_date else None,
+        )
+        job.enqueue()
+        messages.success(request, f"{report_type.replace('_', ' ').title()} is being generated. Check back shortly.")
+        return redirect("accounting:report_job_status", pk=job.pk)
+
+    periods = AccountingPeriod.objects.filter(company=company).order_by("-end_date")
+    return render(request, "accounting/reports/queue_report.html", {
+        "report_type": report_type,
+        "periods": periods,
+    })
+
+
+@login_required
+@auditor_or_accountant_required
+def report_job_list(request):
+    """List all async report jobs for the current company."""
+    company = get_user_company(request.user)
+    from accounting.models import FinancialReportJob
+    jobs = FinancialReportJob.objects.filter(company=company).select_related("user", "period").order_by("-queued_at")[:50]
+    return render(request, "accounting/reports/report_jobs.html", {"jobs": jobs})
+
+
+@login_required
+@auditor_or_accountant_required
+def report_job_status(request, pk):
+    """View status of an async report job."""
+    company = get_user_company(request.user)
+    from accounting.models import FinancialReportJob
+    job = get_object_or_404(FinancialReportJob.objects.filter(company=company), pk=pk)
+    return render(request, "accounting/reports/report_job_status.html", {"job": job})
+
+
+@login_required
+@auditor_or_accountant_required
+def report_job_download(request, pk):
+    """Download a completed report PDF."""
+    company = get_user_company(request.user)
+    from accounting.models import FinancialReportJob
+    job = get_object_or_404(FinancialReportJob.objects.filter(company=company), pk=pk)
+
+    if job.status != "completed" or not job.output_file:
+        messages.error(request, "Report is not ready for download.")
+        return redirect("accounting:report_job_status", pk=job.pk)
+
+    import os
+    if not os.path.exists(job.output_file):
+        messages.error(request, "Report file no longer available. Please regenerate.")
+        return redirect("accounting:report_job_status", pk=job.pk)
+
+    from django.http import FileResponse
+    response = FileResponse(open(job.output_file, "rb"), content_type="application/pdf")
+    response["Content-Disposition"] = (
+        f'attachment; filename="paroll_{job.report_type.lower()}_{job.company_id}.pdf"'
+    )
+    return response

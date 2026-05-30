@@ -9,7 +9,7 @@ from django.conf import settings
 from django.utils import timezone
 
 from payroll.models import LeaveAllowanceEmailJob, LeaveRequest
-from payroll.views.payroll_view import generate_payslip_pdf
+from payroll.views.payroll_payslips import generate_payslip_pdf
 from users.email_backend import send_mail as custom_send_mail
 
 logger = logging.getLogger(__name__)
