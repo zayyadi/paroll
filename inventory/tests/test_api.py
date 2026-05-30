@@ -17,6 +17,7 @@ from inventory.models import (
     PurchaseOrder,
     StockLocation,
     Supplier,
+    UnitOfMeasure,
     Warehouse,
 )
 
@@ -203,6 +204,10 @@ class InventoryAPITests(APITestCase):
                 "email": "sade@example.com",
                 "phone": "08000000001",
                 "payable_account": self.accounts["payable"].pk,
+                "payment_terms": "Net 45",
+                "default_due_days": 45,
+                "discount_terms": "2/10 net 45",
+                "credit_limit": "250000.00",
                 "is_active": True,
             },
             format="json",
@@ -210,7 +215,60 @@ class InventoryAPITests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response.data["company"], self.company.id)
-        self.assertTrue(Supplier.objects.filter(company=self.company, name="API Supplier").exists())
+        supplier = Supplier.objects.get(company=self.company, name="API Supplier")
+        self.assertEqual(response.data["payment_terms"], "Net 45")
+        self.assertEqual(supplier.default_due_days, 45)
+        self.assertEqual(supplier.discount_terms, "2/10 net 45")
+        self.assertEqual(supplier.credit_limit, Decimal("250000.00"))
+
+    def test_inventory_master_data_api_exposes_audit_control_fields(self):
+        self.grant_model_perms(
+            self.user,
+            UnitOfMeasure,
+            ["view_unitofmeasure", "add_unitofmeasure", "change_unitofmeasure"],
+        )
+        self.grant_model_perms(
+            self.user,
+            InventoryItem,
+            ["view_inventoryitem", "add_inventoryitem", "change_inventoryitem"],
+        )
+        base_unit = UnitOfMeasure.objects.create(
+            company=self.company,
+            name="Each",
+            abbreviation="ea",
+        )
+
+        uom_response = self.client.post(
+            reverse("api:v1:inventory-unit-list"),
+            {
+                "name": "Carton",
+                "abbreviation": "ctn",
+                "base_unit": base_unit.pk,
+                "conversion_factor": "12.000000",
+                "decimal_places": 2,
+            },
+            format="json",
+        )
+        item_response = self.client.post(
+            reverse("api:v1:inventory-item-list"),
+            {
+                "category": self.category.pk,
+                "sku": "API-002",
+                "name": "Serialized Item",
+                "base_unit": base_unit.pk,
+                "barcode": "6001000000001",
+                "barcode_format": "EAN13",
+                "is_active": True,
+            },
+            format="json",
+        )
+
+        self.assertEqual(uom_response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(uom_response.data["base_unit"], base_unit.pk)
+        self.assertEqual(uom_response.data["conversion_factor"], "12.000000")
+        self.assertEqual(uom_response.data["decimal_places"], 2)
+        self.assertEqual(item_response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(item_response.data["barcode_format"], "EAN13")
 
     def test_purchase_receipt_api_posts_stock_and_payable(self):
         supplier = Supplier.objects.create(

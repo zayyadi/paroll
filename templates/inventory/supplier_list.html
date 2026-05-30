@@ -22,7 +22,9 @@
             <tbody class="bg-white divide-y divide-gray-200">
                 {% for supplier in suppliers %}
                 <tr class="table-row-hover">
-                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-secondary-900">{{ supplier.name }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-secondary-900">
+                        <a href="{% url 'inventory:supplier_detail' supplier.pk %}" class="text-primary-600 hover:text-primary-900 hover:underline">{{ supplier.name }}</a>
+                    </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-secondary-500">{{ supplier.contact_name|default:"-" }}</td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-secondary-500">{{ supplier.phone|default:"-" }}</td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-secondary-500">{{ supplier.payable_account }}</td>

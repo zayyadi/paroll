@@ -59,7 +59,7 @@ from payroll.models import (
     create_job_offer,
     accept_job_offer,
 )
-from payroll.views.payroll_view import (
+from payroll.views.payroll_payslips import (
     _queue_payslip_emails_for_payroll_run,
     _send_payslips_for_payroll_run,
 )
@@ -529,8 +529,8 @@ class AppraisalAssignmentEmailTests(TestCase):
 
 
 class PayrollRunPayslipEmailTests(TestCase):
-    @patch("payroll.views.payroll_view.custom_send_mail")
-    @patch("payroll.views.payroll_view.generate_payslip_pdf")
+    @patch("payroll.views.payroll_payslips.custom_send_mail")
+    @patch("payroll.views.payroll_payslips.generate_payslip_pdf")
     def test_send_payslips_for_payroll_run_sends_email_with_attachment(
         self, mocked_generate_pdf, mocked_send_mail
     ):
@@ -581,8 +581,8 @@ class PayrollRunPayslipEmailTests(TestCase):
         self.assertEqual(attachment["mimetype"], "application/pdf")
 
     @patch("payroll.tasks.payslip_tasks.send_payslips_for_payroll_run_task.apply_async")
-    @patch("payroll.views.payroll_view.custom_send_mail")
-    @patch("payroll.views.payroll_view.generate_payslip_pdf")
+    @patch("payroll.views.payroll_payslips.custom_send_mail")
+    @patch("payroll.views.payroll_payslips.generate_payslip_pdf")
     def test_queue_payslip_emails_creates_job_and_defers_delivery_until_after_commit(
         self, mocked_generate_pdf, mocked_send_mail, mocked_apply_async
     ):
@@ -609,7 +609,7 @@ class PayrollRunPayslipEmailTests(TestCase):
         job.refresh_from_db()
         self.assertEqual(job.celery_task_id, "celery-task-123")
 
-    @patch("payroll.views.payroll_view._send_payslips_for_payroll_run")
+    @patch("payroll.views.payroll_payslips._send_payslips_for_payroll_run")
     def test_payslip_task_marks_job_as_sent(self, mocked_send_payslips):
         mocked_send_payslips.return_value = (2, [])
         company = Company.objects.create(name="Task Status Co")

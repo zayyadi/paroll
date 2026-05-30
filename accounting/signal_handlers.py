@@ -3,7 +3,7 @@ Comprehensive signal handlers for accounting audit trail integration.
 This module captures all accounting operations and logs them to the audit trail.
 """
 
-from django.db.models.signals import pre_save, post_save, post_delete
+from django.db.models.signals import pre_save, post_save, pre_delete, post_delete
 from django.dispatch import receiver
 from django.contrib.auth import get_user_model
 from django.contrib.contenttypes.models import ContentType
@@ -46,6 +46,10 @@ def log_model_change(sender, instance, action, changes=None, reason=None):
         reason: Reason for the change
     """
     user, ip_address, user_agent = get_audit_user_and_metadata()
+    content_type = ContentType.objects.get_for_model(instance)
+    object_id = getattr(instance, "_audit_deleted_pk", instance.pk)
+    object_id = object_id if object_id is not None else 0
+    company = getattr(instance, "company", None)
 
     def log_audit_trail():
         try:
@@ -57,6 +61,9 @@ def log_model_change(sender, instance, action, changes=None, reason=None):
                 reason=reason or f"{action} operation on {sender.__name__}",
                 ip_address=ip_address,
                 user_agent=user_agent,
+                content_type=content_type,
+                object_id=object_id,
+                company=company,
             )
         except Exception:
             # Silently fail to avoid breaking the main application
@@ -109,6 +116,31 @@ def get_field_changes(old_instance, new_instance):
     return changes
 
 
+@receiver(pre_delete, sender=Account)
+@receiver(pre_delete, sender=FiscalYear)
+@receiver(pre_delete, sender=AccountingPeriod)
+@receiver(pre_delete, sender=Journal)
+@receiver(pre_delete, sender=JournalEntry)
+def snapshot_deleted_pk(sender, instance, **kwargs):
+    instance._audit_deleted_pk = instance.pk
+
+
+def get_creation_changes(instance):
+    changes = {}
+    for field in instance._meta.fields:
+        field_name = field.name
+        if field_name not in ["id", "created_at", "updated_at"]:
+            value = getattr(instance, field_name)
+            if value is not None and field.is_relation:
+                value = getattr(value, "pk", value)
+            elif value is not None and field.get_internal_type() == "DecimalField":
+                value = f"{value:.{field.decimal_places}f}"
+            elif hasattr(value, "isoformat"):
+                value = value.isoformat()
+            changes[field_name] = value
+    return changes
+
+
 # Account signal handlers
 @receiver(pre_save, sender=Account)
 def account_pre_save(sender, instance, **kwargs):
@@ -133,6 +165,7 @@ def account_post_save(sender, instance, created, **kwargs):
                 sender=sender,
                 instance=instance,
                 action=AccountingAuditTrail.ActionType.CREATE,
+                changes=get_creation_changes(instance),
                 reason=f"Created account: {instance.name} ({instance.account_number})",
             )
         else:
@@ -224,13 +257,14 @@ def fiscal_year_post_save(sender, instance, created, **kwargs):
                 sender=sender,
                 instance=instance,
                 action=AccountingAuditTrail.ActionType.CREATE,
+                changes=get_creation_changes(instance),
                 reason=f"Created fiscal year: {instance.name} ({instance.year})",
             )
         else:
             changes = getattr(instance, "_audit_changes", {})
             if changes:
                 # Check if fiscal year is being closed
-                if "is_closed" in changes and changes["is_closed"]["new"] is True:
+                if "is_closed" in changes and changes["is_closed"]["new"] in (True, "True"):
                     log_model_change(
                         sender=sender,
                         instance=instance,
@@ -325,13 +359,14 @@ def accounting_period_post_save(sender, instance, created, **kwargs):
                 sender=sender,
                 instance=instance,
                 action=AccountingAuditTrail.ActionType.CREATE,
+                changes=get_creation_changes(instance),
                 reason=f"Created accounting period: {instance.name} ({instance.fiscal_year.name})",
             )
         else:
             changes = getattr(instance, "_audit_changes", {})
             if changes:
                 # Check if period is being closed
-                if "is_closed" in changes and changes["is_closed"]["new"] is True:
+                if "is_closed" in changes and changes["is_closed"]["new"] in (True, "True"):
                     log_model_change(
                         sender=sender,
                         instance=instance,
@@ -421,31 +456,42 @@ def journal_post_save(sender, instance, created, **kwargs):
     """Log journal creation and updates."""
 
     # Use transaction.on_commit to avoid transaction issues
+    audit_changes = getattr(instance, "_audit_changes", {}).copy()
+    creation_changes = get_creation_changes(instance) if created else {}
+
     def log_journal_change():
         if created:
             log_model_change(
                 sender=sender,
                 instance=instance,
                 action=AccountingAuditTrail.ActionType.CREATE,
+                changes=creation_changes,
                 reason=f"Created journal: {instance.transaction_number} - {instance.description}",
             )
         else:
-            changes = getattr(instance, "_audit_changes", {})
+            changes = audit_changes
             if changes:
                 # Check for specific status changes
                 if "status" in changes:
                     old_status = changes["status"]["old"]
                     new_status = changes["status"]["new"]
+                    suppress_status_audit = getattr(
+                        instance, "_suppress_status_audit", False
+                    )
+                    suppress_approval_audit = getattr(
+                        instance, "_suppress_approval_audit", False
+                    )
 
-                    if old_status != new_status:
+                    if old_status != new_status and not suppress_status_audit:
                         if new_status == Journal.JournalStatus.APPROVED:
-                            log_model_change(
-                                sender=sender,
-                                instance=instance,
-                                action=AccountingAuditTrail.ActionType.APPROVE,
-                                changes=changes,
-                                reason=f"Approved journal: {instance.transaction_number}",
-                            )
+                            if not suppress_approval_audit:
+                                log_model_change(
+                                    sender=sender,
+                                    instance=instance,
+                                    action=AccountingAuditTrail.ActionType.APPROVE,
+                                    changes=changes,
+                                    reason=f"Approved journal: {instance.transaction_number}",
+                                )
                         elif new_status == Journal.JournalStatus.POSTED:
                             log_model_change(
                                 sender=sender,
@@ -462,6 +508,8 @@ def journal_post_save(sender, instance, created, **kwargs):
                                 changes=changes,
                                 reason=f"Reversed journal: {instance.transaction_number}",
                             )
+                        elif new_status == Journal.JournalStatus.PENDING_APPROVAL:
+                            pass
                         else:
                             log_model_change(
                                 sender=sender,
@@ -550,7 +598,14 @@ def journal_entry_pre_save(sender, instance, **kwargs):
 
 @receiver(post_save, sender=JournalEntry)
 def journal_entry_post_save(sender, instance, created, **kwargs):
-    """Log journal entry creation and updates."""
+    """Log journal entry creation and updates, update account balance."""
+
+    def _update_balance():
+        if instance.journal and instance.journal.status == Journal.JournalStatus.POSTED:
+            try:
+                instance.account.recompute_balance()
+            except Exception:
+                pass
 
     # Use transaction.on_commit to avoid transaction issues
     def log_entry_change():
@@ -559,6 +614,7 @@ def journal_entry_post_save(sender, instance, created, **kwargs):
                 sender=sender,
                 instance=instance,
                 action=AccountingAuditTrail.ActionType.CREATE,
+                changes=get_creation_changes(instance),
                 reason=f"Created journal entry: {instance.get_entry_type_display()} {instance.amount} to {instance.account.name}",
             )
         else:
@@ -571,6 +627,7 @@ def journal_entry_post_save(sender, instance, created, **kwargs):
                     changes=changes,
                     reason=f"Updated journal entry: {instance.get_entry_type_display()} {instance.amount} to {instance.account.name}",
                 )
+        _update_balance()
 
     # Check if we're in an atomic block and if transaction is in a good state
     try:

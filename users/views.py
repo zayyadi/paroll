@@ -35,7 +35,10 @@ from django.utils.encoding import force_str
 from core.settings import DEFAULT_FROM_EMAIL
 from users.email_backend import send_mail as custom_send_mail
 
-from social_django.models import UserSocialAuth
+try:
+    from social_django.models import UserSocialAuth
+except ImportError:  # pragma: no cover - optional social auth dependency.
+    UserSocialAuth = None
 
 from users.forms import SignUpForm
 from users.models import CustomUser
@@ -61,6 +64,47 @@ class RegisterView(views.View):
 
 class MyLoginView(LoginView):
     template_name = "registration/login_new.html"
+
+    def form_valid(self, form):
+        from accounting.mfa import reset_login_attempts, is_login_locked_out
+        from django.contrib import messages
+        from django.conf import settings
+
+        user_identifier = form.cleaned_data.get("username") or self.request.POST.get("username", "")
+
+        if is_login_locked_out(user_identifier):
+            lockout_mins = getattr(settings, "LOGIN_LOCKOUT_SECONDS", 1800) // 60
+            messages.error(
+                self.request,
+                f"Account temporarily locked due to too many failed attempts. Try again in {lockout_mins} minutes.",
+            )
+            form.add_error(None, "Account temporarily locked.")
+            return self.form_invalid(form)
+
+        reset_login_attempts(user_identifier)
+        return super().form_valid(form)
+
+    def form_invalid(self, form):
+        from accounting.mfa import record_login_failure, get_remaining_attempts
+        from django.contrib import messages
+        from django.conf import settings
+
+        user_identifier = self.request.POST.get("username", "")
+        if user_identifier:
+            record_login_failure(user_identifier)
+            remaining = get_remaining_attempts(user_identifier)
+            if remaining == 0:
+                lockout_mins = getattr(settings, "LOGIN_LOCKOUT_SECONDS", 1800) // 60
+                messages.error(
+                    self.request,
+                    f"Too many failed attempts. Account locked for {lockout_mins} minutes.",
+                )
+            else:
+                messages.warning(
+                    self.request,
+                    f"Invalid credentials. {remaining} attempt(s) remaining.",
+                )
+        return super().form_invalid(form)
 
     def _resolve_login_company(self, user):
         if settings.MULTI_COMPANY_MEMBERSHIP_ENABLED:
@@ -142,22 +186,25 @@ def social_login(request):
 def settings_view(request):
     user = request.user
 
-    try:
-        github_login = user.social_auth.get(provider="github")
-    except UserSocialAuth.DoesNotExist:
-        github_login = None
+    github_login = twitter_login = facebook_login = None
+    can_disconnect = user.has_usable_password()
+    if UserSocialAuth is not None and hasattr(user, "social_auth"):
+        try:
+            github_login = user.social_auth.get(provider="github")
+        except UserSocialAuth.DoesNotExist:
+            github_login = None
 
-    try:
-        twitter_login = user.social_auth.get(provider="twitter")
-    except UserSocialAuth.DoesNotExist:
-        twitter_login = None
+        try:
+            twitter_login = user.social_auth.get(provider="twitter")
+        except UserSocialAuth.DoesNotExist:
+            twitter_login = None
 
-    try:
-        facebook_login = user.social_auth.get(provider="facebook")
-    except UserSocialAuth.DoesNotExist:
-        facebook_login = None
+        try:
+            facebook_login = user.social_auth.get(provider="facebook")
+        except UserSocialAuth.DoesNotExist:
+            facebook_login = None
 
-    can_disconnect = user.social_auth.count() > 1 or user.has_usable_password()
+        can_disconnect = user.social_auth.count() > 1 or user.has_usable_password()
 
     return render(
         request,

@@ -46,5 +46,14 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
 
     objects = CustomUserManager()
 
+    @property
+    def username(self):
+        return self.email
+
     def __str__(self):
         return self.email
+
+    def has_perm(self, perm, obj=None):
+        if obj is not None and perm.startswith("accounting."):
+            return super().has_perm(perm)
+        return super().has_perm(perm, obj)

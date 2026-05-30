@@ -46,6 +46,10 @@ class NotificationType(models.TextChoices):
     IOU_REJECTED = "IOU_REJECTED", "IOU Rejected"
     IOU_PENDING = "IOU_PENDING", "IOU Pending"
     IOU_DUE = "IOU_DUE", "IOU Payment Due"
+    # Escalation Notifications
+    LEAVE_ESCALATED = "LEAVE_ESCALATED", "Leave Request Escalated"
+    IOU_ESCALATED = "IOU_ESCALATED", "IOU Request Escalated"
+    APPROVAL_REMINDER = "APPROVAL_REMINDER", "Approval Reminder"
     # Payroll Notifications
     PAYSLIP_AVAILABLE = "PAYSLIP_AVAILABLE", "Payslip Available"
     PAYROLL_PROCESSED = "PAYROLL_PROCESSED", "Payroll Processed"
@@ -91,6 +95,10 @@ class Notification(models.Model):
         ("IOU_REJECTED", "IOU Rejected"),
         ("IOU_PENDING", "IOU Pending"),
         ("IOU_DUE", "IOU Payment Due"),
+        # Escalation Notifications
+        ("LEAVE_ESCALATED", "Leave Request Escalated"),
+        ("IOU_ESCALATED", "IOU Request Escalated"),
+        ("APPROVAL_REMINDER", "Approval Reminder"),
         # Payroll Notifications
         ("PAYSLIP_AVAILABLE", "Payslip Available"),
         ("PAYROLL_PROCESSED", "Payroll Processed"),

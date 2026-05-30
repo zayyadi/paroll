@@ -186,7 +186,7 @@ def calc_employee_health_contrib(self) -> Decimal:
         return Decimal(0.0)
 
     employee_percentage, _ = _get_health_percentages(self)
-    return (self.basic_salary * 12) * employee_percentage / Decimal("100")
+    return self.basic_salary * employee_percentage / Decimal("100")
 
 
 def calc_health_contrib(self) -> Decimal:
@@ -262,7 +262,7 @@ def compute_annual_paye(annual_taxable_income: Decimal) -> Decimal:
 def calculate_taxable_income(self) -> Decimal:
     # Taxable income is based on annual gross income minus applicable reliefs.
     # Rent relief is employee-specific via get_rent_relief(self).
-    calc = gross_income(self) - get_total_relief(self)
+    calc = _annual_gross_for_tax(self) - get_total_relief(self)
 
     if calc <= 0:
         return Decimal(0.0)

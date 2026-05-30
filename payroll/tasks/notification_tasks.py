@@ -887,3 +887,26 @@ def send_weekly_digest_task() -> Dict[str, Any]:
             "error_count": 1,
             "message": str(e),
         }
+
+
+@shared_task(
+    bind=True,
+    name="payroll.check_approval_escalations",
+    autoretry_for=(Exception,),
+    retry_backoff=True,
+    retry_kwargs={"max_retries": 2},
+)
+def check_approval_escalations_task(self):
+    """Periodic task to find and escalate overdue pending requests."""
+    from payroll.services.escalation_service import get_pending_requests_for_escalation, escalate_request
+
+    try:
+        pending = get_pending_requests_for_escalation()
+        escalated = 0
+        for request_type, instance in pending:
+            escalate_request(request_type, instance)
+            escalated += 1
+        return {"success": True, "escalated": escalated}
+    except Exception as e:
+        logger.exception(f"Error in check_approval_escalations_task: {e}")
+        return {"success": False, "error": str(e)}

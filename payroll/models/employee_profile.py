@@ -1,6 +1,8 @@
 from django.db import models
 from decimal import Decimal
+from datetime import timedelta
 from payroll.models.utils import SoftDeleteModel, path_and_rename
+from payroll.fields import EncryptedCharField
 
 
 from django.utils import timezone
@@ -57,6 +59,12 @@ PHONE_VALIDATOR = RegexValidator(
 
 
 class EmployeeProfile(SoftDeleteModel):
+    class ProbationStatus(models.TextChoices):
+        NOT_APPLICABLE = "not_applicable", "Not applicable"
+        ON_PROBATION = "on_probation", "On probation"
+        CONFIRMED = "confirmed", "Confirmed"
+        EXTENDED = "extended", "Extended"
+
     RENT_RELIEF_PERCENT = Decimal("20")
     RENT_RELIEF_CAP = Decimal("500000")
 
@@ -139,21 +147,21 @@ class EmployeeProfile(SoftDeleteModel):
         default="default.png",
         upload_to=path_and_rename,
     )
-    nin = models.CharField(
+    nin = EncryptedCharField(
         default=nin_no,
         unique=True,
         max_length=255,
         editable=False,
     )
-    tin_no = models.CharField(
+    tin_no = EncryptedCharField(
         default=tin_no,
         unique=True,
         max_length=255,
         editable=True,
     )
-    pension_rsa = models.CharField(
+    pension_rsa = EncryptedCharField(
         # unique=True,
-        max_length=50,
+        max_length=255,
         null=True,
         blank=True,
     )
@@ -219,9 +227,9 @@ class EmployeeProfile(SoftDeleteModel):
         null=True,
         verbose_name="Emergency Contact Relationship",
     )
-    emergency_contact_phone = models.CharField(
+    emergency_contact_phone = EncryptedCharField(
         validators=[PHONE_VALIDATOR],
-        max_length=17,
+        max_length=255,
         blank=True,
         null=True,
         verbose_name="Emergency Contact Phone Number",
@@ -240,9 +248,9 @@ class EmployeeProfile(SoftDeleteModel):
         null=True,
         verbose_name="Next of Kin Relationship",
     )
-    next_of_kin_phone = models.CharField(
+    next_of_kin_phone = EncryptedCharField(
         validators=[PHONE_VALIDATOR],
-        max_length=17,
+        max_length=255,
         blank=True,
         null=True,
         verbose_name="Next of Kin Phone Number",
@@ -261,18 +269,32 @@ class EmployeeProfile(SoftDeleteModel):
         default="Z",
         verbose_name="employee BANK",
     )
-    bank_account_name = models.CharField(
+    bank_account_name = EncryptedCharField(
         max_length=255,
         verbose_name="Bank Account Name",
         blank=True,
         null=True,
     )
-    bank_account_number = models.CharField(
-        max_length=10,
+    bank_account_number = EncryptedCharField(
+        max_length=255,
         verbose_name="Bank Account Number",
-        unique=True,
         blank=True,
         null=True,
+    )
+    probation_start_date = models.DateField(null=True, blank=True)
+    probation_end_date = models.DateField(null=True, blank=True)
+    probation_status = models.CharField(
+        max_length=20,
+        choices=ProbationStatus.choices,
+        default=ProbationStatus.NOT_APPLICABLE,
+    )
+    confirmed_at = models.DateTimeField(null=True, blank=True)
+    confirmed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="confirmed_probation_employees",
     )
     net_pay = models.DecimalField(
         max_digits=12,
@@ -293,9 +315,10 @@ class EmployeeProfile(SoftDeleteModel):
         super().__init__(*args, **kwargs)
         self.__original_first_name = self.first_name
         self.__original_last_name = self.last_name
+        self.__original_employee_pay_id = self.employee_pay_id
 
     def __str__(self):
-        return self.first_name or "test"
+        return self.display_first_name or "test"
 
     class Meta:
         ordering = ["-created"]
@@ -307,7 +330,19 @@ class EmployeeProfile(SoftDeleteModel):
 
     @property
     def get_first_name(self):
-        return self.first_name
+        return self.display_first_name
+
+    @property
+    def display_first_name(self):
+        return self.user.first_name if self.user and self.user.first_name else self.first_name
+
+    @property
+    def display_last_name(self):
+        return self.user.last_name if self.user and self.user.last_name else self.last_name
+
+    @property
+    def display_email(self):
+        return self.user.email if self.user and self.user.email else self.email
 
     @property
     def rent_relief_amount(self) -> Decimal:
@@ -320,14 +355,29 @@ class EmployeeProfile(SoftDeleteModel):
         return min(relief, self.RENT_RELIEF_CAP)
 
     def get_email(self):
-        if self.user and self.user.email:
-            return self.user.email
-        return f"{self.first_name}.{self.last_name}@{settings.DEFAULT_EMAIL_DOMAIN or 'email.com'}"
+        if self.display_email:
+            return self.display_email
+        return f"{self.display_first_name}.{self.display_last_name}@{settings.DEFAULT_EMAIL_DOMAIN or 'email.com'}"
 
     def clean(self):
         super().clean()
+        if self.probation_start_date and not self.probation_end_date:
+            self.probation_end_date = self.probation_start_date + timedelta(days=90)
+        if (
+            self.probation_start_date
+            and self.probation_end_date
+            and self.probation_end_date < self.probation_start_date
+        ):
+            raise ValidationError({"probation_end_date": "Probation end date cannot be before start date."})
         # if self.phone and not self.phone_regex.regex.match(self.phone):
         #     raise ValidationError({"phone": self.phone_regex.message})
+
+    def confirm_probation(self, *, confirmed_by=None):
+        self.probation_status = self.ProbationStatus.CONFIRMED
+        self.confirmed_at = timezone.now()
+        self.confirmed_by = confirmed_by
+        self.status = "active"
+        self.save(update_fields=["probation_status", "confirmed_at", "confirmed_by", "status"])
 
     def save(self, *args, **kwargs):
         self.net_pay = utils.get_net_pay(self)  # noqa: F405
@@ -354,7 +404,18 @@ class EmployeeProfile(SoftDeleteModel):
             except FileNotFoundError:
                 pass
 
+        old_employee_pay_id = self.__original_employee_pay_id
         super(EmployeeProfile, self).save(*args, **kwargs)
+        if self.employee_pay_id and self.employee_pay_id != old_employee_pay_id:
+            from payroll.models.payroll import SalaryHistory
+
+            SalaryHistory.objects.get_or_create(
+                employee=self,
+                salary_config_id=self.employee_pay_id,
+                effective_date=timezone.localdate(),
+                defaults={"changed_by": kwargs.get("user")},
+            )
+            self.__original_employee_pay_id = self.employee_pay_id
 
 
 @receiver(post_save, sender=CustomUser)

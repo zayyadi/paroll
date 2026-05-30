@@ -1,213 +1,167 @@
 {% extends "accounting/base.html" %}
 {% load static %}
 
-{% block page_title %}Dashboard{% endblock %}
+{% block page_title %}Financial Dashboard{% endblock %}
 
 {% block accounting_content %}
-<!-- Stats Cards -->
-<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-    <div class="bg-white rounded-lg shadow-soft p-6 card-hover">
-        <div class="flex items-center">
-            <div class="flex-shrink-0 bg-warning-100 rounded-lg p-3">
-                <i data-lucide="file-text" class="h-6 w-6 text-warning-600"></i>
-            </div>
-            <div class="ml-4">
-                <p class="text-sm font-medium text-secondary-600">Draft Journals</p>
-                <p class="text-2xl font-bold text-secondary-900">{{ draft_journals_count }}</p>
-            </div>
-        </div>
-        {% if is_accountant %}
-        <div class="mt-4">
-            <a href="{% url 'accounting:journal_list' %}?status=DRAFT" class="text-sm font-medium text-warning-600 hover:text-warning-800">View all →</a>
-        </div>
-        {% endif %}
-    </div>
-
-    <div class="bg-white rounded-lg shadow-soft p-6 card-hover">
-        <div class="flex items-center">
-            <div class="flex-shrink-0 bg-primary-100 rounded-lg p-3">
-                <i data-lucide="clock" class="h-6 w-6 text-primary-600"></i>
-            </div>
-            <div class="ml-4">
-                <p class="text-sm font-medium text-secondary-600">Pending Approval</p>
-                <p class="text-2xl font-bold text-secondary-900">{{ pending_journals_count }}</p>
-            </div>
-        </div>
-        {% if is_auditor %}
-        <div class="mt-4">
-            <a href="{% url 'accounting:journal_list' %}?status=PENDING_APPROVAL" class="text-sm font-medium text-primary-600 hover:text-primary-800">Review now →</a>
-        </div>
-        {% endif %}
-    </div>
-
-    <div class="bg-white rounded-lg shadow-soft p-6 card-hover">
-        <div class="flex items-center">
-            <div class="flex-shrink-0 bg-success-100 rounded-lg p-3">
-                <i data-lucide="check-circle" class="h-6 w-6 text-success-600"></i>
-            </div>
-            <div class="ml-4">
-                <p class="text-sm font-medium text-secondary-600">Posted Journals</p>
-                <p class="text-2xl font-bold text-secondary-900">{{ posted_journals_count }}</p>
-            </div>
-        </div>
-        <div class="mt-4">
-            <a href="{% url 'accounting:journal_list' %}?status=POSTED" class="text-sm font-medium text-success-600 hover:text-success-800">View all →</a>
-        </div>
-    </div>
-
-    <div class="bg-white rounded-lg shadow-soft p-6 card-hover">
-        <div class="flex items-center">
-            <div class="flex-shrink-0 bg-info-100 rounded-lg p-3">
-                <i data-lucide="calendar-days" class="h-6 w-6 text-info-600"></i>
-            </div>
-            <div class="ml-4">
-                <p class="text-sm font-medium text-secondary-600">Active Periods</p>
-                <p class="text-2xl font-bold text-secondary-900">{{ active_periods|length }}</p>
-            </div>
-        </div>
-        <div class="mt-4">
-            <a href="{% url 'accounting:period_list' %}" class="text-sm font-medium text-info-600 hover:text-info-800">Manage →</a>
-        </div>
-    </div>
+<!-- Top-line KPIs -->
+<div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
+  <div class="bg-white ghost-border rounded-[1rem] p-4">
+    <p class="text-xs text-secondary-500 uppercase tracking-wider">Revenue</p>
+    <p class="text-xl font-bold font-mono text-primary-800">{{ metrics.total_revenue|floatformat:2 }}</p>
+    <p class="text-xs {% if metrics.revenue_change_pct >= 0 %}text-green-600{% else %}text-red-600{% endif %}">
+      {{ metrics.revenue_change_pct }}% vs prior
+    </p>
+  </div>
+  <div class="bg-white ghost-border rounded-[1rem] p-4">
+    <p class="text-xs text-secondary-500 uppercase tracking-wider">Expenses</p>
+    <p class="text-xl font-bold font-mono text-primary-800">{{ metrics.total_expenses|floatformat:2 }}</p>
+  </div>
+  <div class="bg-white ghost-border rounded-[1rem] p-4">
+    <p class="text-xs text-secondary-500 uppercase tracking-wider">Net Income</p>
+    <p class="text-xl font-bold font-mono {% if metrics.net_income >= 0 %}text-green-700{% else %}text-red-600{% endif %}">{{ metrics.net_income|floatformat:2 }}</p>
+  </div>
+  <div class="bg-white ghost-border rounded-[1rem] p-4">
+    <p class="text-xs text-secondary-500 uppercase tracking-wider">Assets</p>
+    <p class="text-xl font-bold font-mono text-primary-800">{{ metrics.total_assets|floatformat:2 }}</p>
+  </div>
+  <div class="bg-white ghost-border rounded-[1rem] p-4">
+    <p class="text-xs text-secondary-500 uppercase tracking-wider">Liabilities</p>
+    <p class="text-xl font-bold font-mono text-primary-800">{{ metrics.total_liabilities|floatformat:2 }}</p>
+  </div>
+  <div class="bg-white ghost-border rounded-[1rem] p-4">
+    <p class="text-xs text-secondary-500 uppercase tracking-wider">Equity</p>
+    <p class="text-xl font-bold font-mono text-primary-800">{{ metrics.total_equity|floatformat:2 }}</p>
+  </div>
 </div>
 
-<!-- Recent Activity & Quick Actions -->
-<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-    <!-- Recent Journals -->
-    <div class="lg:col-span-2">
-        <div class="bg-white rounded-lg shadow-soft">
-            <div class="px-6 py-4 border-b border-gray-200">
-                <div class="flex items-center justify-between">
-                    <h3 class="text-lg font-semibold text-secondary-900">Recent Journal Entries</h3>
-                    <a href="{% url 'accounting:journal_list' %}" class="text-sm font-medium text-primary-600 hover:text-primary-800">View all</a>
-                </div>
-            </div>
-            <div class="p-6">
-                {% if recent_journals %}
-                <div class="space-y-4">
-                    {% for journal in recent_journals %}
-                    <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                        <div class="flex items-center space-x-3">
-                            <div class="flex-shrink-0">
-                                {% if journal.status == 'DRAFT' %}
-                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-warning-100 text-warning-800">Draft</span>
-                                {% elif journal.status == 'PENDING_APPROVAL' %}
-                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary-100 text-primary-800">Pending</span>
-                                {% elif journal.status == 'POSTED' %}
-                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-success-100 text-success-800">Posted</span>
-                                {% else %}
-                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-secondary-100 text-secondary-800">{{ journal.get_status_display }}</span>
-                                {% endif %}
-                            </div>
-                            <div>
-                                <p class="text-sm font-medium text-secondary-900">{{ journal.transaction_number }}</p>
-                                <p class="text-sm text-secondary-600">{{ journal.description|truncatechars:50 }}</p>
-                            </div>
-                        </div>
-                        <div class="text-right">
-                            <p class="text-sm text-secondary-500">{{ journal.date|date:"M d, Y" }}</p>
-                            <a href="{% url 'accounting:journal_detail' journal.pk %}" class="text-xs font-medium text-primary-600 hover:text-primary-800">View →</a>
-                        </div>
-                    </div>
-                    {% endfor %}
-                </div>
-                {% else %}
-                <div class="text-center py-8">
-                    <i data-lucide="inbox" class="mx-auto h-12 w-12 text-secondary-400"></i>
-                    <p class="mt-2 text-sm text-secondary-600">No journal entries yet</p>
-                    {% if is_accountant %}
-                    <div class="mt-4">
-                        <a href="{% url 'accounting:journal_create' %}" class="btn-primary inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white">
-                            <i data-lucide="plus" class="mr-2 h-4 w-4"></i>
-                            Create Journal Entry
-                        </a>
-                    </div>
-                    {% endif %}
-                </div>
-                {% endif %}
-            </div>
-        </div>
+<!-- AR/AP Summary -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+  <div class="bg-white ghost-border rounded-[1rem] p-4">
+    <div class="flex justify-between items-center">
+      <p class="text-xs text-secondary-500 uppercase tracking-wider">Total Receivables</p>
+      <a href="{% url 'accounting:ar_aging' %}" class="text-xs text-primary-600 hover:underline">Details →</a>
     </div>
-
-    <!-- Quick Actions & Active Periods -->
-    <div class="space-y-6">
-        <!-- Quick Actions -->
-        {% if is_accountant or is_auditor %}
-        <div class="bg-white rounded-lg shadow-soft">
-            <div class="px-6 py-4 border-b border-gray-200">
-                <h3 class="text-lg font-semibold text-secondary-900">Quick Actions</h3>
-            </div>
-            <div class="p-6 space-y-3">
-                {% if is_accountant %}
-                <a href="{% url 'accounting:journal_create' %}" class="w-full inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white btn-primary">
-                    <i data-lucide="plus" class="mr-2 h-4 w-4"></i>
-                    New Journal Entry
-                </a>
-                <a href="{% url 'accounting:account_create' %}" class="w-full inline-flex items-center justify-center px-4 py-2 border border-secondary-300 text-sm font-medium rounded-md text-secondary-700 bg-white hover:bg-secondary-50">
-                    <i data-lucide="folder-plus" class="mr-2 h-4 w-4"></i>
-                    New Account
-                </a>
-                <a href="{% url 'accounting:balance_adjustment' %}" class="w-full inline-flex items-center justify-center px-4 py-2 border border-secondary-300 text-sm font-medium rounded-md text-secondary-700 bg-white hover:bg-secondary-50">
-                    <i data-lucide="scale" class="mr-2 h-4 w-4"></i>
-                    Adjust Balance
-                </a>
-                {% endif %}
-                {% if is_auditor %}
-                <a href="{% url 'accounting:journal_list' %}?status=PENDING_APPROVAL" class="w-full inline-flex items-center justify-center px-4 py-2 border border-primary-300 text-sm font-medium rounded-md text-primary-700 bg-primary-50 hover:bg-primary-100">
-                    <i data-lucide="check-square" class="mr-2 h-4 w-4"></i>
-                    Review Pending
-                </a>
-                <a href="{% url 'accounting:audit_list' %}" class="w-full inline-flex items-center justify-center px-4 py-2 border border-secondary-300 text-sm font-medium rounded-md text-secondary-700 bg-white hover:bg-secondary-50">
-                    <i data-lucide="shield-check" class="mr-2 h-4 w-4"></i>
-                    View Audit Trail
-                </a>
-                {% endif %}
-                <a href="{% url 'accounting:reports' %}" class="w-full inline-flex items-center justify-center px-4 py-2 border border-secondary-300 text-sm font-medium rounded-md text-secondary-700 bg-white hover:bg-secondary-50">
-                    <i data-lucide="file-text" class="mr-2 h-4 w-4"></i>
-                    Generate Reports
-                </a>
-                <a href="{% url 'payroll:pay_period_list' %}" class="w-full inline-flex items-center justify-center px-4 py-2 border border-secondary-300 text-sm font-medium rounded-md text-secondary-700 bg-white hover:bg-secondary-50">
-                    <i data-lucide="calendar-range" class="mr-2 h-4 w-4"></i>
-                    View Pay Periods
-                </a>
-            </div>
-        </div>
-        {% endif %}
-
-        <!-- Active Periods -->
-        <div class="bg-white rounded-lg shadow-soft">
-            <div class="px-6 py-4 border-b border-gray-200">
-                <div class="flex items-center justify-between">
-                    <h3 class="text-lg font-semibold text-secondary-900">Active Periods</h3>
-                    <a href="{% url 'accounting:period_list' %}" class="text-sm font-medium text-primary-600 hover:text-primary-800">View all</a>
-                </div>
-            </div>
-            <div class="p-6">
-                {% if active_periods %}
-                <div class="space-y-3">
-                    {% for period in active_periods %}
-                    <div class="p-3 bg-gray-50 rounded-lg">
-                        <div class="flex items-center justify-between">
-                            <div>
-                                <p class="text-sm font-medium text-secondary-900">{{ period.name }}</p>
-                                <p class="text-xs text-secondary-600">{{ period.fiscal_year.name }}</p>
-                            </div>
-                            <div class="text-right">
-                                <p class="text-xs text-secondary-500">{{ period.start_date|date:"M d" }} - {{ period.end_date|date:"M d, Y" }}</p>
-                                <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-success-100 text-success-800">Active</span>
-                            </div>
-                        </div>
-                    </div>
-                    {% endfor %}
-                </div>
-                {% else %}
-                <div class="text-center py-4">
-                    <i data-lucide="calendar-x" class="mx-auto h-8 w-8 text-secondary-400"></i>
-                    <p class="mt-2 text-sm text-secondary-600">No active periods</p>
-                </div>
-                {% endif %}
-            </div>
-        </div>
+    <p class="text-xl font-bold font-mono text-primary-800">{{ total_ar|floatformat:2 }}</p>
+    {% if overdue_ar > 0 %}
+    <p class="text-xs text-red-600">Overdue >30 days: {{ overdue_ar|floatformat:2 }}</p>
+    {% endif %}
+  </div>
+  <div class="bg-white ghost-border rounded-[1rem] p-4">
+    <div class="flex justify-between items-center">
+      <p class="text-xs text-secondary-500 uppercase tracking-wider">Total Payables</p>
+      <a href="{% url 'accounting:ap_aging' %}" class="text-xs text-primary-600 hover:underline">Details →</a>
     </div>
+    <p class="text-xl font-bold font-mono text-primary-800">{{ total_ap|floatformat:2 }}</p>
+  </div>
+  <div class="bg-white ghost-border rounded-[1rem] p-4">
+    <p class="text-xs text-secondary-500 uppercase tracking-wider">Key Ratios</p>
+    <div class="text-sm space-y-1 mt-1">
+      <div class="flex justify-between"><span class="text-secondary-500">Current</span><span class="font-mono">{{ ratios.current_ratio }}</span></div>
+      <div class="flex justify-between"><span class="text-secondary-500">Margin</span><span class="font-mono">{{ ratios.profit_margin_pct }}%</span></div>
+      <div class="flex justify-between"><span class="text-secondary-500">ROE</span><span class="font-mono">{{ ratios.roe_pct }}%</span></div>
+    </div>
+    <a href="{% url 'accounting:financial_ratios' %}" class="text-xs text-primary-600 hover:underline mt-2 block">Full ratios →</a>
+  </div>
+</div>
+
+<!-- Quick Stats -->
+<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+  <div class="bg-white ghost-border rounded-[1rem] p-4 text-center">
+    <p class="text-secondary-500 text-xs uppercase">Drafts</p>
+    <p class="text-2xl font-bold text-warning-600">{{ draft_journals_count }}</p>
+  </div>
+  <div class="bg-white ghost-border rounded-[1rem] p-4 text-center">
+    <p class="text-secondary-500 text-xs uppercase">Pending</p>
+    <p class="text-2xl font-bold text-primary-600">{{ pending_journals_count }}</p>
+  </div>
+  <div class="bg-white ghost-border rounded-[1rem] p-4 text-center">
+    <p class="text-secondary-500 text-xs uppercase">Posted</p>
+    <p class="text-2xl font-bold text-green-600">{{ posted_journals_count }}</p>
+  </div>
+  <div class="bg-white ghost-border rounded-[1rem] p-4 text-center">
+    <p class="text-secondary-500 text-xs uppercase">Open Periods</p>
+    <p class="text-2xl font-bold text-info-600">{{ metrics.open_periods }}</p>
+  </div>
+</div>
+
+<!-- Report Quick Links -->
+<div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+  <a href="{% url 'accounting:cash_flow' %}" class="bg-white ghost-border rounded-[1rem] p-4 text-center hover:shadow-md transition">
+    <i data-lucide="arrow-left-right" class="mx-auto h-6 w-6 text-primary-500"></i>
+    <p class="text-sm font-medium mt-2">Cash Flow</p>
+  </a>
+  <a href="{% url 'accounting:ar_aging' %}" class="bg-white ghost-border rounded-[1rem] p-4 text-center hover:shadow-md transition">
+    <i data-lucide="users" class="mx-auto h-6 w-6 text-primary-500"></i>
+    <p class="text-sm font-medium mt-2">AR Aging</p>
+  </a>
+  <a href="{% url 'accounting:ap_aging' %}" class="bg-white ghost-border rounded-[1rem] p-4 text-center hover:shadow-md transition">
+    <i data-lucide="truck" class="mx-auto h-6 w-6 text-primary-500"></i>
+    <p class="text-sm font-medium mt-2">AP Aging</p>
+  </a>
+  <a href="{% url 'accounting:month_end_checklist' %}" class="bg-white ghost-border rounded-[1rem] p-4 text-center hover:shadow-md transition">
+    <i data-lucide="clipboard-check" class="mx-auto h-6 w-6 text-primary-500"></i>
+    <p class="text-sm font-medium mt-2">Month-End Close</p>
+  </a>
+  <a href="{% url 'accounting:financial_ratios' %}" class="bg-white ghost-border rounded-[1rem] p-4 text-center hover:shadow-md transition">
+    <i data-lucide="trending-up" class="mx-auto h-6 w-6 text-primary-500"></i>
+    <p class="text-sm font-medium mt-2">Financial Ratios</p>
+  </a>
+  <a href="{% url 'accounting:inventory_turnover' %}" class="bg-white ghost-border rounded-[1rem] p-4 text-center hover:shadow-md transition">
+    <i data-lucide="package" class="mx-auto h-6 w-6 text-primary-500"></i>
+    <p class="text-sm font-medium mt-2">Inventory Turnover</p>
+  </a>
+  <a href="{% url 'accounting:gross_margin' %}" class="bg-white ghost-border rounded-[1rem] p-4 text-center hover:shadow-md transition">
+    <i data-lucide="pie-chart" class="mx-auto h-6 w-6 text-primary-500"></i>
+    <p class="text-sm font-medium mt-2">Gross Margin</p>
+  </a>
+  <a href="{% url 'accounting:executive_dashboard' %}" class="bg-white ghost-border rounded-[1rem] p-4 text-center hover:shadow-md transition">
+    <i data-lucide="bar-chart-3" class="mx-auto h-6 w-6 text-primary-500"></i>
+    <p class="text-sm font-medium mt-2">Executive View</p>
+  </a>
+</div>
+
+<!-- Recent Journals -->
+<div class="bg-white ghost-border rounded-[1.25rem] overflow-hidden mb-6">
+  <div class="px-6 py-4 border-b border-secondary-100">
+    <div class="flex items-center justify-between">
+      <h3 class="font-headline text-xl font-extrabold text-primary-800">Recent Journal Entries</h3>
+      <a href="{% url 'accounting:journal_list' %}" class="text-sm font-medium text-primary-600 hover:text-primary-800">View all</a>
+    </div>
+  </div>
+  <div class="overflow-x-auto">
+    <table class="min-w-full divide-y divide-secondary-200">
+      <thead class="bg-secondary-50">
+        <tr>
+          <th class="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase">Txn #</th>
+          <th class="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase">Description</th>
+          <th class="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase">Date</th>
+          <th class="px-6 py-3 text-center text-xs font-medium text-secondary-500 uppercase">Status</th>
+          <th class="px-6 py-3 text-right text-xs font-medium text-secondary-500 uppercase">Action</th>
+        </tr>
+      </thead>
+      <tbody class="bg-white divide-y divide-secondary-200">
+        {% for journal in recent_journals %}
+        <tr class="hover:bg-secondary-50">
+          <td class="px-6 py-3 text-sm font-mono text-primary-900">{{ journal.transaction_number }}</td>
+          <td class="px-6 py-3 text-sm text-secondary-600">{{ journal.description|truncatechars:50 }}</td>
+          <td class="px-6 py-3 text-sm text-secondary-500">{{ journal.date|date:"M d, Y" }}</td>
+          <td class="px-6 py-3 text-center">
+            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium
+              {% if journal.status == 'DRAFT' %}bg-warning-100 text-warning-800
+              {% elif journal.status == 'PENDING_APPROVAL' %}bg-primary-100 text-primary-800
+              {% elif journal.status == 'POSTED' %}bg-green-100 text-green-800
+              {% else %}bg-secondary-100 text-secondary-800{% endif %}">
+              {{ journal.get_status_display }}
+            </span>
+          </td>
+          <td class="px-6 py-3 text-right">
+            <a href="{% url 'accounting:journal_detail' journal.pk %}" class="text-primary-600 hover:text-primary-900 text-sm">View</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
 </div>
 {% endblock %}

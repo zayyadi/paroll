@@ -1,0 +1,76 @@
+{% extends "accounting/base.html" %}
+
+{% block page_title %}Match Transactions{% endblock %}
+
+{% block accounting_content %}
+<div class="space-y-6">
+  <div class="flex items-center justify-between">
+    <div>
+      <h2 class="font-headline text-2xl font-extrabold text-primary-800">Match Transactions</h2>
+      <p class="text-sm text-secondary-500">{{ reconciliation.account.name }} — {{ reconciliation.period.name|default:"All" }}</p>
+    </div>
+    <a href="{% url 'accounting:reconciliation_detail' reconciliation.pk %}" class="text-sm text-primary-600 hover:text-primary-800">← Back to reconciliation</a>
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <!-- Unmatched Bank Transactions -->
+    <div>
+      <div class="bg-white ghost-border rounded-[1rem] p-5">
+        <h3 class="font-headline text-lg font-bold text-primary-800 mb-3">Unmatched Bank Transactions</h3>
+        <p class="text-xs text-secondary-500 mb-4">Select a bank transaction and match it against a ledger entry</p>
+
+        {% if unmatched_bank %}
+        <form method="post" action="{% url 'accounting:reconciliation_match' reconciliation.pk %}">
+          {% csrf_token %}
+          <div class="space-y-3">
+            {% for tx in unmatched_bank %}
+            <div class="flex items-center space-x-3 p-3 border border-secondary-200 rounded-lg">
+              <input type="hidden" name="bank_transaction" value="{{ tx.pk }}">
+              <div class="flex-1">
+                <p class="text-sm font-medium text-primary-900">{{ tx.description }}</p>
+                <p class="text-xs text-secondary-500">{{ tx.transaction_date|date:"M d, Y" }} — {{ tx.amount|floatformat:2 }} {{ tx.transaction_type }}</p>
+                <div class="mt-2">
+                  <select name="journal_entry" class="form-input block w-full rounded-md border-secondary-300 text-sm">
+                    <option value="">-- Select ledger entry --</option>
+                    {% for entry in ledger_entries %}
+                    <option value="{{ entry.pk }}">{{ entry.journal.date|date:"Y-m-d" }} — {{ entry.journal.description|truncatechars:40 }} ({{ entry.entry_type }} {{ entry.amount|floatformat:2 }})</option>
+                    {% endfor %}
+                  </select>
+                </div>
+                <div class="mt-2 flex space-x-2">
+                  <input type="text" name="amount_matched" placeholder="Amount" value="{{ tx.amount }}" class="form-input w-24 text-sm rounded-md border-secondary-300">
+                  <input type="text" name="match_note" placeholder="Note" class="form-input flex-1 text-sm rounded-md border-secondary-300">
+                </div>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+          <div class="mt-4">
+            <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-md hover:bg-primary-700">Save Matches</button>
+          </div>
+        </form>
+        {% else %}
+        <p class="text-sm text-secondary-500">All bank transactions have been matched.</p>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Available Ledger Entries -->
+    <div>
+      <div class="bg-white ghost-border rounded-[1rem] p-5">
+        <h3 class="font-headline text-lg font-bold text-primary-800 mb-3">Available Ledger Entries</h3>
+        <div class="space-y-2 max-h-96 overflow-y-auto">
+          {% for entry in ledger_entries %}
+          <div class="py-2 border-b border-secondary-100 last:border-0">
+            <p class="text-sm font-medium text-primary-900">{{ entry.journal.date|date:"M d, Y" }} — {{ entry.journal.description|truncatechars:50 }}</p>
+            <p class="text-xs text-secondary-500">{{ entry.entry_type }} {{ entry.amount|floatformat:2 }}</p>
+          </div>
+          {% empty %}
+          <p class="text-sm text-secondary-500">No unmatched ledger entries available.</p>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

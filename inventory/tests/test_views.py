@@ -244,7 +244,7 @@ class InventoryViewTests(TestCase):
         supplier = Supplier.objects.create(
             company=self.company,
             name="Restaurant Supplier",
-            payable_account=self.accounts["opening"],
+            payable_account=self.accounts["payable"],
         )
 
         response = self.client.post(
@@ -316,7 +316,7 @@ class InventoryViewTests(TestCase):
         supplier = Supplier.objects.create(
             company=self.company,
             name="PO Supplier",
-            payable_account=self.accounts["opening"],
+            payable_account=self.accounts["payable"],
         )
 
         create_response = self.client.post(
@@ -349,6 +349,38 @@ class InventoryViewTests(TestCase):
         purchase_order.refresh_from_db()
         self.assertEqual(purchase_order.status, PurchaseOrder.Status.RECEIVED)
         self.assertEqual(item.stock_movements.count(), 1)
+
+    def test_purchase_order_receive_view_labels_lines_by_item_name(self):
+        item = InventoryItem.objects.create(
+            company=self.company,
+            category=self.category,
+            sku="SKU-PO-LABEL",
+            name="PO Label Item",
+        )
+        supplier = Supplier.objects.create(
+            company=self.company,
+            name="PO Label Supplier",
+            payable_account=self.accounts["opening"],
+        )
+        purchase_order = PurchaseOrder.objects.create(
+            company=self.company,
+            supplier=supplier,
+            reference="PO-UI-LABEL",
+        )
+        purchase_order.lines.create(
+            item=item,
+            quantity=Decimal("5.0000"),
+            unit_cost=Decimal("6.2500"),
+            total_cost=Decimal("31.25"),
+        )
+
+        response = self.client.get(
+            reverse("inventory:purchase_order_receive", args=[purchase_order.pk]),
+            follow=True,
+        )
+
+        self.assertContains(response, "PO Label Item")
+        self.assertNotContains(response, "PurchaseOrderLine object")
 
     def test_opening_stock_action_posts_document(self):
         item = InventoryItem.objects.create(

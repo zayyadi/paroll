@@ -91,7 +91,9 @@
                             {{ account_data.account.account_number|default:"—" }}
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap">
-                            <div class="text-sm font-medium text-secondary-900">{{ account_data.account.name }}</div>
+                            <div class="text-sm font-medium text-secondary-900">
+                                <a href="{% url 'accounting:account_detail' account_data.account.pk %}" class="text-primary-600 hover:text-primary-900 hover:underline">{{ account_data.account.name }}</a>
+                            </div>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap">
                             <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium

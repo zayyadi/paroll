@@ -1,0 +1,62 @@
+{% extends "accounting/base.html" %}
+
+{% block page_title %}Report Status{% endblock %}
+
+{% block accounting_content %}
+<div class="space-y-6">
+  <div>
+    <h2 class="font-headline text-2xl font-extrabold text-primary-800">{{ job.get_report_type_display }}</h2>
+    <p class="text-sm text-secondary-500 mt-1">Status: {{ job.get_status_display }}</p>
+  </div>
+
+  <div class="bg-white ghost-border rounded-[1rem] p-6 max-w-lg">
+    <dl class="grid grid-cols-2 gap-3 text-sm">
+      <dt class="text-secondary-500 font-medium">Status</dt>
+      <dd>
+        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+          {% if job.status == 'completed' %}bg-green-100 text-green-800
+          {% elif job.status == 'failed' %}bg-red-100 text-red-800
+          {% elif job.status == 'running' %}bg-blue-100 text-blue-800
+          {% else %}bg-secondary-100 text-secondary-800{% endif %}">
+          {{ job.get_status_display }}
+        </span>
+      </dd>
+      <dt class="text-secondary-500 font-medium">Queued</dt>
+      <dd>{{ job.queued_at|date:"M d, Y H:i" }}</dd>
+      {% if job.started_at %}
+      <dt class="text-secondary-500 font-medium">Started</dt>
+      <dd>{{ job.started_at|date:"M d, Y H:i" }}</dd>
+      {% endif %}
+      {% if job.completed_at %}
+      <dt class="text-secondary-500 font-medium">Completed</dt>
+      <dd>{{ job.completed_at|date:"M d, Y H:i" }}</dd>
+      {% endif %}
+      {% if job.period %}
+      <dt class="text-secondary-500 font-medium">Period</dt>
+      <dd>{{ job.period.name }}</dd>
+      {% endif %}
+      {% if job.as_of_date %}
+      <dt class="text-secondary-500 font-medium">As of</dt>
+      <dd>{{ job.as_of_date }}</dd>
+      {% endif %}
+    </dl>
+
+    {% if job.status == 'completed' %}
+    <div class="mt-6">
+      <a href="{% url 'accounting:report_job_download' job.pk %}" class="inline-flex items-center px-6 py-2 text-sm font-medium text-white bg-primary-600 rounded-md hover:bg-primary-700">
+        <i data-lucide="download" class="mr-2 h-4 w-4"></i>Download PDF
+      </a>
+    </div>
+    {% elif job.status == 'failed' %}
+    <div class="mt-6 p-3 bg-red-50 border border-red-200 rounded-md">
+      <p class="text-sm text-red-700">{{ job.error_message }}</p>
+    </div>
+    {% else %}
+    <div class="mt-6 flex items-center space-x-2 text-secondary-500">
+      <i data-lucide="loader" class="h-4 w-4 animate-spin"></i>
+      <span class="text-sm">Generating report... Refresh to check progress.</span>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

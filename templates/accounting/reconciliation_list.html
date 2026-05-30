@@ -1,0 +1,121 @@
+{% extends "accounting/base.html" %}
+
+{% block page_title %}Bank Reconciliation{% endblock %}
+
+{% block breadcrumbs %}
+  {% with breadcrumbs=breadcrumbs|add_item:{"title":"Reconciliations","url":"#"} %}
+    {{ block.super }}
+  {% endwith %}
+{% endblock %}
+
+{% block accounting_content %}
+<div class="space-y-6">
+  <div class="flex items-center justify-between">
+    <div>
+      <h2 class="font-headline text-2xl font-extrabold text-primary-800">Bank Reconciliations</h2>
+      <p class="text-sm text-secondary-500 mt-1">Match bank statements against ledger entries</p>
+    </div>
+    <div class="flex space-x-3">
+      <a href="{% url 'accounting:reconciliation_import' %}" class="inline-flex items-center px-4 py-2 border border-secondary-300 shadow-sm text-sm font-medium rounded-md text-secondary-700 bg-white hover:bg-secondary-50">
+        <i data-lucide="upload" class="mr-2 h-4 w-4"></i> Import CSV
+      </a>
+      <a href="{% url 'accounting:reconciliation_create' %}" class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700">
+        <i data-lucide="plus" class="mr-2 h-4 w-4"></i> New Reconciliation
+      </a>
+    </div>
+  </div>
+
+  <!-- Filters -->
+  <div class="flex space-x-4">
+    <form method="get" class="flex space-x-3 items-end">
+      <div>
+        <label class="block text-xs font-medium text-secondary-500 mb-1">Account</label>
+        <select name="account" class="form-input block rounded-md border-secondary-300 text-sm">
+          <option value="">All Accounts</option>
+          {% for acct in asset_accounts %}
+            <option value="{{ acct.pk }}" {% if request.GET.account == acct.pk|stringformat:"s" %}selected{% endif %}>{{ acct.account_number }} - {{ acct.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-secondary-500 mb-1">Status</label>
+        <select name="status" class="form-input block rounded-md border-secondary-300 text-sm">
+          <option value="">All</option>
+          <option value="OPEN" {% if request.GET.status == "OPEN" %}selected{% endif %}>Open</option>
+          <option value="INVESTIGATING" {% if request.GET.status == "INVESTIGATING" %}selected{% endif %}>Investigating</option>
+          <option value="APPROVED" {% if request.GET.status == "APPROVED" %}selected{% endif %}>Approved</option>
+        </select>
+      </div>
+      <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-md hover:bg-primary-700">Filter</button>
+    </form>
+  </div>
+
+  <!-- Reconcilation List -->
+  <div class="bg-white ghost-border rounded-[1.25rem] overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="min-w-full divide-y divide-secondary-200">
+        <thead class="bg-secondary-50">
+          <tr>
+            <th class="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">Account</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">Period</th>
+            <th class="px-6 py-3 text-right text-xs font-medium text-secondary-500 uppercase tracking-wider">Ledger Balance</th>
+            <th class="px-6 py-3 text-right text-xs font-medium text-secondary-500 uppercase tracking-wider">Statement Balance</th>
+            <th class="px-6 py-3 text-right text-xs font-medium text-secondary-500 uppercase tracking-wider">Variance</th>
+            <th class="px-6 py-3 text-center text-xs font-medium text-secondary-500 uppercase tracking-wider">Status</th>
+            <th class="px-6 py-3 text-right text-xs font-medium text-secondary-500 uppercase tracking-wider">Actions</th>
+          </tr>
+        </thead>
+        <tbody class="bg-white divide-y divide-secondary-200">
+          {% for recon in reconciliations %}
+          <tr class="hover:bg-secondary-50">
+            <td class="px-6 py-4 whitespace-nowrap">
+              <div class="text-sm font-medium text-primary-900">{{ recon.account.account_number }} - {{ recon.account.name }}</div>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-secondary-600">
+              {{ recon.period.name|default:"—" }}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-right font-mono">
+              {{ recon.ledger_balance|floatformat:2 }}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-right font-mono">
+              {{ recon.statement_balance|floatformat:2 }}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-right font-mono {% if recon.variance != 0 %}text-red-600 font-semibold{% endif %}">
+              {{ recon.variance|floatformat:2 }}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-center">
+              <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                {% if recon.status == 'APPROVED' %}bg-green-100 text-green-800
+                {% elif recon.status == 'INVESTIGATING' %}bg-yellow-100 text-yellow-800
+                {% else %}bg-secondary-100 text-secondary-800{% endif %}">
+                {{ recon.get_status_display }}
+              </span>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
+              <a href="{% url 'accounting:reconciliation_detail' recon.pk %}" class="text-primary-600 hover:text-primary-900">View</a>
+              {% if recon.status == 'OPEN' or recon.status == 'INVESTIGATING' %}
+              <a href="{% url 'accounting:reconciliation_match' recon.pk %}" class="text-secondary-600 hover:text-secondary-900">Match</a>
+              {% endif %}
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="7" class="px-6 py-12 text-center text-secondary-500">
+              <i data-lucide="file-search" class="mx-auto h-12 w-12 text-secondary-300"></i>
+              <p class="mt-2 text-sm">No reconciliations found.</p>
+              <p class="mt-1 text-xs">Create a new reconciliation or import a bank statement to get started.</p>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  {% if is_paginated %}
+  <div class="mt-4">
+    {% include "includes/pagination.html" %}
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

@@ -19,8 +19,15 @@ from payroll import utils
 from company.utils import get_user_company
 from accounting.permissions import is_auditor
 from payroll.services.payslips import resolve_payslip_run_entry
-from weasyprint import HTML
-import xlwt
+from payroll.services.employee_data_export import _simple_pdf
+try:
+    from weasyprint import HTML
+except ImportError:  # pragma: no cover - optional PDF dependency.
+    HTML = None
+try:
+    import xlwt
+except ImportError:  # pragma: no cover - optional spreadsheet dependency.
+    xlwt = None
 from decimal import Decimal
 
 # check_super and is_hr_user functions are removed
@@ -59,6 +66,12 @@ def generate_excel_report(
     total_label,
     total_value_index,
 ):
+    if xlwt is None:
+        return HttpResponse(
+            "xlwt is required to generate Excel reports.",
+            status=503,
+            content_type="text/plain",
+        )
     filename = f"{filename_base}_{pay_period_date.strftime('%Y%m')}.xls"
     response = HttpResponse(content_type="application/ms-excel")
     response["Content-Disposition"] = f'attachment; filename="{filename}"'
@@ -164,6 +177,10 @@ def payslip_pdf(request, id):
     )
 
     pdf_file_path = f"/tmp/{pdf_file_name}"
+    if HTML is None:
+        response = HttpResponse(_simple_pdf(html_string), content_type="application/pdf")
+        response["Content-Disposition"] = f'attachment; filename="{pdf_file_name}"'
+        return response
     html = HTML(string=html_string, base_url=request.build_absolute_uri())
     html.write_pdf(target=pdf_file_path)
     with open(pdf_file_path, "rb") as pdf_file:

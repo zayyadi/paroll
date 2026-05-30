@@ -40,7 +40,7 @@ from payroll.models import (
 from company.models import Company
 from datetime import date
 from django.utils import timezone
-from payroll.views.employee_view import dashboard
+from payroll.views.employee_dashboard import dashboard
 from payroll.permissions import (
     setup_groups_and_permissions,
 )  # Import the setup function

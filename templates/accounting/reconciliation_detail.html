@@ -1,0 +1,85 @@
+{% extends "accounting/base.html" %}
+
+{% block page_title %}Reconciliation Detail{% endblock %}
+
+{% block accounting_content %}
+<div class="space-y-6">
+  <div class="flex items-center justify-between">
+    <div>
+      <h2 class="font-headline text-2xl font-extrabold text-primary-800">Reconciliation: {{ reconciliation.account.name }}</h2>
+      <p class="text-sm text-secondary-500">{{ reconciliation.period.name|default:"No period" }} — Created {{ reconciliation.created_at|date:"M d, Y" }}</p>
+    </div>
+    <div class="flex space-x-3">
+      {% if can_match %}
+      <a href="{% url 'accounting:reconciliation_match' reconciliation.pk %}" class="px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-md hover:bg-primary-700">Match Transactions</a>
+      {% endif %}
+      {% if can_approve %}
+      <form method="post" action="{% url 'accounting:reconciliation_approve' reconciliation.pk %}" class="inline">
+        {% csrf_token %}
+        <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700">Approve</button>
+      </form>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <div class="bg-white ghost-border rounded-[1rem] p-5">
+      <p class="text-xs text-secondary-500 uppercase tracking-wider">Ledger Balance</p>
+      <p class="text-2xl font-bold font-mono text-primary-800">{{ reconciliation.ledger_balance|floatformat:2 }}</p>
+    </div>
+    <div class="bg-white ghost-border rounded-[1rem] p-5">
+      <p class="text-xs text-secondary-500 uppercase tracking-wider">Statement Balance</p>
+      <p class="text-2xl font-bold font-mono text-primary-800">{{ reconciliation.statement_balance|floatformat:2 }}</p>
+    </div>
+    <div class="bg-white ghost-border rounded-[1rem] p-5 {% if reconciliation.variance != 0 %}border-red-300{% endif %}">
+      <p class="text-xs text-secondary-500 uppercase tracking-wider">Variance</p>
+      <p class="text-2xl font-bold font-mono {% if reconciliation.variance == 0 %}text-green-700{% else %}text-red-600{% endif %}">{{ reconciliation.variance|floatformat:2 }}</p>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <div class="bg-white ghost-border rounded-[1rem] p-5">
+      <h3 class="font-headline text-lg font-bold text-primary-800 mb-3">Bank Transactions</h3>
+      <div class="space-y-2">
+        {% for tx in reconciliation.bank_transactions.all %}
+        <div class="flex justify-between items-center py-2 border-b border-secondary-100 last:border-0">
+          <div>
+            <p class="text-sm font-medium text-primary-900">{{ tx.description }}</p>
+            <p class="text-xs text-secondary-500">{{ tx.transaction_date|date:"M d, Y" }} — {{ tx.reference }}</p>
+          </div>
+          <div class="text-right">
+            <span class="text-sm font-mono {% if tx.transaction_type == 'CREDIT' %}text-green-600{% else %}text-red-600{% endif %}">
+              {% if tx.transaction_type == 'DEBIT' %}-{% endif %}{{ tx.amount|floatformat:2 }}
+            </span>
+            {% if tx.is_matched %}
+            <span class="ml-2 text-xs text-green-600">✓ Matched</span>
+            {% endif %}
+          </div>
+        </div>
+        {% empty %}
+        <p class="text-sm text-secondary-500">No bank transactions imported.</p>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="bg-white ghost-border rounded-[1rem] p-5">
+      <h3 class="font-headline text-lg font-bold text-primary-800 mb-3">Matched Items</h3>
+      <div class="space-y-2">
+        {% for item in matched_items %}
+        <div class="py-2 border-b border-secondary-100 last:border-0">
+          <div class="flex justify-between">
+            <div>
+              <p class="text-sm font-medium text-primary-900">{{ item.bank_transaction.description }}</p>
+              <p class="text-xs text-secondary-500">→ {{ item.journal_entry.journal.description|truncatechars:50 }}</p>
+            </div>
+            <span class="text-sm font-mono text-green-600">{{ item.amount_matched|floatformat:2 }}</span>
+          </div>
+        </div>
+        {% empty %}
+        <p class="text-sm text-secondary-500">No transactions matched yet.</p>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

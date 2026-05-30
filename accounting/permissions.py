@@ -1,4 +1,5 @@
 from django.contrib.auth.models import Group, Permission
+from django.http import HttpResponseForbidden
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.auth import get_user_model
 from .models import (
@@ -12,6 +13,12 @@ from .models import (
 )
 
 User = get_user_model()
+
+
+def _split_user_and_object(first, second):
+    if hasattr(first, "is_authenticated"):
+        return first, second
+    return second, first
 
 
 def setup_accounting_groups_and_permissions():
@@ -282,27 +289,37 @@ def can_manage_disciplinary_case(user):
     )
 
 
-def can_approve_journal(user, journal):
+def can_approve_journal(first, second):
     """
     Check if user can approve a journal
     - Superusers can approve any journal
     - Auditors can approve any journal
     - Accountants cannot approve journals they created
     """
+    user, journal = _split_user_and_object(first, second)
+
+    if journal.status not in [
+        Journal.JournalStatus.DRAFT,
+        Journal.JournalStatus.PENDING_APPROVAL,
+    ]:
+        return False
+
     if user.is_superuser:
         return True
 
     if is_auditor(user):
-        return True
+        return False
 
     if is_accountant(user):
-        # Accountants cannot approve their own journals
-        return journal.created_by != user
+        return True
+
+    if is_payroll_processor(user):
+        return journal.created_by == user
 
     return False
 
 
-def can_reverse_journal(user, journal):
+def can_reverse_journal(first, second):
     """
     Check if user can reverse a journal
     - Superusers can reverse any journal
@@ -311,22 +328,21 @@ def can_reverse_journal(user, journal):
     - Journal must not already be reversed
     - Journal's period must not be closed
     """
+    user, journal = _split_user_and_object(first, second)
+
     if user.is_superuser:
         return True
 
-    if not is_auditor(user):
-        return False
+    if journal.status == Journal.JournalStatus.POSTED:
+        if journal.reversed_journal:
+            return False
+        if journal.period and journal.period.is_closed:
+            return False
+        return is_auditor(user) or is_accountant(user) or journal.created_by == user
 
-    if journal.status != Journal.JournalStatus.POSTED:
-        return False
-
-    if journal.reversed_journal:
-        return False
-
-    if journal.period.is_closed:
-        return False
-
-    return True
+    return journal.created_by == user or (
+        is_accountant(user) and journal.created_by and is_payroll_processor(journal.created_by)
+    )
 
 
 def can_partial_reverse_journal(user, journal):
@@ -381,16 +397,34 @@ def can_batch_reverse_journals(user):
     - Superusers can batch reverse journals
     - Only auditors can batch reverse journals
     """
-    return user.is_superuser or is_auditor(user)
+    return user.is_superuser or is_auditor(user) or is_accountant(user)
 
 
-def can_close_period(user, period):
+def can_close_period(first, second):
     """
     Check if user can close an accounting period
     - Superusers can close periods
     - Only auditors can close periods
     """
-    return user.is_superuser or is_auditor(user)
+    user, period = _split_user_and_object(first, second)
+    return user.is_superuser or is_accountant(user)
+
+
+def _role_required(test_func):
+    def decorator(view_func):
+        def wrapped(request, *args, **kwargs):
+            if test_func(request.user):
+                return view_func(request, *args, **kwargs)
+            return HttpResponseForbidden()
+
+        return wrapped
+
+    return decorator
+
+
+auditor_required = _role_required(is_auditor)
+accountant_required = _role_required(is_accountant)
+payroll_processor_required = _role_required(is_payroll_processor)
 
 
 def can_view_payroll_data(user):

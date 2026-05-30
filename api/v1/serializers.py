@@ -23,6 +23,8 @@ from inventory.models import (
     StockLocation,
     StockMovement,
     Supplier,
+    TaxJurisdiction,
+    TaxRule,
     UnitOfMeasure,
     Warehouse,
 )
@@ -561,6 +563,9 @@ class UnitOfMeasureSerializer(serializers.ModelSerializer):
             "company",
             "name",
             "abbreviation",
+            "base_unit",
+            "conversion_factor",
+            "decimal_places",
             "created_at",
             "updated_at",
         ]
@@ -601,6 +606,7 @@ class InventoryItemSerializer(serializers.ModelSerializer):
             "item_type",
             "base_unit",
             "barcode",
+            "barcode_format",
             "track_batch",
             "track_expiry",
             "allow_negative_stock",
@@ -620,6 +626,49 @@ class InventoryItemSerializer(serializers.ModelSerializer):
         from inventory.services import get_stock_on_hand
 
         return str(get_stock_on_hand(obj))
+
+
+class TaxJurisdictionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TaxJurisdiction
+        fields = [
+            "id",
+            "company",
+            "code",
+            "name",
+            "country_code",
+            "is_default",
+            "is_active",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "company", "created_at", "updated_at"]
+
+
+class TaxRuleSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TaxRule
+        fields = [
+            "id",
+            "company",
+            "jurisdiction",
+            "tax_type",
+            "transaction_type",
+            "rate",
+            "effective_from",
+            "effective_to",
+            "is_active",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "company", "created_at", "updated_at"]
+
+    def validate_jurisdiction(self, value):
+        request = self.context.get("request")
+        company = get_user_company(request.user if request else None)
+        if value and company and value.company_id != company.id:
+            raise serializers.ValidationError("Tax jurisdiction must belong to your company.")
+        return value
 
 
 class WarehouseSerializer(serializers.ModelSerializer):
@@ -666,6 +715,10 @@ class SupplierSerializer(serializers.ModelSerializer):
             "payable_account",
             "wht_payable_account",
             "default_wht_rate",
+            "payment_terms",
+            "default_due_days",
+            "discount_terms",
+            "credit_limit",
             "is_active",
             "created_at",
             "updated_at",
@@ -693,6 +746,10 @@ class CustomerSerializer(serializers.ModelSerializer):
             "receivable_account",
             "wht_receivable_account",
             "default_wht_rate",
+            "payment_terms",
+            "default_due_days",
+            "credit_limit",
+            "collections_status",
             "is_active",
             "created_at",
             "updated_at",
@@ -964,6 +1021,9 @@ class PurchaseOrderReceiveLineSerializer(serializers.Serializer):
 class PurchaseOrderReceiveSerializer(serializers.Serializer):
     location = serializers.PrimaryKeyRelatedField(queryset=StockLocation.objects.all())
     lines = PurchaseOrderReceiveLineSerializer(many=True)
+    vat_input_account = serializers.PrimaryKeyRelatedField(
+        queryset=Account.objects.all(), required=False, allow_null=True
+    )
     posting_date = serializers.DateField(required=False)
     reference = serializers.CharField(required=False, allow_blank=True, max_length=80)
     reason = serializers.CharField(required=False, allow_blank=True, max_length=255)

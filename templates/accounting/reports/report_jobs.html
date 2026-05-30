@@ -1,0 +1,55 @@
+{% extends "accounting/base.html" %}
+
+{% block page_title %}Report Jobs{% endblock %}
+
+{% block accounting_content %}
+<div class="space-y-6">
+  <div>
+    <h2 class="font-headline text-2xl font-extrabold text-primary-800">Generated Reports</h2>
+    <p class="text-sm text-secondary-500 mt-1">Files are stored temporarily and will be available while the worker retains them.</p>
+  </div>
+
+  <div class="bg-white ghost-border rounded-[1rem] overflow-hidden">
+    <table class="min-w-full divide-y divide-secondary-200">
+      <thead class="bg-secondary-50">
+        <tr>
+          <th class="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">Type</th>
+          <th class="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">Period</th>
+          <th class="px-6 py-3 text-center text-xs font-medium text-secondary-500 uppercase tracking-wider">Status</th>
+          <th class="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">Created</th>
+          <th class="px-6 py-3 text-right text-xs font-medium text-secondary-500 uppercase tracking-wider">Actions</th>
+        </tr>
+      </thead>
+      <tbody class="bg-white divide-y divide-secondary-200">
+        {% for job in jobs %}
+        <tr class="hover:bg-secondary-50">
+          <td class="px-6 py-4 text-sm font-medium text-primary-900">{{ job.get_report_type_display }}</td>
+          <td class="px-6 py-4 text-sm text-secondary-600">{{ job.period.name|default:"—" }}</td>
+          <td class="px-6 py-4 text-center">
+            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+              {% if job.status == 'completed' %}bg-green-100 text-green-800
+              {% elif job.status == 'failed' %}bg-red-100 text-red-800
+              {% elif job.status == 'running' %}bg-blue-100 text-blue-800
+              {% else %}bg-secondary-100 text-secondary-800{% endif %}">
+              {{ job.get_status_display }}
+            </span>
+          </td>
+          <td class="px-6 py-4 text-sm text-secondary-500">{{ job.queued_at|date:"M d, Y H:i" }}</td>
+          <td class="px-6 py-4 text-right">
+            {% if job.status == 'completed' %}
+            <a href="{% url 'accounting:report_job_download' job.pk %}" class="text-primary-600 hover:text-primary-900 text-sm font-medium">Download</a>
+            {% elif job.status == 'failed' %}
+            <span title="{{ job.error_message }}" class="text-red-600 text-sm cursor-help">Failed</span>
+            {% else %}
+            <a href="{% url 'accounting:report_job_status' job.pk %}" class="text-secondary-600 hover:text-secondary-900 text-sm">View</a>
+            {% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="5" class="px-6 py-12 text-center text-secondary-500">No reports generated yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

@@ -91,9 +91,8 @@ class Command(BaseCommand):
             else:
                 # Try to get or create a system user
                 user, created = User.objects.get_or_create(
-                    username="system",
+                    email="system@example.com",
                     defaults={
-                        "email": "system@example.com",
                         "first_name": "System",
                         "last_name": "User",
                         "is_staff": True,

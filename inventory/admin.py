@@ -17,6 +17,8 @@ from inventory.models import (
     StockLocation,
     StockMovement,
     Supplier,
+    TaxJurisdiction,
+    TaxRule,
     UnitOfMeasure,
     Warehouse,
 )
@@ -24,9 +26,10 @@ from inventory.models import (
 
 @admin.register(UnitOfMeasure)
 class UnitOfMeasureAdmin(admin.ModelAdmin):
-    list_display = ("company", "name", "abbreviation")
+    list_display = ("company", "name", "abbreviation", "base_unit", "conversion_factor")
     list_filter = ("company",)
     search_fields = ("name", "abbreviation", "company__name")
+    raw_id_fields = ("base_unit",)
 
 
 @admin.register(InventoryCategory)
@@ -51,12 +54,42 @@ class InventoryItemAdmin(admin.ModelAdmin):
         "sku",
         "name",
         "item_type",
+        "barcode_format",
         "track_batch",
         "track_expiry",
         "is_active",
     )
     list_filter = ("company", "item_type", "track_batch", "track_expiry", "is_active")
     search_fields = ("sku", "name", "barcode", "company__name")
+
+
+class TaxRuleInline(admin.TabularInline):
+    model = TaxRule
+    extra = 0
+
+
+@admin.register(TaxJurisdiction)
+class TaxJurisdictionAdmin(admin.ModelAdmin):
+    list_display = ("company", "code", "name", "country_code", "is_default", "is_active")
+    list_filter = ("company", "country_code", "is_default", "is_active")
+    search_fields = ("code", "name", "company__name")
+    inlines = [TaxRuleInline]
+
+
+@admin.register(TaxRule)
+class TaxRuleAdmin(admin.ModelAdmin):
+    list_display = (
+        "company",
+        "jurisdiction",
+        "tax_type",
+        "transaction_type",
+        "rate",
+        "effective_from",
+        "effective_to",
+        "is_active",
+    )
+    list_filter = ("company", "tax_type", "transaction_type", "is_active")
+    search_fields = ("jurisdiction__code", "jurisdiction__name", "company__name")
 
 
 class StockLocationInline(admin.TabularInline):
@@ -81,16 +114,37 @@ class StockLocationAdmin(admin.ModelAdmin):
 
 @admin.register(Supplier)
 class SupplierAdmin(admin.ModelAdmin):
-    list_display = ("company", "name", "contact_name", "phone", "is_active")
+    list_display = (
+        "company",
+        "name",
+        "contact_name",
+        "phone",
+        "payment_terms",
+        "default_due_days",
+        "credit_limit",
+        "is_active",
+    )
     list_filter = ("company", "is_active")
     search_fields = ("name", "contact_name", "email", "phone", "company__name")
+    raw_id_fields = ("payable_account", "wht_payable_account")
 
 
 @admin.register(Customer)
 class CustomerAdmin(admin.ModelAdmin):
-    list_display = ("company", "name", "contact_name", "phone", "is_active")
-    list_filter = ("company", "is_active")
+    list_display = (
+        "company",
+        "name",
+        "contact_name",
+        "phone",
+        "payment_terms",
+        "default_due_days",
+        "credit_limit",
+        "collections_status",
+        "is_active",
+    )
+    list_filter = ("company", "collections_status", "is_active")
     search_fields = ("name", "contact_name", "email", "phone", "company__name")
+    raw_id_fields = ("receivable_account", "wht_receivable_account")
 
 
 class PurchaseOrderLineInline(admin.TabularInline):
@@ -221,10 +275,27 @@ class StockMovementAdmin(admin.ModelAdmin):
 
 @admin.register(InventoryValuationLayer)
 class InventoryValuationLayerAdmin(admin.ModelAdmin):
-    list_display = ("company", "item", "quantity", "unit_cost", "total_cost")
+    list_display = (
+        "company",
+        "item",
+        "quantity",
+        "remaining_quantity",
+        "unit_cost",
+        "total_cost",
+        "remaining_total_cost",
+    )
     list_filter = ("company",)
     search_fields = ("item__sku", "item__name", "company__name")
-    readonly_fields = ("company", "movement", "item", "quantity", "unit_cost", "total_cost")
+    readonly_fields = (
+        "company",
+        "movement",
+        "item",
+        "quantity",
+        "remaining_quantity",
+        "unit_cost",
+        "total_cost",
+        "remaining_total_cost",
+    )
 
     def has_add_permission(self, request):
         return False

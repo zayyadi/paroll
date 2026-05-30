@@ -9,6 +9,7 @@ from django.test import TestCase
 from django.contrib.auth import get_user_model
 from django.contrib.contenttypes.models import ContentType
 from django.db import transaction
+from django.db.transaction import TransactionManagementError
 from accounting.models import (
     Account,
     FiscalYear,
@@ -37,6 +38,22 @@ from accounting.tests.fixtures import (
 User = get_user_model()
 
 
+def _safe_commit():
+    try:
+        transaction.commit()
+    except TransactionManagementError:
+        connection = transaction.get_connection()
+        while getattr(connection, "run_on_commit", []):
+            hooks = list(connection.run_on_commit)
+            connection.run_on_commit = []
+            for _, func, robust in hooks:
+                try:
+                    func()
+                except Exception:
+                    if not robust:
+                        raise
+
+
 class AccountSignalHandlerTest(TestCase):
     """Test cases for account signal handlers"""
 
@@ -57,7 +74,7 @@ class AccountSignalHandlerTest(TestCase):
             account.save()
 
         # Force transaction to commit
-        transaction.commit()
+        _safe_commit()
 
         # Check audit trail
         audit_trail = AccountingAuditTrail.objects.filter(
@@ -83,7 +100,7 @@ class AccountSignalHandlerTest(TestCase):
             account.save()
 
         # Force transaction to commit
-        transaction.commit()
+        _safe_commit()
 
         # Check audit trail
         audit_trail = AccountingAuditTrail.objects.filter(
@@ -113,7 +130,7 @@ class AccountSignalHandlerTest(TestCase):
             account.delete()
 
         # Force transaction to commit
-        transaction.commit()
+        _safe_commit()
 
         # Check audit trail (note: object_id should still be available)
         audit_trail = AccountingAuditTrail.objects.filter(
@@ -145,7 +162,7 @@ class FiscalYearSignalHandlerTest(TestCase):
         )
 
         # Force transaction to commit
-        transaction.commit()
+        _safe_commit()
 
         # Check audit trail
         audit_trail = AccountingAuditTrail.objects.filter(
@@ -174,7 +191,7 @@ class FiscalYearSignalHandlerTest(TestCase):
             fiscal_year.save()
 
         # Force transaction to commit
-        transaction.commit()
+        _safe_commit()
 
         # Check audit trail
         audit_trail = AccountingAuditTrail.objects.filter(
@@ -201,7 +218,7 @@ class FiscalYearSignalHandlerTest(TestCase):
             fiscal_year.close(self.user)
 
         # Force transaction to commit
-        transaction.commit()
+        _safe_commit()
 
         # Check audit trail
         audit_trail = AccountingAuditTrail.objects.filter(
@@ -237,7 +254,7 @@ class AccountingPeriodSignalHandlerTest(TestCase):
         )
 
         # Force transaction to commit
-        transaction.commit()
+        _safe_commit()
 
         # Check audit trail
         audit_trail = AccountingAuditTrail.objects.filter(
@@ -259,7 +276,7 @@ class AccountingPeriodSignalHandlerTest(TestCase):
             period.close(self.user)
 
         # Force transaction to commit
-        transaction.commit()
+        _safe_commit()
 
         # Check audit trail
         audit_trail = AccountingAuditTrail.objects.filter(
@@ -287,7 +304,7 @@ class JournalSignalHandlerTest(TestCase):
         journal = JournalFactory.create_journal("Test Journal")
 
         # Force transaction to commit
-        transaction.commit()
+        _safe_commit()
 
         # Check audit trail
         audit_trail = AccountingAuditTrail.objects.filter(
@@ -311,7 +328,7 @@ class JournalSignalHandlerTest(TestCase):
             journal.approve(self.user)
 
         # Force transaction to commit
-        transaction.commit()
+        _safe_commit()
 
         # Check audit trail
         audit_trail = AccountingAuditTrail.objects.filter(
@@ -327,6 +344,7 @@ class JournalSignalHandlerTest(TestCase):
         """Test journal posting signal handler"""
         # Create, approve, and post journal
         journal = JournalFactory.create_journal_with_entries("Test Journal", 1000)
+        journal.submit_for_approval()
         journal.approve(self.user)
 
         # Post journal
@@ -334,7 +352,7 @@ class JournalSignalHandlerTest(TestCase):
             journal.post(self.user)
 
         # Force transaction to commit
-        transaction.commit()
+        _safe_commit()
 
         # Check audit trail
         audit_trail = AccountingAuditTrail.objects.filter(
@@ -356,7 +374,7 @@ class JournalSignalHandlerTest(TestCase):
             journal.reverse(self.user, "Test reversal")
 
         # Force transaction to commit
-        transaction.commit()
+        _safe_commit()
 
         # Check audit trail for reversal
         audit_trail = AccountingAuditTrail.objects.filter(
@@ -394,7 +412,7 @@ class JournalEntrySignalHandlerTest(TestCase):
         )
 
         # Force transaction to commit
-        transaction.commit()
+        _safe_commit()
 
         # Check audit trail
         audit_trail = AccountingAuditTrail.objects.filter(
@@ -427,7 +445,7 @@ class JournalEntrySignalHandlerTest(TestCase):
             entry.save()
 
         # Force transaction to commit
-        transaction.commit()
+        _safe_commit()
 
         # Check audit trail
         audit_trail = AccountingAuditTrail.objects.filter(
@@ -459,7 +477,7 @@ class JournalEntrySignalHandlerTest(TestCase):
             entry.delete()
 
         # Force transaction to commit
-        transaction.commit()
+        _safe_commit()
 
         # Check audit trail
         audit_trail = AccountingAuditTrail.objects.filter(
@@ -491,13 +509,14 @@ class CustomLoggingFunctionTest(TestCase):
             log_journal_approval(self.journal, self.user, "Test approval")
 
         # Force transaction to commit
-        transaction.commit()
+        _safe_commit()
 
         # Check audit trail
         audit_trail = AccountingAuditTrail.objects.filter(
             action=AccountingAuditTrail.ActionType.APPROVE,
             content_type=ContentType.objects.get_for_model(self.journal),
             object_id=self.journal.pk,
+            reason="Test approval",
         ).first()
 
         self.assertIsNotNone(audit_trail)
@@ -511,13 +530,14 @@ class CustomLoggingFunctionTest(TestCase):
             log_journal_posting(self.journal, self.user, "Test posting")
 
         # Force transaction to commit
-        transaction.commit()
+        _safe_commit()
 
         # Check audit trail
         audit_trail = AccountingAuditTrail.objects.filter(
             action=AccountingAuditTrail.ActionType.POST,
             content_type=ContentType.objects.get_for_model(self.journal),
             object_id=self.journal.pk,
+            reason="Test posting",
         ).first()
 
         self.assertIsNotNone(audit_trail)
@@ -536,13 +556,14 @@ class CustomLoggingFunctionTest(TestCase):
             )
 
         # Force transaction to commit
-        transaction.commit()
+        _safe_commit()
 
         # Check audit trail for original journal
         audit_trail = AccountingAuditTrail.objects.filter(
             action=AccountingAuditTrail.ActionType.REVERSE,
             content_type=ContentType.objects.get_for_model(self.journal),
             object_id=self.journal.pk,
+            reason="Test reversal",
         ).first()
 
         self.assertIsNotNone(audit_trail)
@@ -560,7 +581,7 @@ class CustomLoggingFunctionTest(TestCase):
             log_period_closure(period, self.user, "Test period closure")
 
         # Force transaction to commit
-        transaction.commit()
+        _safe_commit()
 
         # Check audit trail
         audit_trail = AccountingAuditTrail.objects.filter(
@@ -585,7 +606,7 @@ class CustomLoggingFunctionTest(TestCase):
             log_fiscal_year_closure(fiscal_year, self.user, "Test fiscal year closure")
 
         # Force transaction to commit
-        transaction.commit()
+        _safe_commit()
 
         # Check audit trail
         audit_trail = AccountingAuditTrail.objects.filter(
@@ -618,7 +639,7 @@ class CustomLoggingFunctionTest(TestCase):
             )
 
         # Force transaction to commit
-        transaction.commit()
+        _safe_commit()
 
         # Check audit trail
         audit_trail = AccountingAuditTrail.objects.filter(
@@ -653,7 +674,7 @@ class CustomLoggingFunctionTest(TestCase):
             )
 
         # Force transaction to commit
-        transaction.commit()
+        _safe_commit()
 
         # Check audit trail
         audit_trail = AccountingAuditTrail.objects.filter(
@@ -691,7 +712,7 @@ class CustomLoggingFunctionTest(TestCase):
             )
 
         # Force transaction to commit
-        transaction.commit()
+        _safe_commit()
 
         # Check audit trail (should be one entry for batch operation)
         audit_trail = AccountingAuditTrail.objects.filter(
@@ -751,7 +772,7 @@ class SignalHandlerIntegrationTest(TestCase):
         reversal_journal = journal.reverse(self.user, "Workflow reversal")
 
         # Force transaction to commit
-        transaction.commit()
+        _safe_commit()
 
         # Check audit trail has all expected entries
         audit_trail = AccountingAuditTrail.objects.filter(
@@ -773,7 +794,7 @@ class SignalHandlerIntegrationTest(TestCase):
         # The signal handler should not raise exceptions even if there are issues
         try:
             journal.save()
-            transaction.commit()
+            _safe_commit()
         except Exception as e:
             self.fail(f"Signal handler raised exception: {e}")
 

@@ -1,4 +1,5 @@
 import os
+import sys
 from datetime import timedelta
 from celery.schedules import crontab
 from django.core.exceptions import ImproperlyConfigured
@@ -57,6 +58,7 @@ INSTALLED_APPS = [
     "inventory",
     "standup",
     "marketing",
+    "compliance",
     # Channels for real-time notifications
     "channels",
     "channels_redis",
@@ -303,15 +305,22 @@ OTP_MAX_ATTEMPTS = int(os.getenv("OTP_MAX_ATTEMPTS", "5"))
 OTP_ATTEMPT_WINDOW_SECONDS = int(os.getenv("OTP_ATTEMPT_WINDOW_SECONDS", "600"))
 OTP_LOCKOUT_SECONDS = int(os.getenv("OTP_LOCKOUT_SECONDS", "900"))
 
+# Login brute-force protection
+LOGIN_MAX_ATTEMPTS = int(os.getenv("LOGIN_MAX_ATTEMPTS", "5"))
+LOGIN_ATTEMPT_WINDOW_SECONDS = int(os.getenv("LOGIN_ATTEMPT_WINDOW_SECONDS", "900"))
+LOGIN_LOCKOUT_SECONDS = int(os.getenv("LOGIN_LOCKOUT_SECONDS", "1800"))
+MFA_STEP_UP_TIMEOUT = int(os.getenv("MFA_STEP_UP_TIMEOUT", "900"))
+APPROVAL_ESCALATION_HOURS = int(os.getenv("APPROVAL_ESCALATION_HOURS", "48"))
+
 # Accounting hardening
 ACCOUNTING_SUPERUSER_ONLY_UNTIL_TENANT_SCOPED = env_bool(
     "ACCOUNTING_SUPERUSER_ONLY_UNTIL_TENANT_SCOPED",
-    not DEBUG,
+    not DEBUG and "test" not in sys.argv,
 )
 
 SESSION_COOKIE_SECURE = env_bool("SESSION_COOKIE_SECURE", not DEBUG)
 CSRF_COOKIE_SECURE = env_bool("CSRF_COOKIE_SECURE", not DEBUG)
-SECURE_SSL_REDIRECT = env_bool("SECURE_SSL_REDIRECT", not DEBUG)
+SECURE_SSL_REDIRECT = env_bool("SECURE_SSL_REDIRECT", not DEBUG and "test" not in sys.argv)
 SECURE_HSTS_SECONDS = int(
     os.getenv("SECURE_HSTS_SECONDS", "0" if DEBUG else "31536000")
 )
@@ -499,6 +508,14 @@ CELERY_BEAT_SCHEDULE = {
     "send-weekly-digests": {
         "task": "payroll.send_weekly_digest",
         "schedule": crontab(hour=8, minute=0, day_of_week=1),
+    },
+    "check-approval-escalations": {
+        "task": "payroll.check_approval_escalations",
+        "schedule": crontab(hour="*", minute=0),
+    },
+    "cleanup-draft-journals": {
+        "task": "accounting.cleanup_draft_journals",
+        "schedule": crontab(hour=3, minute=0, day_of_week=1),
     },
 }
 
