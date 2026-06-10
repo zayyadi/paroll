@@ -216,15 +216,12 @@ class TenantScopedModelViewSet(viewsets.ModelViewSet):
         company = self.get_company()
         if company is None:
             return queryset.none()
-        if self.request.user.is_superuser:
-            return queryset
         return queryset.filter(**{self.company_filter_path: company})
 
     def perform_create(self, serializer):
         company = self.get_company()
         if company is None:
-            serializer.save()
-            return
+            raise PermissionDenied("No active company is configured for this account.")
 
         field_name = self.company_filter_path.split("__")[0]
         model_fields = {field.name for field in serializer.Meta.model._meta.get_fields()}
@@ -623,9 +620,22 @@ class LeaveRequestViewSet(TenantScopedModelViewSet):
     search_fields = ["employee__first_name", "employee__last_name", "leave_type", "status"]
     ordering_fields = ["created_at", "start_date", "end_date", "status"]
 
+    def _ensure_can_review_leave(self, leave_request):
+        if (
+            leave_request.employee.user_id
+            and leave_request.employee.user_id == self.request.user.id
+            and not self.request.user.is_superuser
+        ):
+            raise PermissionDenied("You cannot review your own leave request.")
+        if leave_request.status != "PENDING":
+            raise DRFValidationError(
+                {"detail": "Only pending leave requests can be reviewed."}
+            )
+
     @action(detail=True, methods=["post"])
     def approve(self, request, pk=None):
         leave_request = self.get_object()
+        self._ensure_can_review_leave(leave_request)
         leave_request.status = "APPROVED"
         leave_request.approved_by = request.user
         leave_request.save(user=request.user)
@@ -634,6 +644,7 @@ class LeaveRequestViewSet(TenantScopedModelViewSet):
     @action(detail=True, methods=["post"])
     def reject(self, request, pk=None):
         leave_request = self.get_object()
+        self._ensure_can_review_leave(leave_request)
         leave_request.status = "REJECTED"
         leave_request.approved_by = request.user
         leave_request.save(user=request.user)
@@ -647,9 +658,34 @@ class IOUViewSet(TenantScopedModelViewSet):
     search_fields = ["employee_id__first_name", "employee_id__last_name", "status"]
     ordering_fields = ["created_at", "amount", "status", "due_date"]
 
+    def _ensure_can_review_iou(self, iou):
+        if (
+            iou.employee_id.user_id
+            and iou.employee_id.user_id == self.request.user.id
+            and not self.request.user.is_superuser
+        ):
+            raise PermissionDenied("You cannot review your own IOU request.")
+        if iou.status != "PENDING":
+            raise DRFValidationError(
+                {"detail": "Only pending IOU requests can be reviewed."}
+            )
+
+    def _ensure_can_mark_iou_paid(self, iou):
+        if (
+            iou.employee_id.user_id
+            and iou.employee_id.user_id == self.request.user.id
+            and not self.request.user.is_superuser
+        ):
+            raise PermissionDenied("You cannot settle your own IOU request.")
+        if iou.status != "APPROVED":
+            raise DRFValidationError(
+                {"detail": "Only approved IOU requests can be marked paid."}
+            )
+
     @action(detail=True, methods=["post"])
     def approve(self, request, pk=None):
         iou = self.get_object()
+        self._ensure_can_review_iou(iou)
         iou.status = "APPROVED"
         iou.approved_at = timezone.now().date()
         iou.save()
@@ -658,6 +694,7 @@ class IOUViewSet(TenantScopedModelViewSet):
     @action(detail=True, methods=["post"])
     def reject(self, request, pk=None):
         iou = self.get_object()
+        self._ensure_can_review_iou(iou)
         iou.status = "REJECTED"
         iou.save()
         return Response({"detail": "IOU rejected."})
@@ -665,6 +702,7 @@ class IOUViewSet(TenantScopedModelViewSet):
     @action(detail=True, methods=["post"])
     def mark_paid(self, request, pk=None):
         iou = self.get_object()
+        self._ensure_can_mark_iou_paid(iou)
         iou.status = "PAID"
         iou.save()
         return Response({"detail": "IOU marked as paid."})

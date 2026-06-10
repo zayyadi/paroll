@@ -1,4 +1,5 @@
 from decimal import Decimal
+from typing import Any
 
 from django.contrib.contenttypes.models import ContentType
 from django.db import transaction
@@ -20,13 +21,13 @@ PAYROLL_ACCOUNT_MAP = {
 }
 
 
-def _employee_name(employee):
+def _employee_name(employee: Any) -> str:
     return f"{employee.first_name or ''} {employee.last_name or ''}".strip() or (
         employee.emp_id or f"Employee #{employee.pk}"
     )
 
 
-def _get_payroll_account(company, account_key):
+def _get_payroll_account(company: Any, account_key: str) -> Account:
     name, account_type, account_number = PAYROLL_ACCOUNT_MAP[account_key]
     account = Account.objects.filter(company=company, account_number=account_number).first()
     if account is None:
@@ -60,7 +61,7 @@ def _get_payroll_account(company, account_key):
     return account
 
 
-def _journal_exists_for_allowance(allowance):
+def _journal_exists_for_allowance(allowance: Allowance) -> bool:
     source_ct = ContentType.objects.get_for_model(Allowance)
     return Journal.objects.filter(
         company=allowance.employee.company,
@@ -70,7 +71,7 @@ def _journal_exists_for_allowance(allowance):
     ).exists()
 
 
-def calculate_leave_allowance_amount(leave_request):
+def calculate_leave_allowance_amount(leave_request: Any) -> Decimal:
     employee = leave_request.employee
     payroll = getattr(employee, "employee_pay", None)
     if not payroll:
@@ -93,7 +94,7 @@ def calculate_leave_allowance_amount(leave_request):
     return amount.quantize(MONEY_QUANTIZER)
 
 
-def process_leave_allowance_for_request(leave_request):
+def process_leave_allowance_for_request(leave_request: Any) -> Allowance | None:
     """
     Create the automatic leave allowance and queue its slip email once.
 
@@ -156,7 +157,10 @@ def process_leave_allowance_for_request(leave_request):
     return allowance
 
 
-def post_leave_allowance_journal(allowance, leave_request):
+def post_leave_allowance_journal(
+    allowance: Allowance | None,
+    leave_request: Any,
+) -> Journal | None:
     if not allowance or not getattr(allowance, "pk", None):
         return None
     if _journal_exists_for_allowance(allowance):

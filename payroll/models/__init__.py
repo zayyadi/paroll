@@ -15,8 +15,10 @@ from .payroll import (
     SalaryHistory,
     LeaveRequest,
     LeaveBalance,
+    LeaveCarryover,
     LeaveApproval,
     LeaveBlackoutPeriod,
+    HRRetentionPolicy,
     LeaveAllowanceEmailJob,
     Allowance,
     PayrollRunEntry,
@@ -49,6 +51,7 @@ from .chat import (
 from .workforce import (
     Position,
     HiringCandidate,
+    CandidateConsent,
     HiringStage,
     HiringStageScorecard,
     JobOffer,

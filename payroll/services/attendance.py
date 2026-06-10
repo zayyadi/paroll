@@ -1,9 +1,10 @@
 from datetime import timedelta
+from typing import Any
 
 from payroll.models import AttendanceRecord
 
 
-def populate_attendance_for_leave(leave_request) -> int:
+def populate_attendance_for_leave(leave_request: Any) -> int:
     if leave_request.status != "APPROVED":
         return 0
 

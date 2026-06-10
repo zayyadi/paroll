@@ -28,7 +28,7 @@ class UnitOfMeasure(BaseModel):
         related_name="derived_units",
     )
     conversion_factor = models.DecimalField(
-        max_digits=14, decimal_places=6, default=Decimal("1.000000")
+        max_digits=18, decimal_places=6, default=Decimal("1.000000")
     )
     decimal_places = models.PositiveSmallIntegerField(default=4)
 
@@ -148,13 +148,13 @@ class InventoryItem(BaseModel):
     track_expiry = models.BooleanField(default=False)
     allow_negative_stock = models.BooleanField(default=False)
     reorder_point = models.DecimalField(
-        max_digits=14, decimal_places=4, default=Decimal("0.0000")
+        max_digits=18, decimal_places=4, default=Decimal("0.0000")
     )
     standard_cost = models.DecimalField(
-        max_digits=14, decimal_places=4, default=Decimal("0.0000")
+        max_digits=18, decimal_places=4, default=Decimal("0.0000")
     )
     default_sales_price = models.DecimalField(
-        max_digits=14, decimal_places=4, default=Decimal("0.0000")
+        max_digits=18, decimal_places=4, default=Decimal("0.0000")
     )
     default_vat_rate = models.DecimalField(
         max_digits=7, decimal_places=4, default=Decimal("0.0000")
@@ -330,7 +330,7 @@ class Supplier(BaseModel):
     default_due_days = models.PositiveIntegerField(default=30)
     discount_terms = models.CharField(max_length=120, blank=True)
     credit_limit = models.DecimalField(
-        max_digits=14, decimal_places=2, default=Decimal("0.00")
+        max_digits=18, decimal_places=2, default=Decimal("0.00")
     )
     is_active = models.BooleanField(default=True)
 
@@ -378,7 +378,7 @@ class Customer(BaseModel):
     payment_terms = models.CharField(max_length=120, blank=True, default="Net 30")
     default_due_days = models.PositiveIntegerField(default=30)
     credit_limit = models.DecimalField(
-        max_digits=14, decimal_places=2, default=Decimal("0.00")
+        max_digits=18, decimal_places=2, default=Decimal("0.00")
     )
     collections_status = models.CharField(
         max_length=20,
@@ -449,12 +449,12 @@ class PurchaseOrder(BaseModel):
 class PurchaseOrderLine(BaseModel):
     purchase_order = models.ForeignKey(PurchaseOrder, on_delete=models.CASCADE, related_name="lines")
     item = models.ForeignKey(InventoryItem, on_delete=models.PROTECT, related_name="purchase_order_lines")
-    quantity = models.DecimalField(max_digits=14, decimal_places=4)
+    quantity = models.DecimalField(max_digits=18, decimal_places=4)
     received_quantity = models.DecimalField(
-        max_digits=14, decimal_places=4, default=Decimal("0.0000")
+        max_digits=18, decimal_places=4, default=Decimal("0.0000")
     )
-    unit_cost = models.DecimalField(max_digits=14, decimal_places=4)
-    total_cost = models.DecimalField(max_digits=14, decimal_places=2)
+    unit_cost = models.DecimalField(max_digits=18, decimal_places=4)
+    total_cost = models.DecimalField(max_digits=18, decimal_places=2)
 
     class Meta:
         ordering = ["id"]
@@ -506,7 +506,7 @@ class InventoryDocument(BaseModel):
     reference = models.CharField(max_length=80, blank=True)
     reason = models.CharField(max_length=255, blank=True)
     total_amount = models.DecimalField(
-        max_digits=14, decimal_places=2, default=Decimal("0.00")
+        max_digits=18, decimal_places=2, default=Decimal("0.00")
     )
     requested_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -570,9 +570,9 @@ class StockMovement(BaseModel):
         StockLocation, on_delete=models.PROTECT, related_name="stock_movements"
     )
     movement_type = models.CharField(max_length=20, choices=MovementType.choices)
-    quantity = models.DecimalField(max_digits=14, decimal_places=4)
-    unit_cost = models.DecimalField(max_digits=14, decimal_places=4)
-    total_cost = models.DecimalField(max_digits=14, decimal_places=2)
+    quantity = models.DecimalField(max_digits=18, decimal_places=4)
+    unit_cost = models.DecimalField(max_digits=18, decimal_places=4)
+    total_cost = models.DecimalField(max_digits=18, decimal_places=2)
     batch_number = models.CharField(max_length=80, blank=True)
     serial_number = models.CharField(max_length=80, blank=True)
     expiry_date = models.DateField(null=True, blank=True)
@@ -621,7 +621,7 @@ class PurchaseReceipt(BaseModel):
         choices=[("UNPAID", "Unpaid"), ("PARTIAL", "Partial"), ("PAID", "Paid"), ("DISPUTED", "Disputed")],
         default="UNPAID",
     )
-    paid_amount = models.DecimalField(max_digits=14, decimal_places=2, default=Decimal("0.00"))
+    paid_amount = models.DecimalField(max_digits=18, decimal_places=2, default=Decimal("0.00"))
 
     class Meta:
         ordering = ["-document__document_date", "-created_at"]
@@ -642,13 +642,13 @@ class PurchaseReceiptLine(BaseModel):
     receipt = models.ForeignKey(PurchaseReceipt, on_delete=models.CASCADE, related_name="lines")
     item = models.ForeignKey(InventoryItem, on_delete=models.PROTECT, related_name="purchase_receipt_lines")
     location = models.ForeignKey(StockLocation, on_delete=models.PROTECT, related_name="purchase_receipt_lines")
-    quantity = models.DecimalField(max_digits=14, decimal_places=4)
-    unit_cost = models.DecimalField(max_digits=14, decimal_places=4)
+    quantity = models.DecimalField(max_digits=18, decimal_places=4)
+    unit_cost = models.DecimalField(max_digits=18, decimal_places=4)
     vat_rate = models.DecimalField(max_digits=7, decimal_places=4, default=Decimal("0.0000"))
-    vat_amount = models.DecimalField(max_digits=14, decimal_places=2, default=Decimal("0.00"))
+    vat_amount = models.DecimalField(max_digits=18, decimal_places=2, default=Decimal("0.00"))
     wht_rate = models.DecimalField(max_digits=7, decimal_places=4, default=Decimal("0.0000"))
-    wht_amount = models.DecimalField(max_digits=14, decimal_places=2, default=Decimal("0.00"))
-    total_cost = models.DecimalField(max_digits=14, decimal_places=2)
+    wht_amount = models.DecimalField(max_digits=18, decimal_places=2, default=Decimal("0.00"))
+    total_cost = models.DecimalField(max_digits=18, decimal_places=2)
     movement = models.OneToOneField(
         StockMovement,
         on_delete=models.PROTECT,
@@ -696,10 +696,10 @@ class SalesInvoice(BaseModel):
         choices=[("UNPAID", "Unpaid"), ("PARTIAL", "Partial"), ("PAID", "Paid"), ("DISPUTED", "Disputed")],
         default="UNPAID",
     )
-    paid_amount = models.DecimalField(max_digits=14, decimal_places=2, default=Decimal("0.00"))
+    paid_amount = models.DecimalField(max_digits=18, decimal_places=2, default=Decimal("0.00"))
     paid_at = models.DateTimeField(null=True, blank=True)
     bad_debt_provisioned_amount = models.DecimalField(
-        max_digits=14, decimal_places=2, default=Decimal("0.00")
+        max_digits=18, decimal_places=2, default=Decimal("0.00")
     )
 
     class Meta:
@@ -719,15 +719,15 @@ class SalesInvoiceLine(BaseModel):
     invoice = models.ForeignKey(SalesInvoice, on_delete=models.CASCADE, related_name="lines")
     item = models.ForeignKey(InventoryItem, on_delete=models.PROTECT, related_name="sales_invoice_lines")
     location = models.ForeignKey(StockLocation, on_delete=models.PROTECT, related_name="sales_invoice_lines")
-    quantity = models.DecimalField(max_digits=14, decimal_places=4)
-    unit_price = models.DecimalField(max_digits=14, decimal_places=4)
-    unit_cost = models.DecimalField(max_digits=14, decimal_places=4)
-    revenue_amount = models.DecimalField(max_digits=14, decimal_places=2)
-    cogs_amount = models.DecimalField(max_digits=14, decimal_places=2)
+    quantity = models.DecimalField(max_digits=18, decimal_places=4)
+    unit_price = models.DecimalField(max_digits=18, decimal_places=4)
+    unit_cost = models.DecimalField(max_digits=18, decimal_places=4)
+    revenue_amount = models.DecimalField(max_digits=18, decimal_places=2)
+    cogs_amount = models.DecimalField(max_digits=18, decimal_places=2)
     vat_rate = models.DecimalField(max_digits=7, decimal_places=4, default=Decimal("0.0000"))
-    vat_amount = models.DecimalField(max_digits=14, decimal_places=2, default=Decimal("0.00"))
+    vat_amount = models.DecimalField(max_digits=18, decimal_places=2, default=Decimal("0.00"))
     wht_rate = models.DecimalField(max_digits=7, decimal_places=4, default=Decimal("0.0000"))
-    wht_amount = models.DecimalField(max_digits=14, decimal_places=2, default=Decimal("0.00"))
+    wht_amount = models.DecimalField(max_digits=18, decimal_places=2, default=Decimal("0.00"))
     movement = models.OneToOneField(
         StockMovement,
         on_delete=models.PROTECT,
@@ -764,15 +764,15 @@ class CustomerReturnLine(BaseModel):
     customer_return = models.ForeignKey(CustomerReturn, on_delete=models.CASCADE, related_name="lines")
     item = models.ForeignKey(InventoryItem, on_delete=models.PROTECT, related_name="customer_return_lines")
     location = models.ForeignKey(StockLocation, on_delete=models.PROTECT, related_name="customer_return_lines")
-    quantity = models.DecimalField(max_digits=14, decimal_places=4)
-    unit_price = models.DecimalField(max_digits=14, decimal_places=4)
-    unit_cost = models.DecimalField(max_digits=14, decimal_places=4)
-    revenue_amount = models.DecimalField(max_digits=14, decimal_places=2)
-    cogs_amount = models.DecimalField(max_digits=14, decimal_places=2)
+    quantity = models.DecimalField(max_digits=18, decimal_places=4)
+    unit_price = models.DecimalField(max_digits=18, decimal_places=4)
+    unit_cost = models.DecimalField(max_digits=18, decimal_places=4)
+    revenue_amount = models.DecimalField(max_digits=18, decimal_places=2)
+    cogs_amount = models.DecimalField(max_digits=18, decimal_places=2)
     vat_rate = models.DecimalField(max_digits=7, decimal_places=4, default=Decimal("0.0000"))
-    vat_amount = models.DecimalField(max_digits=14, decimal_places=2, default=Decimal("0.00"))
+    vat_amount = models.DecimalField(max_digits=18, decimal_places=2, default=Decimal("0.00"))
     wht_rate = models.DecimalField(max_digits=7, decimal_places=4, default=Decimal("0.0000"))
-    wht_amount = models.DecimalField(max_digits=14, decimal_places=2, default=Decimal("0.00"))
+    wht_amount = models.DecimalField(max_digits=18, decimal_places=2, default=Decimal("0.00"))
     movement = models.OneToOneField(
         StockMovement,
         on_delete=models.PROTECT,
@@ -802,13 +802,13 @@ class SupplierReturnLine(BaseModel):
     supplier_return = models.ForeignKey(SupplierReturn, on_delete=models.CASCADE, related_name="lines")
     item = models.ForeignKey(InventoryItem, on_delete=models.PROTECT, related_name="supplier_return_lines")
     location = models.ForeignKey(StockLocation, on_delete=models.PROTECT, related_name="supplier_return_lines")
-    quantity = models.DecimalField(max_digits=14, decimal_places=4)
-    unit_cost = models.DecimalField(max_digits=14, decimal_places=4)
+    quantity = models.DecimalField(max_digits=18, decimal_places=4)
+    unit_cost = models.DecimalField(max_digits=18, decimal_places=4)
     vat_rate = models.DecimalField(max_digits=7, decimal_places=4, default=Decimal("0.0000"))
-    vat_amount = models.DecimalField(max_digits=14, decimal_places=2, default=Decimal("0.00"))
+    vat_amount = models.DecimalField(max_digits=18, decimal_places=2, default=Decimal("0.00"))
     wht_rate = models.DecimalField(max_digits=7, decimal_places=4, default=Decimal("0.0000"))
-    wht_amount = models.DecimalField(max_digits=14, decimal_places=2, default=Decimal("0.00"))
-    total_cost = models.DecimalField(max_digits=14, decimal_places=2)
+    wht_amount = models.DecimalField(max_digits=18, decimal_places=2, default=Decimal("0.00"))
+    total_cost = models.DecimalField(max_digits=18, decimal_places=2)
     movement = models.OneToOneField(
         StockMovement,
         on_delete=models.PROTECT,
@@ -832,7 +832,7 @@ class CustomerPayment(BaseModel):
     cash_account = models.ForeignKey(
         "accounting.Account", on_delete=models.PROTECT, related_name="customer_payments_as_cash"
     )
-    amount = models.DecimalField(max_digits=14, decimal_places=2)
+    amount = models.DecimalField(max_digits=18, decimal_places=2)
     invoice = models.ForeignKey(
         SalesInvoice,
         on_delete=models.PROTECT,
@@ -863,7 +863,7 @@ class SupplierPayment(BaseModel):
     cash_account = models.ForeignKey(
         "accounting.Account", on_delete=models.PROTECT, related_name="supplier_payments_as_cash"
     )
-    amount = models.DecimalField(max_digits=14, decimal_places=2)
+    amount = models.DecimalField(max_digits=18, decimal_places=2)
     receipt = models.ForeignKey(
         PurchaseReceipt,
         on_delete=models.PROTECT,
@@ -874,7 +874,7 @@ class SupplierPayment(BaseModel):
     payment_date = models.DateField(default=timezone.now)
     reference = models.CharField(max_length=80, blank=True)
     due_date = models.DateField(null=True, blank=True)
-    discount_taken = models.DecimalField(max_digits=14, decimal_places=2, default=Decimal("0.00"))
+    discount_taken = models.DecimalField(max_digits=18, decimal_places=2, default=Decimal("0.00"))
     status = models.CharField(
         max_length=20,
         choices=[("DRAFT", "Draft"), ("POSTED", "Posted"), ("VOID", "Void")],
@@ -895,10 +895,10 @@ class TaxRemittance(BaseModel):
     cash_account = models.ForeignKey(
         "accounting.Account", on_delete=models.PROTECT, related_name="tax_remittances_as_cash"
     )
-    vat_output_amount = models.DecimalField(max_digits=14, decimal_places=2, default=Decimal("0.00"))
-    vat_input_amount = models.DecimalField(max_digits=14, decimal_places=2, default=Decimal("0.00"))
-    wht_amount = models.DecimalField(max_digits=14, decimal_places=2, default=Decimal("0.00"))
-    paid_amount = models.DecimalField(max_digits=14, decimal_places=2)
+    vat_output_amount = models.DecimalField(max_digits=18, decimal_places=2, default=Decimal("0.00"))
+    vat_input_amount = models.DecimalField(max_digits=18, decimal_places=2, default=Decimal("0.00"))
+    wht_amount = models.DecimalField(max_digits=18, decimal_places=2, default=Decimal("0.00"))
+    paid_amount = models.DecimalField(max_digits=18, decimal_places=2)
 
     class Meta:
         ordering = ["-document__document_date", "-created_at"]
@@ -914,14 +914,14 @@ class InventoryValuationLayer(BaseModel):
     item = models.ForeignKey(
         InventoryItem, on_delete=models.PROTECT, related_name="valuation_layers"
     )
-    quantity = models.DecimalField(max_digits=14, decimal_places=4)
+    quantity = models.DecimalField(max_digits=18, decimal_places=4)
     remaining_quantity = models.DecimalField(
-        max_digits=14, decimal_places=4, default=Decimal("0.0000")
+        max_digits=18, decimal_places=4, default=Decimal("0.0000")
     )
-    unit_cost = models.DecimalField(max_digits=14, decimal_places=4)
-    total_cost = models.DecimalField(max_digits=14, decimal_places=2)
+    unit_cost = models.DecimalField(max_digits=18, decimal_places=4)
+    total_cost = models.DecimalField(max_digits=18, decimal_places=2)
     remaining_total_cost = models.DecimalField(
-        max_digits=14, decimal_places=2, default=Decimal("0.00")
+        max_digits=18, decimal_places=2, default=Decimal("0.00")
     )
 
     class Meta:
@@ -949,7 +949,7 @@ class StockCount(BaseModel):
     status = models.CharField(max_length=15, choices=Status.choices, default=Status.DRAFT)
     reason = models.CharField(max_length=255, blank=True)
     variance_threshold = models.DecimalField(
-        max_digits=14, decimal_places=4, default=Decimal("0.0000")
+        max_digits=18, decimal_places=4, default=Decimal("0.0000")
     )
     approved_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -985,9 +985,9 @@ class StockCountLine(BaseModel):
     )
     item = models.ForeignKey(InventoryItem, on_delete=models.PROTECT)
     system_quantity = models.DecimalField(
-        max_digits=14, decimal_places=4, default=Decimal("0.0000")
+        max_digits=18, decimal_places=4, default=Decimal("0.0000")
     )
-    counted_quantity = models.DecimalField(max_digits=14, decimal_places=4)
+    counted_quantity = models.DecimalField(max_digits=18, decimal_places=4)
     variance_reason = models.CharField(
         max_length=20,
         choices=[
@@ -1060,14 +1060,14 @@ class SalesOrder(BaseModel):
 class SalesOrderLine(BaseModel):
     sales_order = models.ForeignKey(SalesOrder, on_delete=models.CASCADE, related_name="lines")
     item = models.ForeignKey(InventoryItem, on_delete=models.PROTECT, related_name="sales_order_lines")
-    quantity = models.DecimalField(max_digits=14, decimal_places=4)
+    quantity = models.DecimalField(max_digits=18, decimal_places=4)
     shipped_quantity = models.DecimalField(
-        max_digits=14, decimal_places=4, default=Decimal("0.0000")
+        max_digits=18, decimal_places=4, default=Decimal("0.0000")
     )
     reserved_quantity = models.DecimalField(
-        max_digits=14, decimal_places=4, default=Decimal("0.0000")
+        max_digits=18, decimal_places=4, default=Decimal("0.0000")
     )
-    unit_price = models.DecimalField(max_digits=14, decimal_places=4)
+    unit_price = models.DecimalField(max_digits=18, decimal_places=4)
 
     class Meta:
         ordering = ["id"]
@@ -1104,7 +1104,7 @@ class VendorBill(BaseModel):
     bill_date = models.DateField(default=timezone.now)
     due_date = models.DateField(null=True, blank=True)
     bill_number = models.CharField(max_length=80, blank=True)
-    total_amount = models.DecimalField(max_digits=14, decimal_places=2, default=Decimal("0.00"))
+    total_amount = models.DecimalField(max_digits=18, decimal_places=2, default=Decimal("0.00"))
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.DRAFT)
     notes = models.TextField(blank=True)
 
@@ -1119,9 +1119,9 @@ class VendorBillLine(BaseModel):
     vendor_bill = models.ForeignKey(VendorBill, on_delete=models.CASCADE, related_name="lines")
     item = models.ForeignKey(InventoryItem, on_delete=models.PROTECT, null=True, blank=True, related_name="vendor_bill_lines")
     description = models.CharField(max_length=255, blank=True)
-    quantity = models.DecimalField(max_digits=14, decimal_places=4, default=Decimal("0.0000"))
-    unit_cost = models.DecimalField(max_digits=14, decimal_places=4, default=Decimal("0.00"))
-    total_amount = models.DecimalField(max_digits=14, decimal_places=2)
+    quantity = models.DecimalField(max_digits=18, decimal_places=4, default=Decimal("0.0000"))
+    unit_cost = models.DecimalField(max_digits=18, decimal_places=4, default=Decimal("0.00"))
+    total_amount = models.DecimalField(max_digits=18, decimal_places=2)
     receipt_line = models.ForeignKey(
         PurchaseReceiptLine,
         on_delete=models.SET_NULL,
@@ -1155,7 +1155,7 @@ class LandedCost(BaseModel):
         max_length=30,
         choices=[("FREIGHT", "Freight"), ("DUTY", "Customs Duty"), ("INSURANCE", "Insurance"), ("OTHER", "Other")],
     )
-    total_cost = models.DecimalField(max_digits=14, decimal_places=2)
+    total_cost = models.DecimalField(max_digits=18, decimal_places=2)
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.DRAFT)
     allocation_method = models.CharField(
         max_length=20,
@@ -1177,7 +1177,7 @@ class LandedCostAllocation(BaseModel):
     receipt_line = models.ForeignKey(
         PurchaseReceiptLine, on_delete=models.PROTECT, related_name="landed_cost_allocations"
     )
-    allocated_amount = models.DecimalField(max_digits=14, decimal_places=2)
+    allocated_amount = models.DecimalField(max_digits=18, decimal_places=2)
 
     class Meta:
         ordering = ["id"]
@@ -1309,7 +1309,7 @@ class TransferShipment(BaseModel):
     received_date = models.DateField(null=True, blank=True)
     status = models.CharField(max_length=22, choices=Status.choices, default=Status.DISPATCHED)
     reference = models.CharField(max_length=80, blank=True)
-    freight_cost = models.DecimalField(max_digits=14, decimal_places=2, default=Decimal("0.00"))
+    freight_cost = models.DecimalField(max_digits=18, decimal_places=2, default=Decimal("0.00"))
     notes = models.TextField(blank=True)
 
     class Meta:
@@ -1322,9 +1322,9 @@ class TransferShipment(BaseModel):
 class TransferShipmentLine(BaseModel):
     shipment = models.ForeignKey(TransferShipment, on_delete=models.CASCADE, related_name="lines")
     item = models.ForeignKey(InventoryItem, on_delete=models.PROTECT, related_name="transfer_lines")
-    quantity = models.DecimalField(max_digits=14, decimal_places=4)
+    quantity = models.DecimalField(max_digits=18, decimal_places=4)
     received_quantity = models.DecimalField(
-        max_digits=14, decimal_places=4, default=Decimal("0.0000")
+        max_digits=18, decimal_places=4, default=Decimal("0.0000")
     )
     lot = models.ForeignKey(Lot, on_delete=models.SET_NULL, null=True, blank=True, related_name="transfer_lines")
 

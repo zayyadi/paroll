@@ -167,7 +167,8 @@ document.addEventListener('DOMContentLoaded', function() {
     // Add entry functionality
     const addEntryBtn = document.getElementById('add-entry');
     const entriesContainer = document.getElementById('entries-container');
-    const totalFormsInput = document.querySelector('input[name="entry_form-TOTAL_FORMS"]');
+    const totalFormsInput = document.querySelector('input[name$="-TOTAL_FORMS"]');
+    const formsetPrefix = totalFormsInput ? totalFormsInput.name.replace('-TOTAL_FORMS', '') : 'entries';
     
     addEntryBtn.addEventListener('click', function() {
         const totalForms = parseInt(totalFormsInput.value);
@@ -175,38 +176,38 @@ document.addEventListener('DOMContentLoaded', function() {
             <div class="entry-form bg-gray-50 p-4 rounded-lg border border-gray-200">
                 <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <div>
-                        <label for="id_entry_form-${totalForms}-account" class="block text-sm font-medium text-secondary-700 mb-1">
+                        <label for="id_${formsetPrefix}-${totalForms}-account" class="block text-sm font-medium text-secondary-700 mb-1">
                             Account <span class="text-danger-500">*</span>
                         </label>
-                        <select name="entry_form-${totalForms}-account" id="id_entry_form-${totalForms}-account" class="form-input block w-full px-3 py-2 border border-secondary-300 rounded-md leading-5 bg-white focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500 sm:text-sm">
-                            {% for account in form.fields.account.queryset %}
+                        <select name="${formsetPrefix}-${totalForms}-account" id="id_${formsetPrefix}-${totalForms}-account" class="form-input block w-full px-3 py-2 border border-secondary-300 rounded-md leading-5 bg-white focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500 sm:text-sm">
+                            {% for account in accounts %}
                             <option value="{{ account.pk }}">{{ account.name }} ({{ account.account_number|default:"—" }})</option>
                             {% endfor %}
                         </select>
                     </div>
                     <div>
-                        <label for="id_entry_form-${totalForms}-entry_type" class="block text-sm font-medium text-secondary-700 mb-1">
+                        <label for="id_${formsetPrefix}-${totalForms}-entry_type" class="block text-sm font-medium text-secondary-700 mb-1">
                             Type <span class="text-danger-500">*</span>
                         </label>
-                        <select name="entry_form-${totalForms}-entry_type" id="id_entry_form-${totalForms}-entry_type" class="form-input block w-full px-3 py-2 border border-secondary-300 rounded-md leading-5 bg-white focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500 sm:text-sm">
+                        <select name="${formsetPrefix}-${totalForms}-entry_type" id="id_${formsetPrefix}-${totalForms}-entry_type" class="form-input block w-full px-3 py-2 border border-secondary-300 rounded-md leading-5 bg-white focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500 sm:text-sm">
                             <option value="DEBIT">Debit</option>
                             <option value="CREDIT">Credit</option>
                         </select>
                     </div>
                     <div>
-                        <label for="id_entry_form-${totalForms}-amount" class="block text-sm font-medium text-secondary-700 mb-1">
+                        <label for="id_${formsetPrefix}-${totalForms}-amount" class="block text-sm font-medium text-secondary-700 mb-1">
                             Amount <span class="text-danger-500">*</span>
                         </label>
-                        <input type="number" name="entry_form-${totalForms}-amount" id="id_entry_form-${totalForms}-amount" step="0.01" min="0" class="form-input block w-full px-3 py-2 border border-secondary-300 rounded-md leading-5 bg-white focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500 sm:text-sm">
+                        <input type="number" name="${formsetPrefix}-${totalForms}-amount" id="id_${formsetPrefix}-${totalForms}-amount" step="0.01" min="0" class="form-input block w-full px-3 py-2 border border-secondary-300 rounded-md leading-5 bg-white focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500 sm:text-sm">
                     </div>
                     <div>
-                        <label for="id_entry_form-${totalForms}-memo" class="block text-sm font-medium text-secondary-700 mb-1">
+                        <label for="id_${formsetPrefix}-${totalForms}-memo" class="block text-sm font-medium text-secondary-700 mb-1">
                             Memo
                         </label>
-                        <input type="text" name="entry_form-${totalForms}-memo" id="id_entry_form-${totalForms}-memo" class="form-input block w-full px-3 py-2 border border-secondary-300 rounded-md leading-5 bg-white placeholder-secondary-500 focus:outline-none focus:placeholder-secondary-400 focus:ring-1 focus:ring-primary-500 focus:border-primary-500 sm:text-sm">
+                        <input type="text" name="${formsetPrefix}-${totalForms}-memo" id="id_${formsetPrefix}-${totalForms}-memo" class="form-input block w-full px-3 py-2 border border-secondary-300 rounded-md leading-5 bg-white placeholder-secondary-500 focus:outline-none focus:placeholder-secondary-400 focus:ring-1 focus:ring-primary-500 focus:border-primary-500 sm:text-sm">
                     </div>
                 </div>
-                <input type="hidden" name="entry_form-${totalForms}-id" id="id_entry_form-${totalForms}-id">
+                <input type="hidden" name="${formsetPrefix}-${totalForms}-id" id="id_${formsetPrefix}-${totalForms}-id">
             </div>
         `;
         

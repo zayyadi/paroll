@@ -1228,6 +1228,37 @@ class LeaveBalance(models.Model):
         unique_together = ("employee", "year")
 
 
+class LeaveCarryover(models.Model):
+    employee = models.ForeignKey(
+        EmployeeProfile,
+        on_delete=models.CASCADE,
+        related_name="leave_carryovers",
+    )
+    from_year = models.PositiveIntegerField()
+    to_year = models.PositiveIntegerField()
+    days = models.DecimalField(max_digits=5, decimal_places=2)
+    expires_at = models.DateField(null=True, blank=True)
+    source_balance = models.ForeignKey(
+        LeaveBalance,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="generated_carryovers",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ("employee", "from_year", "to_year")
+        ordering = ["-to_year", "employee_id"]
+
+    @property
+    def is_expired(self) -> bool:
+        return bool(self.expires_at and self.expires_at < timezone.localdate())
+
+    def __str__(self):
+        return f"{self.employee} {self.from_year}->{self.to_year}: {self.days}"
+
+
 class LeaveRequest(models.Model):
     STATUS_CHOICES = [
         ("PENDING", "Pending"),
@@ -1478,6 +1509,45 @@ class LeaveApproval(models.Model):
         ordering = ["approved_at"]
 
 
+class HRRetentionPolicy(models.Model):
+    company = models.OneToOneField(
+        "company.Company",
+        on_delete=models.CASCADE,
+        related_name="hr_retention_policy",
+        null=True,
+        blank=True,
+    )
+    candidate_retention_days = models.PositiveIntegerField(default=365)
+    survey_retention_days = models.PositiveIntegerField(default=730)
+    disciplinary_retention_days = models.PositiveIntegerField(default=1095)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "HR Retention Policy"
+        verbose_name_plural = "HR Retention Policies"
+
+    @classmethod
+    def get_for_company(cls, company):
+        policy = cls.objects.filter(company=company, is_active=True).first()
+        if policy:
+            return policy
+        policy = cls.objects.filter(company__isnull=True, is_active=True).first()
+        if policy:
+            return policy
+        return cls(
+            company=company,
+            candidate_retention_days=365,
+            survey_retention_days=730,
+            disciplinary_retention_days=1095,
+            is_active=True,
+        )
+
+    def __str__(self):
+        return f"HR retention policy for {self.company or 'default'}"
+
+
 def get_leave_balance(employee, year=None):
     if not year:
         year = date.today().year
@@ -1491,18 +1561,31 @@ def get_leave_balance(employee, year=None):
     }
     previous = LeaveBalance.objects.filter(employee=employee, year=year - 1).first()
     if previous:
-        carryover = previous.annual_leave
+        carryover = Decimal(previous.annual_leave or 0)
         policy = LeavePolicy.objects.filter(
             company=employee.company,
             leave_type="ANNUAL",
         ).first()
+        expires_at = None
         if policy:
             carryover = min(carryover, policy.carryover_days or carryover)
-            defaults["carryover_expires_at"] = date(year, 1, 1) + timedelta(
+            expires_at = date(year, 1, 1) + timedelta(
                 days=policy.carryover_expires_after_days
             )
-        defaults["annual_leave"] += carryover
-        defaults["carried_over_annual_leave"] = carryover
+            defaults["carryover_expires_at"] = expires_at
+        defaults["annual_leave"] += int(carryover)
+        defaults["carried_over_annual_leave"] = int(carryover)
+        if carryover > 0:
+            LeaveCarryover.objects.get_or_create(
+                employee=employee,
+                from_year=year - 1,
+                to_year=year,
+                defaults={
+                    "days": carryover,
+                    "expires_at": expires_at,
+                    "source_balance": previous,
+                },
+            )
 
     balance, _ = LeaveBalance.objects.get_or_create(
         employee=employee,

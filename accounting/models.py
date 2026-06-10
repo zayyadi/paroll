@@ -1,5 +1,6 @@
 from django.db import models
 from django.db.models import Sum, Q
+from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
 from django.utils import timezone
@@ -13,6 +14,14 @@ from decimal import Decimal
 import json
 
 User = get_user_model()
+
+
+def _get_default_company_fallback():
+    if not getattr(settings, "ALLOW_DEFAULT_COMPANY_FALLBACK", False):
+        raise ValidationError("A company is required; default company fallback is disabled.")
+    Company = apps.get_model("company", "Company")
+    company, _ = Company.objects.get_or_create(name="Default Company")
+    return company
 
 
 class BaseModel(models.Model):
@@ -130,8 +139,7 @@ class Account(BaseModel):
 
     def save(self, *args, **kwargs):
         if not self.company_id:
-            Company = apps.get_model("company", "Company")
-            self.company, _ = Company.objects.get_or_create(name="Default Company")
+            self.company = _get_default_company_fallback()
         super().save(*args, **kwargs)
 
     class Meta:
@@ -312,7 +320,7 @@ class AccrualTemplate(BaseModel):
     credit_account = models.ForeignKey(
         Account, on_delete=models.PROTECT, related_name="accrual_templates_as_credit"
     )
-    amount = models.DecimalField(max_digits=14, decimal_places=2)
+    amount = models.DecimalField(max_digits=18, decimal_places=2)
     is_active = models.BooleanField(default=True)
 
     class Meta:
@@ -483,7 +491,7 @@ class BudgetLine(BaseModel):
         blank=True,
         related_name="budget_lines",
     )
-    amount = models.DecimalField(max_digits=14, decimal_places=2)
+    amount = models.DecimalField(max_digits=18, decimal_places=2)
 
     class Meta:
         constraints = [
@@ -505,9 +513,9 @@ class AccountReconciliation(BaseModel):
         blank=True,
         related_name="account_reconciliations",
     )
-    statement_balance = models.DecimalField(max_digits=14, decimal_places=2)
-    ledger_balance = models.DecimalField(max_digits=14, decimal_places=2)
-    variance = models.DecimalField(max_digits=14, decimal_places=2)
+    statement_balance = models.DecimalField(max_digits=18, decimal_places=2)
+    ledger_balance = models.DecimalField(max_digits=18, decimal_places=2)
+    variance = models.DecimalField(max_digits=18, decimal_places=2)
     status = models.CharField(
         max_length=20,
         choices=[("OPEN", "Open"), ("INVESTIGATING", "Investigating"), ("APPROVED", "Approved")],
@@ -536,7 +544,7 @@ class BankTransaction(models.Model):
     transaction_date = models.DateField()
     description = models.CharField(max_length=255)
     reference = models.CharField(max_length=80, blank=True)
-    amount = models.DecimalField(max_digits=14, decimal_places=2)
+    amount = models.DecimalField(max_digits=18, decimal_places=2)
     transaction_type = models.CharField(
         max_length=10, choices=[("DEBIT", "Debit"), ("CREDIT", "Credit")]
     )
@@ -570,7 +578,7 @@ class ReconciliationItem(models.Model):
         blank=True,
         related_name="reconciliation_items",
     )
-    amount_matched = models.DecimalField(max_digits=14, decimal_places=2)
+    amount_matched = models.DecimalField(max_digits=18, decimal_places=2)
     note = models.CharField(max_length=255, blank=True)
     status = models.CharField(
         max_length=20,
@@ -711,14 +719,12 @@ class FiscalYear(BaseModel):
 
     def save(self, *args, **kwargs):
         if not self.company_id:
-            Company = apps.get_model("company", "Company")
-            self.company, _ = Company.objects.get_or_create(name="Default Company")
+            self.company = _get_default_company_fallback()
         super().save(*args, **kwargs)
 
     def clean(self):
         if not self.company_id:
-            Company = apps.get_model("company", "Company")
-            self.company, _ = Company.objects.get_or_create(name="Default Company")
+            self.company = _get_default_company_fallback()
         if self.start_date >= self.end_date:
             raise ValidationError("Start date must be before end date")
 
@@ -1098,8 +1104,7 @@ class Journal(BaseModel):
                 self.created_by, "company", None
             )
         if not self.company_id:
-            Company = apps.get_model("company", "Company")
-            self.company, _ = Company.objects.get_or_create(name="Default Company")
+            self.company = _get_default_company_fallback()
 
         # Generate transaction number if new
         if not self.pk and not self.transaction_number:
@@ -1294,7 +1299,7 @@ class JournalEntry(BaseModel):
         Account, on_delete=models.PROTECT, related_name="entries"
     )
     entry_type = models.CharField(max_length=6, choices=EntryType.choices)
-    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    amount = models.DecimalField(max_digits=18, decimal_places=2)
     memo = models.CharField(max_length=255, blank=True, null=True)
 
     # Audit field
@@ -1310,6 +1315,8 @@ class JournalEntry(BaseModel):
         return f"{self.journal.transaction_number} - {self.get_entry_type_display()} {self.amount:.2f} to {self.account.name}"
 
     def clean(self):
+        if self.amount is None:
+            return
         if self.amount <= 0:
             raise ValidationError("Amount must be greater than zero")
         if (

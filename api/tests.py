@@ -135,6 +135,12 @@ class APIV1TenantTests(APITestCase):
             tenor=1,
             reason="Tenant boundary test",
         )
+        self.iou_a = IOU.objects.create(
+            employee_id=self.employee_a,
+            amount=500,
+            tenor=1,
+            reason="Self approval boundary test",
+        )
 
     def test_jwt_token_obtain(self):
         if not getattr(settings, "SIMPLE_JWT_ENABLED", False):
@@ -211,6 +217,31 @@ class APIV1TenantTests(APITestCase):
         self.assertIn("Alice", names)
         self.assertNotIn("Bob", names)
 
+    def test_superuser_list_is_still_tenant_scoped(self):
+        superuser = User.objects.create_superuser(
+            email="platform@test.com",
+            password="password123",
+            company=self.company_a,
+            active_company=self.company_a,
+        )
+        CompanyMembership.objects.get_or_create(
+            user=superuser,
+            company=self.company_a,
+            defaults={
+                "role": CompanyMembership.ROLE_OWNER,
+                "is_default": True,
+            },
+        )
+
+        self.client.force_authenticate(superuser)
+        url = reverse("api:v1:department-list")
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        names = [row["name"] for row in response.data["results"]]
+        self.assertIn("HR", names)
+        self.assertNotIn("Finance", names)
+
     def test_department_create_attaches_active_company(self):
         self.client.force_authenticate(self.user_a)
         url = reverse("api:v1:department-list")
@@ -275,3 +306,19 @@ class APIV1TenantTests(APITestCase):
         url = reverse("api:v1:leave-request-approve", args=[self.leave_a.id])
         response = self.client.post(url, {}, format="json")
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_user_cannot_approve_own_leave_request(self):
+        self.client.force_authenticate(self.user_a)
+        url = reverse("api:v1:leave-request-approve", args=[self.leave_a.id])
+        response = self.client.post(url, {}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.leave_a.refresh_from_db()
+        self.assertEqual(self.leave_a.status, "PENDING")
+
+    def test_user_cannot_approve_own_iou_request(self):
+        self.client.force_authenticate(self.user_a)
+        url = reverse("api:v1:iou-approve", args=[self.iou_a.id])
+        response = self.client.post(url, {}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.iou_a.refresh_from_db()
+        self.assertEqual(self.iou_a.status, "PENDING")

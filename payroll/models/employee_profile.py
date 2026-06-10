@@ -426,6 +426,8 @@ def create_employee_profile(sender, instance, created, **kwargs):
     if created:
         company = instance.active_company or instance.company
         if company is None:
+            if not getattr(settings, "ALLOW_DEFAULT_COMPANY_FALLBACK", False):
+                return
             from company.models import Company
 
             company, _ = Company.objects.get_or_create(name="Default Company")

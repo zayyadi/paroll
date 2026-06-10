@@ -1,7 +1,7 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.views.generic import ListView, DetailView, CreateView, UpdateView
+from django.views.generic import ListView, DetailView, CreateView, UpdateView, DeleteView
 from django.views.generic.edit import FormView
 from django.http import JsonResponse, HttpResponseForbidden, HttpResponse
 from django.urls import reverse_lazy
@@ -57,6 +57,8 @@ from .forms import (
     JournalReversalConfirmationForm,
     BalanceAdjustmentForm,
     OpeningBalanceImportForm,
+    FiscalYearForm,
+    AccountingPeriodForm,
     DisciplinaryCaseForm,
     DisciplinaryEvidenceForm,
     DisciplinaryDecisionForm,
@@ -706,6 +708,9 @@ class JournalListView(LoginRequiredMixin, AccountingRoleRequiredMixin, ListView)
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["status_choices"] = Journal.JournalStatus.choices
+        context["is_auditor"] = is_auditor(self.request.user)
+        context["is_accountant"] = is_accountant(self.request.user)
+        context["is_payroll_processor"] = is_payroll_processor(self.request.user)
         return context
 
 
@@ -739,11 +744,22 @@ class JournalDetailView(LoginRequiredMixin, AccountingRoleRequiredMixin, DetailV
 
         context["can_approve"] = can_approve_journal(self.request.user, journal)
         context["can_reverse"] = can_reverse_journal(self.request.user, journal)
+        context["is_auditor"] = is_auditor(self.request.user)
+        context["is_accountant"] = is_accountant(self.request.user)
+        context["is_payroll_processor"] = is_payroll_processor(self.request.user)
         context["can_edit"] = (
             is_accountant(self.request.user)
             and journal.status
             in [Journal.JournalStatus.DRAFT, Journal.JournalStatus.PENDING_APPROVAL]
-            and journal.created_by == self.request.user
+        )
+        context["can_delete"] = (
+            is_accountant(self.request.user)
+            and journal.status
+            in [Journal.JournalStatus.DRAFT, Journal.JournalStatus.PENDING_APPROVAL]
+        )
+        context["can_submit"] = (
+            is_accountant(self.request.user)
+            and journal.status == Journal.JournalStatus.DRAFT
         )
 
         context["is_reversed"] = journal.reversed_journal is not None
@@ -790,11 +806,16 @@ class JournalCreateView(LoginRequiredMixin, AccountantRequiredMixin, CreateView)
             context["entry_formset"] = JournalEntryFormSet(
                 form_kwargs={"company": company}
             )
+        context["accounts"] = Account.objects.filter(company=company).order_by(
+            "account_number", "name"
+        )
         return context
 
     def form_valid(self, form):
         context = self.get_context_data()
         entry_formset = context["entry_formset"]
+        if not entry_formset.is_valid():
+            return self.form_invalid(form)
 
         with transaction.atomic():
             form.instance.company = get_user_company(self.request.user)
@@ -802,14 +823,11 @@ class JournalCreateView(LoginRequiredMixin, AccountantRequiredMixin, CreateView)
             form.instance.status = Journal.JournalStatus.DRAFT
             self.object = form.save()
 
-            if entry_formset.is_valid():
-                entry_formset.instance = self.object
-                entry_formset.save()
+            entry_formset.instance = self.object
+            entry_formset.save()
 
-                messages.success(self.request, "Journal created successfully.")
-                return redirect(self.get_success_url())
-            else:
-                return self.form_invalid(form)
+            messages.success(self.request, "Journal created successfully.")
+            return redirect(self.get_success_url())
 
     def form_invalid(self, form):
         messages.error(self.request, "Please correct the errors below.")
@@ -831,6 +849,25 @@ class JournalEditView(LoginRequiredMixin, AccountantRequiredMixin, UpdateView):
         kwargs["company"] = get_user_company(self.request.user)
         return kwargs
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        company = get_user_company(self.request.user)
+        if self.request.POST:
+            context["entry_formset"] = JournalEntryFormSet(
+                self.request.POST,
+                instance=self.object,
+                form_kwargs={"company": company},
+            )
+        else:
+            context["entry_formset"] = JournalEntryFormSet(
+                instance=self.object,
+                form_kwargs={"company": company},
+            )
+        context["accounts"] = Account.objects.filter(company=company).order_by(
+            "account_number", "name"
+        )
+        return context
+
     def dispatch(self, request, *args, **kwargs):
         journal = self.get_object()
         if journal.status not in [
@@ -842,8 +879,68 @@ class JournalEditView(LoginRequiredMixin, AccountantRequiredMixin, UpdateView):
         return super().dispatch(request, *args, **kwargs)
 
     def form_valid(self, form):
+        context = self.get_context_data()
+        entry_formset = context["entry_formset"]
+        if not entry_formset.is_valid():
+            return self.form_invalid(form)
+
+        with transaction.atomic():
+            self.object = form.save()
+            entry_formset.instance = self.object
+            entry_formset.save()
         messages.success(self.request, "Journal updated successfully.")
-        return super().form_valid(form)
+        return redirect(self.get_success_url())
+
+
+class JournalDeleteView(LoginRequiredMixin, AccountantRequiredMixin, DeleteView):
+    model = Journal
+    template_name = "accounting/journal_confirm_delete.html"
+    context_object_name = "journal"
+    success_url = reverse_lazy("accounting:journal_list")
+
+    def get_queryset(self):
+        return Journal.objects.filter(company=get_user_company(self.request.user))
+
+    def dispatch(self, request, *args, **kwargs):
+        journal = self.get_object()
+        if journal.status not in [
+            Journal.JournalStatus.DRAFT,
+            Journal.JournalStatus.PENDING_APPROVAL,
+        ]:
+            messages.error(
+                request,
+                "Only draft or pending journals can be deleted. Post a reversal for finalized journals.",
+            )
+            return redirect("accounting:journal_detail", pk=journal.pk)
+        return super().dispatch(request, *args, **kwargs)
+
+    def form_valid(self, form):
+        transaction_number = self.object.transaction_number
+        response = super().form_valid(form)
+        messages.success(self.request, f"Journal {transaction_number} deleted successfully.")
+        return response
+
+
+@login_required
+@accountant_required
+def journal_submit_view(request, pk):
+    journal = get_object_or_404(
+        Journal, pk=pk, company=get_user_company(request.user)
+    )
+    if request.method != "POST":
+        return redirect("accounting:journal_detail", pk=journal.pk)
+
+    if journal.status != Journal.JournalStatus.DRAFT:
+        messages.error(request, "Only draft journals can be submitted for approval.")
+        return redirect("accounting:journal_detail", pk=journal.pk)
+
+    try:
+        journal.validate_entries()
+        journal.submit_for_approval()
+        messages.success(request, "Journal submitted for approval.")
+    except ValidationError as exc:
+        messages.error(request, ", ".join(exc.messages))
+    return redirect("accounting:journal_detail", pk=journal.pk)
 
 
 class BalanceAdjustmentView(LoginRequiredMixin, AccountantRequiredMixin, FormView):
@@ -903,13 +1000,29 @@ class JournalApprovalView(LoginRequiredMixin, JournalApprovalMixin, FormView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        journal = get_object_or_404(Journal, pk=self.kwargs["pk"])
+        journal = self.get_permission_object()
+        entries = journal.entries.all().order_by("account__name")
         context["journal"] = journal
-        context["entries"] = journal.entries.all().order_by("account__name")
+        context["entries"] = entries
+        context["total_debits"] = (
+            journal.entries.filter(entry_type=JournalEntry.EntryType.DEBIT).aggregate(
+                total=Sum("amount")
+            )["total"]
+            or 0
+        )
+        context["total_credits"] = (
+            journal.entries.filter(entry_type=JournalEntry.EntryType.CREDIT).aggregate(
+                total=Sum("amount")
+            )["total"]
+            or 0
+        )
+        context["is_auditor"] = is_auditor(self.request.user)
+        context["is_accountant"] = is_accountant(self.request.user)
+        context["is_payroll_processor"] = is_payroll_processor(self.request.user)
         return context
 
     def form_valid(self, form):
-        journal = get_object_or_404(Journal, pk=self.kwargs["pk"])
+        journal = self.get_permission_object()
         action = form.cleaned_data["action"]
         reason = form.cleaned_data["reason"]
 
@@ -973,13 +1086,26 @@ class JournalReversalView(LoginRequiredMixin, JournalReversalMixin, FormView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        journal = get_object_or_404(Journal, pk=self.kwargs["pk"])
+        journal = self.get_permission_object()
+        entries = journal.entries.all().order_by("account__name")
         context["journal"] = journal
-        context["entries"] = journal.entries.all().order_by("account__name")
+        context["entries"] = entries
+        context["total_debits"] = (
+            journal.entries.filter(entry_type=JournalEntry.EntryType.DEBIT).aggregate(
+                total=Sum("amount")
+            )["total"]
+            or 0
+        )
+        context["total_credits"] = (
+            journal.entries.filter(entry_type=JournalEntry.EntryType.CREDIT).aggregate(
+                total=Sum("amount")
+            )["total"]
+            or 0
+        )
         return context
 
     def form_valid(self, form):
-        journal = get_object_or_404(Journal, pk=self.kwargs["pk"])
+        journal = self.get_permission_object()
         reason = form.cleaned_data["reason"]
 
         try:
@@ -1012,6 +1138,23 @@ class FiscalYearListView(
         ).annotate(
             journal_count=Count("periods__journals", distinct=True)
         ).order_by("-year")
+
+
+class FiscalYearCreateView(LoginRequiredMixin, AccountantRequiredMixin, CreateView):
+    model = FiscalYear
+    form_class = FiscalYearForm
+    template_name = "accounting/fiscal_year_form.html"
+    success_url = reverse_lazy("accounting:fiscal_year_list")
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["company"] = get_user_company(self.request.user)
+        return kwargs
+
+    def form_valid(self, form):
+        form.instance.company = get_user_company(self.request.user)
+        messages.success(self.request, "Fiscal year created successfully.")
+        return super().form_valid(form)
 
 
 class FiscalYearDetailView(
@@ -1058,6 +1201,28 @@ class AccountingPeriodListView(
         return AccountingPeriod.objects.filter(
             company=get_user_company(self.request.user)
         ).order_by("-fiscal_year", "-period_number")
+
+
+class AccountingPeriodCreateView(LoginRequiredMixin, AccountantRequiredMixin, CreateView):
+    model = AccountingPeriod
+    form_class = AccountingPeriodForm
+    template_name = "accounting/period_form.html"
+    success_url = reverse_lazy("accounting:period_list")
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        company = get_user_company(self.request.user)
+        kwargs["company"] = company
+        if self.request.method == "GET" and self.request.GET.get("fiscal_year"):
+            kwargs.setdefault("initial", {})["fiscal_year"] = self.request.GET[
+                "fiscal_year"
+            ]
+        return kwargs
+
+    def form_valid(self, form):
+        form.instance.company = get_user_company(self.request.user)
+        messages.success(self.request, "Accounting period created successfully.")
+        return super().form_valid(form)
 
 
 class AccountingPeriodDetailView(
@@ -1308,6 +1473,12 @@ class DisciplinaryCaseCreateView(
         self.object.mark_due_process_notice()
         messages.success(self.request, "Disciplinary case created successfully.")
         return response
+
+    def get_success_url(self):
+        return reverse_lazy(
+            "payroll:discipline_case_detail",
+            kwargs={"pk": self.object.pk},
+        )
 
 
 @login_required
@@ -2213,7 +2384,11 @@ def account_activity_pdf(request):
         messages.error(request, "Please select an account")
         return redirect("accounting:account_activity")
 
-    account = get_object_or_404(Account, pk=account_id)
+    account = get_object_or_404(
+        Account,
+        pk=account_id,
+        company=get_user_company(request.user),
+    )
 
     entries_qs = account.entries.select_related("journal").all()
 
@@ -2462,13 +2637,25 @@ class JournalReversalInitiationView(LoginRequiredMixin, JournalReversalMixin, Fo
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        journal = get_object_or_404(Journal, pk=self.kwargs["pk"])
+        journal = self.get_permission_object()
         context["journal"] = journal
         context["entries"] = journal.entries.all().order_by("account__name")
+        context["total_debits"] = (
+            journal.entries.filter(entry_type=JournalEntry.EntryType.DEBIT).aggregate(
+                total=Sum("amount")
+            )["total"]
+            or 0
+        )
+        context["total_credits"] = (
+            journal.entries.filter(entry_type=JournalEntry.EntryType.CREDIT).aggregate(
+                total=Sum("amount")
+            )["total"]
+            or 0
+        )
         return context
 
     def form_valid(self, form):
-        journal = get_object_or_404(Journal, pk=self.kwargs["pk"])
+        journal = self.get_permission_object()
         reversal_type = form.cleaned_data["reversal_type"]
         reason = form.cleaned_data["reason"]
 
@@ -2499,16 +2686,29 @@ class JournalPartialReversalView(LoginRequiredMixin, JournalReversalMixin, FormV
     permission_object_model = Journal
 
     def get_form_class(self):
-        journal = get_object_or_404(Journal, pk=self.kwargs["pk"])
+        journal = self.get_permission_object()
         return lambda *args, **kwargs: JournalPartialReversalForm(
             journal.entries.all(), *args, **kwargs
         )
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        journal = get_object_or_404(Journal, pk=self.kwargs["pk"])
+        journal = self.get_permission_object()
+        entries = journal.entries.all().order_by("account__name")
         context["journal"] = journal
-        context["entries"] = journal.entries.all().order_by("account__name")
+        context["entries"] = entries
+        context["total_debits"] = (
+            journal.entries.filter(entry_type=JournalEntry.EntryType.DEBIT).aggregate(
+                total=Sum("amount")
+            )["total"]
+            or 0
+        )
+        context["total_credits"] = (
+            journal.entries.filter(entry_type=JournalEntry.EntryType.CREDIT).aggregate(
+                total=Sum("amount")
+            )["total"]
+            or 0
+        )
 
         reversal_data = self.request.session.get("reversal_data", {})
         context["reason"] = reversal_data.get("reason", "")
@@ -2516,7 +2716,7 @@ class JournalPartialReversalView(LoginRequiredMixin, JournalReversalMixin, FormV
         return context
 
     def form_valid(self, form):
-        journal = get_object_or_404(Journal, pk=self.kwargs["pk"])
+        journal = self.get_permission_object()
         reversal_data = self.request.session.get("reversal_data", {})
         reason = reversal_data.get("reason", "")
 
@@ -2567,9 +2767,21 @@ class JournalReversalWithCorrectionView(
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        journal = get_object_or_404(Journal, pk=self.kwargs["pk"])
+        journal = self.get_permission_object()
         context["journal"] = journal
         context["entries"] = journal.entries.all().order_by("account__name")
+        context["total_debits"] = (
+            journal.entries.filter(entry_type=JournalEntry.EntryType.DEBIT).aggregate(
+                total=Sum("amount")
+            )["total"]
+            or 0
+        )
+        context["total_credits"] = (
+            journal.entries.filter(entry_type=JournalEntry.EntryType.CREDIT).aggregate(
+                total=Sum("amount")
+            )["total"]
+            or 0
+        )
 
         reversal_data = self.request.session.get("reversal_data", {})
         context["reason"] = reversal_data.get("reason", "")
@@ -2582,7 +2794,7 @@ class JournalReversalWithCorrectionView(
         return context
 
     def form_valid(self, form):
-        journal = get_object_or_404(Journal, pk=self.kwargs["pk"])
+        journal = self.get_permission_object()
         reversal_data = self.request.session.get("reversal_data", {})
         reason = reversal_data.get("reason", "")
 
@@ -2645,7 +2857,7 @@ class JournalReversalConfirmationView(
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        journal = get_object_or_404(Journal, pk=self.kwargs["pk"])
+        journal = self.get_permission_object()
         context["journal"] = journal
         context["entries"] = journal.entries.all().order_by("account__name")
 
@@ -2655,7 +2867,7 @@ class JournalReversalConfirmationView(
         return context
 
     def form_valid(self, form):
-        journal = get_object_or_404(Journal, pk=self.kwargs["pk"])
+        journal = self.get_permission_object()
         reversal_data = self.request.session.get("reversal_data", {})
         original_reason = reversal_data.get("reason", "")
         final_reason = (

@@ -21,17 +21,22 @@ class CustomUserManager(BaseUserManager):
         extra_fields.setdefault("first_name", "")
         extra_fields.setdefault("last_name", "")
         if not extra_fields.get("company"):
-            from company.models import Company
+            if getattr(settings, "ALLOW_DEFAULT_COMPANY_FALLBACK", False):
+                from company.models import Company
 
-            company, created = Company.objects.get_or_create(name="Default Company")
-            extra_fields["company"] = company
-        if not extra_fields.get("active_company"):
+                company, created = Company.objects.get_or_create(name="Default Company")
+                extra_fields["company"] = company
+            elif not extra_fields.get("is_superuser"):
+                raise ValueError(_("A company is required to create a user."))
+        if not extra_fields.get("active_company") and extra_fields.get("company"):
             extra_fields["active_company"] = extra_fields["company"]
         email = self.normalize_email(email)
         user = self.model(email=email, **extra_fields)
         user.set_password(password)
         user.save()
-        if settings.MULTI_COMPANY_MEMBERSHIP_ENABLED:
+        if settings.MULTI_COMPANY_MEMBERSHIP_ENABLED and (
+            user.active_company or user.company
+        ):
             from company.models import CompanyMembership
 
             CompanyMembership.objects.get_or_create(

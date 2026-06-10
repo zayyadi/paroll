@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.contrib.auth.forms import UserCreationForm, UserChangeForm
 from django import forms
 from .models import CustomUser
@@ -7,11 +8,14 @@ class CustomUserCreationForm(UserCreationForm):
     def save(self, commit=True):
         user = super().save(commit=False)
         if not user.company_id:
-            from company.models import Company
+            if getattr(settings, "ALLOW_DEFAULT_COMPANY_FALLBACK", False):
+                from company.models import Company
 
-            company, _ = Company.objects.get_or_create(name="Default Company")
-            user.company = company
-        if not user.active_company_id:
+                company, _ = Company.objects.get_or_create(name="Default Company")
+                user.company = company
+            elif commit:
+                raise ValueError("A company is required to create a user.")
+        if not user.active_company_id and user.company_id:
             user.active_company = user.company
         if commit:
             user.save()
@@ -48,11 +52,14 @@ class SignUpForm(UserCreationForm):
         user.is_active = True
         user.is_staff = False
         if not user.company_id:
-            from company.models import Company
+            if getattr(settings, "ALLOW_DEFAULT_COMPANY_FALLBACK", False):
+                from company.models import Company
 
-            company, _ = Company.objects.get_or_create(name="Default Company")
-            user.company = company
-        if not user.active_company_id:
+                company, _ = Company.objects.get_or_create(name="Default Company")
+                user.company = company
+            elif commit:
+                raise ValueError("A company is required to create a user.")
+        if not user.active_company_id and user.company_id:
             user.active_company = user.company
 
         if commit:

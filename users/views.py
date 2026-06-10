@@ -65,25 +65,6 @@ class RegisterView(views.View):
 class MyLoginView(LoginView):
     template_name = "registration/login_new.html"
 
-    def form_valid(self, form):
-        from accounting.mfa import reset_login_attempts, is_login_locked_out
-        from django.contrib import messages
-        from django.conf import settings
-
-        user_identifier = form.cleaned_data.get("username") or self.request.POST.get("username", "")
-
-        if is_login_locked_out(user_identifier):
-            lockout_mins = getattr(settings, "LOGIN_LOCKOUT_SECONDS", 1800) // 60
-            messages.error(
-                self.request,
-                f"Account temporarily locked due to too many failed attempts. Try again in {lockout_mins} minutes.",
-            )
-            form.add_error(None, "Account temporarily locked.")
-            return self.form_invalid(form)
-
-        reset_login_attempts(user_identifier)
-        return super().form_valid(form)
-
     def form_invalid(self, form):
         from accounting.mfa import record_login_failure, get_remaining_attempts
         from django.contrib import messages
@@ -152,6 +133,18 @@ class MyLoginView(LoginView):
         return reverse("payroll:index")
 
     def form_valid(self, form):
+        from accounting.mfa import is_login_locked_out, reset_login_attempts
+
+        user_identifier = form.cleaned_data.get("username") or self.request.POST.get("username", "")
+        if is_login_locked_out(user_identifier):
+            lockout_mins = getattr(settings, "LOGIN_LOCKOUT_SECONDS", 1800) // 60
+            messages.error(
+                self.request,
+                f"Account temporarily locked due to too many failed attempts. Try again in {lockout_mins} minutes.",
+            )
+            form.add_error(None, "Account temporarily locked.")
+            return self.form_invalid(form)
+
         user = form.get_user()
         company = self._resolve_login_company(user)
         if company is None:
@@ -175,6 +168,7 @@ class MyLoginView(LoginView):
         if not remember_me:
             self.request.session.set_expiry(0)
             self.request.session.modified = True
+        reset_login_attempts(user_identifier)
         return super(MyLoginView, self).form_valid(form)
 
 

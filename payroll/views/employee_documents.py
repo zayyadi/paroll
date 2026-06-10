@@ -24,6 +24,8 @@ import json
 from company.utils import get_user_company
 from payroll import models
 
+
+@login_required
 def my_documents(request):
     company = get_user_company(request.user)
     employee_profile = get_object_or_404(
@@ -105,4 +107,3 @@ def document_overview(request):
             "acknowledged_count": documents.filter(is_acknowledged=True).count(),
         },
     )
-

@@ -2,7 +2,7 @@ from django.urls import path
 
 from payroll import views
 from payroll.views import notification_view
-from accounting import views as accounting_views
+from payroll.discipline import views as discipline_views
 
 app_name = "payroll"
 
@@ -194,6 +194,7 @@ urlpatterns = [
     ),
     path("apply-leave/", views.apply_leave, name="apply_leave"),
     path("leave-requests/", views.leave_requests, name="leave_requests"),
+    path("leave-calendar/", views.leave_calendar, name="leave_calendar"),
     path(
         "manage-leave-requests/",
         views.manage_leave_requests,
@@ -303,57 +304,57 @@ urlpatterns = [
     # HR Disciplinary System (moved from accounting namespace)
     path(
         "hr/disciplinary-system/",
-        accounting_views.disciplinary_system_view,
+        discipline_views.disciplinary_system_view,
         name="disciplinary_system",
     ),
     path(
         "hr/disciplinary/cases/",
-        accounting_views.DisciplinaryCaseListView.as_view(),
+        discipline_views.DisciplinaryCaseListView.as_view(),
         name="discipline_case_list",
     ),
     path(
         "hr/disciplinary/cases/new/",
-        accounting_views.DisciplinaryCaseCreateView.as_view(),
+        discipline_views.DisciplinaryCaseCreateView.as_view(),
         name="discipline_case_create",
     ),
     path(
         "hr/disciplinary/cases/<int:pk>/",
-        accounting_views.DisciplinaryCaseDetailView.as_view(),
+        discipline_views.DisciplinaryCaseDetailView.as_view(),
         name="discipline_case_detail",
     ),
     path(
         "hr/disciplinary/cases/<int:pk>/edit/",
-        accounting_views.DisciplinaryCaseUpdateView.as_view(),
+        discipline_views.DisciplinaryCaseUpdateView.as_view(),
         name="discipline_case_update",
     ),
     path(
         "hr/disciplinary/cases/<int:pk>/start-investigation/",
-        accounting_views.disciplinary_case_start_investigation,
+        discipline_views.disciplinary_case_start_investigation,
         name="discipline_case_start_investigation",
     ),
     path(
         "hr/disciplinary/cases/<int:pk>/evidence/add/",
-        accounting_views.DisciplinaryEvidenceCreateView.as_view(),
+        discipline_views.DisciplinaryEvidenceCreateView.as_view(),
         name="discipline_evidence_create",
     ),
     path(
         "hr/disciplinary/cases/<int:pk>/decision/",
-        accounting_views.DisciplinaryDecisionUpdateView.as_view(),
+        discipline_views.DisciplinaryDecisionUpdateView.as_view(),
         name="discipline_decision_update",
     ),
     path(
         "hr/disciplinary/cases/<int:pk>/sanction/add/",
-        accounting_views.DisciplinarySanctionCreateView.as_view(),
+        discipline_views.DisciplinarySanctionCreateView.as_view(),
         name="discipline_sanction_create",
     ),
     path(
         "hr/disciplinary/cases/<int:pk>/appeal/add/",
-        accounting_views.DisciplinaryAppealCreateView.as_view(),
+        discipline_views.DisciplinaryAppealCreateView.as_view(),
         name="discipline_appeal_create",
     ),
     path(
         "hr/disciplinary/appeals/<int:pk>/review/",
-        accounting_views.DisciplinaryAppealReviewView.as_view(),
+        discipline_views.DisciplinaryAppealReviewView.as_view(),
         name="discipline_appeal_review",
     ),
     # Notification URLs

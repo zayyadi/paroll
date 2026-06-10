@@ -1,7 +1,15 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 from payroll.models import PayrollRunEntry
 
+if TYPE_CHECKING:
+    from django.db.models import QuerySet
+    from payroll.models import PayrollRunEntry
 
-def resolve_payslip_run_entry(identifier):
+
+def resolve_payslip_run_entry(identifier: int) -> PayrollRunEntry | None:
     """
     Resolve a payslip request to its canonical PayrollRunEntry.
 
@@ -11,7 +19,7 @@ def resolve_payslip_run_entry(identifier):
     the actual PayrollRunEntry primary key.
     """
 
-    base_queryset = PayrollRunEntry.objects.select_related(
+    base_queryset: QuerySet[PayrollRunEntry] = PayrollRunEntry.objects.select_related(
         "payroll_run",
         "payroll_entry__pays__user",
     )
@@ -22,14 +30,15 @@ def resolve_payslip_run_entry(identifier):
 
     payslip = (
         base_queryset.filter(payroll_entry_id=identifier)
-        .order_by("-payroll_run__paydays", "-id")
+        .order_by("-payroll_run__paydays")
         .first()
     )
     if payslip is not None:
         return payslip
 
-    return (
-        base_queryset.filter(payroll_entry__pays_id=identifier)
-        .order_by("-payroll_run__paydays", "-id")
+    payslip = (
+        base_queryset.filter(payroll_entry__pays__id=identifier)
+        .order_by("-payroll_run__paydays")
         .first()
     )
+    return payslip

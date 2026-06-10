@@ -1,64 +1,19 @@
+from __future__ import annotations
+
 import csv
 import io
 import json
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from payroll.models import EmployeeProfile
 
 
 class ExportPayload:
-    def __init__(self, *, body, content_type, filename):
+    def __init__(self, *, body: str, content_type: str, filename: str) -> None:
         self.body = body
         self.content_type = content_type
         self.filename = filename
-
-
-def _employee_dict(employee):
-    return {
-        "employee_id": employee.emp_id,
-        "first_name": employee.display_first_name,
-        "last_name": employee.display_last_name,
-        "email": employee.get_email(),
-        "department": employee.department.name if employee.department else "",
-        "job_title": employee.job_title,
-        "status": employee.status,
-        "date_of_employment": str(employee.date_of_employment or ""),
-        "phone": employee.phone,
-        "address": employee.address or "",
-        "emergency_contact_name": employee.emergency_contact_name or "",
-        "emergency_contact_phone": employee.emergency_contact_phone or "",
-        "bank_account_name": employee.bank_account_name or "",
-        "bank_account_number": employee.bank_account_number or "",
-        "pension_rsa": employee.pension_rsa or "",
-    }
-
-
-def build_employee_export(employee, export_format="json") -> ExportPayload:
-    export_format = (export_format or "json").lower()
-    data = _employee_dict(employee)
-    stem = f"employee-{employee.pk}-data"
-
-    if export_format == "csv":
-        output = io.StringIO()
-        writer = csv.DictWriter(output, fieldnames=list(data.keys()))
-        writer.writeheader()
-        writer.writerow(data)
-        return ExportPayload(
-            body=output.getvalue(),
-            content_type="text/csv",
-            filename=f"{stem}.csv",
-        )
-
-    if export_format == "pdf":
-        text = "\n".join(f"{key}: {value}" for key, value in data.items())
-        return ExportPayload(
-            body=_simple_pdf(text),
-            content_type="application/pdf",
-            filename=f"{stem}.pdf",
-        )
-
-    return ExportPayload(
-        body=json.dumps(data, indent=2, sort_keys=True),
-        content_type="application/json",
-        filename=f"{stem}.json",
-    )
 
 
 def _simple_pdf(text: str) -> str:
@@ -92,3 +47,57 @@ def _simple_pdf(text: str) -> str:
         f"startxref\n{xref_start}\n%%EOF"
     )
     return body
+
+
+def _employee_dict(employee: EmployeeProfile) -> dict[str, str]:
+    return {
+        "employee_id": employee.emp_id,
+        "first_name": employee.display_first_name,
+        "last_name": employee.display_last_name,
+        "email": employee.get_email(),
+        "department": employee.department.name if employee.department else "",
+        "job_title": employee.job_title,
+        "status": employee.status,
+        "date_of_employment": str(employee.date_of_employment or ""),
+        "phone": employee.phone or "",
+        "address": employee.address or "",
+        "emergency_contact_name": employee.emergency_contact_name or "",
+        "emergency_contact_phone": employee.emergency_contact_phone or "",
+        "bank_account_name": employee.bank_account_name or "",
+        "bank_account_number": employee.bank_account_number or "",
+        "pension_rsa": employee.pension_rsa or "",
+    }
+
+
+def build_employee_export(
+    employee: EmployeeProfile,
+    export_format: str = "json",
+) -> ExportPayload:
+    export_format = (export_format or "json").lower()
+    data = _employee_dict(employee)
+    stem = f"employee-{employee.pk}-data"
+
+    if export_format == "csv":
+        output = io.StringIO()
+        writer = csv.DictWriter(output, fieldnames=list(data.keys()))
+        writer.writeheader()
+        writer.writerow(data)
+        return ExportPayload(
+            body=output.getvalue(),
+            content_type="text/csv",
+            filename=f"{stem}.csv",
+        )
+
+    if export_format == "pdf":
+        text = "\n".join(f"{key}: {value}" for key, value in data.items())
+        return ExportPayload(
+            body=_simple_pdf(text),
+            content_type="application/pdf",
+            filename=f"{stem}.pdf",
+        )
+
+    return ExportPayload(
+        body=json.dumps(data, indent=2, sort_keys=True),
+        content_type="application/json",
+        filename=f"{stem}.json",
+    )

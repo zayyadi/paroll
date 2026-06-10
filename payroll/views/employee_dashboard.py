@@ -24,9 +24,14 @@ import json
 from company.utils import get_user_company
 from payroll import models
 from payroll.services.access import visible_employee_profiles_for
+from payroll.views.employee_utilities import (
+    get_employee_notifications,
+    get_recent_activities,
+)
 from datetime import datetime, date, time
 from monthyear import Month
 
+@login_required
 def index(request):
     company = get_user_company(request.user)
     # Check if user is HR/Admin (superuser or has payroll permissions)
@@ -150,11 +155,8 @@ def index(request):
 
         emp = models.EmployeeProfile.emp_objects.filter(company=company)
         leave = models.LeaveRequest.objects.filter(employee__company=company)
-        # iou = models.IOU.objects.all()
         count = emp.count()
 
-        # print(f" leave: {leave.count()}")
-        # print(f" graph data: {pay_period_data}")
 
         context = {
             "pay": pay,
@@ -430,4 +432,3 @@ def hr_dashboard(request):
     }
     cache.set(cache_key, context, 300)
     return render(request, "employee/dashboard_new.html", context)
-

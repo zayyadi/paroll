@@ -278,8 +278,8 @@ class InventoryActionForm(forms.Form):
 class PurchaseOrderForm(InventoryActionForm):
     supplier = forms.ModelChoiceField(queryset=Supplier.objects.none())
     item = forms.ModelChoiceField(queryset=InventoryItem.objects.none())
-    quantity = forms.DecimalField(max_digits=14, decimal_places=4, min_value=0)
-    unit_cost = forms.DecimalField(max_digits=14, decimal_places=4, min_value=0)
+    quantity = forms.DecimalField(max_digits=18, decimal_places=4, min_value=0)
+    unit_cost = forms.DecimalField(max_digits=18, decimal_places=4, min_value=0)
     expected_date = forms.DateField(required=False, widget=forms.DateInput(attrs={"type": "date"}))
     notes = forms.CharField(required=False, max_length=255)
 
@@ -293,7 +293,7 @@ class PurchaseOrderForm(InventoryActionForm):
 class PurchaseOrderReceiveForm(InventoryActionForm):
     purchase_order_line = forms.ModelChoiceField(queryset=PurchaseOrderLine.objects.none())
     location = forms.ModelChoiceField(queryset=StockLocation.objects.none())
-    quantity = forms.DecimalField(max_digits=14, decimal_places=4, min_value=0)
+    quantity = forms.DecimalField(max_digits=18, decimal_places=4, min_value=0)
     vat_input_account = forms.ModelChoiceField(queryset=Account.objects.none(), required=False)
 
     @staticmethod
@@ -320,8 +320,8 @@ class PurchaseOrderReceiveForm(InventoryActionForm):
 class OpeningStockForm(InventoryActionForm):
     item = forms.ModelChoiceField(queryset=InventoryItem.objects.none())
     location = forms.ModelChoiceField(queryset=StockLocation.objects.none())
-    quantity = forms.DecimalField(max_digits=14, decimal_places=4, min_value=0)
-    unit_cost = forms.DecimalField(max_digits=14, decimal_places=4, min_value=0)
+    quantity = forms.DecimalField(max_digits=18, decimal_places=4, min_value=0)
+    unit_cost = forms.DecimalField(max_digits=18, decimal_places=4, min_value=0)
 
     def __init__(self, *args, company=None, **kwargs):
         super().__init__(*args, company=company, **kwargs)
@@ -336,8 +336,8 @@ class PurchaseReceiptForm(InventoryActionForm):
     supplier = forms.ModelChoiceField(queryset=Supplier.objects.none())
     item = forms.ModelChoiceField(queryset=InventoryItem.objects.none())
     location = forms.ModelChoiceField(queryset=StockLocation.objects.none())
-    quantity = forms.DecimalField(max_digits=14, decimal_places=4, min_value=0)
-    unit_cost = forms.DecimalField(max_digits=14, decimal_places=4, min_value=0)
+    quantity = forms.DecimalField(max_digits=18, decimal_places=4, min_value=0)
+    unit_cost = forms.DecimalField(max_digits=18, decimal_places=4, min_value=0)
     vat_rate = forms.DecimalField(max_digits=7, decimal_places=4, min_value=0, required=False)
     wht_rate = forms.DecimalField(max_digits=7, decimal_places=4, min_value=0, required=False)
     vat_input_account = forms.ModelChoiceField(queryset=Account.objects.none(), required=False)
@@ -359,8 +359,8 @@ class SalesInvoiceForm(InventoryActionForm):
     customer = forms.ModelChoiceField(queryset=Customer.objects.none())
     item = forms.ModelChoiceField(queryset=InventoryItem.objects.none())
     location = forms.ModelChoiceField(queryset=StockLocation.objects.none())
-    quantity = forms.DecimalField(max_digits=14, decimal_places=4, min_value=0)
-    unit_price = forms.DecimalField(max_digits=14, decimal_places=4, min_value=0)
+    quantity = forms.DecimalField(max_digits=18, decimal_places=4, min_value=0)
+    unit_price = forms.DecimalField(max_digits=18, decimal_places=4, min_value=0)
     vat_rate = forms.DecimalField(max_digits=7, decimal_places=4, min_value=0, required=False)
     wht_rate = forms.DecimalField(max_digits=7, decimal_places=4, min_value=0, required=False)
     vat_output_account = forms.ModelChoiceField(queryset=Account.objects.none(), required=False)
@@ -382,9 +382,9 @@ class CustomerReturnForm(InventoryActionForm):
     customer = forms.ModelChoiceField(queryset=Customer.objects.none())
     item = forms.ModelChoiceField(queryset=InventoryItem.objects.none())
     location = forms.ModelChoiceField(queryset=StockLocation.objects.none())
-    quantity = forms.DecimalField(max_digits=14, decimal_places=4, min_value=0)
-    unit_price = forms.DecimalField(max_digits=14, decimal_places=4, min_value=0)
-    unit_cost = forms.DecimalField(max_digits=14, decimal_places=4, min_value=0)
+    quantity = forms.DecimalField(max_digits=18, decimal_places=4, min_value=0)
+    unit_price = forms.DecimalField(max_digits=18, decimal_places=4, min_value=0)
+    unit_cost = forms.DecimalField(max_digits=18, decimal_places=4, min_value=0)
     vat_rate = forms.DecimalField(max_digits=7, decimal_places=4, min_value=0, required=False)
     wht_rate = forms.DecimalField(max_digits=7, decimal_places=4, min_value=0, required=False)
     vat_output_account = forms.ModelChoiceField(queryset=Account.objects.none(), required=False)
@@ -406,8 +406,8 @@ class SupplierReturnForm(InventoryActionForm):
     supplier = forms.ModelChoiceField(queryset=Supplier.objects.none())
     item = forms.ModelChoiceField(queryset=InventoryItem.objects.none())
     location = forms.ModelChoiceField(queryset=StockLocation.objects.none())
-    quantity = forms.DecimalField(max_digits=14, decimal_places=4, min_value=0)
-    unit_cost = forms.DecimalField(max_digits=14, decimal_places=4, min_value=0)
+    quantity = forms.DecimalField(max_digits=18, decimal_places=4, min_value=0)
+    unit_cost = forms.DecimalField(max_digits=18, decimal_places=4, min_value=0)
     vat_rate = forms.DecimalField(max_digits=7, decimal_places=4, min_value=0, required=False)
     wht_rate = forms.DecimalField(max_digits=7, decimal_places=4, min_value=0, required=False)
     vat_input_account = forms.ModelChoiceField(queryset=Account.objects.none(), required=False)
@@ -428,7 +428,7 @@ class SupplierReturnForm(InventoryActionForm):
 class CustomerPaymentForm(InventoryActionForm):
     customer = forms.ModelChoiceField(queryset=Customer.objects.none())
     cash_account = forms.ModelChoiceField(queryset=Account.objects.none())
-    amount = forms.DecimalField(max_digits=14, decimal_places=2, min_value=0)
+    amount = forms.DecimalField(max_digits=18, decimal_places=2, min_value=0)
 
     def __init__(self, *args, company=None, **kwargs):
         super().__init__(*args, company=company, **kwargs)
@@ -442,7 +442,7 @@ class CustomerPaymentForm(InventoryActionForm):
 class SupplierPaymentForm(InventoryActionForm):
     supplier = forms.ModelChoiceField(queryset=Supplier.objects.none())
     cash_account = forms.ModelChoiceField(queryset=Account.objects.none())
-    amount = forms.DecimalField(max_digits=14, decimal_places=2, min_value=0)
+    amount = forms.DecimalField(max_digits=18, decimal_places=2, min_value=0)
 
     def __init__(self, *args, company=None, **kwargs):
         super().__init__(*args, company=company, **kwargs)
@@ -458,9 +458,9 @@ class TaxRemittanceForm(InventoryActionForm):
     vat_output_account = forms.ModelChoiceField(queryset=Account.objects.none(), required=False)
     vat_input_account = forms.ModelChoiceField(queryset=Account.objects.none(), required=False)
     wht_payable_account = forms.ModelChoiceField(queryset=Account.objects.none(), required=False)
-    vat_output_amount = forms.DecimalField(max_digits=14, decimal_places=2, min_value=0, required=False)
-    vat_input_amount = forms.DecimalField(max_digits=14, decimal_places=2, min_value=0, required=False)
-    wht_amount = forms.DecimalField(max_digits=14, decimal_places=2, min_value=0, required=False)
+    vat_output_amount = forms.DecimalField(max_digits=18, decimal_places=2, min_value=0, required=False)
+    vat_input_amount = forms.DecimalField(max_digits=18, decimal_places=2, min_value=0, required=False)
+    wht_amount = forms.DecimalField(max_digits=18, decimal_places=2, min_value=0, required=False)
 
     def __init__(self, *args, company=None, **kwargs):
         super().__init__(*args, company=company, **kwargs)
@@ -482,8 +482,8 @@ class TaxRemittanceForm(InventoryActionForm):
 class InventoryAdjustmentForm(InventoryActionForm):
     item = forms.ModelChoiceField(queryset=InventoryItem.objects.none())
     location = forms.ModelChoiceField(queryset=StockLocation.objects.none())
-    quantity_delta = forms.DecimalField(max_digits=14, decimal_places=4)
-    unit_cost = forms.DecimalField(max_digits=14, decimal_places=4, min_value=0, required=False)
+    quantity_delta = forms.DecimalField(max_digits=18, decimal_places=4)
+    unit_cost = forms.DecimalField(max_digits=18, decimal_places=4, min_value=0, required=False)
 
     def __init__(self, *args, company=None, **kwargs):
         super().__init__(*args, company=company, **kwargs)
@@ -504,7 +504,7 @@ class StockTransferForm(InventoryActionForm):
     item = forms.ModelChoiceField(queryset=InventoryItem.objects.none())
     from_location = forms.ModelChoiceField(queryset=StockLocation.objects.none())
     to_location = forms.ModelChoiceField(queryset=StockLocation.objects.none())
-    quantity = forms.DecimalField(max_digits=14, decimal_places=4, min_value=0)
+    quantity = forms.DecimalField(max_digits=18, decimal_places=4, min_value=0)
 
     def __init__(self, *args, company=None, **kwargs):
         super().__init__(*args, company=company, **kwargs)

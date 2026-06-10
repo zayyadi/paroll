@@ -81,8 +81,6 @@ def get_employee_notifications(employee_profile):
     return notifications
 
 
-@login_required
-
 def get_recent_activities(limit=10, company=None):
     """
     Get recent activities across the system for the dashboard.
@@ -209,4 +207,3 @@ def _get_or_create_today_attendance(employee_profile, company):
         work_date=timezone.localdate(),
         defaults={"status": models.AttendanceRecord.Status.PRESENT},
     )
-

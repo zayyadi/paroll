@@ -32,6 +32,16 @@ urlpatterns = [
     path("journals/create/", views.JournalCreateView.as_view(), name="journal_create"),
     path("journals/<int:pk>/edit/", views.JournalEditView.as_view(), name="journal_edit"),
     path(
+        "journals/<int:pk>/delete/",
+        views.JournalDeleteView.as_view(),
+        name="journal_delete",
+    ),
+    path(
+        "journals/<int:pk>/submit/",
+        views.journal_submit_view,
+        name="journal_submit",
+    ),
+    path(
         "journals/<int:pk>/", views.JournalDetailView.as_view(), name="journal_detail"
     ),
     path(
@@ -87,12 +97,18 @@ urlpatterns = [
     # Fiscal Year URLs
     path("fiscal-years/", views.FiscalYearListView.as_view(), name="fiscal_year_list"),
     path(
+        "fiscal-years/create/",
+        views.FiscalYearCreateView.as_view(),
+        name="fiscal_year_create",
+    ),
+    path(
         "fiscal-years/<int:pk>/",
         views.FiscalYearDetailView.as_view(),
         name="fiscal_year_detail",
     ),
     # Accounting Period URLs
     path("periods/", views.AccountingPeriodListView.as_view(), name="period_list"),
+    path("periods/create/", views.AccountingPeriodCreateView.as_view(), name="period_create"),
     path(
         "periods/<int:pk>/",
         views.AccountingPeriodDetailView.as_view(),

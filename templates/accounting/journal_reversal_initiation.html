@@ -1,202 +1,129 @@
 {% extends "accounting/base.html" %}
 
-{% block title %}Initiate Journal Reversal{% endblock %}
+{% block page_title %}Reverse Journal{% endblock %}
 
-{% block content %}
-<div class="container-fluid">
-    <div class="row">
-        <div class="col-12">
-            <div class="card">
-                <div class="card-header">
-                    <h4 class="card-title">Reverse Journal</h4>
+{% block breadcrumbs %}
+{% with breadcrumbs=breadcrumbs|default:"[{'title': 'General Journal', 'url': '/accounting/journals/'}, {'title': 'Reverse Journal'}]" %}
+{{ block.super }}
+{% endwith %}
+{% endblock %}
+
+{% block accounting_content %}
+<div class="space-y-6">
+    <div class="rounded-lg border border-warning-200 bg-white shadow-soft">
+        <div class="border-b border-warning-100 bg-warning-50 px-6 py-5">
+            <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                <div>
+                    <p class="text-xs font-semibold uppercase tracking-wider text-warning-700">Reversal Workflow</p>
+                    <h3 class="mt-1 text-xl font-semibold text-secondary-900">Reverse Journal {{ journal.transaction_number }}</h3>
+                    <p class="mt-1 text-sm text-secondary-700">Choose how this posted journal should be reversed.</p>
                 </div>
-                <div class="card-body">
-                    <!-- Journal Information -->
-                    <div class="row mb-4">
-                        <div class="col-md-6">
-                            <h5>Journal Information</h5>
-                            <table class="table table-sm">
-                                <tr>
-                                    <th>Transaction Number:</th>
-                                    <td>{{ journal.transaction_number }}</td>
-                                </tr>
-                                <tr>
-                                    <th>Description:</th>
-                                    <td>{{ journal.description }}</td>
-                                </tr>
-                                <tr>
-                                    <th>Date:</th>
-                                    <td>{{ journal.date }}</td>
-                                </tr>
-                                <tr>
-                                    <th>Status:</th>
-                                    <td>
-                                        <span class="badge badge-{{ journal.status|lower }}">
-                                            {{ journal.get_status_display }}
-                                        </span>
-                                    </td>
-                                </tr>
-                            </table>
-                        </div>
-                        <div class="col-md-6">
-                            <h5>Reversal Information</h5>
-                            <div class="alert alert-info">
-                                <i class="fas fa-info-circle"></i>
-                                Select the type of reversal you want to perform. This action will be logged for audit purposes.
-                            </div>
-                        </div>
-                    </div>
+                <a href="{% url 'accounting:journal_detail' journal.pk %}" class="inline-flex items-center rounded-md border border-secondary-300 bg-white px-4 py-2 text-sm font-medium text-secondary-700 hover:bg-secondary-50">
+                    <i data-lucide="arrow-left" class="mr-2 h-4 w-4"></i>
+                    Back to Journal
+                </a>
+            </div>
+        </div>
 
-                    <!-- Journal Entries -->
-                    <div class="row mb-4">
-                        <div class="col-12">
-                            <h5>Journal Entries</h5>
-                            <div class="table-responsive">
-                                <table class="table table-striped">
-                                    <thead>
-                                        <tr>
-                                            <th>Account</th>
-                                            <th>Type</th>
-                                            <th>Amount</th>
-                                            <th>Memo</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {% for entry in entries %}
-                                        <tr>
-                                            <td>{{ entry.account.name }}</td>
-                                            <td>
-                                                <span class="badge badge-{{ entry.entry_type|lower }}">
-                                                    {{ entry.get_entry_type_display }}
-                                                </span>
-                                            </td>
-                                            <td class="text-right">{{ entry.amount }}</td>
-                                            <td>{{ entry.memo|default:"-" }}</td>
-                                        </tr>
-                                        {% endfor %}
-                                    </tbody>
-                                    <tfoot>
-                                        <tr class="font-weight-bold">
-                                            <td colspan="2">Totals:</td>
-                                            <td class="text-right">{{ total_debits }}</td>
-                                            <td class="text-right">{{ total_credits }}</td>
-                                        </tr>
-                                    </tfoot>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Reversal Form -->
-                    <div class="row">
-                        <div class="col-12">
-                            <form method="post">
-                                {% csrf_token %}
-                                
-                                <div class="form-group">
-                                    <label for="{{ form.reversal_type.id_for_label }}" class="form-label">
-                                        {{ form.reversal_type.label }} <span class="text-danger">*</span>
-                                    </label>
-                                    {{ form.reversal_type }}
-                                    {% if form.reversal_type.help_text %}
-                                    <small class="form-text text-muted">{{ form.reversal_type.help_text }}</small>
-                                    {% endif %}
-                                    {% if form.reversal_type.errors %}
-                                    <div class="invalid-feedback d-block">
-                                        {% for error in form.reversal_type.errors %}{{ error }}{% endfor %}
-                                    </div>
-                                    {% endif %}
-                                </div>
-
-                                <div class="form-group">
-                                    <label for="{{ form.reason.id_for_label }}" class="form-label">
-                                        {{ form.reason.label }} <span class="text-danger">*</span>
-                                    </label>
-                                    {{ form.reason }}
-                                    {% if form.reason.help_text %}
-                                    <small class="form-text text-muted">{{ form.reason.help_text }}</small>
-                                    {% endif %}
-                                    {% if form.reason.errors %}
-                                    <div class="invalid-feedback d-block">
-                                        {% for error in form.reason.errors %}{{ error }}{% endfor %}
-                                    </div>
-                                    {% endif %}
-                                </div>
-
-                                <div class="form-group">
-                                    <button type="submit" class="btn btn-primary">
-                                        <i class="fas fa-arrow-left"></i> Continue to Reversal
-                                    </button>
-                                    <a href="{% url 'accounting:journal_detail' journal.pk %}" class="btn btn-secondary">
-                                        <i class="fas fa-times"></i> Cancel
-                                    </a>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-                </div>
+        <div class="grid grid-cols-1 gap-6 px-6 py-5 lg:grid-cols-4">
+            <div>
+                <p class="text-xs font-semibold uppercase tracking-wider text-secondary-500">Date</p>
+                <p class="mt-1 text-sm text-secondary-900">{{ journal.date|date:"F d, Y" }}</p>
+            </div>
+            <div>
+                <p class="text-xs font-semibold uppercase tracking-wider text-secondary-500">Status</p>
+                <p class="mt-1 text-sm text-secondary-900">{{ journal.get_status_display }}</p>
+            </div>
+            <div>
+                <p class="text-xs font-semibold uppercase tracking-wider text-secondary-500">Debits</p>
+                <p class="mt-1 text-sm font-bold text-danger-600">₦{{ total_debits|floatformat:2 }}</p>
+            </div>
+            <div>
+                <p class="text-xs font-semibold uppercase tracking-wider text-secondary-500">Credits</p>
+                <p class="mt-1 text-sm font-bold text-success-600">₦{{ total_credits|floatformat:2 }}</p>
+            </div>
+            <div class="lg:col-span-4">
+                <p class="text-xs font-semibold uppercase tracking-wider text-secondary-500">Description</p>
+                <p class="mt-1 text-sm text-secondary-900">{{ journal.description }}</p>
             </div>
         </div>
     </div>
+
+    <div class="bg-white rounded-lg shadow-soft">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h3 class="text-lg font-semibold text-secondary-900">Entries to Reverse</h3>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">Account</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">Current Type</th>
+                        <th class="px-6 py-3 text-right text-xs font-medium text-secondary-500 uppercase tracking-wider">Amount</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">Memo</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for entry in entries %}
+                    <tr>
+                        <td class="px-6 py-4 text-sm text-secondary-900">
+                            <div class="font-medium">{{ entry.account.name }}</div>
+                            <div class="text-xs text-secondary-500">{{ entry.account.account_number|default:"—" }}</div>
+                        </td>
+                        <td class="px-6 py-4">
+                            <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium {% if entry.entry_type == 'DEBIT' %}bg-danger-100 text-danger-800{% else %}bg-success-100 text-success-800{% endif %}">
+                                {{ entry.get_entry_type_display }}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 text-right text-sm font-semibold text-secondary-900">₦{{ entry.amount|floatformat:2 }}</td>
+                        <td class="px-6 py-4 text-sm text-secondary-600">{{ entry.memo|default:"—" }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="bg-white rounded-lg shadow-soft">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h3 class="text-lg font-semibold text-secondary-900">Reversal Decision</h3>
+        </div>
+        <form method="post" class="space-y-5 px-6 py-5">
+            {% csrf_token %}
+            {{ form.non_field_errors }}
+            <div>
+                <label for="{{ form.reversal_type.id_for_label }}" class="block text-sm font-medium text-secondary-700 mb-2">
+                    {{ form.reversal_type.label }} <span class="text-danger-500">*</span>
+                </label>
+                <div class="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                    {{ form.reversal_type }}
+                </div>
+                {% if form.reversal_type.errors %}
+                <p class="mt-1 text-sm text-danger-600">{{ form.reversal_type.errors|join:", " }}</p>
+                {% endif %}
+            </div>
+            <div>
+                <label for="{{ form.reason.id_for_label }}" class="block text-sm font-medium text-secondary-700 mb-1">
+                    {{ form.reason.label }} <span class="text-danger-500">*</span>
+                </label>
+                {{ form.reason }}
+                {% if form.reason.help_text %}
+                <p class="mt-1 text-xs text-secondary-500">{{ form.reason.help_text }}</p>
+                {% endif %}
+                {% if form.reason.errors %}
+                <p class="mt-1 text-sm text-danger-600">{{ form.reason.errors|join:", " }}</p>
+                {% endif %}
+            </div>
+            <div class="flex flex-wrap gap-3">
+                <button type="submit" class="btn-primary inline-flex items-center rounded-md border border-transparent px-4 py-2 text-sm font-medium text-white">
+                    <i data-lucide="arrow-right" class="mr-2 h-4 w-4"></i>
+                    Continue
+                </button>
+                <a href="{% url 'accounting:journal_detail' journal.pk %}" class="inline-flex items-center rounded-md border border-secondary-300 bg-white px-4 py-2 text-sm font-medium text-secondary-700 hover:bg-secondary-50">
+                    Cancel
+                </a>
+            </div>
+        </form>
+    </div>
 </div>
-{% endblock %}
-
-{% block extra_js %}
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    // Add visual feedback for reversal type selection
-    const reversalTypeInputs = document.querySelectorAll('input[name="reversal_type"]');
-    
-    reversalTypeInputs.forEach(input => {
-        input.addEventListener('change', function() {
-            // Remove active class from all labels
-            document.querySelectorAll('label[for^="id_reversal_type"]').forEach(label => {
-                label.classList.remove('active');
-            });
-            
-            // Add active class to selected label
-            const selectedLabel = document.querySelector(`label[for="${this.id}"]`);
-            if (selectedLabel) {
-                selectedLabel.classList.add('active');
-            }
-        });
-    });
-});
-</script>
-
-{% block extra_css %}
-<style>
-    .badge-draft { background-color: #6c757d; }
-    .badge-pending_approval { background-color: #ffc107; }
-    .badge-approved { background-color: #17a2b8; }
-    .badge-posted { background-color: #28a745; }
-    .badge-cancelled { background-color: #dc3545; }
-    .badge-reversed { background-color: #6f42c1; }
-    .badge-debit { background-color: #28a745; }
-    .badge-credit { background-color: #dc3545; }
-    
-    label[for^="id_reversal_type"] {
-        display: block;
-        padding: 10px;
-        margin-bottom: 10px;
-        border: 1px solid #ddd;
-        border-radius: 4px;
-        cursor: pointer;
-        transition: all 0.3s ease;
-    }
-    
-    label[for^="id_reversal_type"]:hover {
-        background-color: #f8f9fa;
-    }
-    
-    label[for^="id_reversal_type"].active {
-        background-color: #e3f2fd;
-        border-color: #2196f3;
-    }
-    
-    input[type="radio"] {
-        margin-right: 10px;
-    }
-</style>
-{% endblock %}
 {% endblock %}

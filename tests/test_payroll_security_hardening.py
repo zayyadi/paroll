@@ -1,9 +1,13 @@
 from datetime import date
 
+from django.core.cache import cache
+from django.core.exceptions import ValidationError
 from django.contrib.auth import get_user_model
 from django.test import TestCase, override_settings
 from django.urls import reverse
 
+from accounting.mfa import get_login_lockout_cache_key
+from accounting.models import Account
 from company.models import Company
 from payroll.models import EmployeeProfile, Payroll, PayrollEntry, PayrollRun, PayrollRunEntry
 
@@ -69,3 +73,48 @@ class PayrollSecurityHardeningTests(TestCase):
         response = self.client.get(reverse("payroll:request_iou"))
         self.assertEqual(response.status_code, 302)
         self.assertIn(reverse("users:login"), response.url)
+
+    def test_locked_out_user_cannot_login_with_correct_password(self):
+        cache.set(get_login_lockout_cache_key(self.owner.email), True, timeout=300)
+
+        response = self.client.post(
+            reverse("users:login"),
+            {
+                "username": self.owner.email,
+                "password": "StrongPass123!",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotIn("_auth_user_id", self.client.session)
+
+    @override_settings(ALLOW_DEFAULT_COMPANY_FALLBACK=False)
+    def test_user_creation_without_company_does_not_create_default_tenant(self):
+        fallback_count = Company.objects.filter(name="Default Company").count()
+
+        with self.assertRaises(ValueError):
+            self.User.objects.create_user(
+                email="missing-company@example.com",
+                password="StrongPass123!",
+            )
+
+        self.assertEqual(
+            Company.objects.filter(name="Default Company").count(),
+            fallback_count,
+        )
+
+    @override_settings(ALLOW_DEFAULT_COMPANY_FALLBACK=False)
+    def test_account_creation_without_company_does_not_create_default_tenant(self):
+        fallback_count = Company.objects.filter(name="Default Company").count()
+
+        with self.assertRaises(ValidationError):
+            Account.objects.create(
+                name="Unscoped Cash",
+                account_number="1000",
+                type=Account.AccountType.ASSET,
+            )
+
+        self.assertEqual(
+            Company.objects.filter(name="Default Company").count(),
+            fallback_count,
+        )
