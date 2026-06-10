@@ -27,8 +27,9 @@ from users import forms as user_forms
 from payroll.forms import EmployeeProfileForm
 from payroll.services.access import visible_employee_profiles_for
 from payroll.views.employee_utilities import _start_workflow_execution
-from payroll.services.access import visible_employee_profiles_for
 
+
+@login_required
 def employee_list(request):
     company = get_user_company(request.user)
     query = request.GET.get("q")
@@ -228,4 +229,3 @@ def employee(request, user_id: int):
     ).order_by("-created_at")
     context = {"emp": employee_profile_to_display, "pay": pay, "iou_slips": iou_slips}
     return render(request, "employee/profile_new.html", context)
-

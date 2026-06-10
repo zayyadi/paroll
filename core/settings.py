@@ -291,6 +291,7 @@ MULTI_COMPANY_MEMBERSHIP_ENABLED = (
 )
 
 SAAS_ENFORCE_ACTIVE_COMPANY = env_bool("SAAS_ENFORCE_ACTIVE_COMPANY", True)
+ALLOW_DEFAULT_COMPANY_FALLBACK = env_bool("ALLOW_DEFAULT_COMPANY_FALLBACK", False)
 
 REGISTRATION_OTP_TIMEOUT_SECONDS = int(
     os.getenv("REGISTRATION_OTP_TIMEOUT_SECONDS", "600")
@@ -512,6 +513,10 @@ CELERY_BEAT_SCHEDULE = {
     "check-approval-escalations": {
         "task": "payroll.check_approval_escalations",
         "schedule": crontab(hour="*", minute=0),
+    },
+    "apply-hr-retention": {
+        "task": "payroll.apply_hr_retention",
+        "schedule": crontab(hour=2, minute=30),
     },
     "cleanup-draft-journals": {
         "task": "accounting.cleanup_draft_journals",

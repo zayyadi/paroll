@@ -3,9 +3,9 @@
 {% block page_title %}Bank Reconciliation{% endblock %}
 
 {% block breadcrumbs %}
-  {% with breadcrumbs=breadcrumbs|add_item:{"title":"Reconciliations","url":"#"} %}
-    {{ block.super }}
-  {% endwith %}
+{% with breadcrumbs=breadcrumbs|default:"[{'title': 'Reconciliations'}]" %}
+{{ block.super }}
+{% endwith %}
 {% endblock %}
 
 {% block accounting_content %}

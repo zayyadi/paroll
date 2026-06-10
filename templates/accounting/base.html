@@ -54,18 +54,28 @@
                     <i data-lucide="folder" class="mr-3 h-5 w-5 text-secondary-400 group-hover:text-secondary-500"></i>
                     Chart of Accounts
                 </a>
+                {% if is_accountant %}
+                <a href="{% url 'accounting:account_create' %}" class="sidebar-link group flex items-center px-3 py-2 text-sm font-medium rounded-md {% if request.resolver_match.url_name == 'account_create' %}active{% endif %}">
+                    <i data-lucide="folder-plus" class="mr-3 h-5 w-5 text-secondary-400 group-hover:text-secondary-500"></i>
+                    Create Account
+                </a>
+                <a href="{% url 'accounting:opening_balance_import' %}" class="sidebar-link group flex items-center px-3 py-2 text-sm font-medium rounded-md {% if request.resolver_match.url_name == 'opening_balance_import' %}active{% endif %}">
+                    <i data-lucide="upload" class="mr-3 h-5 w-5 text-secondary-400 group-hover:text-secondary-500"></i>
+                    Opening Balances
+                </a>
+                {% endif %}
                 
                 <div class="pt-2 pb-1">
                     <p class="px-3 text-xs font-semibold text-secondary-500 uppercase tracking-wider">Journals</p>
                 </div>
                 <a href="{% url 'accounting:journal_list' %}" class="sidebar-link group flex items-center px-3 py-2 text-sm font-medium rounded-md {% if request.resolver_match.url_name == 'journal_list' or request.resolver_match.url_name == 'journal_detail' or request.resolver_match.url_name == 'journal_create' %}active{% endif %}">
                     <i data-lucide="book-open" class="mr-3 h-5 w-5 text-secondary-400 group-hover:text-secondary-500"></i>
-                    General Journal
+                    Journal List
                 </a>
                 {% if is_accountant %}
                 <a href="{% url 'accounting:journal_create' %}" class="sidebar-link group flex items-center px-3 py-2 text-sm font-medium rounded-md">
                     <i data-lucide="plus-circle" class="mr-3 h-5 w-5 text-secondary-400 group-hover:text-secondary-500"></i>
-                    New Journal Entry
+                    Create Journal
                 </a>
                 <a href="{% url 'accounting:balance_adjustment' %}" class="sidebar-link group flex items-center px-3 py-2 text-sm font-medium rounded-md {% if request.resolver_match.url_name == 'balance_adjustment' %}active{% endif %}">
                     <i data-lucide="scale" class="mr-3 h-5 w-5 text-secondary-400 group-hover:text-secondary-500"></i>
@@ -80,13 +90,41 @@
                     <i data-lucide="calendar" class="mr-3 h-5 w-5 text-secondary-400 group-hover:text-secondary-500"></i>
                     Fiscal Years
                 </a>
+                {% if is_accountant %}
+                <a href="{% url 'accounting:fiscal_year_create' %}" class="sidebar-link group flex items-center px-3 py-2 text-sm font-medium rounded-md {% if request.resolver_match.url_name == 'fiscal_year_create' %}active{% endif %}">
+                    <i data-lucide="calendar-plus" class="mr-3 h-5 w-5 text-secondary-400 group-hover:text-secondary-500"></i>
+                    New Fiscal Year
+                </a>
+                {% endif %}
                 <a href="{% url 'accounting:period_list' %}" class="sidebar-link group flex items-center px-3 py-2 text-sm font-medium rounded-md {% if request.resolver_match.url_name == 'period_list' or request.resolver_match.url_name == 'period_detail' %}active{% endif %}">
                     <i data-lucide="calendar-days" class="mr-3 h-5 w-5 text-secondary-400 group-hover:text-secondary-500"></i>
                     Accounting Periods
                 </a>
+                {% if is_accountant %}
+                <a href="{% url 'accounting:period_create' %}" class="sidebar-link group flex items-center px-3 py-2 text-sm font-medium rounded-md {% if request.resolver_match.url_name == 'period_create' %}active{% endif %}">
+                    <i data-lucide="calendar-clock" class="mr-3 h-5 w-5 text-secondary-400 group-hover:text-secondary-500"></i>
+                    New Accounting Period
+                </a>
+                {% endif %}
                 <a href="{% url 'payroll:pay_period_list' %}" class="sidebar-link group flex items-center px-3 py-2 text-sm font-medium rounded-md">
                     <i data-lucide="calendar-range" class="mr-3 h-5 w-5 text-secondary-400 group-hover:text-secondary-500"></i>
                     Payroll Pay Periods
+                </a>
+
+                <div class="pt-2 pb-1">
+                    <p class="px-3 text-xs font-semibold text-secondary-500 uppercase tracking-wider">Ledger</p>
+                </div>
+                <a href="{% url 'accounting:general_ledger' %}" class="sidebar-link group flex items-center px-3 py-2 text-sm font-medium rounded-md {% if request.resolver_match.url_name == 'general_ledger' or request.resolver_match.url_name == 'report_general_ledger' %}active{% endif %}">
+                    <i data-lucide="list-tree" class="mr-3 h-5 w-5 text-secondary-400 group-hover:text-secondary-500"></i>
+                    General Ledger
+                </a>
+                <a href="{% url 'accounting:trial_balance' %}" class="sidebar-link group flex items-center px-3 py-2 text-sm font-medium rounded-md {% if request.resolver_match.url_name == 'trial_balance' or request.resolver_match.url_name == 'report_trial_balance' %}active{% endif %}">
+                    <i data-lucide="columns-3" class="mr-3 h-5 w-5 text-secondary-400 group-hover:text-secondary-500"></i>
+                    Trial Balance
+                </a>
+                <a href="{% url 'accounting:account_activity' %}" class="sidebar-link group flex items-center px-3 py-2 text-sm font-medium rounded-md {% if request.resolver_match.url_name == 'account_activity' or request.resolver_match.url_name == 'report_account_activity' %}active{% endif %}">
+                    <i data-lucide="activity" class="mr-3 h-5 w-5 text-secondary-400 group-hover:text-secondary-500"></i>
+                    Account Activity
                 </a>
                 
                 <div class="pt-2 pb-1">
@@ -100,6 +138,20 @@
                     <i data-lucide="layout-template" class="mr-3 h-5 w-5 text-secondary-400 group-hover:text-secondary-500"></i>
                     Report Designer
                 </a>
+
+                <div class="pt-2 pb-1">
+                    <p class="px-3 text-xs font-semibold text-secondary-500 uppercase tracking-wider">Reconciliation</p>
+                </div>
+                <a href="{% url 'accounting:reconciliation_list' %}" class="sidebar-link group flex items-center px-3 py-2 text-sm font-medium rounded-md {% if request.resolver_match.url_name == 'reconciliation_list' or request.resolver_match.url_name == 'reconciliation_detail' or request.resolver_match.url_name == 'reconciliation_match' %}active{% endif %}">
+                    <i data-lucide="git-compare-arrows" class="mr-3 h-5 w-5 text-secondary-400 group-hover:text-secondary-500"></i>
+                    Reconciliations
+                </a>
+                {% if is_accountant %}
+                <a href="{% url 'accounting:reconciliation_create' %}" class="sidebar-link group flex items-center px-3 py-2 text-sm font-medium rounded-md {% if request.resolver_match.url_name == 'reconciliation_create' %}active{% endif %}">
+                    <i data-lucide="badge-plus" class="mr-3 h-5 w-5 text-secondary-400 group-hover:text-secondary-500"></i>
+                    New Reconciliation
+                </a>
+                {% endif %}
 
                 {% if is_auditor %}
                 <div class="pt-2 pb-1">

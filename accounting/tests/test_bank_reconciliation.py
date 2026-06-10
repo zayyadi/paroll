@@ -4,6 +4,7 @@ from datetime import date
 from django.test import TestCase
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
+from django.urls import reverse
 
 from accounting.models import (
     Account,
@@ -157,3 +158,18 @@ class BankReconciliationTest(TestCase):
         )
         # Attempted reconciliation on a non-asset would fail at form level
         self.assertEqual(recon.account.type, Account.AccountType.ASSET)
+
+    def test_reconciliation_list_renders(self):
+        self.user.company = self.company
+        self.user.active_company = self.company
+        self.user.save(update_fields=["company", "active_company"])
+        self.client.force_login(self.user)
+        create_bank_reconciliation(
+            self.company, self.bank_account, self.period, self.user, self.bank_txs_data
+        )
+
+        response = self.client.get(reverse("accounting:reconciliation_list"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Bank Reconciliations")
+        self.assertContains(response, "Bank NGN")

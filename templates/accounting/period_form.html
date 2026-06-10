@@ -1,0 +1,31 @@
+{% extends "accounting/base.html" %}
+
+{% block page_title %}New Accounting Period{% endblock %}
+
+{% block accounting_content %}
+<div class="bg-white rounded-lg shadow-soft">
+    <div class="px-6 py-4 border-b border-gray-200">
+        <h3 class="text-lg font-semibold text-secondary-900">New Accounting Period</h3>
+    </div>
+
+    <form method="post" class="px-6 py-6 space-y-5">
+        {% csrf_token %}
+        {{ form.non_field_errors }}
+
+        {% for field in form %}
+        <div>
+            <label for="{{ field.id_for_label }}" class="block text-sm font-medium text-secondary-700">{{ field.label }}</label>
+            <div class="mt-1">{{ field }}</div>
+            {% if field.errors %}
+            <p class="mt-1 text-sm text-danger-600">{{ field.errors|striptags }}</p>
+            {% endif %}
+        </div>
+        {% endfor %}
+
+        <div class="flex items-center gap-3 pt-2">
+            <button type="submit" class="btn-primary inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white">Save</button>
+            <a href="{% url 'accounting:period_list' %}" class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-secondary-700 bg-white hover:bg-secondary-50">Cancel</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

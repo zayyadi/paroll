@@ -1,6 +1,13 @@
+from __future__ import annotations
+
 from decimal import Decimal, ROUND_HALF_UP
+from typing import TYPE_CHECKING, Any
 
 from django.utils import timezone
+
+if TYPE_CHECKING:
+    from django.db.models import Model
+    from payroll.models import Company, HiringStage
 
 
 STANDARD_HIRING_STAGE_BLUEPRINT = [
@@ -14,7 +21,7 @@ STANDARD_HIRING_STAGE_BLUEPRINT = [
 ]
 
 
-def create_standard_hiring_stages(company):
+def create_standard_hiring_stages(company: Any) -> list[Any]:
     from payroll.models import HiringStage
 
     stages = []
@@ -36,7 +43,15 @@ def create_standard_hiring_stages(company):
     return stages
 
 
-def record_candidate_scorecard(*, candidate, stage, interviewer, competency_scores, recommendation, notes=""):
+def record_candidate_scorecard(
+    *,
+    candidate: Any,
+    stage: Any,
+    interviewer: Any,
+    competency_scores: dict[str, Any],
+    recommendation: str,
+    notes: str = "",
+) -> Any:
     from payroll.models import HiringStageScorecard
 
     if candidate.company_id != stage.company_id:
@@ -59,7 +74,11 @@ def record_candidate_scorecard(*, candidate, stage, interviewer, competency_scor
     )
 
 
-def advance_candidate(candidate, next_stage, advanced_by=None):
+def advance_candidate(
+    candidate: Any,
+    next_stage: Any,
+    advanced_by: Any = None,
+) -> Any:
     from payroll.models import HiringCandidate, HiringStage
 
     if candidate.company_id != next_stage.company_id:
@@ -78,7 +97,17 @@ def advance_candidate(candidate, next_stage, advanced_by=None):
     return candidate
 
 
-def create_job_offer(*, candidate, title, employment_type, salary_amount, currency, start_date, created_by=None, terms=None):
+def create_job_offer(
+    *,
+    candidate: Any,
+    title: str,
+    employment_type: str,
+    salary_amount: Decimal,
+    currency: str,
+    start_date: Any,
+    created_by: Any = None,
+    terms: dict[str, Any] | None = None,
+) -> Any:
     from payroll.models import HiringCandidate, JobOffer
 
     offer = JobOffer.objects.create(
@@ -97,7 +126,7 @@ def create_job_offer(*, candidate, title, employment_type, salary_amount, curren
     return offer
 
 
-def accept_job_offer(offer, accepted_by=None):
+def accept_job_offer(offer: Any, accepted_by: Any = None) -> Any:
     from payroll.models import HiringCandidate, JobOffer, JobRequisition, Position, WorkflowExecution, WorkflowTemplate
 
     offer.status = JobOffer.Status.ACCEPTED

@@ -25,6 +25,8 @@ from company.utils import get_user_company
 from payroll import models
 from payroll.views.employee_utilities import _get_or_create_today_attendance
 
+
+@login_required
 def attendance_my_day(request):
     company = get_user_company(request.user)
     employee_profile = get_object_or_404(
@@ -210,4 +212,3 @@ def who_is_out(request):
             "today": today,
         },
     )
-

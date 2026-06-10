@@ -43,7 +43,7 @@ class NotificationCacheService:
     CACHE_PREFIX = "notifications"
     DEFAULT_TIMEOUT = 300  # 5 minutes
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize the cache service."""
         self.prefix = self.CACHE_PREFIX
 
@@ -344,7 +344,7 @@ class PreferenceService:
     user notification preferences.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize the preference service."""
         self.cache_service = NotificationCacheService()
 
@@ -810,7 +810,7 @@ class DigestService:
     to batch multiple notifications into a single message.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize the digest service."""
         self.cache_service = NotificationCacheService()
 
@@ -1015,12 +1015,12 @@ class EventDispatcher:
     events to the correct handler based on event type.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize the event dispatcher and register default handlers."""
         self.handlers: Dict[str, Any] = {}
         self._register_handlers()
 
-    def _register_handlers(self):
+    def _register_handlers(self) -> None:
         """Register default event handlers."""
         # Import handler classes here to avoid circular imports
         # Handlers will be registered as they are implemented
@@ -1038,7 +1038,7 @@ class EventDispatcher:
 
         logger.info(f"Registered {len(self.handlers)} event handlers")
 
-    def register(self, event_type: str, handler_class: Any):
+    def register(self, event_type: str, handler_class: Any) -> None:
         """
         Register an event handler for a specific event type.
 
@@ -1106,7 +1106,7 @@ class NotificationService:
     - Aggregating similar notifications
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize the notification service with dependent services."""
         self.preference_service = PreferenceService()
         self.aggregation_service = AggregationService()

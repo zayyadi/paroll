@@ -1,9 +1,7 @@
-from datetime import timedelta
-
 from django.core.management.base import BaseCommand
-from django.utils import timezone
 
-from payroll.models import HiringCandidate, SurveyResponse
+from payroll.models import HRRetentionPolicy
+from payroll.services.retention import apply_hr_retention
 
 
 class Command(BaseCommand):
@@ -11,48 +9,25 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument("--dry-run", action="store_true")
-        parser.add_argument("--candidate-days", type=int, default=730)
+        parser.add_argument("--candidate-days", type=int, default=None)
         parser.add_argument("--survey-days", type=int, default=730)
+        parser.add_argument("--disciplinary-days", type=int, default=1095)
 
     def handle(self, *args, **options):
-        now = timezone.now()
-        candidate_cutoff = now - timedelta(days=options["candidate_days"])
-        survey_cutoff = now - timedelta(days=options["survey_days"])
-
-        candidates = HiringCandidate.objects.filter(
-            status=HiringCandidate.Status.REJECTED,
-            rejected_at__lt=candidate_cutoff,
+        policy = HRRetentionPolicy.objects.filter(is_active=True).first()
+        result = apply_hr_retention(
+            policy=policy,
+            dry_run=options["dry_run"],
+            candidate_days=options["candidate_days"],
+            survey_days=options["survey_days"],
+            disciplinary_days=options["disciplinary_days"],
         )
-        survey_responses = SurveyResponse.objects.filter(submitted_at__lt=survey_cutoff)
-
-        candidate_count = candidates.count()
-        survey_count = survey_responses.count()
-
-        if not options["dry_run"]:
-            for candidate in candidates:
-                candidate.first_name = "Deleted"
-                candidate.last_name = "Candidate"
-                candidate.email = f"deleted-candidate-{candidate.pk}@retained.local"
-                candidate.phone = ""
-                candidate.structured_notes = {}
-                candidate.source = ""
-                candidate.consent_to_process = False
-                candidate.save(
-                    update_fields=[
-                        "first_name",
-                        "last_name",
-                        "email",
-                        "phone",
-                        "structured_notes",
-                        "source",
-                        "consent_to_process",
-                        "updated_at",
-                    ]
-                )
-            survey_responses.delete()
 
         self.stdout.write(
             self.style.SUCCESS(
-                f"Retention candidates={candidate_count} survey_responses={survey_count}"
+                "Retention "
+                f"candidates={result.candidates} "
+                f"survey_responses={result.survey_responses} "
+                f"disciplinary_cases={result.disciplinary_cases}"
             )
         )

@@ -155,9 +155,54 @@ def leave_requests(request):
         "is_hr": _can_manage_employee_requests(user),
     }
 
-    # print(f"leave taken: {leave_taken}  ")
-    # print(f"pending count: {pending_count}  ")
     return render(request, "employee/leave_requests_new.html", context)
+
+
+@login_required
+def leave_calendar(request):
+    company = get_user_company(request.user)
+    if _can_manage_employee_requests(request.user) or request.user.has_perm(
+        "payroll.view_leaverequest"
+    ):
+        leave_requests_qs = LeaveRequest.objects.select_related(
+            "employee",
+            "employee__department",
+            "approved_by",
+        ).filter(employee__company=company)
+    else:
+        try:
+            employee_profile = request.user.employee_user
+        except EmployeeProfile.DoesNotExist:
+            leave_requests_qs = LeaveRequest.objects.none()
+        else:
+            leave_requests_qs = LeaveRequest.objects.select_related(
+                "employee",
+                "employee__department",
+                "approved_by",
+            ).filter(employee=employee_profile)
+
+    leave_requests_qs = leave_requests_qs.filter(status="APPROVED").order_by(
+        "start_date",
+        "employee__first_name",
+    )
+    events = [
+        {
+            "title": str(leave.employee),
+            "leave_type": leave.leave_type,
+            "start": leave.start_date.isoformat(),
+            "end": leave.end_date.isoformat(),
+            "duration": leave.duration,
+        }
+        for leave in leave_requests_qs
+    ]
+    return render(
+        request,
+        "employee/leave_calendar.html",
+        {
+            "leave_requests": leave_requests_qs,
+            "calendar_events": events,
+        },
+    )
 
 
 @login_required
@@ -374,4 +419,3 @@ def leave_allowance_slip_pdf(request, pk):
     response = HttpResponse(pdf_content, content_type="application/pdf")
     response["Content-Disposition"] = f'attachment; filename="{filename}"'
     return response
-

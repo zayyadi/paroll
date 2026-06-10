@@ -97,8 +97,8 @@
                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">
                             Created By
                         </th>
-                        <th scope="col" class="relative px-6 py-3">
-                            <span class="sr-only">Actions</span>
+                        <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-secondary-500 uppercase tracking-wider">
+                            Actions
                         </th>
                     </tr>
                 </thead>
@@ -138,17 +138,48 @@
                             {% endif %}
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                            <div class="flex items-center justify-end space-x-2">
-                                <a href="{% url 'accounting:journal_detail' journal.pk %}" class="text-primary-600 hover:text-primary-900">
+                            <div class="flex flex-wrap items-center justify-end gap-2">
+                                <a href="{% url 'accounting:journal_detail' journal.pk %}" class="inline-flex items-center rounded-md border border-secondary-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-secondary-700 hover:bg-secondary-50" title="View journal">
+                                    <i data-lucide="eye" class="mr-1.5 h-3.5 w-3.5"></i>
                                     View
                                 </a>
+                                {% if is_accountant and journal.status == 'DRAFT' or is_accountant and journal.status == 'PENDING_APPROVAL' %}
+                                <a href="{% url 'accounting:journal_edit' journal.pk %}" class="inline-flex items-center rounded-md border border-primary-200 bg-primary-50 px-2.5 py-1.5 text-xs font-semibold text-primary-700 hover:bg-primary-100" title="Edit journal">
+                                    <i data-lucide="pencil" class="mr-1.5 h-3.5 w-3.5"></i>
+                                    Edit
+                                </a>
+                                <a href="{% url 'accounting:journal_delete' journal.pk %}" class="inline-flex items-center rounded-md border border-danger-200 bg-danger-50 px-2.5 py-1.5 text-xs font-semibold text-danger-700 hover:bg-danger-100" title="Delete draft journal">
+                                    <i data-lucide="trash-2" class="mr-1.5 h-3.5 w-3.5"></i>
+                                    Delete
+                                </a>
+                                {% endif %}
+                                {% if is_accountant and journal.status == 'DRAFT' %}
+                                <form method="post" action="{% url 'accounting:journal_submit' journal.pk %}" class="inline">
+                                    {% csrf_token %}
+                                    <button type="submit" class="inline-flex items-center rounded-md border border-success-200 bg-success-50 px-2.5 py-1.5 text-xs font-semibold text-success-700 hover:bg-success-100" title="Submit draft journal for approval">
+                                        <i data-lucide="send" class="mr-1.5 h-3.5 w-3.5"></i>
+                                        Submit
+                                    </button>
+                                </form>
+                                {% endif %}
                                 {% if is_auditor and journal.status == 'PENDING_APPROVAL' %}
-                                <a href="{% url 'accounting:journal_approve' journal.pk %}" class="text-primary-600 hover:text-primary-900">
+                                <a href="{% url 'accounting:journal_approve' journal.pk %}" class="inline-flex items-center rounded-md border border-success-200 bg-success-50 px-2.5 py-1.5 text-xs font-semibold text-success-700 hover:bg-success-100" title="Review journal approval">
+                                    <i data-lucide="check-square" class="mr-1.5 h-3.5 w-3.5"></i>
                                     Review
                                 </a>
                                 {% endif %}
+                                {% if is_accountant and journal.status == 'APPROVED' %}
+                                <form method="post" action="{% url 'accounting:journal_post' journal.pk %}" class="inline">
+                                    {% csrf_token %}
+                                    <button type="submit" class="inline-flex items-center rounded-md border border-info-200 bg-info-50 px-2.5 py-1.5 text-xs font-semibold text-info-700 hover:bg-info-100" title="Post approved journal">
+                                        <i data-lucide="send" class="mr-1.5 h-3.5 w-3.5"></i>
+                                        Post
+                                    </button>
+                                </form>
+                                {% endif %}
                                 {% if is_auditor and journal.status == 'POSTED' and not journal.reversed_journal %}
-                                <a href="{% url 'accounting:journal_reverse' journal.pk %}" class="text-warning-600 hover:text-warning-900">
+                                <a href="{% url 'accounting:journal_reversal_initiation' journal.pk %}" class="inline-flex items-center rounded-md border border-warning-200 bg-warning-50 px-2.5 py-1.5 text-xs font-semibold text-warning-700 hover:bg-warning-100" title="Reverse posted journal">
+                                    <i data-lucide="rotate-ccw" class="mr-1.5 h-3.5 w-3.5"></i>
                                     Reverse
                                 </a>
                                 {% endif %}

@@ -220,6 +220,11 @@ class FiscalYearForm(forms.ModelForm):
     """
     Form for creating and editing fiscal years
     """
+    def __init__(self, *args, **kwargs):
+        company = kwargs.pop("company", None)
+        super().__init__(*args, **kwargs)
+        if company is not None:
+            self.instance.company = company
 
     class Meta:
         model = FiscalYear
@@ -247,6 +252,7 @@ class AccountingPeriodForm(forms.ModelForm):
         company = kwargs.pop("company", None)
         super().__init__(*args, **kwargs)
         if company is not None:
+            self.instance.company = company
             self.fields["fiscal_year"].queryset = FiscalYear.objects.filter(
                 company=company
             ).order_by("-year")
@@ -397,12 +403,12 @@ class BalanceAdjustmentForm(forms.Form):
         label="Adjustment Type",
     )
     amount = forms.DecimalField(
-        max_digits=12,
+        max_digits=18,
         decimal_places=2,
         min_value=0.01,
         widget=forms.NumberInput(attrs={"step": "0.01"}),
         error_messages={
-            "max_digits": "Amount can have at most 10 digits before the decimal point and 2 decimal places.",
+            "max_digits": "Amount can have at most 16 digits before the decimal point and 2 decimal places.",
             "max_decimal_places": "Amount can have at most 2 decimal places.",
         },
     )
@@ -446,9 +452,9 @@ class BalanceAdjustmentForm(forms.Form):
         if amount is None:
             return amount
 
-        if amount.adjusted() + 1 > 10:
+        if amount.adjusted() + 1 > 16:
             raise forms.ValidationError(
-                "Amount can have at most 10 digits before the decimal point."
+                "Amount can have at most 16 digits before the decimal point."
             )
         return amount
 
@@ -527,7 +533,7 @@ class JournalPartialReversalForm(forms.Form):
             self.fields[amount_field_name] = forms.DecimalField(
                 required=False,
                 min_value=0.01,
-                max_digits=12,
+                max_digits=18,
                 decimal_places=2,
                 widget=forms.NumberInput(attrs={"step": "0.01"}),
                 label=f"Amount to reverse (Max: {entry.amount})",
@@ -591,7 +597,7 @@ class CorrectionEntryForm(forms.Form):
 
     amount = forms.DecimalField(
         min_value=0.01,
-        max_digits=12,
+        max_digits=18,
         decimal_places=2,
         widget=forms.NumberInput(attrs={"step": "0.01", "class": "form-control"}),
         label="Amount",

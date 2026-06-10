@@ -184,11 +184,90 @@ class HiringCandidate(SoftDeleteModel):
         return bool(self.consent_expires_at and self.consent_expires_at <= timezone.now())
 
     def save(self, *args, **kwargs):
+        was_new = self.pk is None
+        previous_consent = None
+        if not was_new:
+            previous_consent = (
+                HiringCandidate.objects.filter(pk=self.pk)
+                .values_list("consent_to_process", flat=True)
+                .first()
+            )
         if self.consent_to_process and self.consent_recorded_at is None:
             self.consent_recorded_at = timezone.now()
         if self.consent_to_process and self.consent_expires_at is None:
             self.consent_expires_at = timezone.now() + timedelta(days=365)
         super().save(*args, **kwargs)
+        if self.consent_to_process and (was_new or previous_consent is False):
+            CandidateConsent.objects.get_or_create(
+                candidate=self,
+                consent_given=True,
+                version=self.consent_version or "default",
+                defaults={
+                    "recorded_at": self.consent_recorded_at or timezone.now(),
+                    "expires_at": self.consent_expires_at,
+                    "source": "candidate",
+                },
+            )
+
+    def request_reconsent(self, *, version: str = ""):
+        self.consent_to_process = False
+        self.consent_version = version
+        self.consent_expires_at = timezone.now()
+        self.save(
+            update_fields=[
+                "consent_to_process",
+                "consent_version",
+                "consent_expires_at",
+                "updated_at",
+            ]
+        )
+        return CandidateConsent.objects.create(
+            candidate=self,
+            consent_given=False,
+            version=version,
+            source="reconsent",
+            metadata={"reason": "reconsent_requested"},
+        )
+
+
+class CandidateConsent(SoftDeleteModel):
+    candidate = models.ForeignKey(
+        HiringCandidate,
+        on_delete=models.CASCADE,
+        related_name="consent_records",
+    )
+    consent_given = models.BooleanField(default=True)
+    version = models.CharField(max_length=50, blank=True)
+    recorded_at = models.DateTimeField(default=timezone.now)
+    expires_at = models.DateTimeField(null=True, blank=True)
+    captured_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="captured_candidate_consents",
+    )
+    source = models.CharField(max_length=50, blank=True)
+    metadata = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-recorded_at", "-id"]
+        indexes = [
+            models.Index(fields=["candidate", "consent_given"]),
+            models.Index(fields=["expires_at"]),
+        ]
+
+    @property
+    def is_active(self):
+        return bool(
+            self.consent_given
+            and (self.expires_at is None or self.expires_at > timezone.now())
+        )
+
+    def __str__(self):
+        return f"{self.candidate} consent {self.version or 'default'}"
 
 
 class HiringStageScorecard(SoftDeleteModel):

@@ -3,6 +3,7 @@ from django.contrib.auth.mixins import AccessMixin, UserPassesTestMixin
 from django.http import HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect
 import sys
+from company.utils import get_user_company
 from .permissions import (
     is_auditor,
     is_accountant,
@@ -24,6 +25,49 @@ def _is_accounting_lockdown_enabled(user):
         and user.is_authenticated
         and not user.is_superuser
     )
+
+
+class TenantScopedPermissionObjectMixin:
+    permission_object_model = None
+
+    def get_permission_queryset(self):
+        if self.permission_object_model is None:
+            raise AttributeError(
+                f"{self.__class__.__name__} must define permission_object_model."
+            )
+
+        queryset = self.permission_object_model.objects.all()
+        user = self.request.user
+        if getattr(user, "is_superuser", False):
+            return queryset
+
+        company = get_user_company(user)
+        if company is None:
+            return queryset.none()
+
+        if hasattr(self.permission_object_model, "company_id"):
+            return queryset.filter(company=company)
+        if hasattr(self.permission_object_model, "journal"):
+            return queryset.filter(journal__company=company)
+        if hasattr(self.permission_object_model, "fiscal_year"):
+            return queryset.filter(fiscal_year__company=company)
+        return queryset.none()
+
+    def get_permission_object(self):
+        if hasattr(self, "_permission_object"):
+            return self._permission_object
+
+        if hasattr(self, "get_object"):
+            obj = self.get_object()
+        elif self.permission_object_model and "pk" in self.kwargs:
+            obj = get_object_or_404(self.get_permission_queryset(), pk=self.kwargs["pk"])
+        else:
+            raise AttributeError(
+                f"{self.__class__.__name__} must define get_object() or permission_object_model."
+            )
+
+        self._permission_object = obj
+        return obj
 
 
 class AuditorRequiredMixin(AccessMixin):
@@ -145,23 +189,10 @@ class AuditorOrAccountantRequiredMixin(AccessMixin):
         return super().dispatch(request, *args, **kwargs)
 
 
-class JournalApprovalMixin(UserPassesTestMixin):
+class JournalApprovalMixin(TenantScopedPermissionObjectMixin, UserPassesTestMixin):
     """
     Mixin to check if user can approve a journal
     """
-
-    permission_object_model = None
-
-    def get_permission_object(self):
-        if hasattr(self, "get_object"):
-            return self.get_object()
-
-        if self.permission_object_model and "pk" in self.kwargs:
-            return get_object_or_404(self.permission_object_model, pk=self.kwargs["pk"])
-
-        raise AttributeError(
-            f"{self.__class__.__name__} must define get_object() or permission_object_model."
-        )
 
     def test_func(self):
         if _is_accounting_lockdown_enabled(self.request.user):
@@ -179,23 +210,10 @@ class JournalApprovalMixin(UserPassesTestMixin):
         return redirect("login")
 
 
-class JournalReversalMixin(UserPassesTestMixin):
+class JournalReversalMixin(TenantScopedPermissionObjectMixin, UserPassesTestMixin):
     """
     Mixin to check if user can reverse a journal
     """
-
-    permission_object_model = None
-
-    def get_permission_object(self):
-        if hasattr(self, "get_object"):
-            return self.get_object()
-
-        if self.permission_object_model and "pk" in self.kwargs:
-            return get_object_or_404(self.permission_object_model, pk=self.kwargs["pk"])
-
-        raise AttributeError(
-            f"{self.__class__.__name__} must define get_object() or permission_object_model."
-        )
 
     def test_func(self):
         if _is_accounting_lockdown_enabled(self.request.user):
@@ -211,23 +229,10 @@ class JournalReversalMixin(UserPassesTestMixin):
         return redirect("login")
 
 
-class PeriodClosingMixin(UserPassesTestMixin):
+class PeriodClosingMixin(TenantScopedPermissionObjectMixin, UserPassesTestMixin):
     """
     Mixin to check if user can close an accounting period
     """
-
-    permission_object_model = None
-
-    def get_permission_object(self):
-        if hasattr(self, "get_object"):
-            return self.get_object()
-
-        if self.permission_object_model and "pk" in self.kwargs:
-            return get_object_or_404(self.permission_object_model, pk=self.kwargs["pk"])
-
-        raise AttributeError(
-            f"{self.__class__.__name__} must define get_object() or permission_object_model."
-        )
 
     def test_func(self):
         if _is_accounting_lockdown_enabled(self.request.user):

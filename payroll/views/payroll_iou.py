@@ -34,6 +34,8 @@ from payroll.forms import IOUApprovalForm, IOURequestForm, IOUUpdateForm
 from payroll.models import IOU
 from payroll.views.payroll_helpers import _can_manage_employee_requests
 
+
+@login_required
 def request_iou(request):
     # Try to get the employee profile linked to the current user
     try:
@@ -298,12 +300,14 @@ def my_iou_tracker(request):
 
 # log_audit_trail is a utility, no permission needed directly on it
 
+@login_required
 def iou_list(request):  # This is a general list, should be protected
-    # If this is for admins/HR to see all IOUs:
-    # if not request.user.has_perm('payroll.view_iou'):
-    #     # If it's for users to see their own, redirect to iou_history or filter by own
-    #     # For now, let's assume this is an admin/HR view of ALL IOUs
-    #     raise HttpResponseForbidden("You are not authorized to view this list.")
+    if not (
+        _can_manage_employee_requests(request.user)
+        or request.user.has_perm("payroll.view_iou")
+    ):
+        return HttpResponseForbidden("You are not authorized to view this list.")
+
     company = get_user_company(request.user)
     ious = (
         IOU.objects.filter(employee_id__company=company)
@@ -380,4 +384,3 @@ def iou_payment_slip(request, pk):
 
 
 # New Views for Enhanced PayrollRunEntry and PayrollEntry Creation
-

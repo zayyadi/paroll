@@ -1,0 +1,57 @@
+{% extends "accounting/base.html" %}
+
+{% block page_title %}Delete Journal{% endblock %}
+
+{% block breadcrumbs %}
+{% with breadcrumbs=breadcrumbs|default:"[{'title': 'General Journal', 'url': '/accounting/journals/'}, {'title': 'Delete Journal'}]" %}
+{{ block.super }}
+{% endwith %}
+{% endblock %}
+
+{% block accounting_content %}
+<div class="mx-auto max-w-3xl space-y-6">
+    <div class="rounded-lg border border-danger-200 bg-white shadow-soft">
+        <div class="border-b border-danger-100 bg-danger-50 px-6 py-5">
+            <div class="flex items-start gap-3">
+                <span class="inline-flex h-10 w-10 items-center justify-center rounded-full bg-danger-100 text-danger-700">
+                    <i data-lucide="trash-2" class="h-5 w-5"></i>
+                </span>
+                <div>
+                    <h3 class="text-lg font-semibold text-danger-900">Delete draft journal?</h3>
+                    <p class="mt-1 text-sm text-danger-700">
+                        This removes the journal and its entry lines. Finalized journals cannot be deleted and should be reversed instead.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <div class="px-6 py-5">
+            <dl class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div>
+                    <dt class="text-xs font-semibold uppercase tracking-wider text-secondary-500">Transaction</dt>
+                    <dd class="mt-1 text-sm font-semibold text-secondary-900">{{ journal.transaction_number }}</dd>
+                </div>
+                <div>
+                    <dt class="text-xs font-semibold uppercase tracking-wider text-secondary-500">Status</dt>
+                    <dd class="mt-1 text-sm text-secondary-900">{{ journal.get_status_display }}</dd>
+                </div>
+                <div class="sm:col-span-2">
+                    <dt class="text-xs font-semibold uppercase tracking-wider text-secondary-500">Description</dt>
+                    <dd class="mt-1 text-sm text-secondary-900">{{ journal.description }}</dd>
+                </div>
+            </dl>
+        </div>
+
+        <form method="post" class="flex flex-wrap items-center justify-end gap-3 border-t border-gray-200 bg-gray-50 px-6 py-4">
+            {% csrf_token %}
+            <a href="{% url 'accounting:journal_detail' journal.pk %}" class="inline-flex items-center rounded-md border border-secondary-300 bg-white px-4 py-2 text-sm font-medium text-secondary-700 hover:bg-secondary-50">
+                Cancel
+            </a>
+            <button type="submit" class="inline-flex items-center rounded-md border border-transparent bg-danger-600 px-4 py-2 text-sm font-medium text-white hover:bg-danger-700">
+                <i data-lucide="trash-2" class="mr-2 h-4 w-4"></i>
+                Delete Journal
+            </button>
+        </form>
+    </div>
+</div>
+{% endblock %}

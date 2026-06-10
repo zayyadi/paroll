@@ -42,3 +42,4 @@ sentry-sdk>=1.40.0
 # Testing support for Channels and Celery
 channels-testing>=0.8.0
 celery-test>=0.0.3
+coverage>=7.5.0

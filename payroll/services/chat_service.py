@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 from asgiref.sync import async_to_sync
 try:
     from channels.layers import get_channel_layer
@@ -26,12 +28,12 @@ def room_chat_group_name(room_id: int) -> str:
     return f"chat.room.{room_id}"
 
 
-def get_company_chat_room(company):
+def get_company_chat_room(company: Any) -> CompanyChatRoom:
     room, _ = CompanyChatRoom.get_or_create_default(company)
     return room
 
 
-def is_room_member(room, employee) -> bool:
+def is_room_member(room: CompanyChatRoom, employee: Any) -> bool:
     if room.room_type == CompanyChatRoom.TYPE_COMPANY:
         return employee.company_id == room.company_id
     return CompanyChatRoomMember.objects.filter(
@@ -41,7 +43,11 @@ def is_room_member(room, employee) -> bool:
     ).exists()
 
 
-def add_room_member(room, employee, role=CompanyChatRoomMember.ROLE_MEMBER):
+def add_room_member(
+    room: CompanyChatRoom,
+    employee: Any,
+    role: str = CompanyChatRoomMember.ROLE_MEMBER,
+) -> CompanyChatRoomMember:
     return CompanyChatRoomMember.objects.get_or_create(
         room=room,
         employee=employee,
@@ -49,7 +55,11 @@ def add_room_member(room, employee, role=CompanyChatRoomMember.ROLE_MEMBER):
     )[0]
 
 
-def get_or_create_direct_room(company, employee_a, employee_b):
+def get_or_create_direct_room(
+    company: Any,
+    employee_a: Any,
+    employee_b: Any,
+) -> tuple[CompanyChatRoom, bool]:
     if employee_a.company_id != company.id or employee_b.company_id != company.id:
         raise ValueError("Direct rooms must be within the same company.")
     if employee_a.id == employee_b.id:
@@ -74,7 +84,7 @@ def get_or_create_direct_room(company, employee_a, employee_b):
     return room, created
 
 
-def create_company_chat_message(employee, body: str) -> CompanyChatMessage:
+def create_company_chat_message(employee: Any, body: str) -> CompanyChatMessage:
     if employee is None or employee.company_id is None:
         raise ValueError("A company-linked employee profile is required to chat.")
 
@@ -92,7 +102,11 @@ def create_company_chat_message(employee, body: str) -> CompanyChatMessage:
     )
 
 
-def create_room_message(room, employee, body: str) -> CompanyChatMessage:
+def create_room_message(
+    room: CompanyChatRoom,
+    employee: Any,
+    body: str,
+) -> CompanyChatMessage:
     if room.company_id != employee.company_id:
         raise ValueError("Employee must belong to the same company as the room.")
     if not is_room_member(room, employee):
@@ -111,7 +125,11 @@ def create_room_message(room, employee, body: str) -> CompanyChatMessage:
     )
 
 
-def mark_company_chat_read(room, employee, message=None) -> CompanyChatReadState:
+def mark_company_chat_read(
+    room: CompanyChatRoom,
+    employee: Any,
+    message: CompanyChatMessage | None = None,
+) -> CompanyChatReadState:
     if employee.company_id != room.company_id:
         raise ValueError("Employee and room must belong to the same company.")
 
@@ -128,7 +146,7 @@ def mark_company_chat_read(room, employee, message=None) -> CompanyChatReadState
     return state
 
 
-def serialize_company_chat_message(message: CompanyChatMessage) -> dict:
+def serialize_company_chat_message(message: CompanyChatMessage) -> dict[str, Any]:
     sender = message.sender
     sender_user = getattr(sender, "user", None)
     full_name = " ".join(part for part in [sender.first_name, sender.last_name] if part).strip()

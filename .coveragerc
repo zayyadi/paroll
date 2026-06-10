@@ -1,0 +1,14 @@
+[run]
+source =
+    payroll
+    accounting
+omit =
+    */migrations/*
+    */tests.py
+    */test_*.py
+    */tests/*
+    */__pycache__/*
+
+[report]
+show_missing = True
+skip_covered = True

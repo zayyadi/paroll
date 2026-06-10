@@ -1,210 +1,197 @@
 {% extends "accounting/base.html" %}
 
-{% block title %}Confirm Journal Reversal{% endblock %}
+{% block page_title %}Confirm Journal Reversal{% endblock %}
 
-{% block content %}
-<div class="container-fluid">
-    <div class="row">
-        <div class="col-12">
-            <div class="card">
-                <div class="card-header bg-warning text-dark">
-                    <h4 class="card-title">
-                        <i class="fas fa-exclamation-triangle"></i> Confirm Journal Reversal
-                    </h4>
-                </div>
-                <div class="card-body">
-                    <!-- Warning Message -->
-                    <div class="alert alert-danger" role="alert">
-                        <h5><i class="fas fa-exclamation-circle"></i> Warning: Irreversible Action</h5>
-                        <p>You are about to reverse a posted journal. This action cannot be undone and will be logged for audit purposes.</p>
-                        <p><strong>Please review all information carefully before proceeding.</strong></p>
-                    </div>
+{% block breadcrumbs %}
+{% with breadcrumbs=breadcrumbs|default:"[{'title': 'General Journal', 'url': '/accounting/journals/'}, {'title': 'Confirm Reversal'}]" %}
+{{ block.super }}
+{% endwith %}
+{% endblock %}
 
-                    <!-- Journal Information -->
-                    <div class="row mb-4">
-                        <div class="col-md-6">
-                            <h5>Original Journal</h5>
-                            <table class="table table-sm">
-                                <tr>
-                                    <th>Transaction Number:</th>
-                                    <td>{{ journal.transaction_number }}</td>
-                                </tr>
-                                <tr>
-                                    <th>Description:</th>
-                                    <td>{{ journal.description }}</td>
-                                </tr>
-                                <tr>
-                                    <th>Date:</th>
-                                    <td>{{ journal.date }}</td>
-                                </tr>
-                                <tr>
-                                    <th>Created By:</th>
-                                    <td>{{ journal.created_by.get_full_name|default:journal.created_by.username }}</td>
-                                </tr>
-                                <tr>
-                                    <th>Posted By:</th>
-                                    <td>{{ journal.posted_by.get_full_name|default:journal.posted_by.username }}</td>
-                                </tr>
-                            </table>
-                        </div>
-                        <div class="col-md-6">
-                            <h5>Reversal Details</h5>
-                            <table class="table table-sm">
-                                <tr>
-                                    <th>Reversal Type:</th>
-                                    <td><span class="badge badge-danger">Full Reversal</span></td>
-                                </tr>
-                                <tr>
-                                    <th>Reason:</th>
-                                    <td>{{ reason|linebreaks }}</td>
-                                </tr>
-                                <tr>
-                                    <th>Reversal Date:</th>
-                                    <td>{% now "Y-m-d" %}</td>
-                                </tr>
-                                <tr>
-                                    <th>Performed By:</th>
-                                    <td>{{ request.user.get_full_name|default:request.user.username }}</td>
-                                </tr>
-                            </table>
-                        </div>
-                    </div>
-
-                    <!-- Journal Entries -->
-                    <div class="row mb-4">
-                        <div class="col-12">
-                            <h5>Entries to be Reversed</h5>
-                            <div class="table-responsive">
-                                <table class="table table-striped">
-                                    <thead>
-                                        <tr>
-                                            <th>Account</th>
-                                            <th>Type</th>
-                                            <th>Amount</th>
-                                            <th>Memo</th>
-                                            <th>Reversal Type</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {% for entry in entries %}
-                                        <tr>
-                                            <td>{{ entry.account.name }}</td>
-                                            <td>
-                                                <span class="badge badge-{{ entry.entry_type|lower }}">
-                                                    {{ entry.get_entry_type_display }}
-                                                </span>
-                                            </td>
-                                            <td class="text-right">{{ entry.amount }}</td>
-                                            <td>{{ entry.memo|default:"-" }}</td>
-                                            <td>
-                                                <span class="badge badge-warning">
-                                                    {% if entry.entry_type == "DEBIT" %}CREDIT{% else %}DEBIT{% endif %}
-                                                </span>
-                                            </td>
-                                        </tr>
-                                        {% endfor %}
-                                    </tbody>
-                                    <tfoot>
-                                        <tr class="font-weight-bold">
-                                            <td colspan="2">Totals:</td>
-                                            <td class="text-right">{{ total_debits }}</td>
-                                            <td class="text-right">{{ total_credits }}</td>
-                                            <td></td>
-                                        </tr>
-                                    </tfoot>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Confirmation Form -->
-                    <div class="row">
-                        <div class="col-12">
-                            <form method="post">
-                                {% csrf_token %}
-                                
-                                <div class="form-group">
-                                    <div class="form-check">
-                                        <input type="checkbox" class="form-check-input" id="{{ form.confirm.id_for_label }}" name="{{ form.confirm.html_name }}" required>
-                                        <label class="form-check-label" for="{{ form.confirm.id_for_label }}">
-                                            {{ form.confirm.label }}
-                                        </label>
-                                    </div>
-                                    {% if form.confirm.help_text %}
-                                    <small class="form-text text-muted">{{ form.confirm.help_text }}</small>
-                                    {% endif %}
-                                    {% if form.confirm.errors %}
-                                    <div class="invalid-feedback d-block">
-                                        {% for error in form.confirm.errors %}{{ error }}{% endfor %}
-                                    </div>
-                                    {% endif %}
-                                </div>
-
-                                <div class="form-group">
-                                    <label for="{{ form.final_reason.id_for_label }}" class="form-label">
-                                        {{ form.final_reason.label }} <span class="text-danger">*</span>
-                                    </label>
-                                    {{ form.final_reason }}
-                                    {% if form.final_reason.help_text %}
-                                    <small class="form-text text-muted">{{ form.final_reason.help_text }}</small>
-                                    {% endif %}
-                                    {% if form.final_reason.errors %}
-                                    <div class="invalid-feedback d-block">
-                                        {% for error in form.final_reason.errors %}{{ error }}{% endfor %}
-                                    </div>
-                                    {% endif %}
-                                </div>
-
-                                <div class="form-group">
-                                    <button type="submit" class="btn btn-danger">
-                                        <i class="fas fa-undo"></i> Confirm Reversal
-                                    </button>
-                                    <a href="{% url 'accounting:journal_detail' journal.pk %}" class="btn btn-secondary">
-                                        <i class="fas fa-times"></i> Cancel
-                                    </a>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
+{% block accounting_content %}
+<div class="space-y-6">
+    <div class="rounded-lg border border-danger-200 bg-white shadow-soft">
+        <div class="border-b border-danger-100 bg-danger-50 px-6 py-5">
+            <div class="flex items-start gap-3">
+                <span class="inline-flex h-10 w-10 items-center justify-center rounded-full bg-danger-100 text-danger-700">
+                    <i data-lucide="alert-triangle" class="h-5 w-5"></i>
+                </span>
+                <div>
+                    <p class="text-xs font-semibold uppercase tracking-wider text-danger-700">Final Confirmation</p>
+                    <h3 class="mt-1 text-xl font-semibold text-secondary-900">Confirm Journal Reversal</h3>
+                    <p class="mt-1 text-sm text-danger-700">
+                        This creates and posts an offsetting journal, then marks the original journal as reversed.
+                    </p>
                 </div>
             </div>
         </div>
+
+        <div class="grid grid-cols-1 gap-6 px-6 py-5 lg:grid-cols-2">
+            <section>
+                <h4 class="text-sm font-semibold text-secondary-900">Original Journal</h4>
+                <dl class="mt-4 space-y-3 text-sm">
+                    <div class="flex justify-between gap-4">
+                        <dt class="text-secondary-500">Transaction</dt>
+                        <dd class="font-medium text-secondary-900">{{ journal.transaction_number }}</dd>
+                    </div>
+                    <div class="flex justify-between gap-4">
+                        <dt class="text-secondary-500">Date</dt>
+                        <dd class="text-secondary-900">{{ journal.date|date:"F d, Y" }}</dd>
+                    </div>
+                    <div>
+                        <dt class="text-secondary-500">Description</dt>
+                        <dd class="mt-1 text-secondary-900">{{ journal.description }}</dd>
+                    </div>
+                    <div class="flex justify-between gap-4">
+                        <dt class="text-secondary-500">Created by</dt>
+                        <dd class="text-secondary-900">
+                            {% if journal.created_by %}
+                                {{ journal.created_by.get_full_name|default:journal.created_by.email }}
+                            {% else %}
+                                Not recorded
+                            {% endif %}
+                        </dd>
+                    </div>
+                    <div class="flex justify-between gap-4">
+                        <dt class="text-secondary-500">Posted by</dt>
+                        <dd class="text-secondary-900">
+                            {% if journal.posted_by %}
+                                {{ journal.posted_by.get_full_name|default:journal.posted_by.email }}
+                            {% else %}
+                                Not recorded
+                            {% endif %}
+                        </dd>
+                    </div>
+                </dl>
+            </section>
+            <section>
+                <h4 class="text-sm font-semibold text-secondary-900">Reversal Details</h4>
+                <dl class="mt-4 space-y-3 text-sm">
+                    <div class="flex justify-between gap-4">
+                        <dt class="text-secondary-500">Type</dt>
+                        <dd><span class="rounded-full bg-danger-100 px-2.5 py-0.5 text-xs font-medium text-danger-800">Full reversal</span></dd>
+                    </div>
+                    <div class="flex justify-between gap-4">
+                        <dt class="text-secondary-500">Debits</dt>
+                        <dd class="font-bold text-danger-600">₦{{ total_debits|floatformat:2 }}</dd>
+                    </div>
+                    <div class="flex justify-between gap-4">
+                        <dt class="text-secondary-500">Credits</dt>
+                        <dd class="font-bold text-success-600">₦{{ total_credits|floatformat:2 }}</dd>
+                    </div>
+                    <div>
+                        <dt class="text-secondary-500">Reason</dt>
+                        <dd class="mt-1 rounded-lg bg-gray-50 p-3 text-secondary-900">{{ reason|linebreaksbr|default:"No reason recorded." }}</dd>
+                    </div>
+                </dl>
+            </section>
+        </div>
+    </div>
+
+    <div class="bg-white rounded-lg shadow-soft">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h3 class="text-lg font-semibold text-secondary-900">Offsetting Entries</h3>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">Account</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">Original</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">Reversal</th>
+                        <th class="px-6 py-3 text-right text-xs font-medium text-secondary-500 uppercase tracking-wider">Amount</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">Memo</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for entry in entries %}
+                    <tr>
+                        <td class="px-6 py-4 text-sm text-secondary-900">
+                            <div class="font-medium">{{ entry.account.name }}</div>
+                            <div class="text-xs text-secondary-500">{{ entry.account.account_number|default:"—" }}</div>
+                        </td>
+                        <td class="px-6 py-4 text-sm text-secondary-900">{{ entry.get_entry_type_display }}</td>
+                        <td class="px-6 py-4">
+                            <span class="rounded-full bg-warning-100 px-2.5 py-0.5 text-xs font-medium text-warning-800">
+                                {% if entry.entry_type == "DEBIT" %}Credit{% else %}Debit{% endif %}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 text-right text-sm font-semibold text-secondary-900">₦{{ entry.amount|floatformat:2 }}</td>
+                        <td class="px-6 py-4 text-sm text-secondary-600">{{ entry.memo|default:"—" }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="bg-white rounded-lg shadow-soft">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h3 class="text-lg font-semibold text-secondary-900">Authorization</h3>
+        </div>
+        <form method="post" class="space-y-5 px-6 py-5">
+            {% csrf_token %}
+            {{ form.non_field_errors }}
+            <div class="rounded-lg border border-danger-200 bg-danger-50 p-4">
+                <div class="flex items-start gap-3">
+                    {{ form.confirm }}
+                    <div>
+                        <label for="{{ form.confirm.id_for_label }}" class="text-sm font-medium text-danger-900">{{ form.confirm.label }}</label>
+                        {% if form.confirm.help_text %}
+                        <p class="mt-1 text-xs text-danger-700">{{ form.confirm.help_text }}</p>
+                        {% endif %}
+                        {% if form.confirm.errors %}
+                        <p class="mt-1 text-sm text-danger-600">{{ form.confirm.errors|join:", " }}</p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <div>
+                <label for="{{ form.final_reason.id_for_label }}" class="block text-sm font-medium text-secondary-700 mb-1">
+                    {{ form.final_reason.label }} <span class="text-danger-500">*</span>
+                </label>
+                {{ form.final_reason }}
+                {% if form.final_reason.help_text %}
+                <p class="mt-1 text-xs text-secondary-500">{{ form.final_reason.help_text }}</p>
+                {% endif %}
+                {% if form.final_reason.errors %}
+                <p class="mt-1 text-sm text-danger-600">{{ form.final_reason.errors|join:", " }}</p>
+                {% endif %}
+            </div>
+
+            <div class="flex flex-wrap gap-3">
+                <button type="submit" id="confirm-reversal-button" class="inline-flex items-center rounded-md border border-transparent bg-danger-600 px-4 py-2 text-sm font-medium text-white hover:bg-danger-700">
+                    <i data-lucide="rotate-ccw" class="mr-2 h-4 w-4"></i>
+                    Confirm Reversal
+                </button>
+                <a href="{% url 'accounting:journal_detail' journal.pk %}" class="inline-flex items-center rounded-md border border-secondary-300 bg-white px-4 py-2 text-sm font-medium text-secondary-700 hover:bg-secondary-50">
+                    Cancel
+                </a>
+            </div>
+        </form>
     </div>
 </div>
-{% endblock %}
-
-{% block extra_css %}
-<style>
-    .badge-draft { background-color: #6c757d; }
-    .badge-pending_approval { background-color: #ffc107; }
-    .badge-approved { background-color: #17a2b8; }
-    .badge-posted { background-color: #28a745; }
-    .badge-cancelled { background-color: #dc3545; }
-    .badge-reversed { background-color: #6f42c1; }
-    .badge-debit { background-color: #28a745; }
-    .badge-credit { background-color: #dc3545; }
-    
-    .form-check-input:checked {
-        background-color: #dc3545;
-        border-color: #dc3545;
-    }
-</style>
 {% endblock %}
 
 {% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const confirmCheckbox = document.getElementById('{{ form.confirm.id_for_label }}');
-    const submitButton = document.querySelector('button[type="submit"]');
-    
-    if (confirmCheckbox && submitButton) {
-        // Disable submit button initially
-        submitButton.disabled = true;
-        
-        confirmCheckbox.addEventListener('change', function() {
-            submitButton.disabled = !this.checked;
-        });
+    const submitButton = document.getElementById('confirm-reversal-button');
+
+    if (!confirmCheckbox || !submitButton) {
+        return;
     }
+
+    function syncSubmitState() {
+        submitButton.disabled = !confirmCheckbox.checked;
+        submitButton.classList.toggle('opacity-50', !confirmCheckbox.checked);
+        submitButton.classList.toggle('cursor-not-allowed', !confirmCheckbox.checked);
+    }
+
+    confirmCheckbox.addEventListener('change', syncSubmitState);
+    syncSubmitState();
 });
 </script>
 {% endblock %}

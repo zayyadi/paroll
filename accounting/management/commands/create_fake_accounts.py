@@ -1,5 +1,6 @@
 from django.core.management.base import BaseCommand
 from accounting.models import Account, FiscalYear, AccountingPeriod
+from company.models import Company
 from django.utils import timezone
 from datetime import date
 import random
@@ -20,10 +21,24 @@ class Command(BaseCommand):
             action="store_true",
             help="Also create a fiscal year and periods if they do not exist",
         )
+        parser.add_argument(
+            "--company-id",
+            type=int,
+            help="Company ID that owns the generated accounts and fiscal calendar.",
+        )
+        parser.add_argument(
+            "--company-name",
+            default="Default Company",
+            help="Company name to create/use when --company-id is not supplied.",
+        )
 
     def handle(self, *args, **options):
         count = options["count"]
         include_fiscal_year = options["include_fiscal_year"]
+        if options.get("company_id"):
+            company = Company.objects.get(pk=options["company_id"])
+        else:
+            company, _ = Company.objects.get_or_create(name=options["company_name"])
 
         # Sample data for generating realistic accounts
         asset_names = [
@@ -126,7 +141,9 @@ class Command(BaseCommand):
 
         # Keep track of used account numbers to avoid duplicates
         used_account_numbers = set(
-            Account.objects.values_list("account_number", flat=True)
+            Account.objects.filter(company=company).values_list(
+                "account_number", flat=True
+            )
         )
 
         for _ in range(count):
@@ -138,7 +155,7 @@ class Command(BaseCommand):
             name = random.choice(names)
 
             # Check if account name already exists
-            if Account.objects.filter(name=name).exists():
+            if Account.objects.filter(company=company, name=name).exists():
                 self.stdout.write(
                     self.style.WARNING(
                         f"Account with name '{name}' already exists, skipping..."
@@ -164,6 +181,7 @@ class Command(BaseCommand):
 
             # Create account with unique name and account number
             account, created = Account.objects.get_or_create(
+                company=company,
                 name=name,
                 account_number=account_number,
                 defaults={
@@ -191,6 +209,7 @@ class Command(BaseCommand):
         if include_fiscal_year:
             current_year = timezone.now().year
             fiscal_year, created = FiscalYear.objects.get_or_create(
+                company=company,
                 year=current_year,
                 defaults={
                     "name": f"Fiscal Year {current_year}",
@@ -208,6 +227,7 @@ class Command(BaseCommand):
                 # Create monthly periods
                 for month in range(1, 13):
                     period, period_created = AccountingPeriod.objects.get_or_create(
+                        company=company,
                         fiscal_year=fiscal_year,
                         period_number=month,
                         defaults={

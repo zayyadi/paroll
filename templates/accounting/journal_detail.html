@@ -193,15 +193,39 @@
         <div class="flex flex-wrap gap-3">
             {% if can_edit %}
             <a href="{% url 'accounting:journal_edit' journal.pk %}" class="inline-flex items-center px-4 py-2 border border-secondary-300 text-sm font-medium rounded-md text-secondary-700 bg-white hover:bg-secondary-50">
-                <i data-lucide="edit" class="mr-2 h-4 w-4"></i>
+                <i data-lucide="pencil" class="mr-2 h-4 w-4"></i>
                 Edit
             </a>
+            {% endif %}
+            {% if can_delete %}
+            <a href="{% url 'accounting:journal_delete' journal.pk %}" class="inline-flex items-center px-4 py-2 border border-danger-300 text-sm font-medium rounded-md text-danger-700 bg-danger-50 hover:bg-danger-100">
+                <i data-lucide="trash-2" class="mr-2 h-4 w-4"></i>
+                Delete
+            </a>
+            {% endif %}
+            {% if can_submit %}
+            <form method="post" action="{% url 'accounting:journal_submit' journal.pk %}" class="inline-flex">
+                {% csrf_token %}
+                <button type="submit" class="inline-flex items-center px-4 py-2 border border-success-300 text-sm font-medium rounded-md text-success-700 bg-success-50 hover:bg-success-100">
+                    <i data-lucide="send" class="mr-2 h-4 w-4"></i>
+                    Submit for Approval
+                </button>
+            </form>
             {% endif %}
             {% if can_approve %}
             <a href="{% url 'accounting:journal_approve' journal.pk %}" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white btn-primary">
                 <i data-lucide="check-square" class="mr-2 h-4 w-4"></i>
                 Review & Approve
             </a>
+            {% endif %}
+            {% if is_accountant and journal.status == 'APPROVED' %}
+            <form method="post" action="{% url 'accounting:journal_post' journal.pk %}" class="inline-flex">
+                {% csrf_token %}
+                <button type="submit" class="inline-flex items-center px-4 py-2 border border-info-300 text-sm font-medium rounded-md text-info-700 bg-info-50 hover:bg-info-100">
+                    <i data-lucide="send" class="mr-2 h-4 w-4"></i>
+                    Post
+                </button>
+            </form>
             {% endif %}
             {% if can_reverse %}
             <a href="{% url 'accounting:journal_reversal_initiation' journal.pk %}" class="inline-flex items-center px-4 py-2 border border-warning-300 text-sm font-medium rounded-md text-warning-700 bg-warning-50 hover:bg-warning-100">
