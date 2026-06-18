@@ -9,7 +9,15 @@ from django.urls import reverse
 from accounting.mfa import get_login_lockout_cache_key
 from accounting.models import Account
 from company.models import Company
-from payroll.models import EmployeeProfile, Payroll, PayrollEntry, PayrollRun, PayrollRunEntry
+from payroll.models import (
+    EmployeeProfile,
+    Payroll,
+    PayrollEntry,
+    PayrollRun,
+    PayrollRunEntry,
+    SensitiveDataAccess,
+    log_sensitive_employee_data_access,
+)
 
 
 @override_settings(SECURE_SSL_REDIRECT=False)
@@ -117,4 +125,35 @@ class PayrollSecurityHardeningTests(TestCase):
         self.assertEqual(
             Company.objects.filter(name="Default Company").count(),
             fallback_count,
+        )
+
+    def test_employee_profile_view_logs_sensitive_data_access(self):
+        self.client.login(email=self.owner.email, password="StrongPass123!")
+
+        response = self.client.get(
+            reverse("payroll:profile", kwargs={"user_id": self.owner.id})
+        )
+
+        self.assertEqual(response.status_code, 200)
+        fields = set(
+            SensitiveDataAccess.objects.filter(
+                employee=self.owner_employee,
+                accessed_by=self.owner,
+                purpose="employee_profile_view",
+            ).values_list("field_name", flat=True)
+        )
+        self.assertIn("bank_account_number", fields)
+        self.assertIn("tin_no", fields)
+
+    def test_sensitive_data_logger_ignores_non_sensitive_fields(self):
+        created = log_sensitive_employee_data_access(
+            employee=self.owner_employee,
+            accessed_by=self.owner,
+            fields=("first_name", "last_name"),
+            purpose="unit_test",
+        )
+
+        self.assertEqual(created, [])
+        self.assertFalse(
+            SensitiveDataAccess.objects.filter(purpose="unit_test").exists()
         )

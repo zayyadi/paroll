@@ -1,0 +1,40 @@
+{% extends "accounting/base_accounting.html" %}
+{% block content %}
+<div class="max-w-6xl mx-auto px-4 py-8">
+  <h1 class="text-2xl font-bold mb-6">{{ page_title }}</h1>
+  <div class="bg-white shadow rounded-lg p-6">
+    {% macro render_node node indent %}
+      <div style="padding-left: {{ indent }}px" class="py-1 hover:bg-gray-50 rounded">
+        <span class="font-mono text-sm text-gray-500">{{ node.account.account_number }}</span>
+        <span class="font-medium ml-2">{{ node.account.name }}</span>
+        <span class="text-xs text-gray-400 ml-2">({{ node.account.get_type_display }})</span>
+        <span class="text-sm ml-4 {% if node.account.current_balance > 0 %}text-green-600{% elif node.account.current_balance < 0 %}text-red-600{% endif %}">
+          ₦{{ node.account.current_balance|floatformat:2 }}
+        </span>
+        {% if node.account.description %}<span class="text-xs text-gray-400 ml-2">— {{ node.account.description }}</span>{% endif %}
+      </div>
+      {% for child in node.children %}
+        <div style="padding-left: {{ indent|add:24 }}px" class="py-1 hover:bg-gray-50 rounded">
+          <span class="font-mono text-sm text-gray-500">{{ child.account.account_number }}</span>
+          <span class="ml-2">{{ child.account.name }}</span>
+          <span class="text-sm ml-4 {% if child.account.current_balance > 0 %}text-green-600{% elif child.account.current_balance < 0 %}text-red-600{% endif %}">
+            ₦{{ child.account.current_balance|floatformat:2 }}
+          </span>
+        </div>
+        {% for grandchild in child.children %}
+          <div style="padding-left: {{ indent|add:48 }}px" class="py-1 hover:bg-gray-50 rounded">
+            <span class="font-mono text-sm text-gray-500">{{ grandchild.account.account_number }}</span>
+            <span class="ml-2">{{ grandchild.account.name }}</span>
+            <span class="text-sm ml-4 {% if grandchild.account.current_balance > 0 %}text-green-600{% elif grandchild.account.current_balance < 0 %}text-red-600{% endif %}">
+              ₦{{ grandchild.account.current_balance|floatformat:2 }}
+            </span>
+          </div>
+        {% endfor %}
+      {% endfor %}
+    {% endmacro %}
+    {% for node in tree %}
+      {% render_node node 0 %}
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

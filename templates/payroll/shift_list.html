@@ -1,0 +1,11 @@
+{% extends "base_new.html" %}
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 py-8">
+  <h1 class="text-2xl font-bold mb-6">{{ page_title }}</h1>
+  <div class="grid grid-cols-3 gap-4 mb-6">
+    <a href="{% url 'payroll:shift_list' %}" class="bg-white shadow rounded-lg p-4 hover:shadow-md"><h3 class="font-semibold">Shifts</h3><p class="text-sm text-gray-500">Manage shift definitions</p></a>
+    <a href="{% url 'payroll:shift_template_list' %}" class="bg-white shadow rounded-lg p-4 hover:shadow-md"><h3 class="font-semibold">Templates</h3><p class="text-sm text-gray-500">Weekly shift patterns</p></a>
+    <a href="{% url 'payroll:shift_assignment_list' %}" class="bg-white shadow rounded-lg p-4 hover:shadow-md"><h3 class="font-semibold">Assignments</h3><p class="text-sm text-gray-500">Assign shifts to employees</p></a>
+  </div>
+</div>
+{% endblock %}

@@ -1543,6 +1543,60 @@ class DisciplinaryCase(BaseModel):
         self.save(update_fields=["status", "closed_at", "updated_at"])
 
 
+class DisciplinaryCaseAudit(models.Model):
+    class Action(models.TextChoices):
+        CREATED = "created", "Created"
+        INVESTIGATION_STARTED = "investigation_started", "Investigation Started"
+        DECISION_RECORDED = "decision_recorded", "Decision Recorded"
+        SANCTION_CREATED = "sanction_created", "Sanction Created"
+        SANCTION_COMPLETED = "sanction_completed", "Sanction Completed"
+        APPEAL_SUBMITTED = "appeal_submitted", "Appeal Submitted"
+        APPEAL_REVIEWED = "appeal_reviewed", "Appeal Reviewed"
+        STATUS_CHANGED = "status_changed", "Status Changed"
+        CASE_CLOSED = "case_closed", "Case Closed"
+
+    case = models.ForeignKey(
+        DisciplinaryCase,
+        on_delete=models.CASCADE,
+        related_name="audit_events",
+    )
+    action = models.CharField(max_length=40, choices=Action.choices)
+    actor = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="disciplinary_case_audit_events",
+    )
+    details = models.JSONField(default=dict, blank=True)
+    timestamp = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-timestamp", "-id"]
+        indexes = [
+            models.Index(fields=["case", "timestamp"]),
+            models.Index(fields=["actor", "timestamp"]),
+            models.Index(fields=["action", "timestamp"]),
+        ]
+        verbose_name = "Disciplinary Case Audit Event"
+        verbose_name_plural = "Disciplinary Case Audit Events"
+
+    def __str__(self):
+        return f"{self.case_id}:{self.action} by {self.actor_id}"
+
+
+def log_disciplinary_case_audit(case, action, actor=None, details=None):
+    if case is None:
+        return None
+    actor = actor if getattr(actor, "is_authenticated", False) else None
+    return DisciplinaryCaseAudit.objects.create(
+        case=case,
+        action=action,
+        actor=actor,
+        details=details or {},
+    )
+
+
 class DisciplinaryEvidence(BaseModel):
     class EvidenceType(models.TextChoices):
         DOCUMENT = "DOCUMENT", "Document"
@@ -1770,3 +1824,68 @@ class DisciplinaryAppeal(BaseModel):
             and timezone.now() > self.case.appeal_window_ends_at
         ):
             raise ValidationError("Appeal window has closed for this case.")
+
+
+class JournalAttachment(BaseModel):
+    company = models.ForeignKey(
+        "company.Company",
+        on_delete=models.CASCADE,
+        related_name="journal_attachments",
+    )
+    journal = models.ForeignKey(
+        "Journal",
+        on_delete=models.CASCADE,
+        related_name="attachments",
+    )
+    file = models.FileField(upload_to="journal_attachments/%Y/%m/")
+    original_filename = models.CharField(max_length=255)
+    description = models.CharField(max_length=255, blank=True)
+    uploaded_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="journal_attachments",
+    )
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"Attachment for {self.journal}: {self.original_filename}"
+
+
+class RecurringJournalTemplate(BaseModel):
+    class Frequency(models.TextChoices):
+        DAILY = "DAILY", "Daily"
+        WEEKLY = "WEEKLY", "Weekly"
+        MONTHLY = "MONTHLY", "Monthly"
+        QUARTERLY = "QUARTERLY", "Quarterly"
+        YEARLY = "YEARLY", "Yearly"
+
+    company = models.ForeignKey(
+        "company.Company",
+        on_delete=models.CASCADE,
+        related_name="recurring_journal_templates",
+    )
+    name = models.CharField(max_length=160)
+    description = models.TextField(blank=True)
+    frequency = models.CharField(max_length=20, choices=Frequency.choices)
+    debit_account = models.ForeignKey(
+        Account, on_delete=models.PROTECT, related_name="recurring_debit_templates"
+    )
+    credit_account = models.ForeignKey(
+        Account, on_delete=models.PROTECT, related_name="recurring_credit_templates"
+    )
+    amount = models.DecimalField(max_digits=18, decimal_places=2)
+    memo = models.CharField(max_length=255, blank=True)
+    is_active = models.BooleanField(default=True)
+    next_run_date = models.DateField(null=True, blank=True)
+    last_run_date = models.DateField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["name"]
+
+    def __str__(self):
+        return f"{self.name} ({self.get_frequency_display()})"

@@ -231,4 +231,35 @@ urlpatterns = [
     path("reports/export/chart-of-accounts/", views.export_chart_of_accounts_csv_view, name="export_chart_of_accounts_csv"),
     path("reports/export/suppliers/", views.export_suppliers_csv_view, name="export_suppliers_csv"),
     path("reports/export/customers/", views.export_customers_csv_view, name="export_customers_csv"),
+    # Phase 1: Budget Management
+    path("budgets/", views.budget_list, name="budget_list"),
+    path("budgets/create/", views.budget_create, name="budget_create"),
+    path("budgets/<int:pk>/", views.budget_detail, name="budget_detail"),
+    path("budgets/<int:budget_pk>/lines/create/", views.budget_line_create, name="budget_line_create"),
+    path("reports/budget-vs-actual/", views.budget_vs_actual_report, name="budget_vs_actual"),
+    # Phase 2: Cost Center & Accrual Management
+    path("cost-centers/", views.cost_center_list, name="cost_center_list"),
+    path("cost-centers/create/", views.cost_center_create, name="cost_center_create"),
+    path("cost-centers/<int:pk>/edit/", views.cost_center_update, name="cost_center_update"),
+    path("accrual-templates/", views.accrual_template_list, name="accrual_template_list"),
+    path("accrual-templates/create/", views.accrual_template_create, name="accrual_template_create"),
+    path("accrual-templates/<int:pk>/post/", views.post_accrual, name="post_accrual"),
+    # Phase 3: Exchange Rate & FX Revaluation
+    path("exchange-rates/", views.exchange_rate_list, name="exchange_rate_list"),
+    path("exchange-rates/create/", views.exchange_rate_create, name="exchange_rate_create"),
+    path("revaluations/", views.revaluation_list, name="revaluation_list"),
+    path("revaluations/create/", views.revaluation_create, name="revaluation_create"),
+    # Phase 4: Tax Return Management
+    path("tax-returns/", views.tax_return_list, name="tax_return_list"),
+    path("tax-returns/create/", views.tax_return_create, name="tax_return_create"),
+    path("tax-returns/<int:pk>/", views.tax_return_detail, name="tax_return_detail"),
+    path("tax-returns/<int:return_pk>/lines/create/", views.tax_return_line_create, name="tax_return_line_create"),
+    path("tax-returns/<int:pk>/file/", views.tax_return_file, name="tax_return_file"),
+    # Phase 5: Journal Attachments & Recurring Journals
+    path("journals/<int:journal_pk>/attachments/upload/", views.journal_attachment_upload, name="journal_attachment_upload"),
+    path("attachments/<int:pk>/download/", views.journal_attachment_download, name="journal_attachment_download"),
+    path("recurring-templates/", views.recurring_template_list, name="recurring_template_list"),
+    path("recurring-templates/create/", views.recurring_template_create, name="recurring_template_create"),
+    # Phase 6: Account Tree
+    path("accounts/tree/", views.account_tree, name="account_tree"),
 ]

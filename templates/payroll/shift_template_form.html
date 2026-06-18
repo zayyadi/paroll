@@ -1,0 +1,28 @@
+{% extends "base_new.html" %}
+{% block content %}
+<div class="max-w-3xl mx-auto px-4 py-8">
+  <h1 class="text-2xl font-bold mb-6">{{ page_title }}</h1>
+  <form method="post" class="bg-white shadow rounded-lg p-6 space-y-4">
+    {% csrf_token %}
+    <div>
+      <label class="block text-sm font-medium text-gray-700 mb-1">Template Name</label>
+      <input type="text" name="name" required class="w-full border rounded px-3 py-2">
+    </div>
+    {% for day in "monday,tuesday,wednesday,thursday,friday,saturday,sunday" %}
+    <div>
+      <label class="block text-sm font-medium text-gray-700 mb-1">{{ day|title }}</label>
+      <select name="{{ day }}" class="w-full border rounded px-3 py-2">
+        <option value="">Off</option>
+        {% for s in shifts %}
+        <option value="{{ s.pk }}">{{ s.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    {% endfor %}
+    <div class="flex justify-end space-x-3">
+      <a href="{% url 'payroll:shift_template_list' %}" class="px-4 py-2 border rounded text-gray-700 hover:bg-gray-50">Cancel</a>
+      <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Create Template</button>
+    </div>
+  </form>
+</div>
+{% endblock %}

@@ -1593,3 +1593,48 @@ def get_leave_balance(employee, year=None):
         defaults=defaults,
     )
     return balance
+
+
+class BankPaymentFile(SoftDeleteModel):
+    company = models.ForeignKey(
+        "company.Company",
+        on_delete=models.CASCADE,
+        related_name="bank_payment_files",
+    )
+    payroll_run = models.ForeignKey(
+        PayrollRun,
+        on_delete=models.CASCADE,
+        related_name="payment_files",
+    )
+    bank_code = models.CharField(max_length=10)
+    bank_name = models.CharField(max_length=100)
+    file_name = models.CharField(max_length=255)
+    total_amount = models.DecimalField(max_digits=15, decimal_places=2)
+    total_records = models.PositiveIntegerField()
+    status = models.CharField(
+        max_length=20,
+        choices=[
+            ("GENERATED", "Generated"),
+            ("SUBMITTED", "Submitted"),
+            ("CONFIRMED", "Confirmed"),
+            ("FAILED", "Failed"),
+        ],
+        default="GENERATED",
+    )
+    submitted_at = models.DateTimeField(null=True, blank=True)
+    confirmed_at = models.DateTimeField(null=True, blank=True)
+    reference_number = models.CharField(max_length=100, blank=True)
+    file = models.FileField(upload_to="bank_payment_files/", blank=True, null=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.bank_name} - {self.payroll_run} ({self.total_records} records)"

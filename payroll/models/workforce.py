@@ -1010,3 +1010,259 @@ class BenefitEnrollment(SoftDeleteModel):
 
     def __str__(self):
         return f"{self.plan} - {self.employee}"
+
+
+class OffboardingChecklist(SoftDeleteModel):
+    company = models.ForeignKey(
+        "company.Company",
+        on_delete=models.CASCADE,
+        related_name="offboarding_checklists",
+    )
+    employee = models.ForeignKey(
+        "payroll.EmployeeProfile",
+        on_delete=models.CASCADE,
+        related_name="offboarding_checklists",
+    )
+    initiated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+    )
+    last_working_day = models.DateField()
+    reason = models.CharField(
+        max_length=50,
+        choices=[
+            ("RESIGNATION", "Resignation"),
+            ("TERMINATION", "Termination"),
+            ("RETIREMENT", "Retirement"),
+            ("CONTRACT_EXPIRY", "Contract Expiry"),
+            ("OTHER", "Other"),
+        ],
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=[
+            ("IN_PROGRESS", "In Progress"),
+            ("COMPLETED", "Completed"),
+            ("CANCELLED", "Cancelled"),
+        ],
+        default="IN_PROGRESS",
+    )
+    exit_interview_completed = models.BooleanField(default=False)
+    exit_interview_notes = models.TextField(blank=True)
+    final_settlement_amount = models.DecimalField(
+        max_digits=12, decimal_places=2, default=0
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"Offboarding: {self.employee} ({self.get_reason_display()})"
+
+
+class OffboardingTask(SoftDeleteModel):
+    checklist = models.ForeignKey(
+        OffboardingChecklist,
+        on_delete=models.CASCADE,
+        related_name="tasks",
+    )
+    category = models.CharField(
+        max_length=30,
+        choices=[
+            ("ASSET_RETURN", "Asset Return"),
+            ("ACCESS_REVOCATION", "Access Revocation"),
+            ("KNOWLEDGE_TRANSFER", "Knowledge Transfer"),
+            ("DOCUMENTATION", "Documentation"),
+            ("FINANCIAL", "Financial Settlement"),
+            ("IT", "IT Systems"),
+            ("HR", "HR Administration"),
+        ],
+    )
+    title = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
+    is_completed = models.BooleanField(default=False)
+    completed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+    )
+    completed_at = models.DateTimeField(null=True, blank=True)
+    notes = models.TextField(blank=True)
+    order = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ["order"]
+
+    def __str__(self):
+        return f"{self.title} ({self.get_category_display()})"
+
+
+class OvertimePolicy(SoftDeleteModel):
+    company = models.ForeignKey(
+        "company.Company",
+        on_delete=models.CASCADE,
+        related_name="overtime_policies",
+    )
+    daily_threshold_hours = models.DecimalField(
+        max_digits=4, decimal_places=2, default=8.00
+    )
+    weekly_threshold_hours = models.DecimalField(
+        max_digits=5, decimal_places=2, default=40.00
+    )
+    weekday_rate_multiplier = models.DecimalField(
+        max_digits=4, decimal_places=2, default=1.50
+    )
+    weekend_rate_multiplier = models.DecimalField(
+        max_digits=4, decimal_places=2, default=2.00
+    )
+    holiday_rate_multiplier = models.DecimalField(
+        max_digits=4, decimal_places=2, default=2.00
+    )
+    max_daily_overtime_hours = models.DecimalField(
+        max_digits=4, decimal_places=2, default=4.00
+    )
+    requires_approval = models.BooleanField(default=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name_plural = "Overtime policies"
+
+    def __str__(self):
+        return f"Overtime Policy ({self.company})"
+
+
+class OvertimeEntry(SoftDeleteModel):
+    company = models.ForeignKey(
+        "company.Company",
+        on_delete=models.CASCADE,
+        related_name="overtime_entries",
+    )
+    employee = models.ForeignKey(
+        "payroll.EmployeeProfile",
+        on_delete=models.CASCADE,
+        related_name="overtime_entries",
+    )
+    attendance = models.OneToOneField(
+        "AttendanceRecord",
+        on_delete=models.CASCADE,
+        related_name="overtime_entry",
+        null=True,
+        blank=True,
+    )
+    date = models.DateField()
+    hours = models.DecimalField(max_digits=4, decimal_places=2)
+    rate_multiplier = models.DecimalField(max_digits=4, decimal_places=2)
+    status = models.CharField(
+        max_length=20,
+        choices=[
+            ("PENDING", "Pending"),
+            ("APPROVED", "Approved"),
+            ("REJECTED", "Rejected"),
+        ],
+        default="PENDING",
+    )
+    approved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+    )
+    approved_at = models.DateTimeField(null=True, blank=True)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-date"]
+
+    def __str__(self):
+        return f"OT: {self.employee} - {self.date} ({self.hours}h)"
+
+
+class Shift(SoftDeleteModel):
+    company = models.ForeignKey(
+        "company.Company",
+        on_delete=models.CASCADE,
+        related_name="shifts",
+    )
+    name = models.CharField(max_length=100)
+    start_time = models.TimeField()
+    end_time = models.TimeField()
+    break_minutes = models.PositiveIntegerField(default=60)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["start_time"]
+
+    def __str__(self):
+        return f"{self.name} ({self.start_time}-{self.end_time})"
+
+
+class ShiftTemplate(SoftDeleteModel):
+    company = models.ForeignKey(
+        "company.Company",
+        on_delete=models.CASCADE,
+        related_name="shift_templates",
+    )
+    name = models.CharField(max_length=100)
+    monday = models.ForeignKey(
+        Shift, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
+    tuesday = models.ForeignKey(
+        Shift, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
+    wednesday = models.ForeignKey(
+        Shift, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
+    thursday = models.ForeignKey(
+        Shift, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
+    friday = models.ForeignKey(
+        Shift, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
+    saturday = models.ForeignKey(
+        Shift, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
+    sunday = models.ForeignKey(
+        Shift, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def get_shift_for_day(self, date_obj):
+        day_name = date_obj.strftime("%A").lower()
+        return getattr(self, day_name, None)
+
+    def __str__(self):
+        return self.name
+
+
+class ShiftAssignment(SoftDeleteModel):
+    company = models.ForeignKey(
+        "company.Company",
+        on_delete=models.CASCADE,
+        related_name="shift_assignments",
+    )
+    employee = models.ForeignKey(
+        "payroll.EmployeeProfile",
+        on_delete=models.CASCADE,
+        related_name="shift_assignments",
+    )
+    shift_template = models.ForeignKey(
+        ShiftTemplate, on_delete=models.CASCADE
+    )
+    effective_from = models.DateField()
+    effective_to = models.DateField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-effective_from"]
+
+    def __str__(self):
+        return f"{self.employee} -> {self.shift_template}"

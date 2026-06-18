@@ -63,6 +63,19 @@ from payroll.models import (
     CourseEnrollment,
     BenefitPlan,
     BenefitEnrollment,
+    log_sensitive_employee_data_access,
+    EmployeeTransfer,
+    Promotion,
+    ContractTemplate,
+    EmploymentContract,
+    OffboardingChecklist,
+    OffboardingTask,
+    OvertimePolicy,
+    OvertimeEntry,
+    Shift,
+    ShiftTemplate,
+    ShiftAssignment,
+    BankPaymentFile,
 )
 
 
@@ -308,6 +321,25 @@ class EmployeeProfileAdmin(ImportExportModelAdmin):
         ),
     )
     readonly_fields = ("emp_id",)
+
+    sensitive_admin_fields = (
+        "pension_rsa",
+        "bank_account_name",
+        "bank_account_number",
+        "next_of_kin_phone",
+    )
+
+    def change_view(self, request, object_id, form_url="", extra_context=None):
+        employee = self.get_object(request, object_id)
+        if employee is not None and request.method == "GET":
+            log_sensitive_employee_data_access(
+                employee=employee,
+                accessed_by=request.user,
+                fields=self.sensitive_admin_fields,
+                purpose="django_admin_employee_change_view",
+                metadata={"admin_model": "EmployeeProfile"},
+            )
+        return super().change_view(request, object_id, form_url, extra_context)
 
 
 @admin.register(Payroll)
@@ -790,3 +822,83 @@ class BenefitEnrollmentAdmin(admin.ModelAdmin):
     list_display = ("plan", "employee", "status", "effective_date", "end_date")
     list_filter = ("company", "status", "effective_date")
     search_fields = ("plan__name", "employee__first_name", "employee__last_name")
+
+
+@admin.register(EmployeeTransfer)
+class EmployeeTransferAdmin(admin.ModelAdmin):
+    list_display = ("employee", "from_department", "to_department", "effective_date", "status")
+    list_filter = ("status", "company")
+    search_fields = ("employee__first_name", "employee__last_name")
+
+
+@admin.register(Promotion)
+class PromotionAdmin(admin.ModelAdmin):
+    list_display = ("employee", "old_title", "new_title", "effective_date", "status")
+    list_filter = ("status", "company")
+    search_fields = ("employee__first_name", "employee__last_name")
+
+
+@admin.register(ContractTemplate)
+class ContractTemplateAdmin(admin.ModelAdmin):
+    list_display = ("name", "company", "is_active")
+    list_filter = ("company", "is_active")
+    search_fields = ("name",)
+
+
+@admin.register(EmploymentContract)
+class EmploymentContractAdmin(admin.ModelAdmin):
+    list_display = ("employee", "version", "start_date", "end_date", "status")
+    list_filter = ("status", "company")
+    search_fields = ("employee__first_name", "employee__last_name")
+
+
+@admin.register(OffboardingChecklist)
+class OffboardingChecklistAdmin(admin.ModelAdmin):
+    list_display = ("employee", "reason", "last_working_day", "status")
+    list_filter = ("status", "reason", "company")
+    search_fields = ("employee__first_name", "employee__last_name")
+
+
+@admin.register(OffboardingTask)
+class OffboardingTaskAdmin(admin.ModelAdmin):
+    list_display = ("title", "category", "checklist", "is_completed")
+    list_filter = ("category", "is_completed")
+
+
+@admin.register(OvertimePolicy)
+class OvertimePolicyAdmin(admin.ModelAdmin):
+    list_display = ("company", "daily_threshold_hours", "weekday_rate_multiplier", "is_active")
+    list_filter = ("company", "is_active")
+
+
+@admin.register(OvertimeEntry)
+class OvertimeEntryAdmin(admin.ModelAdmin):
+    list_display = ("employee", "date", "hours", "rate_multiplier", "status")
+    list_filter = ("status", "company")
+    search_fields = ("employee__first_name", "employee__last_name")
+
+
+@admin.register(Shift)
+class ShiftAdmin(admin.ModelAdmin):
+    list_display = ("name", "company", "start_time", "end_time", "is_active")
+    list_filter = ("company", "is_active")
+
+
+@admin.register(ShiftTemplate)
+class ShiftTemplateAdmin(admin.ModelAdmin):
+    list_display = ("name", "company", "is_active")
+    list_filter = ("company", "is_active")
+
+
+@admin.register(ShiftAssignment)
+class ShiftAssignmentAdmin(admin.ModelAdmin):
+    list_display = ("employee", "shift_template", "effective_from", "effective_to")
+    list_filter = ("company",)
+    search_fields = ("employee__first_name", "employee__last_name")
+
+
+@admin.register(BankPaymentFile)
+class BankPaymentFileAdmin(admin.ModelAdmin):
+    list_display = ("bank_name", "payroll_run", "total_records", "total_amount", "status")
+    list_filter = ("status", "bank_code", "company")
+    search_fields = ("bank_name",)

@@ -20,6 +20,16 @@ from .models import (
     DisciplinarySanction,
     DisciplinaryAppeal,
     AccountReconciliation,
+    CostCenter,
+    Budget,
+    BudgetLine,
+    AccrualTemplate,
+    ExchangeRate,
+    CurrencyRevaluation,
+    TaxReturn,
+    TaxReturnLine,
+    JournalAttachment,
+    RecurringJournalTemplate,
 )
 from .utils import get_entry_type_for_balance_adjustment
 
@@ -903,3 +913,147 @@ class DisciplinaryAppealReviewForm(forms.ModelForm):
         )
         for field in self.fields.values():
             field.widget.attrs["class"] = base_class
+
+
+class CostCenterForm(forms.ModelForm):
+    class Meta:
+        model = CostCenter
+        fields = ["code", "name", "is_active"]
+        widgets = {
+            "code": forms.TextInput(attrs={"class": "form-input block w-full px-3 py-2 border border-secondary-300 rounded-md sm:text-sm"}),
+            "name": forms.TextInput(attrs={"class": "form-input block w-full px-3 py-2 border border-secondary-300 rounded-md sm:text-sm"}),
+        }
+
+
+class BudgetForm(forms.ModelForm):
+    class Meta:
+        model = Budget
+        fields = ["fiscal_year", "name", "status"]
+        widgets = {
+            "name": forms.TextInput(attrs={"class": "form-input block w-full px-3 py-2 border border-secondary-300 rounded-md sm:text-sm"}),
+        }
+
+    def __init__(self, *args, company=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.company = company
+        if company:
+            self.fields["fiscal_year"].queryset = FiscalYear.objects.filter(company=company)
+
+
+class BudgetLineForm(forms.ModelForm):
+    class Meta:
+        model = BudgetLine
+        fields = ["account", "period", "amount"]
+        widgets = {
+            "amount": forms.NumberInput(attrs={"class": "form-input block w-full px-3 py-2 border border-secondary-300 rounded-md sm:text-sm", "step": "0.01"}),
+        }
+
+    def __init__(self, *args, company=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.company = company
+        if company:
+            self.fields["account"].queryset = Account.objects.filter(company=company).order_by("account_number")
+            self.fields["period"].queryset = AccountingPeriod.objects.filter(company=company)
+
+
+class BudgetVsActualForm(forms.Form):
+    fiscal_year = forms.ModelChoiceField(queryset=FiscalYear.objects.none())
+    period = forms.ModelChoiceField(queryset=AccountingPeriod.objects.none(), required=False)
+
+    def __init__(self, *args, company=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.company = company
+        if company:
+            self.fields["fiscal_year"].queryset = FiscalYear.objects.filter(company=company)
+            self.fields["period"].queryset = AccountingPeriod.objects.filter(company=company)
+
+
+class AccrualTemplateForm(forms.ModelForm):
+    class Meta:
+        model = AccrualTemplate
+        fields = ["name", "debit_account", "credit_account", "amount", "is_active"]
+        widgets = {
+            "name": forms.TextInput(attrs={"class": "form-input block w-full px-3 py-2 border border-secondary-300 rounded-md sm:text-sm"}),
+            "amount": forms.NumberInput(attrs={"class": "form-input block w-full px-3 py-2 border border-secondary-300 rounded-md sm:text-sm", "step": "0.01"}),
+        }
+
+    def __init__(self, *args, company=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.company = company
+        if company:
+            self.fields["debit_account"].queryset = Account.objects.filter(company=company).order_by("account_number")
+            self.fields["credit_account"].queryset = Account.objects.filter(company=company).order_by("account_number")
+
+
+class ExchangeRateForm(forms.ModelForm):
+    class Meta:
+        model = ExchangeRate
+        fields = ["base_currency", "quote_currency", "rate", "rate_date", "source"]
+        widgets = {
+            "rate": forms.NumberInput(attrs={"class": "form-input block w-full px-3 py-2 border border-secondary-300 rounded-md sm:text-sm", "step": "0.00000001"}),
+            "rate_date": forms.DateInput(attrs={"type": "date", "class": "form-input block w-full px-3 py-2 border border-secondary-300 rounded-md sm:text-sm"}),
+        }
+
+
+class CurrencyRevaluationForm(forms.Form):
+    revaluation_date = forms.DateField(widget=forms.DateInput(attrs={"type": "date", "class": "form-input block w-full px-3 py-2 border border-secondary-300 rounded-md sm:text-sm"}))
+    base_currency = forms.CharField(max_length=3, initial="NGN", widget=forms.TextInput(attrs={"class": "form-input block w-full px-3 py-2 border border-secondary-300 rounded-md sm:text-sm"}))
+    memo = forms.CharField(required=False, widget=forms.Textarea(attrs={"rows": 3, "class": "form-input block w-full px-3 py-2 border border-secondary-300 rounded-md sm:text-sm"}))
+
+
+class TaxReturnForm(forms.ModelForm):
+    class Meta:
+        model = TaxReturn
+        fields = ["return_type", "period", "jurisdiction_code", "return_period_start", "return_period_end", "notes"]
+        widgets = {
+            "return_period_start": forms.DateInput(attrs={"type": "date", "class": "form-input block w-full px-3 py-2 border border-secondary-300 rounded-md sm:text-sm"}),
+            "return_period_end": forms.DateInput(attrs={"type": "date", "class": "form-input block w-full px-3 py-2 border border-secondary-300 rounded-md sm:text-sm"}),
+            "notes": forms.Textarea(attrs={"rows": 3, "class": "form-input block w-full px-3 py-2 border border-secondary-300 rounded-md sm:text-sm"}),
+        }
+
+    def __init__(self, *args, company=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.company = company
+        if company:
+            self.fields["period"].queryset = AccountingPeriod.objects.filter(company=company)
+
+
+class TaxReturnLineForm(forms.ModelForm):
+    class Meta:
+        model = TaxReturnLine
+        fields = ["account", "tax_account", "gross_amount", "tax_rate", "line_description"]
+        widgets = {
+            "gross_amount": forms.NumberInput(attrs={"class": "form-input block w-full px-3 py-2 border border-secondary-300 rounded-md sm:text-sm", "step": "0.01"}),
+            "tax_rate": forms.NumberInput(attrs={"class": "form-input block w-full px-3 py-2 border border-secondary-300 rounded-md sm:text-sm", "step": "0.0001"}),
+        }
+
+    def __init__(self, *args, company=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.company = company
+        if company:
+            self.fields["account"].queryset = Account.objects.filter(company=company).order_by("account_number")
+            self.fields["tax_account"].queryset = Account.objects.filter(company=company, type="LIABILITY").order_by("account_number")
+
+
+class JournalAttachmentForm(forms.Form):
+    file = forms.FileField(widget=forms.ClearableFileInput(attrs={"class": "form-input block w-full px-3 py-2 border border-secondary-300 rounded-md sm:text-sm"}))
+    description = forms.CharField(required=False, max_length=255, widget=forms.TextInput(attrs={"class": "form-input block w-full px-3 py-2 border border-secondary-300 rounded-md sm:text-sm"}))
+
+
+class RecurringJournalTemplateForm(forms.ModelForm):
+    class Meta:
+        model = RecurringJournalTemplate
+        fields = ["name", "description", "frequency", "debit_account", "credit_account", "amount", "memo", "is_active", "next_run_date"]
+        widgets = {
+            "name": forms.TextInput(attrs={"class": "form-input block w-full px-3 py-2 border border-secondary-300 rounded-md sm:text-sm"}),
+            "description": forms.Textarea(attrs={"rows": 3, "class": "form-input block w-full px-3 py-2 border border-secondary-300 rounded-md sm:text-sm"}),
+            "amount": forms.NumberInput(attrs={"class": "form-input block w-full px-3 py-2 border border-secondary-300 rounded-md sm:text-sm", "step": "0.01"}),
+            "next_run_date": forms.DateInput(attrs={"type": "date", "class": "form-input block w-full px-3 py-2 border border-secondary-300 rounded-md sm:text-sm"}),
+        }
+
+    def __init__(self, *args, company=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.company = company
+        if company:
+            self.fields["debit_account"].queryset = Account.objects.filter(company=company).order_by("account_number")
+            self.fields["credit_account"].queryset = Account.objects.filter(company=company).order_by("account_number")

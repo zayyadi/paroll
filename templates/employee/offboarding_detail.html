@@ -1,0 +1,52 @@
+{% extends "base_new.html" %}
+{% block content %}
+<div class="max-w-4xl mx-auto px-4 py-8">
+  <h1 class="text-2xl font-bold mb-6">{{ page_title }}</h1>
+  <div class="bg-white shadow rounded-lg p-6 mb-6">
+    <div class="grid grid-cols-2 gap-4 mb-4">
+      <div><span class="text-gray-500 text-sm">Employee</span><p class="font-medium">{{ checklist.employee }}</p></div>
+      <div><span class="text-gray-500 text-sm">Status</span><p class="font-medium">{{ checklist.get_status_display }}</p></div>
+      <div><span class="text-gray-500 text-sm">Reason</span><p class="font-medium">{{ checklist.get_reason_display }}</p></div>
+      <div><span class="text-gray-500 text-sm">Last Working Day</span><p class="font-medium">{{ checklist.last_working_day }}</p></div>
+      <div><span class="text-gray-500 text-sm">Progress</span><p class="font-medium">{{ completed_count }}/{{ total_count }} tasks complete</p></div>
+      <div><span class="text-gray-500 text-sm">Final Settlement</span><p class="font-medium">₦{{ checklist.final_settlement_amount|floatformat:2 }}</p></div>
+    </div>
+    <div class="flex space-x-3">
+      <form method="post" action="{% url 'payroll:offboarding_settlement' checklist.pk %}">
+        {% csrf_token %}
+        <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">Calculate Settlement</button>
+      </form>
+      {% if all_done and checklist.status == 'IN_PROGRESS' %}
+      <form method="post" action="{% url 'payroll:offboarding_complete' checklist.pk %}">
+        {% csrf_token %}
+        <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">Complete Offboarding</button>
+      </form>
+      {% endif %}
+    </div>
+  </div>
+  <div class="bg-white shadow rounded-lg p-6">
+    <h2 class="text-lg font-semibold mb-4">Tasks</h2>
+    <div class="space-y-3">
+      {% for task in tasks %}
+      <div class="flex items-center justify-between p-3 rounded {% if task.is_completed %}bg-green-50{% else %}bg-gray-50{% endif %}">
+        <div>
+          <span class="font-medium">{{ task.title }}</span>
+          <span class="ml-2 text-xs text-gray-500">{{ task.get_category_display }}</span>
+        </div>
+        {% if not task.is_completed %}
+        <form method="post" action="{% url 'payroll:offboarding_task_complete' checklist.pk task.pk %}">
+          {% csrf_token %}
+          <button type="submit" class="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700">Complete</button>
+        </form>
+        {% else %}
+        <span class="text-green-600 text-sm">Done</span>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  <div class="mt-4">
+    <a href="{% url 'payroll:offboarding_list' %}" class="text-blue-600 hover:underline">Back to list</a>
+  </div>
+</div>
+{% endblock %}

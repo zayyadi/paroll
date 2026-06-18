@@ -29,6 +29,16 @@ from payroll.services.access import visible_employee_profiles_for
 from payroll.views.employee_utilities import _start_workflow_execution
 
 
+EMPLOYEE_PROFILE_SENSITIVE_FIELDS = (
+    "tin_no",
+    "pension_rsa",
+    "bank_account_name",
+    "bank_account_number",
+    "emergency_contact_phone",
+    "next_of_kin_phone",
+)
+
+
 @login_required
 def employee_list(request):
     company = get_user_company(request.user)
@@ -130,6 +140,13 @@ def update_employee(request, id):
         return redirect(
             "payroll:employee_list"
         )  # Consider redirecting to employee list or profile
+    models.log_sensitive_employee_data_access(
+        employee=employee,
+        accessed_by=request.user,
+        fields=EMPLOYEE_PROFILE_SENSITIVE_FIELDS,
+        purpose="employee_profile_update_form",
+        metadata={"view": "update_employee"},
+    )
     return render(request, "employee/update_employee.html", {"form": form})
 
 
@@ -227,5 +244,12 @@ def employee(request, user_id: int):
         employee_id=employee_profile_to_display,
         employee_id__company=company,
     ).order_by("-created_at")
+    models.log_sensitive_employee_data_access(
+        employee=employee_profile_to_display,
+        accessed_by=request.user,
+        fields=EMPLOYEE_PROFILE_SENSITIVE_FIELDS,
+        purpose="employee_profile_view",
+        metadata={"view": "employee"},
+    )
     context = {"emp": employee_profile_to_display, "pay": pay, "iou_slips": iou_slips}
     return render(request, "employee/profile_new.html", context)

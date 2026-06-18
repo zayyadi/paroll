@@ -1,0 +1,36 @@
+{% extends "base_new.html" %}
+{% block content %}
+<div class="max-w-3xl mx-auto px-4 py-8">
+  <h1 class="text-2xl font-bold mb-6">{{ page_title }}</h1>
+  <form method="post" class="bg-white shadow rounded-lg p-6 space-y-4">
+    {% csrf_token %}
+    <div>
+      <label class="block text-sm font-medium text-gray-700 mb-1">Employee</label>
+      <select name="employee" required class="w-full border rounded px-3 py-2">
+        <option value="">Select employee</option>
+        {% for emp in employees %}
+        <option value="{{ emp.id|stringformat:"d" }}">{{ emp.first_name }} {{ emp.last_name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="block text-sm font-medium text-gray-700 mb-1">Last Working Day</label>
+      <input type="date" name="last_working_day" required class="w-full border rounded px-3 py-2">
+    </div>
+    <div>
+      <label class="block text-sm font-medium text-gray-700 mb-1">Reason</label>
+      <select name="reason" required class="w-full border rounded px-3 py-2">
+        <option value="RESIGNATION">Resignation</option>
+        <option value="TERMINATION">Termination</option>
+        <option value="RETIREMENT">Retirement</option>
+        <option value="CONTRACT_EXPIRY">Contract Expiry</option>
+        <option value="OTHER">Other</option>
+      </select>
+    </div>
+    <div class="flex justify-end space-x-3">
+      <a href="{% url 'payroll:offboarding_list' %}" class="px-4 py-2 border rounded text-gray-700 hover:bg-gray-50">Cancel</a>
+      <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Initiate</button>
+    </div>
+  </form>
+</div>
+{% endblock %}

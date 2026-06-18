@@ -1,0 +1,47 @@
+{% extends "inventory/base.html" %}
+{% block content %}
+<div class="max-w-4xl mx-auto px-4 py-8">
+  <div class="flex justify-between items-center mb-6">
+    <h1 class="text-2xl font-bold">Vendor Bill — {{ bill.bill_number|default:bill.pk }}</h1>
+    <a href="{% url 'inventory:vendor_bill_list' %}" class="text-blue-600 hover:underline">Back to list</a>
+  </div>
+  <div class="bg-white shadow rounded-lg p-6 mb-6">
+    <div class="grid grid-cols-3 gap-4">
+      <div><span class="text-gray-500 text-sm">Supplier</span><p class="font-medium">{{ bill.supplier }}</p></div>
+      <div><span class="text-gray-500 text-sm">Bill Date</span><p class="font-medium">{{ bill.bill_date }}</p></div>
+      <div><span class="text-gray-500 text-sm">Status</span><p class="font-medium">
+        <span class="px-2 py-1 text-xs rounded-full {% if bill.status == 'PAID' %}bg-green-100 text-green-800{% elif bill.status == 'APPROVED' %}bg-blue-100 text-blue-800{% else %}bg-gray-100 text-gray-800{% endif %}">{{ bill.get_status_display }}</span>
+      </p></div>
+      <div><span class="text-gray-500 text-sm">Bill Number</span><p class="font-medium">{{ bill.bill_number|default:"-" }}</p></div>
+      <div><span class="text-gray-500 text-sm">Due Date</span><p class="font-medium">{{ bill.due_date|default:"-" }}</p></div>
+      <div><span class="text-gray-500 text-sm">Total Amount</span><p class="font-medium">₦{{ bill.total_amount|floatformat:2 }}</p></div>
+    </div>
+  </div>
+  {% if lines %}
+  <div class="bg-white shadow rounded-lg overflow-hidden">
+    <table class="min-w-full divide-y divide-gray-200">
+      <thead class="bg-gray-50">
+        <tr>
+          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Item</th>
+          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Description</th>
+          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Qty</th>
+          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Unit Cost</th>
+          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Total</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-200">
+        {% for line in lines %}
+        <tr class="hover:bg-gray-50">
+          <td class="px-6 py-4 whitespace-nowrap">{{ line.item|default:"-" }}</td>
+          <td class="px-6 py-4 whitespace-nowrap">{{ line.description }}</td>
+          <td class="px-6 py-4 whitespace-nowrap">{{ line.quantity }}</td>
+          <td class="px-6 py-4 whitespace-nowrap">₦{{ line.unit_cost|floatformat:4 }}</td>
+          <td class="px-6 py-4 whitespace-nowrap">₦{{ line.total_amount|floatformat:2 }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
