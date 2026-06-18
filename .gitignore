@@ -40,6 +40,7 @@ static/jazzmin/
 .omx/
 .codex
 .codex/
+.vscode/**/
 
 # Scratch and one-off local files
 mail_test.py
@@ -67,3 +68,5 @@ RECOMMENDATION.md
 RECOMMENDATION_AUDIT.md
 docs/
 doc/
+*.sqlite3
+settings.json

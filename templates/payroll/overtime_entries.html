@@ -1,0 +1,52 @@
+{% extends "base_new.html" %}
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 py-8">
+  <h1 class="text-2xl font-bold mb-6">{{ page_title }}</h1>
+  <div class="mb-4">
+    <a href="{% url 'payroll:overtime_policy' %}" class="text-blue-600 hover:underline mr-4">Manage Policy</a>
+  </div>
+  <div class="bg-white shadow rounded-lg overflow-hidden">
+    <table class="min-w-full divide-y divide-gray-200">
+      <thead class="bg-gray-50">
+        <tr>
+          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Employee</th>
+          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Hours</th>
+          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Rate</th>
+          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Action</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-200">
+        {% for e in entries %}
+        <tr class="hover:bg-gray-50">
+          <td class="px-6 py-4 whitespace-nowrap">{{ e.employee }}</td>
+          <td class="px-6 py-4 whitespace-nowrap">{{ e.date }}</td>
+          <td class="px-6 py-4 whitespace-nowrap">{{ e.hours }}h</td>
+          <td class="px-6 py-4 whitespace-nowrap">{{ e.rate_multiplier }}x</td>
+          <td class="px-6 py-4 whitespace-nowrap">
+            <span class="px-2 py-1 text-xs rounded-full {% if e.status == 'APPROVED' %}bg-green-100 text-green-800{% elif e.status == 'PENDING' %}bg-yellow-100 text-yellow-800{% else %}bg-red-100 text-red-800{% endif %}">{{ e.status }}</span>
+          </td>
+          <td class="px-6 py-4 whitespace-nowrap">
+            {% if e.status == 'PENDING' %}
+            <form method="post" action="{% url 'payroll:overtime_approve' e.pk %}" class="inline">
+              {% csrf_token %}
+              <input type="hidden" name="action" value="approve">
+              <button type="submit" class="text-green-600 hover:underline mr-2">Approve</button>
+            </form>
+            <form method="post" action="{% url 'payroll:overtime_approve' e.pk %}" class="inline">
+              {% csrf_token %}
+              <input type="hidden" name="action" value="reject">
+              <button type="submit" class="text-red-600 hover:underline">Reject</button>
+            </form>
+            {% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="6" class="px-6 py-4 text-center text-gray-500">No overtime entries.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

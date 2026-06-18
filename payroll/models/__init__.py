@@ -7,6 +7,12 @@ from .employee_profile import (
     Rating,
     AppraisalAssignment,
     Metric,
+    SensitiveDataAccess,
+    log_sensitive_employee_data_access,
+    EmployeeTransfer,
+    Promotion,
+    ContractTemplate,
+    EmploymentContract,
 )
 from .payroll import (
     Payroll,
@@ -30,6 +36,7 @@ from .payroll import (
     IOU,
     IOUDeduction,
     get_leave_balance,
+    BankPaymentFile,
 )
 from .notification import (
     Notification,
@@ -78,5 +85,12 @@ from .workforce import (
     CourseEnrollment,
     BenefitPlan,
     BenefitEnrollment,
+    OffboardingChecklist,
+    OffboardingTask,
+    OvertimePolicy,
+    OvertimeEntry,
+    Shift,
+    ShiftTemplate,
+    ShiftAssignment,
 )
 from .utils import *

@@ -418,6 +418,93 @@ class EmployeeProfile(SoftDeleteModel):
             self.__original_employee_pay_id = self.employee_pay_id
 
 
+SENSITIVE_EMPLOYEE_FIELDS = frozenset(
+    {
+        "nin",
+        "tin_no",
+        "pension_rsa",
+        "emergency_contact_phone",
+        "next_of_kin_phone",
+        "bank_account_name",
+        "bank_account_number",
+    }
+)
+
+
+class SensitiveDataAccess(models.Model):
+    employee = models.ForeignKey(
+        EmployeeProfile,
+        on_delete=models.CASCADE,
+        related_name="sensitive_data_accesses",
+    )
+    company = models.ForeignKey(
+        "company.Company",
+        on_delete=models.CASCADE,
+        related_name="sensitive_data_accesses",
+        null=True,
+        blank=True,
+    )
+    accessed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="sensitive_employee_accesses",
+    )
+    field_name = models.CharField(max_length=64)
+    purpose = models.CharField(max_length=120)
+    metadata = models.JSONField(default=dict, blank=True)
+    timestamp = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-timestamp", "-id"]
+        indexes = [
+            models.Index(fields=["employee", "timestamp"]),
+            models.Index(fields=["company", "timestamp"]),
+            models.Index(fields=["accessed_by", "timestamp"]),
+            models.Index(fields=["purpose", "timestamp"]),
+        ]
+        permissions = [
+            (
+                "view_sensitive_employee_data",
+                "Can view sensitive employee data",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.employee_id}:{self.field_name} viewed by {self.accessed_by_id}"
+
+
+def log_sensitive_employee_data_access(
+    *,
+    employee,
+    accessed_by,
+    fields,
+    purpose,
+    metadata=None,
+):
+    if employee is None:
+        return []
+
+    field_names = sorted(set(fields or ()) & SENSITIVE_EMPLOYEE_FIELDS)
+    if not field_names:
+        return []
+
+    actor = accessed_by if getattr(accessed_by, "is_authenticated", False) else None
+    entries = [
+        SensitiveDataAccess(
+            employee=employee,
+            company=employee.company,
+            accessed_by=actor,
+            field_name=field_name,
+            purpose=purpose,
+            metadata=metadata or {},
+        )
+        for field_name in field_names
+    ]
+    return SensitiveDataAccess.objects.bulk_create(entries)
+
+
 @receiver(post_save, sender=CustomUser)
 def create_employee_profile(sender, instance, created, **kwargs):
     if kwargs.get("raw", False):
@@ -586,3 +673,198 @@ class Rating(models.Model):
 
     def __str__(self):
         return f"{self.metric}: {self.rating}"
+
+
+class EmployeeTransfer(SoftDeleteModel):
+    company = models.ForeignKey(
+        "company.Company",
+        on_delete=models.CASCADE,
+        related_name="employee_transfers",
+    )
+    employee = models.ForeignKey(
+        EmployeeProfile,
+        on_delete=models.CASCADE,
+        related_name="transfers",
+    )
+    from_department = models.ForeignKey(
+        Department,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="transfers_from",
+    )
+    to_department = models.ForeignKey(
+        Department,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="transfers_to",
+    )
+    from_position = models.CharField(max_length=255, blank=True)
+    to_position = models.CharField(max_length=255, blank=True)
+    effective_date = models.DateField()
+    reason = models.TextField(blank=True)
+    status = models.CharField(
+        max_length=20,
+        choices=[
+            ("PENDING", "Pending"),
+            ("APPROVED", "Approved"),
+            ("REJECTED", "Rejected"),
+            ("COMPLETED", "Completed"),
+        ],
+        default="PENDING",
+    )
+    requested_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name="requested_transfers",
+    )
+    approved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="approved_transfers",
+    )
+    approved_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-effective_date"]
+
+    def __str__(self):
+        return f"{self.employee} transfer to {self.to_department}"
+
+
+class Promotion(SoftDeleteModel):
+    company = models.ForeignKey(
+        "company.Company",
+        on_delete=models.CASCADE,
+        related_name="promotions",
+    )
+    employee = models.ForeignKey(
+        EmployeeProfile,
+        on_delete=models.CASCADE,
+        related_name="promotions",
+    )
+    old_title = models.CharField(max_length=255)
+    new_title = models.CharField(max_length=255)
+    old_salary_config = models.ForeignKey(
+        "Payroll",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="promotions_from",
+    )
+    new_salary_config = models.ForeignKey(
+        "Payroll",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="promotions_to",
+    )
+    effective_date = models.DateField()
+    reason = models.TextField(blank=True)
+    status = models.CharField(
+        max_length=20,
+        choices=[
+            ("PENDING", "Pending"),
+            ("APPROVED", "Approved"),
+            ("REJECTED", "Rejected"),
+            ("COMPLETED", "Completed"),
+        ],
+        default="PENDING",
+    )
+    requested_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name="requested_promotions",
+    )
+    approved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="approved_promotions",
+    )
+    approved_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-effective_date"]
+
+    def __str__(self):
+        return f"{self.employee} promotion to {self.new_title}"
+
+
+class ContractTemplate(SoftDeleteModel):
+    company = models.ForeignKey(
+        "company.Company",
+        on_delete=models.CASCADE,
+        related_name="contract_templates",
+    )
+    name = models.CharField(max_length=100)
+    template_html = models.TextField(
+        help_text="Django template syntax. Available: {{employee}}, {{salary}}, {{company}}"
+    )
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ("company", "name")
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name
+
+
+class EmploymentContract(SoftDeleteModel):
+    company = models.ForeignKey(
+        "company.Company",
+        on_delete=models.CASCADE,
+        related_name="employment_contracts",
+    )
+    employee = models.ForeignKey(
+        EmployeeProfile,
+        on_delete=models.CASCADE,
+        related_name="contracts",
+    )
+    template = models.ForeignKey(
+        ContractTemplate,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+    )
+    version = models.PositiveIntegerField(default=1)
+    start_date = models.DateField()
+    end_date = models.DateField(null=True, blank=True)
+    status = models.CharField(
+        max_length=20,
+        choices=[
+            ("DRAFT", "Draft"),
+            ("PENDING_SIGNATURE", "Pending Signature"),
+            ("SIGNED", "Signed"),
+            ("EXPIRED", "Expired"),
+            ("TERMINATED", "Terminated"),
+        ],
+        default="DRAFT",
+    )
+    pdf_file = models.FileField(upload_to="contracts/", blank=True, null=True)
+    signed_at = models.DateTimeField(null=True, blank=True)
+    signed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="signed_contracts",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"Contract v{self.version} - {self.employee}"

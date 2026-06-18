@@ -1,0 +1,38 @@
+{% extends "base_new.html" %}
+{% block content %}
+<div class="max-w-3xl mx-auto px-4 py-8">
+  <h1 class="text-2xl font-bold mb-6">{{ page_title }}</h1>
+  <form method="post" class="bg-white shadow rounded-lg p-6 space-y-4">
+    {% csrf_token %}
+    <div class="grid grid-cols-2 gap-4">
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Daily Threshold (hours)</label>
+        <input type="number" name="daily_threshold_hours" value="{{ policy.daily_threshold_hours|default:'8' }}" step="0.5" class="w-full border rounded px-3 py-2">
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Weekly Threshold (hours)</label>
+        <input type="number" name="weekly_threshold_hours" value="{{ policy.weekly_threshold_hours|default:'40' }}" step="0.5" class="w-full border rounded px-3 py-2">
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Weekday Rate Multiplier</label>
+        <input type="number" name="weekday_rate_multiplier" value="{{ policy.weekday_rate_multiplier|default:'1.5' }}" step="0.1" class="w-full border rounded px-3 py-2">
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Weekend Rate Multiplier</label>
+        <input type="number" name="weekend_rate_multiplier" value="{{ policy.weekend_rate_multiplier|default:'2.0' }}" step="0.1" class="w-full border rounded px-3 py-2">
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Max Daily OT Hours</label>
+        <input type="number" name="max_daily_overtime_hours" value="{{ policy.max_daily_overtime_hours|default:'4' }}" step="0.5" class="w-full border rounded px-3 py-2">
+      </div>
+      <div class="flex items-center">
+        <input type="checkbox" name="requires_approval" id="requires_approval" class="mr-2" {% if policy.requires_approval %}checked{% endif %}>
+        <label for="requires_approval" class="text-sm font-medium text-gray-700">Requires Approval</label>
+      </div>
+    </div>
+    <div class="flex justify-end">
+      <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Save Policy</button>
+    </div>
+  </form>
+</div>
+{% endblock %}

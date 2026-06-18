@@ -1,0 +1,33 @@
+{% extends "base_new.html" %}
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 py-8">
+  <div class="flex justify-between items-center mb-6">
+    <h1 class="text-2xl font-bold">{{ page_title }}</h1>
+    <a href="{% url 'payroll:shift_assignment_create' %}" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">New Assignment</a>
+  </div>
+  <div class="bg-white shadow rounded-lg overflow-hidden">
+    <table class="min-w-full divide-y divide-gray-200">
+      <thead class="bg-gray-50">
+        <tr>
+          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Employee</th>
+          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Template</th>
+          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Effective From</th>
+          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Effective To</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-200">
+        {% for a in assignments %}
+        <tr class="hover:bg-gray-50">
+          <td class="px-6 py-4 whitespace-nowrap">{{ a.employee }}</td>
+          <td class="px-6 py-4 whitespace-nowrap">{{ a.shift_template }}</td>
+          <td class="px-6 py-4 whitespace-nowrap">{{ a.effective_from }}</td>
+          <td class="px-6 py-4 whitespace-nowrap">{{ a.effective_to|default:"-" }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="4" class="px-6 py-4 text-center text-gray-500">No assignments.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

@@ -8,10 +8,20 @@ from inventory.models import (
     InventoryCategory,
     InventoryItem,
     PurchaseOrderLine,
+    PurchaseReceipt,
     StockLocation,
     Supplier,
     UnitOfMeasure,
     Warehouse,
+    StockCount,
+    StockCountLine,
+    SalesOrder,
+    SalesOrderLine,
+    VendorBill,
+    VendorBillLine,
+    LandedCost,
+    LandedCostAllocation,
+    PurchaseReceiptLine,
 )
 
 
@@ -521,3 +531,112 @@ class StockTransferForm(InventoryActionForm):
         if cleaned_data.get("from_location") == cleaned_data.get("to_location"):
             raise forms.ValidationError("Transfer locations must be different.")
         return cleaned_data
+
+
+class StockCountCreateForm(InventoryActionForm):
+    location = forms.ModelChoiceField(queryset=StockLocation.objects.none())
+
+    def __init__(self, *args, company=None, **kwargs):
+        super().__init__(*args, company=company, **kwargs)
+        if company is not None:
+            self.fields["location"].queryset = StockLocation.objects.filter(
+                company=company, is_active=True
+            ).select_related("warehouse")
+
+
+class StockCountLineForm(forms.Form):
+    item = forms.ModelChoiceField(queryset=InventoryItem.objects.none())
+    counted_quantity = forms.DecimalField(max_digits=18, decimal_places=4)
+    variance_reason = forms.ChoiceField(
+        choices=[
+            ("BREAKAGE", "Breakage"),
+            ("EXPIRY", "Expiry"),
+            ("THEFT", "Theft"),
+            ("COUNT_ERROR", "Count Error"),
+            ("OTHER", "Other"),
+        ],
+        required=False,
+    )
+
+    def __init__(self, *args, company=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        if company is not None:
+            self.fields["item"].queryset = InventoryItem.objects.filter(
+                company=company, is_active=True
+            )
+
+
+class SalesOrderForm(InventoryActionForm):
+    customer = forms.ModelChoiceField(queryset=Customer.objects.none())
+    item = forms.ModelChoiceField(queryset=InventoryItem.objects.none())
+    location = forms.ModelChoiceField(queryset=StockLocation.objects.none())
+    quantity = forms.DecimalField(max_digits=18, decimal_places=4, min_value=0)
+    unit_price = forms.DecimalField(max_digits=18, decimal_places=4, min_value=0)
+    expected_date = forms.DateField(required=False, widget=forms.DateInput(attrs={"type": "date"}))
+    notes = forms.CharField(required=False, max_length=255)
+
+    def __init__(self, *args, company=None, **kwargs):
+        super().__init__(*args, company=company, **kwargs)
+        if company is not None:
+            self.fields["customer"].queryset = Customer.objects.filter(company=company, is_active=True)
+            self.fields["item"].queryset = InventoryItem.objects.filter(company=company, is_active=True)
+            self.fields["location"].queryset = StockLocation.objects.filter(
+                company=company, is_active=True
+            ).select_related("warehouse")
+
+
+class VendorBillForm(InventoryActionForm):
+    supplier = forms.ModelChoiceField(queryset=Supplier.objects.none())
+    purchase_receipt = forms.ModelChoiceField(
+        queryset=PurchaseReceipt.objects.none(), required=False
+    )
+    item = forms.ModelChoiceField(queryset=InventoryItem.objects.none(), required=False)
+    description = forms.CharField(required=False, max_length=255)
+    quantity = forms.DecimalField(max_digits=18, decimal_places=4, min_value=0, required=False)
+    unit_cost = forms.DecimalField(max_digits=18, decimal_places=4, min_value=0, required=False)
+    bill_number = forms.CharField(required=False, max_length=80)
+    due_date = forms.DateField(required=False, widget=forms.DateInput(attrs={"type": "date"}))
+
+    def __init__(self, *args, company=None, **kwargs):
+        super().__init__(*args, company=company, **kwargs)
+        if company is not None:
+            self.fields["supplier"].queryset = Supplier.objects.filter(company=company, is_active=True)
+            self.fields["purchase_receipt"].queryset = PurchaseReceipt.objects.filter(
+                company=company
+            ).select_related("document")
+            self.fields["item"].queryset = InventoryItem.objects.filter(company=company, is_active=True)
+
+
+class LandedCostForm(InventoryActionForm):
+    purchase_receipt = forms.ModelChoiceField(
+        queryset=PurchaseReceipt.objects.none(), required=False
+    )
+    receipt_line = forms.ModelChoiceField(
+        queryset=PurchaseReceiptLine.objects.none(), required=False
+    )
+    cost_type = forms.ChoiceField(
+        choices=[("FREIGHT", "Freight"), ("DUTY", "Customs Duty"), ("INSURANCE", "Insurance"), ("OTHER", "Other")]
+    )
+    description = forms.CharField(max_length=255)
+    total_cost = forms.DecimalField(max_digits=18, decimal_places=2, min_value=0)
+    allocation_method = forms.ChoiceField(
+        choices=[("BY_VALUE", "By Value"), ("BY_WEIGHT", "By Weight"), ("BY_QUANTITY", "By Quantity")],
+        required=False,
+    )
+    allocated_amount = forms.DecimalField(
+        max_digits=18, decimal_places=2, min_value=0, required=False
+    )
+
+    def __init__(self, *args, company=None, **kwargs):
+        super().__init__(*args, company=company, **kwargs)
+        if company is not None:
+            self.fields["purchase_receipt"].queryset = PurchaseReceipt.objects.filter(
+                company=company
+            ).select_related("document")
+            self.fields["receipt_line"].queryset = PurchaseReceiptLine.objects.filter(
+                receipt__company=company
+            ).select_related("item")
+
+
+class InventoryDocumentReversalForm(InventoryActionForm):
+    reason = forms.CharField(max_length=255, help_text="Reason for reversal")

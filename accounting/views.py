@@ -37,9 +37,21 @@ from .models import (
     DisciplinaryEvidence,
     DisciplinarySanction,
     DisciplinaryAppeal,
+    DisciplinaryCaseAudit,
     AccountReconciliation,
     BankTransaction,
     ReconciliationItem,
+    log_disciplinary_case_audit,
+    CostCenter,
+    Budget,
+    BudgetLine,
+    AccrualTemplate,
+    ExchangeRate,
+    CurrencyRevaluation,
+    TaxReturn,
+    TaxReturnLine,
+    JournalAttachment,
+    RecurringJournalTemplate,
 )
 from .forms import (
     JournalForm,
@@ -65,6 +77,17 @@ from .forms import (
     DisciplinarySanctionForm,
     DisciplinaryAppealForm,
     DisciplinaryAppealReviewForm,
+    CostCenterForm,
+    BudgetForm,
+    BudgetLineForm,
+    BudgetVsActualForm,
+    AccrualTemplateForm,
+    ExchangeRateForm,
+    CurrencyRevaluationForm,
+    TaxReturnForm,
+    TaxReturnLineForm,
+    JournalAttachmentForm,
+    RecurringJournalTemplateForm,
 )
 from .reporting import build_financial_report
 from .utils import (
@@ -1738,9 +1761,20 @@ def disciplinary_case_start_investigation(request, pk):
     if request.method != "POST":
         return HttpResponseForbidden("Invalid request method.")
 
+    old_status = disciplinary_case.status
     disciplinary_case.investigator = request.user
     disciplinary_case.move_to_investigation()
     disciplinary_case.save(update_fields=["investigator", "updated_at"])
+    log_disciplinary_case_audit(
+        disciplinary_case,
+        DisciplinaryCaseAudit.Action.INVESTIGATION_STARTED,
+        actor=request.user,
+        details={
+            "old_status": old_status,
+            "new_status": disciplinary_case.status,
+            "investigator_id": request.user.id,
+        },
+    )
     messages.success(request, "Case moved to investigation.")
     return redirect("payroll:discipline_case_detail", pk=disciplinary_case.pk)
 
@@ -1807,6 +1841,7 @@ class DisciplinaryDecisionUpdateView(
 
     def form_valid(self, form):
         disciplinary_case = form.save(commit=False)
+        old_status = disciplinary_case.status
         disciplinary_case.decide(
             finding=form.cleaned_data["finding"],
             decided_by=self.request.user,
@@ -1814,6 +1849,17 @@ class DisciplinaryDecisionUpdateView(
         )
         disciplinary_case.findings_summary = form.cleaned_data["findings_summary"]
         disciplinary_case.save(update_fields=["findings_summary", "updated_at"])
+        log_disciplinary_case_audit(
+            disciplinary_case,
+            DisciplinaryCaseAudit.Action.DECISION_RECORDED,
+            actor=self.request.user,
+            details={
+                "old_status": old_status,
+                "new_status": disciplinary_case.status,
+                "finding": disciplinary_case.finding,
+                "required_review_level": disciplinary_case.required_review_level,
+            },
+        )
         messages.success(self.request, "Case decision recorded.")
         return redirect("payroll:discipline_case_detail", pk=disciplinary_case.pk)
 
@@ -1856,8 +1902,19 @@ class DisciplinarySanctionCreateView(
     def form_valid(self, form):
         form.instance.case = self.disciplinary_case
         form.instance.created_by = self.request.user
+        response = super().form_valid(form)
+        log_disciplinary_case_audit(
+            self.disciplinary_case,
+            DisciplinaryCaseAudit.Action.SANCTION_CREATED,
+            actor=self.request.user,
+            details={
+                "sanction_id": self.object.id,
+                "sanction_type": self.object.sanction_type,
+                "status": self.object.status,
+            },
+        )
         messages.success(self.request, "Sanction recorded.")
-        return super().form_valid(form)
+        return response
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -1906,10 +1963,23 @@ class DisciplinaryAppealCreateView(
     def form_valid(self, form):
         form.instance.case = self.disciplinary_case
         form.instance.appellant = self.request.user
+        old_status = self.disciplinary_case.status
         self.disciplinary_case.status = DisciplinaryCase.Status.APPEALED
         self.disciplinary_case.save(update_fields=["status", "updated_at"])
+        response = super().form_valid(form)
+        log_disciplinary_case_audit(
+            self.disciplinary_case,
+            DisciplinaryCaseAudit.Action.APPEAL_SUBMITTED,
+            actor=self.request.user,
+            details={
+                "appeal_id": self.object.id,
+                "grounds": self.object.grounds,
+                "old_status": old_status,
+                "new_status": self.disciplinary_case.status,
+            },
+        )
         messages.success(self.request, "Appeal submitted.")
-        return super().form_valid(form)
+        return response
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -1957,6 +2027,8 @@ class DisciplinaryAppealReviewView(
 
     def form_valid(self, form):
         appeal = form.save(commit=False)
+        old_case_status = appeal.case.status
+        old_appeal_status = self.get_object().status
         appeal.reviewed_by = self.request.user
         appeal.reviewed_at = timezone.now()
         appeal.save()
@@ -1971,6 +2043,20 @@ class DisciplinaryAppealReviewView(
         elif appeal.status == DisciplinaryAppeal.Status.REINVESTIGATION_ORDERED:
             appeal.case.status = DisciplinaryCase.Status.UNDER_INVESTIGATION
             appeal.case.save(update_fields=["status", "updated_at"])
+
+        log_disciplinary_case_audit(
+            appeal.case,
+            DisciplinaryCaseAudit.Action.APPEAL_REVIEWED,
+            actor=self.request.user,
+            details={
+                "appeal_id": appeal.id,
+                "old_appeal_status": old_appeal_status,
+                "new_appeal_status": appeal.status,
+                "old_case_status": old_case_status,
+                "new_case_status": appeal.case.status,
+                "outcome_notes": appeal.outcome_notes,
+            },
+        )
 
         messages.success(self.request, "Appeal review recorded.")
         return redirect("payroll:discipline_case_detail", pk=appeal.case.pk)
@@ -3270,3 +3356,411 @@ def report_job_download(request, pk):
         f'attachment; filename="paroll_{job.report_type.lower()}_{job.company_id}.pdf"'
     )
     return response
+
+
+# ── Phase 1: Budget Management ──
+
+
+@login_required
+@accounting_role_required
+def budget_list(request):
+    company = get_user_company(request.user)
+    budgets = Budget.objects.filter(company=company).select_related("fiscal_year")
+    return render(request, "accounting/budget_list.html", {"budgets": budgets, "page_title": "Budgets"})
+
+
+@login_required
+@accountant_required
+def budget_create(request):
+    company = get_user_company(request.user)
+    if request.method == "POST":
+        form = BudgetForm(request.POST, company=company)
+        if form.is_valid():
+            budget = form.save(commit=False)
+            budget.company = company
+            budget.save()
+            messages.success(request, "Budget created.")
+            return redirect("accounting:budget_detail", pk=budget.pk)
+    else:
+        form = BudgetForm(company=company)
+    return render(request, "accounting/budget_form.html", {"form": form, "page_title": "New Budget"})
+
+
+@login_required
+@accounting_role_required
+def budget_detail(request, pk):
+    company = get_user_company(request.user)
+    budget = get_object_or_404(Budget.objects.filter(company=company).select_related("fiscal_year"), pk=pk)
+    lines = budget.lines.select_related("account", "period").order_by("account__account_number")
+    return render(request, "accounting/budget_detail.html", {"budget": budget, "lines": lines, "page_title": f"Budget: {budget.name}"})
+
+
+@login_required
+@accountant_required
+def budget_line_create(request, budget_pk):
+    company = get_user_company(request.user)
+    budget = get_object_or_404(Budget.objects.filter(company=company), pk=budget_pk)
+    if request.method == "POST":
+        form = BudgetLineForm(request.POST, company=company)
+        if form.is_valid():
+            line = form.save(commit=False)
+            line.budget = budget
+            line.save()
+            messages.success(request, "Budget line added.")
+            return redirect("accounting:budget_detail", pk=budget.pk)
+    else:
+        form = BudgetLineForm(company=company)
+    return render(request, "accounting/budget_line_form.html", {"form": form, "budget": budget, "page_title": "Add Budget Line"})
+
+
+@login_required
+@accounting_role_required
+def budget_vs_actual_report(request):
+    company = get_user_company(request.user)
+    if request.method == "POST":
+        form = BudgetVsActualForm(request.POST, company=company)
+        if form.is_valid():
+            fiscal_year = form.cleaned_data["fiscal_year"]
+            period = form.cleaned_data.get("period")
+            budget_lines = BudgetLine.objects.filter(
+                budget__company=company, budget__fiscal_year=fiscal_year
+            ).select_related("account", "period")
+            report_data = []
+            for bl in budget_lines:
+                actual = JournalEntry.objects.filter(
+                    account=bl.account,
+                    journal__company=company,
+                    journal__status="POSTED",
+                )
+                if period:
+                    actual = actual.filter(journal__date__gte=period.start_date, journal__date__lte=period.end_date)
+                else:
+                    actual = actual.filter(journal__date__gte=fiscal_year.start_date, journal__date__lte=fiscal_year.end_date)
+                actual_amount = actual.aggregate(
+                    debits=Sum("amount", filter=Q(entry_type="DEBIT")),
+                    credits=Sum("amount", filter=Q(entry_type="CREDIT")),
+                )
+                actual_total = (actual_amount["debits"] or Decimal("0")) - (actual_amount["credits"] or Decimal("0"))
+                variance = actual_total - bl.amount
+                report_data.append({
+                    "account": bl.account,
+                    "period": bl.period,
+                    "budget_amount": bl.amount,
+                    "actual_amount": actual_total,
+                    "variance": variance,
+                    "variance_pct": ((variance / bl.amount * 100) if bl.amount else Decimal("0")),
+                })
+            return render(request, "accounting/budget_vs_actual.html", {
+                "report_data": report_data,
+                "fiscal_year": fiscal_year,
+                "period": period,
+                "page_title": "Budget vs Actual",
+            })
+    else:
+        form = BudgetVsActualForm(company=company)
+    return render(request, "accounting/budget_vs_actual_form.html", {"form": form, "page_title": "Budget vs Actual Report"})
+
+
+# ── Phase 2: Cost Center & Accrual Management ──
+
+
+@login_required
+@accounting_role_required
+def cost_center_list(request):
+    company = get_user_company(request.user)
+    centers = CostCenter.objects.filter(company=company)
+    return render(request, "accounting/cost_center_list.html", {"centers": centers, "page_title": "Cost Centers"})
+
+
+@login_required
+@accountant_required
+def cost_center_create(request):
+    company = get_user_company(request.user)
+    if request.method == "POST":
+        form = CostCenterForm(request.POST)
+        if form.is_valid():
+            cc = form.save(commit=False)
+            cc.company = company
+            cc.save()
+            messages.success(request, "Cost center created.")
+            return redirect("accounting:cost_center_list")
+    else:
+        form = CostCenterForm()
+    return render(request, "accounting/cost_center_form.html", {"form": form, "page_title": "New Cost Center"})
+
+
+@login_required
+@accountant_required
+def cost_center_update(request, pk):
+    company = get_user_company(request.user)
+    cc = get_object_or_404(CostCenter.objects.filter(company=company), pk=pk)
+    if request.method == "POST":
+        form = CostCenterForm(request.POST, instance=cc)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Cost center updated.")
+            return redirect("accounting:cost_center_list")
+    else:
+        form = CostCenterForm(instance=cc)
+    return render(request, "accounting/cost_center_form.html", {"form": form, "page_title": "Update Cost Center"})
+
+
+@login_required
+@accounting_role_required
+def accrual_template_list(request):
+    company = get_user_company(request.user)
+    templates = AccrualTemplate.objects.filter(company=company).select_related("debit_account", "credit_account")
+    return render(request, "accounting/accrual_list.html", {"templates": templates, "page_title": "Accrual Templates"})
+
+
+@login_required
+@accountant_required
+def accrual_template_create(request):
+    company = get_user_company(request.user)
+    if request.method == "POST":
+        form = AccrualTemplateForm(request.POST, company=company)
+        if form.is_valid():
+            accrual = form.save(commit=False)
+            accrual.company = company
+            accrual.save()
+            messages.success(request, "Accrual template created.")
+            return redirect("accounting:accrual_template_list")
+    else:
+        form = AccrualTemplateForm(company=company)
+    return render(request, "accounting/accrual_form.html", {"form": form, "page_title": "New Accrual Template"})
+
+
+@login_required
+@accountant_required
+def post_accrual(request, pk):
+    company = get_user_company(request.user)
+    accrual = get_object_or_404(AccrualTemplate.objects.filter(company=company), pk=pk)
+    if request.method == "POST":
+        try:
+            period = AccountingPeriod.objects.filter(company=company, is_active=True).first()
+            journal = create_journal_with_entries(
+                company=company,
+                date=timezone.now().date(),
+                description=f"Accrual: {accrual.name}",
+                entries=[
+                    {"account": accrual.debit_account, "entry_type": "DEBIT", "amount": accrual.amount, "memo": accrual.name},
+                    {"account": accrual.credit_account, "entry_type": "CREDIT", "amount": accrual.amount, "memo": accrual.name},
+                ],
+                auto_post=True,
+            )
+            messages.success(request, f"Accrual journal {journal.transaction_number} posted.")
+        except Exception as exc:
+            messages.error(request, str(exc))
+    return redirect("accounting:accrual_template_list")
+
+
+# ── Phase 3: Exchange Rate & FX Revaluation ──
+
+
+@login_required
+@accounting_role_required
+def exchange_rate_list(request):
+    company = get_user_company(request.user)
+    rates = ExchangeRate.objects.filter(company=company).order_by("-rate_date", "quote_currency")
+    return render(request, "accounting/exchange_rate_list.html", {"rates": rates, "page_title": "Exchange Rates"})
+
+
+@login_required
+@accountant_required
+def exchange_rate_create(request):
+    company = get_user_company(request.user)
+    if request.method == "POST":
+        form = ExchangeRateForm(request.POST)
+        if form.is_valid():
+            rate = form.save(commit=False)
+            rate.company = company
+            rate.save()
+            messages.success(request, "Exchange rate created.")
+            return redirect("accounting:exchange_rate_list")
+    else:
+        form = ExchangeRateForm()
+    return render(request, "accounting/exchange_rate_form.html", {"form": form, "page_title": "New Exchange Rate"})
+
+
+@login_required
+@accounting_role_required
+def revaluation_list(request):
+    company = get_user_company(request.user)
+    revaluations = CurrencyRevaluation.objects.filter(company=company).select_related("journal", "created_by")
+    return render(request, "accounting/revaluation_list.html", {"revaluations": revaluations, "page_title": "Currency Revaluations"})
+
+
+@login_required
+@accountant_required
+def revaluation_create(request):
+    company = get_user_company(request.user)
+    if request.method == "POST":
+        form = CurrencyRevaluationForm(request.POST)
+        if form.is_valid():
+            data = form.cleaned_data
+            revaluation = CurrencyRevaluation.objects.create(
+                company=company,
+                revaluation_date=data["revaluation_date"],
+                base_currency=data["base_currency"],
+                memo=data.get("memo", ""),
+                created_by=request.user,
+            )
+            messages.success(request, "Revaluation created. Post journal to finalize.")
+            return redirect("accounting:revaluation_list")
+    else:
+        form = CurrencyRevaluationForm()
+    return render(request, "accounting/revaluation_form.html", {"form": form, "page_title": "New Currency Revaluation"})
+
+
+# ── Phase 4: Tax Return Management ──
+
+
+@login_required
+@accounting_role_required
+def tax_return_list(request):
+    company = get_user_company(request.user)
+    returns = TaxReturn.objects.filter(company=company).select_related("period", "filed_by")
+    return render(request, "accounting/tax_return_list.html", {"returns": returns, "page_title": "Tax Returns"})
+
+
+@login_required
+@accountant_required
+def tax_return_create(request):
+    company = get_user_company(request.user)
+    if request.method == "POST":
+        form = TaxReturnForm(request.POST, company=company)
+        if form.is_valid():
+            ret = form.save(commit=False)
+            ret.company = company
+            ret.save()
+            messages.success(request, "Tax return created.")
+            return redirect("accounting:tax_return_detail", pk=ret.pk)
+    else:
+        form = TaxReturnForm(company=company)
+    return render(request, "accounting/tax_return_form.html", {"form": form, "page_title": "New Tax Return"})
+
+
+@login_required
+@accounting_role_required
+def tax_return_detail(request, pk):
+    company = get_user_company(request.user)
+    ret = get_object_or_404(TaxReturn.objects.filter(company=company).select_related("period", "filed_by"), pk=pk)
+    lines = ret.lines.select_related("account", "tax_account")
+    return render(request, "accounting/tax_return_detail.html", {"return": ret, "lines": lines, "page_title": f"Tax Return: {ret.get_return_type_display()}"})
+
+
+@login_required
+@accountant_required
+def tax_return_line_create(request, return_pk):
+    company = get_user_company(request.user)
+    ret = get_object_or_404(TaxReturn.objects.filter(company=company), pk=return_pk)
+    if request.method == "POST":
+        form = TaxReturnLineForm(request.POST, company=company)
+        if form.is_valid():
+            line = form.save(commit=False)
+            line.tax_return = ret
+            line.tax_amount = (line.gross_amount * line.tax_rate / Decimal("100")).quantize(Decimal("0.01"))
+            line.save()
+            ret.total_taxable += line.gross_amount
+            ret.total_tax += line.tax_amount
+            ret.net_tax_payable = ret.total_tax - ret.total_input_tax
+            ret.save(update_fields=["total_taxable", "total_tax", "net_tax_payable", "updated_at"])
+            messages.success(request, "Tax return line added.")
+            return redirect("accounting:tax_return_detail", pk=ret.pk)
+    else:
+        form = TaxReturnLineForm(company=company)
+    return render(request, "accounting/tax_return_line_form.html", {"form": form, "return": ret, "page_title": "Add Tax Return Line"})
+
+
+@login_required
+@accountant_required
+def tax_return_file(request, pk):
+    company = get_user_company(request.user)
+    ret = get_object_or_404(TaxReturn.objects.filter(company=company), pk=pk)
+    if request.method == "POST":
+        ret.status = TaxReturn.Status.FILED
+        ret.filed_by = request.user
+        ret.filed_at = timezone.now()
+        ret.filing_reference = request.POST.get("filing_reference", "")
+        ret.save(update_fields=["status", "filed_by", "filed_at", "filing_reference", "updated_at"])
+        messages.success(request, "Tax return marked as filed.")
+    return redirect("accounting:tax_return_detail", pk=pk)
+
+
+# ── Phase 5: Journal Attachments & Recurring Journals ──
+
+
+@login_required
+@accounting_role_required
+def journal_attachment_upload(request, journal_pk):
+    company = get_user_company(request.user)
+    journal = get_object_or_404(Journal.objects.filter(company=company), pk=journal_pk)
+    if request.method == "POST":
+        form = JournalAttachmentForm(request.POST, request.FILES)
+        if form.is_valid():
+            uploaded_file = form.cleaned_data["file"]
+            JournalAttachment.objects.create(
+                company=company,
+                journal=journal,
+                file=uploaded_file,
+                original_filename=uploaded_file.name,
+                description=form.cleaned_data.get("description", ""),
+                uploaded_by=request.user,
+            )
+            messages.success(request, "Attachment uploaded.")
+    return redirect("accounting:journal_detail", pk=journal.pk)
+
+
+@login_required
+@accounting_role_required
+def journal_attachment_download(request, pk):
+    company = get_user_company(request.user)
+    attachment = get_object_or_404(JournalAttachment.objects.filter(company=company), pk=pk)
+    from django.http import FileResponse
+    return FileResponse(attachment.file.open("rb"), as_attachment=True, filename=attachment.original_filename)
+
+
+@login_required
+@accounting_role_required
+def recurring_template_list(request):
+    company = get_user_company(request.user)
+    templates = RecurringJournalTemplate.objects.filter(company=company).select_related("debit_account", "credit_account")
+    return render(request, "accounting/recurring_list.html", {"templates": templates, "page_title": "Recurring Journal Templates"})
+
+
+@login_required
+@accountant_required
+def recurring_template_create(request):
+    company = get_user_company(request.user)
+    if request.method == "POST":
+        form = RecurringJournalTemplateForm(request.POST, company=company)
+        if form.is_valid():
+            template = form.save(commit=False)
+            template.company = company
+            template.save()
+            messages.success(request, "Recurring template created.")
+            return redirect("accounting:recurring_template_list")
+    else:
+        form = RecurringJournalTemplateForm(company=company)
+    return render(request, "accounting/recurring_form.html", {"form": form, "page_title": "New Recurring Template"})
+
+
+# ── Phase 6: Account Tree & Report Enhancements ──
+
+
+@login_required
+@accounting_role_required
+def account_tree(request):
+    company = get_user_company(request.user)
+    accounts = Account.objects.filter(company=company).order_by("account_number")
+    account_map = {}
+    for acc in accounts:
+        account_map[acc.pk] = {"account": acc, "children": []}
+    tree = []
+    for acc in accounts:
+        node = account_map[acc.pk]
+        if acc.parent_account_id and acc.parent_account_id in account_map:
+            account_map[acc.parent_account_id]["children"].append(node)
+        else:
+            tree.append(node)
+    return render(request, "accounting/account_tree.html", {"tree": tree, "page_title": "Chart of Accounts Tree"})

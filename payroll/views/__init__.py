@@ -13,6 +13,8 @@ from .employee_benefits import *
 from .employee_hiring import *
 from .employee_appraisal import *
 from .employee_review import *
+from .employee_transfer import *
+from .offboarding import *
 
 # Payroll views
 from .payroll_helpers import *
@@ -28,6 +30,10 @@ from .payroll_iou import *
 from .payroll_pay_ops import *
 from .payroll_audit import *
 from .payroll_restore import *
+from .overtime import *
+from .shift_scheduling import *
+from .bank_payment import *
+from .contract_management import *
 
 # Report views
 from .report_view import *

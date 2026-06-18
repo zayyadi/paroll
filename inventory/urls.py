@@ -42,4 +42,43 @@ urlpatterns = [
     path("tax-remittances/new/", views.TaxRemittanceView.as_view(), name="tax_remittance"),
     path("adjustments/new/", views.InventoryAdjustmentView.as_view(), name="adjustment"),
     path("transfers/new/", views.StockTransferView.as_view(), name="transfer"),
+    # Phase 1: CRUD Completion
+    path("units/", views.UnitOfMeasureListView.as_view(), name="unit_list"),
+    path("units/<int:pk>/edit/", views.UnitOfMeasureUpdateView.as_view(), name="unit_update"),
+    path("items/<int:pk>/edit/", views.InventoryItemUpdateView.as_view(), name="item_update"),
+    path("categories/<int:pk>/edit/", views.InventoryCategoryUpdateView.as_view(), name="category_update"),
+    path("warehouses/<int:pk>/edit/", views.WarehouseUpdateView.as_view(), name="warehouse_update"),
+    path("locations/", views.StockLocationListView.as_view(), name="location_list"),
+    path("locations/<int:pk>/edit/", views.StockLocationUpdateView.as_view(), name="location_update"),
+    path("suppliers/<int:pk>/edit/", views.SupplierUpdateView.as_view(), name="supplier_update"),
+    path("customers/<int:pk>/edit/", views.CustomerUpdateView.as_view(), name="customer_update"),
+    # Phase 2: Stock Count
+    path("stock-counts/", views.StockCountListView.as_view(), name="stock_count_list"),
+    path("stock-counts/new/", views.StockCountCreateView.as_view(), name="stock_count_create"),
+    path("stock-counts/<int:pk>/", views.StockCountDetailView.as_view(), name="stock_count_detail"),
+    path("stock-counts/<int:pk>/approve/", views.StockCountApproveView.as_view(), name="stock_count_approve"),
+    path("stock-counts/<int:pk>/post/", views.StockCountPostView.as_view(), name="stock_count_post"),
+    path("stock-counts/<int:count_pk>/lines/<int:line_pk>/update/", views.StockCountLineUpdateView.as_view(), name="stock_count_line_update"),
+    # Phase 3: Sales Orders
+    path("sales-orders/", views.SalesOrderListView.as_view(), name="sales_order_list"),
+    path("sales-orders/new/", views.SalesOrderCreateView.as_view(), name="sales_order_create"),
+    path("sales-orders/<int:pk>/", views.SalesOrderDetailView.as_view(), name="sales_order_detail"),
+    path("sales-orders/<int:pk>/ship/", views.SalesOrderShipView.as_view(), name="sales_order_ship"),
+    path("sales-orders/<int:pk>/invoice/", views.SalesOrderInvoiceView.as_view(), name="sales_order_invoice"),
+    # Phase 4: Reports
+    path("reports/stock-on-hand/", views.ReportStockOnHandView.as_view(), name="report_stock_on_hand"),
+    path("reports/valuation/", views.ReportValuationView.as_view(), name="report_valuation"),
+    path("reports/movements/", views.ReportMovementLedgerView.as_view(), name="report_movements"),
+    path("reports/reorder/", views.ReportReorderAlertsView.as_view(), name="report_reorder"),
+    path("reports/aging/", views.ReportAgingView.as_view(), name="report_aging"),
+    # Phase 5: Document Approval
+    path("documents/pending-approval/", views.DocumentApprovalListView.as_view(), name="document_approval_list"),
+    path("documents/<int:pk>/approve/", views.DocumentApproveView.as_view(), name="document_approve"),
+    path("documents/<int:pk>/reject/", views.DocumentRejectView.as_view(), name="document_reject"),
+    path("documents/<int:pk>/reverse/", views.DocumentReversalView.as_view(), name="document_reverse"),
+    # Phase 6: Vendor Bills & Landed Costs
+    path("vendor-bills/", views.VendorBillListView.as_view(), name="vendor_bill_list"),
+    path("vendor-bills/new/", views.VendorBillCreateView.as_view(), name="vendor_bill_create"),
+    path("vendor-bills/<int:pk>/", views.VendorBillDetailView.as_view(), name="vendor_bill_detail"),
+    path("landed-costs/new/", views.LandedCostCreateView.as_view(), name="landed_cost_create"),
 ]

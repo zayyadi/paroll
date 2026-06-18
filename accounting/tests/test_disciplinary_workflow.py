@@ -4,7 +4,11 @@ from django.test import TestCase, override_settings
 from django.urls import reverse
 from datetime import date
 
-from accounting.models import DisciplinaryCase, DisciplinarySanction
+from accounting.models import (
+    DisciplinaryCase,
+    DisciplinaryCaseAudit,
+    DisciplinarySanction,
+)
 from company.models import Company
 from payroll.models import EmployeeProfile
 
@@ -138,6 +142,15 @@ class DisciplinaryWorkflowTests(TestCase):
         case.refresh_from_db()
         self.assertEqual(case.status, DisciplinaryCase.Status.UNDER_INVESTIGATION)
         self.assertEqual(case.investigator, self.user)
+        audit_event = DisciplinaryCaseAudit.objects.get(
+            case=case,
+            action=DisciplinaryCaseAudit.Action.INVESTIGATION_STARTED,
+        )
+        self.assertEqual(audit_event.actor, self.user)
+        self.assertEqual(
+            audit_event.details["new_status"],
+            DisciplinaryCase.Status.UNDER_INVESTIGATION,
+        )
 
     def test_termination_sanction_disables_user_and_marks_employee_terminated(self):
         employee_profile = EmployeeProfile.objects.get(user=self.respondent)
@@ -151,7 +164,7 @@ class DisciplinaryWorkflowTests(TestCase):
             reporter=self.user,
             violation_level=DisciplinaryCase.ViolationLevel.LEVEL_5,
         )
-        DisciplinarySanction.objects.create(
+        sanction = DisciplinarySanction.objects.create(
             case=case,
             sanction_type=DisciplinarySanction.SanctionType.TERMINATION,
             rationale="Final decision",
@@ -164,3 +177,4 @@ class DisciplinaryWorkflowTests(TestCase):
 
         self.assertFalse(self.respondent.is_active)
         self.assertEqual(employee_profile.status, "terminated")
+        self.assertEqual(sanction.status, DisciplinarySanction.Status.ACTIVE)

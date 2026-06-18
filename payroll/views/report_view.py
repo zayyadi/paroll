@@ -14,6 +14,7 @@ from payroll.models import (
     PayrollEntry,
     PayrollRunEntry,
     EmployeeProfile,
+    log_sensitive_employee_data_access,
 )
 from payroll import utils
 from company.utils import get_user_company
@@ -31,6 +32,28 @@ except ImportError:  # pragma: no cover - optional spreadsheet dependency.
 from decimal import Decimal
 
 # check_super and is_hr_user functions are removed
+
+
+def _log_payroll_report_sensitive_access(
+    *,
+    request,
+    payroll_entries,
+    fields,
+    purpose,
+    report_name,
+):
+    employee_ids = list(
+        payroll_entries.values_list("payroll_entry__pays_id", flat=True).distinct()
+    )
+    employees = EmployeeProfile.objects.filter(id__in=employee_ids)
+    for employee in employees:
+        log_sensitive_employee_data_access(
+            employee=employee,
+            accessed_by=request.user,
+            fields=fields,
+            purpose=purpose,
+            metadata={"report": report_name},
+        )
 
 
 @login_required
@@ -53,6 +76,13 @@ def payslip(request, id):
         "num2words": num2word,
         "dates": dates,
     }
+    log_sensitive_employee_data_access(
+        employee=pay_id.payroll_entry.pays,
+        accessed_by=request.user,
+        fields=("tin_no", "bank_account_number"),
+        purpose="payslip_view",
+        metadata={"view": "payslip", "payroll_run_entry_id": pay_id.id},
+    )
     return render(request, "pay/payslip_new.html", context)
 
 
@@ -175,6 +205,13 @@ def payslip_pdf(request, id):
     pdf_file_name = (
         f"{payroll_entry.pays.first_name}-{payroll_entry.pays.last_name}-payslip.pdf"
     )
+    log_sensitive_employee_data_access(
+        employee=payroll_entry.pays,
+        accessed_by=request.user,
+        fields=("tin_no", "bank_account_number"),
+        purpose="payslip_pdf",
+        metadata={"view": "payslip_pdf", "payroll_run_entry_id": pay_id.id},
+    )
 
     pdf_file_path = f"/tmp/{pdf_file_name}"
     if HTML is None:
@@ -211,6 +248,13 @@ def bank_report(request, pay_id):  # pay_id here is PayrollRun.id
     )
     dates = utils.convert_month_to_word(str(pay_period_obj.paydays))
     netpay_total = payroll_data.aggregate(Sum("payroll_entry__netpay"))
+    _log_payroll_report_sensitive_access(
+        request=request,
+        payroll_entries=payroll_data,
+        fields=("bank_account_name", "bank_account_number"),
+        purpose="payroll_report_view",
+        report_name="bank_report",
+    )
     return render(
         request,
         "pay/bank_report_new.html",
@@ -247,6 +291,16 @@ def bank_report_download(request, pay_id):
         "payroll_entry__pays__bank_account_number",
         "payroll_entry__netpay",
     )
+    _log_payroll_report_sensitive_access(
+        request=request,
+        payroll_entries=PayrollRunEntry.objects.filter(
+            payroll_run_id=pay_id,
+            payroll_entry__company=company,
+        ),
+        fields=("bank_account_name", "bank_account_number"),
+        purpose="payroll_report_export",
+        report_name="bank_report",
+    )
     return generate_excel_report(
         "bank_report",
         "Bank Report",
@@ -280,6 +334,13 @@ def nhis_report(request, pay_id):
     )
     dates = utils.convert_month_to_word(str(pay_period_obj.paydays))
     nhis_total = payroll_data.aggregate(Sum("payroll_entry__pays__employee_pay__nhif"))
+    _log_payroll_report_sensitive_access(
+        request=request,
+        payroll_entries=payroll_data,
+        fields=("bank_account_number",),
+        purpose="payroll_report_view",
+        report_name="nhis_report",
+    )
     return render(
         request,
         "pay/nhis_report.html",
@@ -316,6 +377,16 @@ def nhis_report_download(request, pay_id):
         "payroll_entry__pays__bank_account_number",
         "payroll_entry__pays__employee_pay__nhif",
     )
+    _log_payroll_report_sensitive_access(
+        request=request,
+        payroll_entries=PayrollRunEntry.objects.filter(
+            payroll_run_id=pay_id,
+            payroll_entry__company=company,
+        ),
+        fields=("bank_account_number",),
+        purpose="payroll_report_export",
+        report_name="nhis_report",
+    )
     return generate_excel_report(
         "health_insurance_report",
         "Health Insurance Report",
@@ -347,6 +418,13 @@ def nhf_report(request, pay_id):
     )
     dates = utils.convert_month_to_word(str(pay_period_obj.paydays))
     nhf_total = payroll_data.aggregate(Sum("payroll_entry__pays__employee_pay__nhf"))
+    _log_payroll_report_sensitive_access(
+        request=request,
+        payroll_entries=payroll_data,
+        fields=("bank_account_number",),
+        purpose="payroll_report_view",
+        report_name="nhf_report",
+    )
     return render(
         request,
         "pay/nhf_report.html",
@@ -380,6 +458,16 @@ def nhf_report_download(request, pay_id):
         "payroll_entry__pays__bank",
         "payroll_entry__pays__bank_account_number",
         "payroll_entry__pays__employee_pay__nhf",
+    )
+    _log_payroll_report_sensitive_access(
+        request=request,
+        payroll_entries=PayrollRunEntry.objects.filter(
+            payroll_run_id=pay_id,
+            payroll_entry__company=company,
+        ),
+        fields=("bank_account_number",),
+        purpose="payroll_report_export",
+        report_name="nhf_report",
     )
     return generate_excel_report(
         "nhf_report",
@@ -418,6 +506,13 @@ def payee_report(request, pay_id):
     )
     dates = utils.convert_month_to_word(str(pay_period_obj.paydays))
     payee_total = payroll_data.aggregate(Sum("payroll_entry__pays__employee_pay__payee"))
+    _log_payroll_report_sensitive_access(
+        request=request,
+        payroll_entries=payroll_data,
+        fields=("tin_no",),
+        purpose="payroll_report_view",
+        report_name="payee_report",
+    )
     return render(
         request,
         "pay/payee_report_new.html",
@@ -451,6 +546,16 @@ def payee_report_download(request, pay_id):
         "payroll_entry__pays__tin_no",
         "payroll_entry__pays__employee_pay__basic_salary",
         "payroll_entry__pays__employee_pay__payee",
+    )
+    _log_payroll_report_sensitive_access(
+        request=request,
+        payroll_entries=PayrollRunEntry.objects.filter(
+            payroll_run_id=pay_id,
+            payroll_entry__company=company,
+        ),
+        fields=("tin_no",),
+        purpose="payroll_report_export",
+        report_name="payee_report",
     )
     return generate_excel_report(
         "payee_report",
@@ -491,6 +596,13 @@ def pension_report(request, pay_id):
     pension_total = payroll_data.aggregate(
         Sum("payroll_entry__pays__employee_pay__pension")
     )
+    _log_payroll_report_sensitive_access(
+        request=request,
+        payroll_entries=payroll_data,
+        fields=("pension_rsa",),
+        purpose="payroll_report_view",
+        report_name="pension_report",
+    )
     return render(
         request,
         "pay/pension_report_new.html",
@@ -526,6 +638,16 @@ def pension_report_download(request, pay_id):
         "payroll_entry__pays__pension_rsa",
         "payroll_entry__pays__employee_pay__basic_salary",
         "payroll_entry__pays__employee_pay__pension",
+    )
+    _log_payroll_report_sensitive_access(
+        request=request,
+        payroll_entries=PayrollRunEntry.objects.filter(
+            payroll_run_id=pay_id,
+            payroll_entry__company=company,
+        ),
+        fields=("pension_rsa",),
+        purpose="payroll_report_export",
+        report_name="pension_report",
     )
     return generate_excel_report(
         "pension_report",

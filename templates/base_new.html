@@ -468,192 +468,26 @@
             <div class="mb-8 flex items-center justify-between">
                 <div>
                     <p class="font-headline text-2xl font-extrabold text-primary-800">{{ APP_NAME }}</p>
-                    <p class="text-[10px] font-semibold uppercase tracking-[0.28em] text-secondary-500">Editorial Command</p>
+                    <p class="text-[10px] font-semibold uppercase tracking-[0.28em] text-secondary-500">Command Center</p>
                 </div>
                 <button type="button" data-sidebar-close aria-label="Close sidebar" class="rounded-full p-2 text-secondary-500 hover:bg-white">
                     <i data-lucide="x" class="h-5 w-5"></i>
                 </button>
             </div>
             <div class="overflow-y-auto">
-                <nav class="space-y-1">
-                    <a href="{% url 'payroll:index' %}" class="sidebar-link {% if request.resolver_match.url_name == 'index' %}active{% endif %}">
-                        <i data-lucide="layout-dashboard" class="sidebar-icon h-5 w-5 text-secondary-400"></i>
-                        <span>Dashboard</span>
-                    </a>
-                    {% if request.user.is_authenticated and request.user.is_superuser or request.user.is_authenticated and request.user.is_staff %}
-                    <a href="{% url 'payroll:employee_list' %}" class="sidebar-link {% if request.resolver_match.url_name == 'employee_list' %}active{% endif %}">
-                        <i data-lucide="users" class="sidebar-icon h-5 w-5 text-secondary-400"></i>
-                        <span>People</span>
-                    </a>
-                    <a href="{% url 'payroll:pay_period_list' %}" class="sidebar-link {% if request.resolver_match.url_name == 'pay_period_list' %}active{% endif %}">
-                        <i data-lucide="wallet-cards" class="sidebar-icon h-5 w-5 text-secondary-400"></i>
-                        <span>Payroll</span>
-                    </a>
-                    <a href="{% url 'payroll:manage_leave_requests' %}" class="sidebar-link {% if request.resolver_match.url_name == 'manage_leave_requests' or request.resolver_match.url_name == 'leave_requests' or request.resolver_match.url_name == 'iou_history' %}active{% endif %}">
-                        <i data-lucide="inbox" class="sidebar-icon h-5 w-5 text-secondary-400"></i>
-                        <span>Requests</span>
-                    </a>
-                    <a href="{% url 'payroll:payee' %}" class="sidebar-link {% if request.resolver_match.url_name == 'payee' or request.resolver_match.url_name == 'bank' or request.resolver_match.url_name == 'pension' or request.resolver_match.url_name == 'nhis' %}active{% endif %}">
-                        <i data-lucide="file-chart-column" class="sidebar-icon h-5 w-5 text-secondary-400"></i>
-                        <span>Reports</span>
-                    </a>
-                    <a href="{% url 'accounting:dashboard' %}" class="sidebar-link {% if request.resolver_match.app_name == 'accounting' %}active{% endif %}">
-                        <i data-lucide="landmark" class="sidebar-icon h-5 w-5 text-secondary-400"></i>
-                        <span>Accounting</span>
-                    </a>
-                    <a href="{% url 'inventory:dashboard' %}" class="sidebar-link {% if request.resolver_match.app_name == 'inventory' %}active{% endif %}">
-                        <i data-lucide="boxes" class="sidebar-icon h-5 w-5 text-secondary-400"></i>
-                        <span>Inventory</span>
-                    </a>
-                    {% elif request.user.is_authenticated %}
-                    <a href="{% url 'payroll:profile' request.user.id %}" class="sidebar-link {% if request.resolver_match.url_name == 'profile' %}active{% endif %}">
-                        <i data-lucide="user-round" class="sidebar-icon h-5 w-5 text-secondary-400"></i>
-                        <span>My Profile</span>
-                    </a>
-                    <a href="{% url 'payroll:payslips' %}" class="sidebar-link {% if request.resolver_match.url_name == 'payslips' or request.resolver_match.url_name == 'payslip' %}active{% endif %}">
-                        <i data-lucide="receipt-text" class="sidebar-icon h-5 w-5 text-secondary-400"></i>
-                        <span>Payslips</span>
-                    </a>
-                    <a href="{% url 'payroll:leave_requests' %}" class="sidebar-link {% if request.resolver_match.url_name == 'leave_requests' or request.resolver_match.url_name == 'apply_leave' %}active{% endif %}">
-                        <i data-lucide="calendar-days" class="sidebar-icon h-5 w-5 text-secondary-400"></i>
-                        <span>Leave</span>
-                    </a>
-                    <a href="{% url 'payroll:my_iou_tracker' %}" class="sidebar-link {% if request.resolver_match.url_name == 'my_iou_tracker' or request.resolver_match.url_name == 'request_iou' or request.resolver_match.url_name == 'iou_history' %}active{% endif %}">
-                        <i data-lucide="hand-coins" class="sidebar-icon h-5 w-5 text-secondary-400"></i>
-                        <span>IOU Tracker</span>
-                    </a>
-                    {% else %}
-                    <a href="{% url 'users:login' %}" class="sidebar-link">
-                        <i data-lucide="log-in" class="sidebar-icon h-5 w-5 text-secondary-400"></i>
-                        <span>Login</span>
-                    </a>
-                    {% endif %}
-                    <a href="{% url 'payroll:attendance_my_day' %}" class="sidebar-link {% if request.resolver_match.url_name == 'attendance_my_day' or request.resolver_match.url_name == 'attendance_overview' or request.resolver_match.url_name == 'who_is_out' %}active{% endif %}">
-                        <i data-lucide="clock-3" class="sidebar-icon h-5 w-5 text-secondary-400"></i>
-                        <span>Attendance</span>
-                    </a>
-                    <a href="{% url 'payroll:my_documents' %}" class="sidebar-link {% if request.resolver_match.url_name == 'my_documents' or request.resolver_match.url_name == 'document_overview' %}active{% endif %}">
-                        <i data-lucide="files" class="sidebar-icon h-5 w-5 text-secondary-400"></i>
-                        <span>Documents</span>
-                    </a>
-                    <a href="{% url 'payroll:my_assets' %}" class="sidebar-link {% if request.resolver_match.url_name == 'my_assets' or request.resolver_match.url_name == 'asset_overview' %}active{% endif %}">
-                        <i data-lucide="laptop-minimal" class="sidebar-icon h-5 w-5 text-secondary-400"></i>
-                        <span>Assets</span>
-                    </a>
-                    <a href="{% url 'payroll:my_performance' %}" class="sidebar-link {% if request.resolver_match.url_name == 'my_performance' or request.resolver_match.url_name == 'performance_overview' or request.resolver_match.url_name == 'appraisal_list' %}active{% endif %}">
-                        <i data-lucide="target" class="sidebar-icon h-5 w-5 text-secondary-400"></i>
-                        <span>Performance</span>
-                    </a>
-                    <a href="{% url 'payroll:my_benefits' %}" class="sidebar-link {% if request.resolver_match.url_name == 'my_benefits' or request.resolver_match.url_name == 'benefit_overview' %}active{% endif %}">
-                        <i data-lucide="heart-handshake" class="sidebar-icon h-5 w-5 text-secondary-400"></i>
-                        <span>Benefits</span>
-                    </a>
-                    <a href="{% url 'payroll:company_chat' %}" class="sidebar-link {% if request.resolver_match.url_name == 'company_chat' %}active{% endif %}">
-                        <i data-lucide="messages-square" class="sidebar-icon h-5 w-5 text-secondary-400"></i>
-                        <span>Company Chat</span>
-                    </a>
-                    <a href="{% url 'users:settings' %}" class="sidebar-link">
-                        <i data-lucide="settings" class="sidebar-icon h-5 w-5 text-secondary-400"></i>
-                        <span>Settings</span>
-                    </a>
-                </nav>
+                {% include "partials/sidebar_nav.html" %}
             </div>
         </aside>
     </div>
 
     <aside class="fixed inset-y-0 left-0 hidden w-64 border-r border-outline-variant/20 bg-surface-container-low px-4 pb-6 pt-24 md:flex md:flex-col">
-        <div class="mb-8 px-2">
-            <h2 class="font-headline text-2xl font-black text-primary-800">{{ APP_NAME }}</h2>
-            <p class="mt-1 text-[10px] font-bold uppercase tracking-[0.28em] text-secondary-500">Editorial Command</p>
+        <div class="mb-6 px-2">
+            <h2 class="font-headline text-xl font-black text-primary-800">{{ APP_NAME }}</h2>
+            <p class="mt-1 text-[10px] font-bold uppercase tracking-[0.28em] text-secondary-500">Command Center</p>
         </div>
-
         <nav class="flex-1 space-y-1 overflow-y-auto">
-            <a href="{% url 'payroll:index' %}" class="sidebar-link {% if request.resolver_match.url_name == 'index' %}active{% endif %}">
-                <i data-lucide="layout-dashboard" class="sidebar-icon h-5 w-5 text-secondary-400"></i>
-                <span>Dashboard</span>
-            </a>
-            {% if request.user.is_authenticated and request.user.is_superuser or request.user.is_authenticated and request.user.is_staff %}
-            <a href="{% url 'payroll:employee_list' %}" class="sidebar-link {% if request.resolver_match.url_name == 'employee_list' %}active{% endif %}">
-                <i data-lucide="users" class="sidebar-icon h-5 w-5 text-secondary-400"></i>
-                <span>People</span>
-            </a>
-            <a href="{% url 'payroll:pay_period_list' %}" class="sidebar-link {% if request.resolver_match.url_name == 'pay_period_list' %}active{% endif %}">
-                <i data-lucide="wallet-cards" class="sidebar-icon h-5 w-5 text-secondary-400"></i>
-                <span>Payroll</span>
-            </a>
-            <a href="{% url 'payroll:manage_leave_requests' %}" class="sidebar-link {% if request.resolver_match.url_name == 'manage_leave_requests' or request.resolver_match.url_name == 'leave_requests' or request.resolver_match.url_name == 'iou_history' %}active{% endif %}">
-                <i data-lucide="inbox" class="sidebar-icon h-5 w-5 text-secondary-400"></i>
-                <span>Requests</span>
-            </a>
-            <a href="{% url 'payroll:payee' %}" class="sidebar-link {% if request.resolver_match.url_name == 'payee' or request.resolver_match.url_name == 'bank' or request.resolver_match.url_name == 'pension' or request.resolver_match.url_name == 'nhis' %}active{% endif %}">
-                <i data-lucide="file-chart-column" class="sidebar-icon h-5 w-5 text-secondary-400"></i>
-                <span>Reports</span>
-            </a>
-            <a href="{% url 'accounting:dashboard' %}" class="sidebar-link {% if request.resolver_match.app_name == 'accounting' %}active{% endif %}">
-                <i data-lucide="landmark" class="sidebar-icon h-5 w-5 text-secondary-400"></i>
-                <span>Accounting</span>
-            </a>
-            <a href="{% url 'inventory:dashboard' %}" class="sidebar-link {% if request.resolver_match.app_name == 'inventory' %}active{% endif %}">
-                <i data-lucide="boxes" class="sidebar-icon h-5 w-5 text-secondary-400"></i>
-                <span>Inventory</span>
-            </a>
-            {% elif request.user.is_authenticated %}
-            <a href="{% url 'payroll:profile' request.user.id %}" class="sidebar-link {% if request.resolver_match.url_name == 'profile' %}active{% endif %}">
-                <i data-lucide="user-round" class="sidebar-icon h-5 w-5 text-secondary-400"></i>
-                <span>My Profile</span>
-            </a>
-            <a href="{% url 'payroll:payslips' %}" class="sidebar-link {% if request.resolver_match.url_name == 'payslips' or request.resolver_match.url_name == 'payslip' %}active{% endif %}">
-                <i data-lucide="receipt-text" class="sidebar-icon h-5 w-5 text-secondary-400"></i>
-                <span>Payslips</span>
-            </a>
-            <a href="{% url 'payroll:leave_requests' %}" class="sidebar-link {% if request.resolver_match.url_name == 'leave_requests' or request.resolver_match.url_name == 'apply_leave' %}active{% endif %}">
-                <i data-lucide="calendar-days" class="sidebar-icon h-5 w-5 text-secondary-400"></i>
-                <span>Leave</span>
-            </a>
-            <a href="{% url 'payroll:my_iou_tracker' %}" class="sidebar-link {% if request.resolver_match.url_name == 'my_iou_tracker' or request.resolver_match.url_name == 'request_iou' or request.resolver_match.url_name == 'iou_history' %}active{% endif %}">
-                <i data-lucide="hand-coins" class="sidebar-icon h-5 w-5 text-secondary-400"></i>
-                <span>IOU Tracker</span>
-            </a>
-            {% else %}
-            <a href="{% url 'users:login' %}" class="sidebar-link">
-                <i data-lucide="log-in" class="sidebar-icon h-5 w-5 text-secondary-400"></i>
-                <span>Login</span>
-            </a>
-            {% endif %}
-            <a href="{% url 'payroll:attendance_my_day' %}" class="sidebar-link {% if request.resolver_match.url_name == 'attendance_my_day' or request.resolver_match.url_name == 'attendance_overview' or request.resolver_match.url_name == 'who_is_out' %}active{% endif %}">
-                <i data-lucide="clock-3" class="sidebar-icon h-5 w-5 text-secondary-400"></i>
-                <span>Attendance</span>
-            </a>
-            <a href="{% url 'payroll:my_documents' %}" class="sidebar-link {% if request.resolver_match.url_name == 'my_documents' or request.resolver_match.url_name == 'document_overview' %}active{% endif %}">
-                <i data-lucide="files" class="sidebar-icon h-5 w-5 text-secondary-400"></i>
-                <span>Documents</span>
-            </a>
-            <a href="{% url 'payroll:my_assets' %}" class="sidebar-link {% if request.resolver_match.url_name == 'my_assets' or request.resolver_match.url_name == 'asset_overview' %}active{% endif %}">
-                <i data-lucide="laptop-minimal" class="sidebar-icon h-5 w-5 text-secondary-400"></i>
-                <span>Assets</span>
-            </a>
-            <a href="{% url 'payroll:my_performance' %}" class="sidebar-link {% if request.resolver_match.url_name == 'my_performance' or request.resolver_match.url_name == 'performance_overview' or request.resolver_match.url_name == 'appraisal_list' %}active{% endif %}">
-                <i data-lucide="target" class="sidebar-icon h-5 w-5 text-secondary-400"></i>
-                <span>Performance</span>
-            </a>
-            <a href="{% url 'payroll:my_benefits' %}" class="sidebar-link {% if request.resolver_match.url_name == 'my_benefits' or request.resolver_match.url_name == 'benefit_overview' %}active{% endif %}">
-                <i data-lucide="heart-handshake" class="sidebar-icon h-5 w-5 text-secondary-400"></i>
-                <span>Benefits</span>
-            </a>
-            <a href="{% url 'payroll:standup_dashboard' %}" class="sidebar-link {% if request.resolver_match.url_name == 'standup_dashboard' %}active{% endif %}">
-                <i data-lucide="messages-square" class="sidebar-icon h-5 w-5 text-secondary-400"></i>
-                <span>Standup</span>
-            </a>
-            {% if request.user.is_authenticated and request.user.is_superuser or request.user.is_authenticated and request.user.is_staff %}
-            <a href="{% url 'payroll:workflow_overview' %}" class="sidebar-link {% if request.resolver_match.url_name == 'workflow_overview' %}active{% endif %}">
-                <i data-lucide="workflow" class="sidebar-icon h-5 w-5 text-secondary-400"></i>
-                <span>Workflows</span>
-            </a>
-            <a href="{% url 'payroll:disciplinary_system' %}" class="sidebar-link {% if request.resolver_match.url_name == 'disciplinary_system' or request.resolver_match.url_name == 'discipline_case_list' %}active{% endif %}">
-                <i data-lucide="gavel" class="sidebar-icon h-5 w-5 text-secondary-400"></i>
-                <span>Disciplinary</span>
-            </a>
-            {% endif %}
+            {% include "partials/sidebar_nav.html" %}
+        </nav>
 
             {% if request.user.is_authenticated and multi_company_enabled %}
             <div class="mt-6 rounded-2xl bg-white p-4 ghost-border">
