@@ -81,7 +81,7 @@ def calculate_leave_allowance_amount(leave_request: Any) -> Decimal:
     if not company:
         return Decimal("0.00")
 
-    setting = CompanyPayrollSetting.objects.filter(company=company).first()
+    setting, _ = CompanyPayrollSetting.objects.get_or_create(company=company)
     if not setting or not setting.leave_allowance_percentage:
         return Decimal("0.00")
 
@@ -89,12 +89,18 @@ def calculate_leave_allowance_amount(leave_request: Any) -> Decimal:
     if percentage <= 0:
         return Decimal("0.00")
 
-    basic_salary = Decimal(payroll.basic_salary or Decimal("0.00"))
-    amount = (basic_salary * percentage) / Decimal("100")
+    annual_basic_salary = Decimal(payroll.basic_salary or Decimal("0.00")) * Decimal(
+        "12"
+    )
+    amount = (annual_basic_salary * percentage) / Decimal("100")
     return amount.quantize(MONEY_QUANTIZER)
 
 
-def process_leave_allowance_for_request(leave_request: Any) -> Allowance | None:
+def process_leave_allowance_for_request(
+    leave_request: Any,
+    *,
+    queue_email: bool = True,
+) -> Allowance | None:
     """
     Create the automatic leave allowance and queue its slip email once.
 
@@ -151,7 +157,7 @@ def process_leave_allowance_for_request(leave_request: Any) -> Allowance | None:
 
         post_leave_allowance_journal(allowance, leave_request)
 
-        if job_created:
+        if queue_email and job_created:
             transaction.on_commit(lambda: job.enqueue())
 
     return allowance

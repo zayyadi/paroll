@@ -24,11 +24,17 @@ from inventory.services import (
     create_purchase_order,
     get_accounts_payable_aging,
     get_accounts_receivable_aging,
+    get_customer_ledger,
+    get_customer_payment_unapplied_amount,
+    get_supplier_ledger,
+    get_supplier_payment_unapplied_amount,
     get_stock_on_hand,
     post_inventory_adjustment,
     post_opening_stock,
     post_purchase_receipt,
     post_customer_payment,
+    allocate_customer_payment,
+    allocate_supplier_payment,
     post_customer_return,
     post_sales_invoice,
     post_supplier_payment,
@@ -216,6 +222,24 @@ class InventoryCoreTests(TestCase):
         self.assertEqual(taxes["vat_amount"], Decimal("30.00"))
         self.assertEqual(taxes["wht_rate"], Decimal("5.0000"))
         self.assertEqual(taxes["wht_amount"], Decimal("20.00"))
+
+    def test_tax_calculation_treats_missing_default_rates_as_zero(self):
+        self.item.default_vat_rate = None
+        self.item.default_wht_rate = None
+
+        taxes = calculate_inventory_line_taxes(
+            company=self.company_a,
+            item=self.item,
+            quantity=Decimal("4"),
+            unit_price=Decimal("100.00"),
+            transaction_type=TaxRule.TransactionType.SALE,
+            tax_date=date(2026, 5, 20),
+        )
+
+        self.assertEqual(taxes["vat_rate"], Decimal("0.0000"))
+        self.assertEqual(taxes["vat_amount"], Decimal("0.00"))
+        self.assertEqual(taxes["wht_rate"], Decimal("0.0000"))
+        self.assertEqual(taxes["wht_amount"], Decimal("0.00"))
 
     def test_opening_stock_posts_stock_movement_and_balanced_journal(self):
         document = post_opening_stock(
@@ -533,8 +557,8 @@ class InventoryCoreTests(TestCase):
 
         entries = invoice.journal.entries.select_related("account")
         self.assertEqual(get_stock_on_hand(self.item, self.main_location), Decimal("6.0000"))
-        self.assertEqual(entries.get(account=self.accounts["receivable"]).amount, Decimal("410.00"))
-        self.assertEqual(entries.get(account=self.accounts["wht_receivable"]).amount, Decimal("20.00"))
+        self.assertEqual(entries.get(account=self.accounts["receivable"]).amount, Decimal("430.00"))
+        self.assertFalse(entries.filter(account=self.accounts["wht_receivable"]).exists())
         self.assertEqual(entries.get(account=self.accounts["sales"]).amount, Decimal("400.00"))
         self.assertEqual(entries.get(account=self.accounts["vat_output"]).amount, Decimal("30.00"))
         self.assertEqual(entries.get(account=self.accounts["cogs"]).amount, Decimal("240.00"))
@@ -542,6 +566,131 @@ class InventoryCoreTests(TestCase):
             entries.get(account=self.accounts["inventory"], entry_type="CREDIT").amount,
             Decimal("240.00"),
         )
+        line = invoice.sales_invoice.lines.get()
+        self.assertEqual(line.wht_rate, Decimal("0.0000"))
+        self.assertEqual(line.wht_amount, Decimal("0.00"))
+
+    def test_sales_invoice_with_vat_does_not_require_customer_wht_receivable(self):
+        self.category.sales_revenue_account = self.accounts["sales"]
+        self.category.cogs_account = self.accounts["cogs"]
+        self.category.save()
+        customer = Customer.objects.create(
+            company=self.company_a,
+            name="VAT Customer Without WHT Account",
+            receivable_account=self.accounts["receivable"],
+            default_wht_rate=Decimal("5.0000"),
+        )
+        post_opening_stock(
+            company=self.company_a,
+            item=self.item,
+            location=self.main_location,
+            quantity=Decimal("10"),
+            unit_cost=Decimal("60.00"),
+        )
+
+        document = post_sales_invoice(
+            company=self.company_a,
+            customer=customer,
+            location=self.main_location,
+            lines=[
+                {
+                    "item": self.item,
+                    "quantity": Decimal("2"),
+                    "unit_price": Decimal("100.00"),
+                    "vat_rate": Decimal("7.50"),
+                }
+            ],
+            vat_output_account=self.accounts["vat_output"],
+            posting_date=date(2026, 5, 7),
+            reference="INV-VAT-NO-WHT",
+        )
+
+        line = document.sales_invoice.lines.get()
+        self.assertEqual(line.vat_amount, Decimal("15.00"))
+        self.assertEqual(line.wht_rate, Decimal("0.0000"))
+        self.assertEqual(line.wht_amount, Decimal("0.00"))
+        self.assertFalse(
+            document.journal.entries.filter(account=self.accounts["wht_receivable"]).exists()
+        )
+
+    def test_sales_invoice_fifo_cogs_returns_cost_amount(self):
+        self.category.costing_method = InventoryCategory.CostingMethod.FIFO
+        self.category.sales_revenue_account = self.accounts["sales"]
+        self.category.cogs_account = self.accounts["cogs"]
+        self.category.save()
+        customer = Customer.objects.create(
+            company=self.company_a,
+            name="FIFO Customer",
+            receivable_account=self.accounts["receivable"],
+        )
+        post_opening_stock(
+            company=self.company_a,
+            item=self.item,
+            location=self.main_location,
+            quantity=Decimal("10"),
+            unit_cost=Decimal("60.00"),
+        )
+
+        document = post_sales_invoice(
+            company=self.company_a,
+            customer=customer,
+            location=self.main_location,
+            lines=[
+                {
+                    "item": self.item,
+                    "quantity": Decimal("2"),
+                    "unit_price": Decimal("100.00"),
+                    "vat_rate": Decimal("0"),
+                    "wht_rate": Decimal("0"),
+                }
+            ],
+            posting_date=date(2026, 5, 21),
+            reference="INV-FIFO-001",
+        )
+
+        line = document.sales_invoice.lines.get()
+        self.assertEqual(line.unit_cost, Decimal("60.0000"))
+        self.assertEqual(line.cogs_amount, Decimal("120.00"))
+
+    def test_sales_invoice_treats_none_line_tax_rates_as_zero(self):
+        self.category.sales_revenue_account = self.accounts["sales"]
+        self.category.cogs_account = self.accounts["cogs"]
+        self.category.save()
+        customer = Customer.objects.create(
+            company=self.company_a,
+            name="Cash Customer",
+            receivable_account=self.accounts["receivable"],
+        )
+        post_opening_stock(
+            company=self.company_a,
+            item=self.item,
+            location=self.main_location,
+            quantity=Decimal("10"),
+            unit_cost=Decimal("60.00"),
+        )
+
+        document = post_sales_invoice(
+            company=self.company_a,
+            customer=customer,
+            location=self.main_location,
+            lines=[
+                {
+                    "item": self.item,
+                    "quantity": Decimal("2"),
+                    "unit_price": Decimal("100.00"),
+                    "vat_rate": None,
+                    "wht_rate": None,
+                }
+            ],
+            posting_date=date(2026, 5, 21),
+            reference="INV-NONE-TAX",
+        )
+
+        line = document.sales_invoice.lines.get()
+        self.assertEqual(line.vat_rate, Decimal("0.0000"))
+        self.assertEqual(line.vat_amount, Decimal("0.00"))
+        self.assertEqual(line.wht_rate, Decimal("0.0000"))
+        self.assertEqual(line.wht_amount, Decimal("0.00"))
 
     def test_customer_payment_debits_bank_and_credits_receivable(self):
         customer = Customer.objects.create(
@@ -821,6 +970,251 @@ class InventoryCoreTests(TestCase):
                 location=self.main_location,
                 lines=[{"item": self.item, "quantity": Decimal("2"), "unit_price": Decimal("60.00")}],
             )
+
+    def test_customer_credit_limit_allows_invoice_against_advance_payment(self):
+        self.category.sales_revenue_account = self.accounts["sales"]
+        self.category.cogs_account = self.accounts["cogs"]
+        self.category.save()
+        customer = Customer.objects.create(
+            company=self.company_a,
+            name="Advance Credit Customer",
+            receivable_account=self.accounts["receivable"],
+            credit_limit=Decimal("100.00"),
+        )
+        post_opening_stock(
+            company=self.company_a,
+            item=self.item,
+            location=self.main_location,
+            quantity=Decimal("10"),
+            unit_cost=Decimal("10.00"),
+        )
+        post_customer_payment(
+            company=self.company_a,
+            customer=customer,
+            cash_account=self.accounts["bank"],
+            amount=Decimal("200.00"),
+            posting_date=date(2026, 5, 2),
+        )
+
+        document = post_sales_invoice(
+            company=self.company_a,
+            customer=customer,
+            location=self.main_location,
+            lines=[{"item": self.item, "quantity": Decimal("2"), "unit_price": Decimal("60.00")}],
+            posting_date=date(2026, 5, 3),
+            reference="ADV-CREDIT",
+        )
+
+        self.assertEqual(document.total_amount, Decimal("120.00"))
+
+    def test_unapplied_customer_payment_can_be_allocated_to_invoice(self):
+        self.category.sales_revenue_account = self.accounts["sales"]
+        self.category.cogs_account = self.accounts["cogs"]
+        self.category.save()
+        customer = Customer.objects.create(
+            company=self.company_a,
+            name="Allocation Customer",
+            receivable_account=self.accounts["receivable"],
+        )
+        post_opening_stock(
+            company=self.company_a,
+            item=self.item,
+            location=self.main_location,
+            quantity=Decimal("10"),
+            unit_cost=Decimal("10.00"),
+        )
+        payment_document = post_customer_payment(
+            company=self.company_a,
+            customer=customer,
+            cash_account=self.accounts["bank"],
+            amount=Decimal("120.00"),
+            posting_date=date(2026, 5, 2),
+            reference="BANK-ALLOC",
+        )
+        invoice_document = post_sales_invoice(
+            company=self.company_a,
+            customer=customer,
+            location=self.main_location,
+            lines=[{"item": self.item, "quantity": Decimal("2"), "unit_price": Decimal("60.00")}],
+            posting_date=date(2026, 5, 3),
+            reference="INV-ALLOC",
+        )
+        payment = payment_document.customer_payment
+        invoice = invoice_document.sales_invoice
+
+        allocation = allocate_customer_payment(
+            payment=payment,
+            invoice=invoice,
+            amount=Decimal("120.00"),
+            allocation_date=date(2026, 5, 4),
+        )
+        invoice.refresh_from_db()
+
+        self.assertEqual(allocation.amount, Decimal("120.00"))
+        self.assertEqual(invoice.paid_amount, Decimal("120.00"))
+        self.assertEqual(invoice.payment_status, "PAID")
+        self.assertEqual(get_customer_payment_unapplied_amount(payment), Decimal("0.00"))
+
+    def test_customer_payment_allocation_cannot_exceed_unapplied_or_invoice_balance(self):
+        self.category.sales_revenue_account = self.accounts["sales"]
+        self.category.cogs_account = self.accounts["cogs"]
+        self.category.save()
+        customer = Customer.objects.create(
+            company=self.company_a,
+            name="Allocation Limit Customer",
+            receivable_account=self.accounts["receivable"],
+        )
+        post_opening_stock(
+            company=self.company_a,
+            item=self.item,
+            location=self.main_location,
+            quantity=Decimal("10"),
+            unit_cost=Decimal("10.00"),
+        )
+        payment = post_customer_payment(
+            company=self.company_a,
+            customer=customer,
+            cash_account=self.accounts["bank"],
+            amount=Decimal("50.00"),
+            posting_date=date(2026, 5, 2),
+        ).customer_payment
+        invoice = post_sales_invoice(
+            company=self.company_a,
+            customer=customer,
+            location=self.main_location,
+            lines=[{"item": self.item, "quantity": Decimal("2"), "unit_price": Decimal("60.00")}],
+            posting_date=date(2026, 5, 3),
+        ).sales_invoice
+
+        with self.assertRaises(ValueError):
+            allocate_customer_payment(payment=payment, invoice=invoice, amount=Decimal("60.00"))
+
+    def test_unapplied_supplier_payment_can_be_allocated_to_purchase_receipt(self):
+        supplier = Supplier.objects.create(
+            company=self.company_a,
+            name="Supplier Allocation",
+            payable_account=self.accounts["payable"],
+        )
+        receipt_document = post_purchase_receipt(
+            company=self.company_a,
+            supplier=supplier,
+            location=self.main_location,
+            lines=[{"item": self.item, "quantity": Decimal("2"), "unit_cost": Decimal("50.00")}],
+            posting_date=date(2026, 5, 3),
+            reference="BILL-ALLOC",
+        )
+        payment_document = post_supplier_payment(
+            company=self.company_a,
+            supplier=supplier,
+            cash_account=self.accounts["bank"],
+            amount=Decimal("100.00"),
+            posting_date=date(2026, 5, 4),
+            reference="SUPP-PAY-ALLOC",
+        )
+        receipt = receipt_document.purchase_receipt
+        payment = payment_document.supplier_payment
+
+        allocation = allocate_supplier_payment(
+            payment=payment,
+            receipt=receipt,
+            amount=Decimal("100.00"),
+            allocation_date=date(2026, 5, 5),
+        )
+        receipt.refresh_from_db()
+
+        self.assertEqual(allocation.amount, Decimal("100.00"))
+        self.assertEqual(receipt.paid_amount, Decimal("100.00"))
+        self.assertEqual(receipt.payment_status, "PAID")
+        self.assertEqual(get_supplier_payment_unapplied_amount(payment), Decimal("0.00"))
+
+    def test_supplier_payment_allocation_cannot_exceed_unapplied_or_receipt_balance(self):
+        supplier = Supplier.objects.create(
+            company=self.company_a,
+            name="Supplier Allocation Limit",
+            payable_account=self.accounts["payable"],
+        )
+        receipt = post_purchase_receipt(
+            company=self.company_a,
+            supplier=supplier,
+            location=self.main_location,
+            lines=[{"item": self.item, "quantity": Decimal("2"), "unit_cost": Decimal("50.00")}],
+            posting_date=date(2026, 5, 3),
+        ).purchase_receipt
+        payment = post_supplier_payment(
+            company=self.company_a,
+            supplier=supplier,
+            cash_account=self.accounts["bank"],
+            amount=Decimal("50.00"),
+            posting_date=date(2026, 5, 4),
+        ).supplier_payment
+
+        with self.assertRaises(ValueError):
+            allocate_supplier_payment(payment=payment, receipt=receipt, amount=Decimal("60.00"))
+
+    def test_customer_and_supplier_ledgers_show_running_balances(self):
+        self.category.sales_revenue_account = self.accounts["sales"]
+        self.category.cogs_account = self.accounts["cogs"]
+        self.category.save()
+        customer = Customer.objects.create(
+            company=self.company_a,
+            name="Ledger Customer",
+            receivable_account=self.accounts["receivable"],
+        )
+        supplier = Supplier.objects.create(
+            company=self.company_a,
+            name="Ledger Supplier",
+            payable_account=self.accounts["payable"],
+        )
+        post_opening_stock(
+            company=self.company_a,
+            item=self.item,
+            location=self.main_location,
+            quantity=Decimal("10"),
+            unit_cost=Decimal("25.00"),
+            posting_date=date(2026, 5, 1),
+        )
+        invoice = post_sales_invoice(
+            company=self.company_a,
+            customer=customer,
+            location=self.main_location,
+            lines=[{"item": self.item, "quantity": Decimal("2"), "unit_price": Decimal("80.00")}],
+            posting_date=date(2026, 5, 2),
+            reference="CUST-LEDGER",
+        )
+        post_customer_payment(
+            company=self.company_a,
+            customer=customer,
+            cash_account=self.accounts["bank"],
+            amount=Decimal("60.00"),
+            invoice=invoice.sales_invoice,
+            posting_date=date(2026, 5, 3),
+            reference="CUST-PAY",
+        )
+        receipt = post_purchase_receipt(
+            company=self.company_a,
+            supplier=supplier,
+            location=self.main_location,
+            lines=[{"item": self.item, "quantity": Decimal("1"), "unit_cost": Decimal("100.00")}],
+            posting_date=date(2026, 5, 2),
+            reference="SUPP-LEDGER",
+        )
+        post_supplier_payment(
+            company=self.company_a,
+            supplier=supplier,
+            cash_account=self.accounts["bank"],
+            amount=Decimal("40.00"),
+            receipt=receipt.purchase_receipt,
+            posting_date=date(2026, 5, 3),
+            reference="SUPP-PAY",
+        )
+
+        customer_ledger = get_customer_ledger(customer)
+        supplier_ledger = get_supplier_ledger(supplier)
+
+        self.assertEqual([row["reference"] for row in customer_ledger], ["CUST-LEDGER", "CUST-PAY"])
+        self.assertEqual(customer_ledger[-1]["balance"], Decimal("100.00"))
+        self.assertEqual([row["reference"] for row in supplier_ledger], ["SUPP-LEDGER", "SUPP-PAY"])
+        self.assertEqual(supplier_ledger[-1]["balance"], Decimal("60.00"))
 
     def test_ar_ap_aging_reports_track_invoice_and_payment_balances(self):
         self.category.sales_revenue_account = self.accounts["sales"]

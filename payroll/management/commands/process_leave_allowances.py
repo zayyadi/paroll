@@ -18,13 +18,22 @@ class Command(BaseCommand):
             action="store_true",
             help="Show matching approved leave requests without creating allowances.",
         )
+        parser.add_argument(
+            "--skip-email",
+            action="store_true",
+            help="Create allowance and slip records without queueing slip email delivery.",
+        )
 
     def handle(self, *args, **options):
         queryset = LeaveRequest.objects.select_related(
             "employee",
             "employee__employee_pay",
             "employee__company",
-        ).filter(status="APPROVED")
+        ).filter(
+            status="APPROVED",
+            leave_type="ANNUAL",
+            processed_leave_allowance__isnull=True,
+        )
 
         if options["leave_id"]:
             queryset = queryset.filter(pk=options["leave_id"])
@@ -38,7 +47,10 @@ class Command(BaseCommand):
                 )
                 continue
 
-            allowance = process_leave_allowance_for_request(leave_request)
+            allowance = process_leave_allowance_for_request(
+                leave_request,
+                queue_email=not options["skip_email"],
+            )
             if allowance is None:
                 skipped += 1
                 self.stdout.write(

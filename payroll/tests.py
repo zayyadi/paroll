@@ -63,6 +63,7 @@ from payroll.views.payroll_payslips import (
     _queue_payslip_emails_for_payroll_run,
     _send_payslips_for_payroll_run,
 )
+from payroll.views.payroll_helpers import _get_payroll_close_journal_transaction_number
 from payroll.tasks.payslip_tasks import send_payslips_for_payroll_run_task
 from payroll.tasks.leave_allowance_tasks import send_leave_allowance_slip_task
 from payroll.notification_signals import _dispatch_iou_rejected_event
@@ -117,8 +118,98 @@ class PayrollAllowanceRulesTests(TestCase):
         )
         payroll_entry = self._create_payroll_entry_for_month(payroll_month=3)
 
-        # 15% of monthly basic salary (120,000) = 18,000
-        self.assertEqual(payroll_entry.calc_allowance, Decimal("18000.00"))
+        # 15% of annual basic salary (120,000 x 12) = 216,000
+        self.assertEqual(payroll_entry.calc_allowance, Decimal("216000.00"))
+
+    def test_leave_allowance_percentage_defaults_to_ten_percent(self):
+        setting = CompanyPayrollSetting.objects.create(
+            company=Company.objects.create(name="Default Allowance Co")
+        )
+
+        self.assertEqual(setting.leave_allowance_percentage, Decimal("10.00"))
+
+    @patch("payroll.models.payroll.LeaveAllowanceEmailJob.enqueue")
+    def test_approving_leave_uses_default_rate_when_company_setting_is_missing(
+        self, mocked_enqueue
+    ):
+        self.setting.delete()
+        leave_request = LeaveRequest.objects.create(
+            employee=self.employee,
+            leave_type="ANNUAL",
+            start_date=date(2026, 3, 10),
+            end_date=date(2026, 3, 14),
+            reason="Annual vacation",
+        )
+
+        with self.captureOnCommitCallbacks(execute=True):
+            leave_request.status = "APPROVED"
+            leave_request.save()
+
+        allowance = Allowance.objects.get(source_leave_request=leave_request)
+        self.assertEqual(allowance.amount, Decimal("144000.00"))
+        setting = CompanyPayrollSetting.objects.get(company=self.company)
+        self.assertEqual(setting.leave_allowance_percentage, Decimal("10.00"))
+        mocked_enqueue.assert_called_once()
+
+    @patch("payroll.models.payroll.LeaveAllowanceEmailJob.enqueue")
+    def test_process_leave_allowances_command_backfills_only_approved_annual_leaves(
+        self, mocked_enqueue
+    ):
+        annual_leave = LeaveRequest.objects.create(
+            employee=self.employee,
+            leave_type="ANNUAL",
+            start_date=date(2026, 5, 1),
+            end_date=date(2026, 5, 5),
+            reason="Legacy annual leave",
+        )
+        sick_leave = LeaveRequest.objects.create(
+            employee=self.employee,
+            leave_type="SICK",
+            start_date=date(2026, 6, 1),
+            end_date=date(2026, 6, 2),
+            reason="Legacy sick leave",
+        )
+        LeaveRequest.objects.filter(pk__in=[annual_leave.pk, sick_leave.pk]).update(
+            status="APPROVED"
+        )
+
+        output = StringIO()
+        with self.captureOnCommitCallbacks(execute=True):
+            call_command("process_leave_allowances", stdout=output)
+
+        annual_leave.refresh_from_db()
+        sick_leave.refresh_from_db()
+        allowance = Allowance.objects.get(source_leave_request=annual_leave)
+        self.assertEqual(allowance.amount, Decimal("216000.00"))
+        self.assertFalse(
+            Allowance.objects.filter(source_leave_request=sick_leave).exists()
+        )
+        self.assertIn("Processed 1 leave allowance(s); skipped 0.", output.getvalue())
+        mocked_enqueue.assert_called_once()
+
+    @patch("payroll.models.payroll.LeaveAllowanceEmailJob.enqueue")
+    def test_process_leave_allowances_command_can_skip_email_queueing(
+        self, mocked_enqueue
+    ):
+        annual_leave = LeaveRequest.objects.create(
+            employee=self.employee,
+            leave_type="ANNUAL",
+            start_date=date(2026, 5, 1),
+            end_date=date(2026, 5, 5),
+            reason="Legacy annual leave",
+        )
+        LeaveRequest.objects.filter(pk=annual_leave.pk).update(status="APPROVED")
+
+        output = StringIO()
+        call_command("process_leave_allowances", "--skip-email", stdout=output)
+
+        allowance = Allowance.objects.get(source_leave_request=annual_leave)
+        self.assertEqual(allowance.amount, Decimal("216000.00"))
+        self.assertTrue(
+            LeaveAllowanceEmailJob.objects.filter(leave_request=annual_leave).exists()
+        )
+        self.assertIn("Processed 1 leave allowance(s); skipped 0.", output.getvalue())
+        mocked_enqueue.assert_not_called()
 
     @patch("payroll.models.payroll.LeaveAllowanceEmailJob.enqueue")
     def test_approving_leave_processes_allowance_and_queues_slip_email(self, mocked_enqueue):
@@ -137,10 +228,10 @@ class PayrollAllowanceRulesTests(TestCase):
         allowance = Allowance.objects.get(source_leave_request=leave_request)
         self.assertEqual(allowance.employee, self.employee)
         self.assertEqual(allowance.allowance_type, "LV")
-        self.assertEqual(allowance.amount, Decimal("18000.00"))
+        self.assertEqual(allowance.amount, Decimal("216000.00"))
 
         job = LeaveAllowanceEmailJob.objects.get(leave_request=leave_request)
-        self.assertEqual(job.amount, Decimal("18000.00"))
+        self.assertEqual(job.amount, Decimal("216000.00"))
         self.assertEqual(job.status, LeaveAllowanceEmailJob.Status.QUEUED)
         mocked_enqueue.assert_called_once()
 
@@ -155,18 +246,18 @@ class PayrollAllowanceRulesTests(TestCase):
             entries["Allowances Expense"].entry_type,
             JournalEntry.EntryType.DEBIT,
         )
-        self.assertEqual(entries["Allowances Expense"].amount, Decimal("18000.00"))
+        self.assertEqual(entries["Allowances Expense"].amount, Decimal("216000.00"))
         self.assertEqual(
             entries["Cash and Cash Equivalents"].entry_type,
             JournalEntry.EntryType.CREDIT,
         )
         self.assertEqual(
             entries["Cash and Cash Equivalents"].amount,
-            Decimal("18000.00"),
+            Decimal("216000.00"),
         )
 
         payroll_entry = self._create_payroll_entry_for_month(payroll_month=3)
-        self.assertEqual(payroll_entry.calc_allowance, Decimal("18000.00"))
+        self.assertEqual(payroll_entry.calc_allowance, Decimal("216000.00"))
 
     @patch("payroll.models.payroll.LeaveAllowanceEmailJob.enqueue")
     def test_reapproving_leave_does_not_duplicate_allowance_or_email_job(self, mocked_enqueue):
@@ -221,8 +312,8 @@ class PayrollAllowanceRulesTests(TestCase):
         taxable_income_before = self.payroll.taxable_income
         payee_before = self.payroll.payee
 
-        # December leave allowance (15%) + 13th month (20% annual) = 306,000
-        self.assertEqual(payroll_entry.calc_allowance, Decimal("306000.00"))
+        # December leave allowance (15% annual) + 13th month (20% annual) = 504,000
+        self.assertEqual(payroll_entry.calc_allowance, Decimal("504000.00"))
         self.assertEqual(self.payroll.taxable_income, taxable_income_before)
         self.assertEqual(self.payroll.payee, payee_before)
 
@@ -318,6 +409,140 @@ class PayrollRunActivationRequirementTests(TestCase):
         )
         self.assertFalse(form.is_valid())
         self.assertIn("is_active", form.errors)
+
+
+class PayrollCloseJournalLookupTests(TestCase):
+    def test_missing_close_journal_returns_none(self):
+        company = Company.objects.create(name="Journal Lookup Inc")
+        payroll_run = PayrollRun.objects.create(
+            company=company,
+            name="July Payroll",
+            paydays=date(2025, 7, 1),
+            is_active=True,
+        )
+
+        self.assertIsNone(_get_payroll_close_journal_transaction_number(payroll_run))
+
+
+class PayrollRunCreateViewTests(TestCase):
+    def setUp(self):
+        self.company = Company.objects.create(name="Create View Inc")
+        self.hr_user = User.objects.create_user(
+            email="hr-create-view@example.com",
+            password="testpass123",
+            first_name="HR",
+            last_name="User",
+            company=self.company,
+            active_company=self.company,
+        )
+        permission = Permission.objects.get(codename="add_payrollrun")
+        self.hr_user.user_permissions.add(permission)
+        self.payroll = Payroll.objects.create(
+            company=self.company,
+            basic_salary=Decimal("100000.00"),
+        )
+        self.employee = EmployeeProfile.objects.create(
+            company=self.company,
+            first_name="Ada",
+            last_name="Okafor",
+            email="ada@example.com",
+            status="active",
+            employee_pay=self.payroll,
+            net_pay=Decimal("85000.00"),
+        )
+
+    def test_create_page_bootstraps_employee_selector(self):
+        self.client.force_login(self.hr_user)
+
+        response = self.client.get(reverse("payroll:payday_create_new"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Ada Okafor")
+        self.assertContains(response, "alpine", html=False)
+        self.assertContains(response, 'x-init="init()"')
+
+    @patch("payroll.models.payroll.PayslipEmailJob.enqueue")
+    def test_create_page_post_redirects_after_queueing_payslip_email(self, mocked_enqueue):
+        self.client.force_login(self.hr_user)
+
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.post(
+                reverse("payroll:payday_create_new"),
+                data={
+                    "name": "June Payroll",
+                    "paydays": "2026-06",
+                    "is_active": "on",
+                    "payroll_payday": str(self.employee.pk),
+                },
+            )
+
+        payroll_run = PayrollRun.objects.get(name="June Payroll")
+        self.assertRedirects(
+            response,
+            reverse("payroll:pay_period_detail", kwargs={"slug": payroll_run.slug}),
+            fetch_redirect_response=False,
+        )
+        self.assertEqual(payroll_run.payroll_run_entries.count(), 1)
+        self.assertEqual(PayslipEmailJob.objects.filter(payroll_run=payroll_run).count(), 1)
+        mocked_enqueue.assert_called_once()
+
+    def test_create_page_post_shows_error_when_no_employee_is_selected(self):
+        self.client.force_login(self.hr_user)
+
+        response = self.client.post(
+            reverse("payroll:payday_create_new"),
+            data={
+                "name": "Empty Payroll",
+                "paydays": "2026-06",
+                "is_active": "on",
+                "payroll_payday": "",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Select at least one employee")
+        self.assertFalse(PayrollRun.objects.filter(name="Empty Payroll").exists())
+
+    def test_create_page_post_shows_error_for_invalid_employee_selection_payload(self):
+        self.client.force_login(self.hr_user)
+
+        response = self.client.post(
+            reverse("payroll:payday_create_new"),
+            data={
+                "name": "Invalid Payload Payroll",
+                "paydays": "2026-06",
+                "is_active": "on",
+                "payroll_payday": f"{self.employee.pk},not-a-number",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Invalid employee selection")
+        self.assertFalse(PayrollRun.objects.filter(name="Invalid Payload Payroll").exists())
+
+    def test_create_page_post_shows_error_for_employee_outside_company(self):
+        other_company = Company.objects.create(name="Other Co")
+        other_employee = EmployeeProfile.objects.create(
+            company=other_company,
+            first_name="Other",
+            last_name="Employee",
+            status="active",
+        )
+        self.client.force_login(self.hr_user)
+
+        response = self.client.post(
+            reverse("payroll:payday_create_new"),
+            data={
+                "name": "Wrong Company Payroll",
+                "paydays": "2026-06",
+                "is_active": "on",
+                "payroll_payday": str(other_employee.pk),
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Selected employees are no longer available")
+        self.assertFalse(PayrollRun.objects.filter(name="Wrong Company Payroll").exists())
 
 
 class AppraisalWorkflowStandardsTests(TestCase):
@@ -670,7 +895,7 @@ class PayrollRunPayslipEmailTests(TestCase):
         result = send_leave_allowance_slip_task(leave_request.id, job.id)
 
         self.assertTrue(result["success"])
-        self.assertEqual(result["amount"], "20000.00")
+        self.assertEqual(result["amount"], "240000.00")
         mocked_generate_pdf.assert_called_once()
         mocked_send_mail.assert_called_once()
         kwargs = mocked_send_mail.call_args.kwargs
@@ -687,6 +912,44 @@ class PayrollRunPayslipEmailTests(TestCase):
         self.assertEqual(job.status, LeaveAllowanceEmailJob.Status.SENT)
         self.assertIsNotNone(job.started_at)
         self.assertIsNotNone(job.completed_at)
+
+    @patch(
+        "payroll.management.commands.process_leave_allowance_email_jobs.send_leave_allowance_slip_task"
+    )
+    def test_process_leave_allowance_email_jobs_sends_existing_queued_jobs(
+        self, mocked_task
+    ):
+        company = Company.objects.create(name="Leave Allowance Queue Co")
+        payroll = Payroll.objects.create(
+            company=company,
+            basic_salary=Decimal("200000.00"),
+        )
+        employee = EmployeeProfile.objects.create(
+            company=company,
+            first_name="Queued",
+            last_name="Allowance",
+            employee_pay=payroll,
+        )
+        CompanyPayrollSetting.objects.create(
+            company=company,
+            leave_allowance_percentage=Decimal("10.00"),
+        )
+        leave_request = LeaveRequest.objects.create(
+            employee=employee,
+            leave_type="ANNUAL",
+            start_date=date(2026, 5, 4),
+            end_date=date(2026, 5, 8),
+            reason="Annual vacation",
+        )
+        LeaveRequest.objects.filter(pk=leave_request.pk).update(status="APPROVED")
+        call_command("process_leave_allowances", "--skip-email", stdout=StringIO())
+        job = LeaveAllowanceEmailJob.objects.get(leave_request=leave_request)
+
+        output = StringIO()
+        call_command("process_leave_allowance_email_jobs", stdout=output)
+
+        mocked_task.assert_called_once_with(leave_request.id, job.id)
+        self.assertIn("Processed 1 leave allowance email job(s).", output.getvalue())
 
     @patch("payroll.models.payroll.PayslipEmailJob.enqueue")
     def test_admin_resend_job_url_requeues_selected_job(self, mocked_enqueue):
@@ -766,6 +1029,47 @@ class HRComplianceRulesTests(TestCase):
         setting.pension_employee_percentage = Decimal("6.00")
         with self.assertRaises(ValidationError):
             setting.full_clean()
+
+    def test_company_setup_edit_exposes_annual_leave_allowance_rate(self):
+        permission = Permission.objects.get(codename="change_companypayrollsetting")
+        self.user.user_permissions.add(permission)
+        CompanyPayrollSetting.objects.create(company=self.company)
+        self.client.force_login(self.user)
+
+        response = self.client.get(reverse("payroll:company_payroll_settings_edit"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Annual Leave Allowance Rate (%)")
+        self.assertContains(response, "Percentage of annual basic salary paid")
+
+    def test_company_setup_edit_saves_annual_leave_allowance_rate(self):
+        permission = Permission.objects.get(codename="change_companypayrollsetting")
+        self.user.user_permissions.add(permission)
+        setting = CompanyPayrollSetting.objects.create(company=self.company)
+        self.client.force_login(self.user)
+
+        response = self.client.post(
+            reverse("payroll:company_payroll_settings_edit"),
+            data={
+                "basic_percentage": "40.00",
+                "housing_percentage": "10.00",
+                "transport_percentage": "10.00",
+                "pension_employee_percentage": "8.00",
+                "pension_employer_percentage": "10.00",
+                "nhf_percentage": "2.50",
+                "leave_allowance_percentage": "12.50",
+                "pays_thirteenth_month": "on",
+                "thirteenth_month_percentage": "20.00",
+                "tiers-TOTAL_FORMS": "0",
+                "tiers-INITIAL_FORMS": "0",
+                "tiers-MIN_NUM_FORMS": "0",
+                "tiers-MAX_NUM_FORMS": "1000",
+            },
+        )
+
+        self.assertRedirects(response, reverse("payroll:company_payroll_settings"))
+        setting.refresh_from_db()
+        self.assertEqual(setting.leave_allowance_percentage, Decimal("12.50"))
 
     def test_leave_request_cannot_overlap_existing_pending_or_approved_request(self):
         LeaveRequest.objects.create(

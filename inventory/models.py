@@ -455,6 +455,8 @@ class PurchaseOrderLine(BaseModel):
     )
     unit_cost = models.DecimalField(max_digits=18, decimal_places=4)
     total_cost = models.DecimalField(max_digits=18, decimal_places=2)
+    vat_rate = models.DecimalField(max_digits=7, decimal_places=4, default=Decimal("0.0000"))
+    vat_amount = models.DecimalField(max_digits=18, decimal_places=2, default=Decimal("0.00"))
 
     class Meta:
         ordering = ["id"]
@@ -852,6 +854,31 @@ class CustomerPayment(BaseModel):
         ordering = ["-document__document_date", "-created_at"]
 
 
+class CustomerPaymentAllocation(BaseModel):
+    company = models.ForeignKey(
+        "company.Company", on_delete=models.CASCADE, related_name="customer_payment_allocations"
+    )
+    payment = models.ForeignKey(
+        CustomerPayment, on_delete=models.CASCADE, related_name="allocations"
+    )
+    invoice = models.ForeignKey(
+        SalesInvoice, on_delete=models.PROTECT, related_name="payment_allocations"
+    )
+    amount = models.DecimalField(max_digits=18, decimal_places=2)
+    allocation_date = models.DateField(default=timezone.now)
+
+    class Meta:
+        ordering = ["allocation_date", "created_at", "id"]
+
+    def clean(self):
+        if self.payment_id and self.payment.company_id != self.company_id:
+            raise ValidationError("Payment allocation payment must belong to the same company.")
+        if self.invoice_id and self.invoice.company_id != self.company_id:
+            raise ValidationError("Payment allocation invoice must belong to the same company.")
+        if self.payment_id and self.invoice_id and self.payment.customer_id != self.invoice.customer_id:
+            raise ValidationError("Payment allocation invoice must belong to the payment customer.")
+
+
 class SupplierPayment(BaseModel):
     company = models.ForeignKey(
         "company.Company", on_delete=models.CASCADE, related_name="supplier_payments"
@@ -883,6 +910,31 @@ class SupplierPayment(BaseModel):
 
     class Meta:
         ordering = ["-document__document_date", "-created_at"]
+
+
+class SupplierPaymentAllocation(BaseModel):
+    company = models.ForeignKey(
+        "company.Company", on_delete=models.CASCADE, related_name="supplier_payment_allocations"
+    )
+    payment = models.ForeignKey(
+        SupplierPayment, on_delete=models.CASCADE, related_name="allocations"
+    )
+    receipt = models.ForeignKey(
+        PurchaseReceipt, on_delete=models.PROTECT, related_name="payment_allocations"
+    )
+    amount = models.DecimalField(max_digits=18, decimal_places=2)
+    allocation_date = models.DateField(default=timezone.now)
+
+    class Meta:
+        ordering = ["allocation_date", "created_at", "id"]
+
+    def clean(self):
+        if self.payment_id and self.payment.company_id != self.company_id:
+            raise ValidationError("Payment allocation payment must belong to the same company.")
+        if self.receipt_id and self.receipt.company_id != self.company_id:
+            raise ValidationError("Payment allocation receipt must belong to the same company.")
+        if self.payment_id and self.receipt_id and self.payment.supplier_id != self.receipt.supplier_id:
+            raise ValidationError("Payment allocation receipt must belong to the payment supplier.")
 
 
 class TaxRemittance(BaseModel):
@@ -1068,6 +1120,9 @@ class SalesOrderLine(BaseModel):
         max_digits=18, decimal_places=4, default=Decimal("0.0000")
     )
     unit_price = models.DecimalField(max_digits=18, decimal_places=4)
+    total_amount = models.DecimalField(max_digits=18, decimal_places=2, default=Decimal("0.00"))
+    vat_rate = models.DecimalField(max_digits=7, decimal_places=4, default=Decimal("0.0000"))
+    vat_amount = models.DecimalField(max_digits=18, decimal_places=2, default=Decimal("0.00"))
 
     class Meta:
         ordering = ["id"]

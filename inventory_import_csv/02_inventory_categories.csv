@@ -1,0 +1,5 @@
+id,created_at,updated_at,company,name,costing_method,inventory_account,opening_balance_equity_account,adjustment_gain_account,shrinkage_expense_account,sales_revenue_account,cogs_account
+200101,2026-06-20 00:00:00,2026-06-20 00:00:00,10000,General Merchandise,WEIGHTED_AVERAGE,47,34,55,57,54,56
+200102,2026-06-20 00:00:00,2026-06-20 00:00:00,10000,Food and Beverages,FIFO,47,34,55,57,54,56
+200103,2026-06-20 00:00:00,2026-06-20 00:00:00,10000,Office Supplies,WEIGHTED_AVERAGE,47,34,55,57,54,56
+200104,2026-06-20 00:00:00,2026-06-20 00:00:00,10000,Pharmacy,FIFO,47,34,55,57,54,56

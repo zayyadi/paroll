@@ -90,6 +90,10 @@ app.conf.task_routes = {
         "queue": "notifications_low",
         "routing_key": "notifications.low",
     },
+    "users.send_custom_mail": {
+        "queue": "notifications_normal",
+        "routing_key": "notifications.normal",
+    },
     "payroll.tasks.notification_tasks.archive_old_notifications_task": {
         "queue": "notifications_low",
         "routing_key": "notifications.low",
@@ -162,6 +166,9 @@ app.conf.task_annotations = {
         "rate_limit": "100/m",  # Max 100 tasks per minute
     },
     "payroll.tasks.notification_tasks.send_email_task": {
+        "rate_limit": "50/m",  # Max 50 emails per minute
+    },
+    "users.send_custom_mail": {
         "rate_limit": "50/m",  # Max 50 emails per minute
     },
     "payroll.tasks.notification_tasks.send_sms_task": {

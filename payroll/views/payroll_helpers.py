@@ -22,6 +22,7 @@ from django.template.loader import render_to_string
 from django.views.decorators.http import require_POST
 from django.utils import timezone
 
+from accounting.models import Journal
 from company.utils import get_user_company
 from payroll import utils
 from payroll import models
@@ -62,4 +63,3 @@ def _get_payroll_close_journal_transaction_number(payroll_run):
         .first()
     )
     return journal.transaction_number if journal else None
-

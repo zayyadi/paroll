@@ -11,6 +11,7 @@ from accounting.utils import create_journal_with_entries
 from inventory.models import (
     Customer,
     CustomerPayment,
+    CustomerPaymentAllocation,
     CustomerReturn,
     CustomerReturnLine,
     InventoryCategory,
@@ -31,6 +32,7 @@ from inventory.models import (
     SerialNumber,
     Supplier,
     SupplierPayment,
+    SupplierPaymentAllocation,
     SupplierReturn,
     SupplierReturnLine,
     TaxJurisdiction,
@@ -137,19 +139,22 @@ def ensure_default_posting_accounts(company):
     created = []
     existing = []
     for spec in DEFAULT_POSTING_ACCOUNTS:
-        account, was_created = Account.objects.get_or_create(
+        account = (
+            Account.objects.filter(company=company, account_number=spec["account_number"]).first()
+            or Account.objects.filter(company=company, name=spec["name"]).first()
+        )
+        if account:
+            existing.append(account)
+            continue
+
+        account = Account.objects.create(
             company=company,
             account_number=spec["account_number"],
-            defaults={
-                "name": spec["name"],
-                "type": spec["type"],
-                "description": spec["description"],
-            },
+            name=spec["name"],
+            type=spec["type"],
+            description=spec["description"],
         )
-        if was_created:
-            created.append(account)
-        else:
-            existing.append(account)
+        created.append(account)
     return {"created": created, "existing": existing}
 
 
@@ -159,6 +164,10 @@ def _q_qty(value):
 
 def _q_money(value):
     return Decimal(value).quantize(MONEY, rounding=ROUND_HALF_UP)
+
+
+def _rate(value):
+    return Decimal(value or 0).quantize(Decimal("0.0001"), rounding=ROUND_HALF_UP)
 
 
 def _active_tax_rule(company, tax_type, transaction_type, tax_date, jurisdiction=None):
@@ -196,11 +205,15 @@ def calculate_inventory_line_taxes(
     wht_rule = _active_tax_rule(
         company, TaxRule.TaxType.WHT, transaction_type, tax_date, jurisdiction
     )
-    vat_rate = vat_rule.rate if vat_rule else (
-        item.default_vat_rate if default_vat_rate is None else Decimal(default_vat_rate)
+    vat_rate = _rate(
+        vat_rule.rate if vat_rule else (
+            item.default_vat_rate if default_vat_rate is None else default_vat_rate
+        )
     )
-    wht_rate = wht_rule.rate if wht_rule else (
-        item.default_wht_rate if default_wht_rate is None else Decimal(default_wht_rate)
+    wht_rate = _rate(
+        wht_rule.rate if wht_rule else (
+            item.default_wht_rate if default_wht_rate is None else default_wht_rate
+        )
     )
     return {
         "taxable_amount": taxable_amount,
@@ -259,6 +272,23 @@ def _validate_posting_account(company, document_type, account_role, account, exp
         _log_posting_failure(company, document_type, account_role, account, message)
         raise ValueError(message)
     return account
+
+
+def _default_posting_account(company, account_number, name, expected_type):
+    return (
+        Account.objects.filter(
+            company=company,
+            account_number=account_number,
+            type=expected_type,
+            status=Account.AccountStatus.ACTIVE,
+        ).first()
+        or Account.objects.filter(
+            company=company,
+            name=name,
+            type=expected_type,
+            status=Account.AccountStatus.ACTIVE,
+        ).first()
+    )
 
 
 def get_stock_on_hand(item: InventoryItem, location: StockLocation | None = None):
@@ -361,11 +391,20 @@ def approve_inventory_document(document_or_stock_count, user=None):
 def _ensure_credit_available(customer, additional_amount):
     if customer.credit_limit <= 0:
         return
-    outstanding = sum(
-        _q_money(invoice_total(invoice) - invoice.paid_amount)
-        for invoice in customer.sales_invoices.exclude(payment_status="PAID")
+    invoice_total_amount = sum(
+        invoice_total(invoice) for invoice in customer.sales_invoices.all()
     )
-    if _q_money(outstanding + additional_amount) > customer.credit_limit:
+    payment_total = (
+        CustomerPayment.objects.filter(company=customer.company, customer=customer).aggregate(
+            total=Sum("amount")
+        )["total"]
+        or Decimal("0.00")
+    )
+    receivable_balance = _q_money(invoice_total_amount - payment_total)
+    exposure_after_invoice = max(
+        Decimal("0.00"), _q_money(receivable_balance + additional_amount)
+    )
+    if exposure_after_invoice > customer.credit_limit:
         raise ValueError("Customer credit limit exceeded")
 
 
@@ -410,6 +449,76 @@ def _set_invoice_payment_status(invoice):
             "updated_at",
         ]
     )
+
+
+def get_customer_payment_unapplied_amount(payment):
+    allocated = (
+        payment.allocations.aggregate(total=Sum("amount"))["total"] or Decimal("0.00")
+    )
+    return _q_money(payment.amount - allocated)
+
+
+@transaction.atomic
+def allocate_customer_payment(*, payment, invoice, amount, allocation_date=None):
+    allocation_date = allocation_date or timezone.now().date()
+    amount = _assert_positive_money(amount, "Allocation amount")
+    _assert_same_company(payment.company, invoice)
+    if invoice.customer_id != payment.customer_id:
+        raise ValueError("Payment can only be allocated to an invoice for the same customer")
+    unapplied = get_customer_payment_unapplied_amount(payment)
+    if amount > unapplied:
+        raise ValueError("Allocation exceeds unapplied payment amount")
+    outstanding = _q_money(invoice_total(invoice) - invoice.paid_amount)
+    if amount > outstanding:
+        raise ValueError("Allocation exceeds invoice outstanding balance")
+    allocation = CustomerPaymentAllocation.objects.create(
+        company=payment.company,
+        payment=payment,
+        invoice=invoice,
+        amount=amount,
+        allocation_date=allocation_date,
+    )
+    invoice.paid_amount = _q_money(invoice.paid_amount + amount)
+    _set_invoice_payment_status(invoice)
+    if payment.invoice_id is None:
+        payment.invoice = invoice
+        payment.save(update_fields=["invoice", "updated_at"])
+    return allocation
+
+
+def get_supplier_payment_unapplied_amount(payment):
+    allocated = (
+        payment.allocations.aggregate(total=Sum("amount"))["total"] or Decimal("0.00")
+    )
+    return _q_money(payment.amount - allocated)
+
+
+@transaction.atomic
+def allocate_supplier_payment(*, payment, receipt, amount, allocation_date=None):
+    allocation_date = allocation_date or timezone.now().date()
+    amount = _assert_positive_money(amount, "Allocation amount")
+    _assert_same_company(payment.company, receipt)
+    if receipt.supplier_id != payment.supplier_id:
+        raise ValueError("Payment can only be allocated to a receipt for the same supplier")
+    unapplied = get_supplier_payment_unapplied_amount(payment)
+    if amount > unapplied:
+        raise ValueError("Allocation exceeds unapplied payment amount")
+    outstanding = _q_money(receipt_total(receipt) - receipt.paid_amount)
+    if amount > outstanding:
+        raise ValueError("Allocation exceeds receipt outstanding balance")
+    allocation = SupplierPaymentAllocation.objects.create(
+        company=payment.company,
+        payment=payment,
+        receipt=receipt,
+        amount=amount,
+        allocation_date=allocation_date,
+    )
+    receipt.paid_amount = _q_money(receipt.paid_amount + amount)
+    _set_receipt_payment_status(receipt)
+    if payment.receipt_id is None:
+        payment.receipt = receipt
+        payment.save(update_fields=["receipt", "updated_at"])
+    return allocation
 
 
 def _set_receipt_payment_status(receipt):
@@ -653,8 +762,8 @@ def post_purchase_receipt(
             tax_date=posting_date,
             default_wht_rate=getattr(supplier, "default_wht_rate", 0),
         )
-        vat_rate = Decimal(line["vat_rate"]) if "vat_rate" in line else taxes["vat_rate"]
-        wht_rate = Decimal(line["wht_rate"]) if "wht_rate" in line else taxes["wht_rate"]
+        vat_rate = _rate(line.get("vat_rate", taxes["vat_rate"]))
+        wht_rate = _rate(line.get("wht_rate", taxes["wht_rate"]))
         vat_amount = _rate_amount(total_cost, vat_rate)
         wht_amount = _rate_amount(total_cost, wht_rate)
         inventory_account = _inventory_account(item, InventoryDocument.DocumentType.PURCHASE_RECEIPT)
@@ -838,9 +947,9 @@ def post_sales_invoice(
             tax_date=posting_date,
             default_wht_rate=customer.default_wht_rate,
         )
-        vat_rate = Decimal(line["vat_rate"]) if "vat_rate" in line else taxes["vat_rate"]
-        wht_rate = Decimal(line["wht_rate"]) if "wht_rate" in line else taxes["wht_rate"]
+        vat_rate = _rate(line.get("vat_rate", taxes["vat_rate"]))
         vat_amount = _rate_amount(revenue_amount, vat_rate)
+        wht_rate = Decimal("0.0000") if vat_amount else _rate(line.get("wht_rate", taxes["wht_rate"]))
         wht_amount = _rate_amount(revenue_amount, wht_rate)
         accounts = _sales_accounts(item)
         total_receivable += revenue_amount + vat_amount - wht_amount
@@ -886,7 +995,21 @@ def post_sales_invoice(
         )
     if total_vat:
         if vat_output_account is None:
+            vat_output_account = _default_posting_account(
+                company,
+                "2200",
+                "Output VAT",
+                Account.AccountType.LIABILITY,
+            )
+        if vat_output_account is None:
             raise ValueError("VAT output account is required when sales VAT is posted")
+        vat_output_account = _validate_posting_account(
+            company,
+            InventoryDocument.DocumentType.SALES_INVOICE,
+            "vat_output_account",
+            vat_output_account,
+            Account.AccountType.LIABILITY,
+        )
         journal_entries.append(
             {
                 "account": vat_output_account,
@@ -1050,8 +1173,12 @@ def post_customer_payment(
     document.save(update_fields=["journal", "updated_at"])
     _mark_document_posted(document, amount)
     if invoice is not None:
-        invoice.paid_amount = _q_money(invoice.paid_amount + amount)
-        _set_invoice_payment_status(invoice)
+        allocate_customer_payment(
+            payment=document.customer_payment,
+            invoice=invoice,
+            amount=amount,
+            allocation_date=posting_date,
+        )
     return document
 
 
@@ -1137,8 +1264,15 @@ def post_supplier_payment(
     document.save(update_fields=["journal", "updated_at"])
     _mark_document_posted(document, amount)
     if receipt is not None:
-        receipt.paid_amount = _q_money(receipt.paid_amount + amount + discount_taken)
-        _set_receipt_payment_status(receipt)
+        allocate_supplier_payment(
+            payment=document.supplier_payment,
+            receipt=receipt,
+            amount=amount,
+            allocation_date=posting_date,
+        )
+        if discount_taken:
+            receipt.paid_amount = _q_money(receipt.paid_amount + discount_taken)
+            _set_receipt_payment_status(receipt)
     return document
 
 
@@ -1589,14 +1723,18 @@ def create_purchase_order(
         _assert_same_company(company, item)
         quantity = _q_qty(line["quantity"])
         unit_cost = _q_qty(line["unit_cost"])
+        vat_rate = _rate(line.get("vat_rate", 0))
         if quantity <= 0 or unit_cost < 0:
             raise ValueError("Purchase order quantity must be positive and cost cannot be negative")
+        total_cost = _q_money(quantity * unit_cost)
         PurchaseOrderLine.objects.create(
             purchase_order=purchase_order,
             item=item,
             quantity=quantity,
             unit_cost=unit_cost,
-            total_cost=_q_money(quantity * unit_cost),
+            total_cost=total_cost,
+            vat_rate=vat_rate,
+            vat_amount=_rate_amount(total_cost, vat_rate),
         )
     return purchase_order
 
@@ -1632,14 +1770,19 @@ def receive_purchase_order(
             raise ValueError("Received quantity must be positive")
         if po_line.received_quantity + quantity > po_line.quantity:
             raise ValueError("Received quantity exceeds purchase order balance")
-        receipt_lines.append(
-            {
-                "item": po_line.item,
-                "location": line.get("location") or location,
-                "quantity": quantity,
-                "unit_cost": po_line.unit_cost,
-            }
-        )
+        receipt_line = {
+            "item": po_line.item,
+            "location": line.get("location") or location,
+            "quantity": quantity,
+            "unit_cost": po_line.unit_cost,
+        }
+        if "vat_rate" in line:
+            receipt_line["vat_rate"] = line["vat_rate"]
+        elif po_line.vat_rate:
+            receipt_line["vat_rate"] = po_line.vat_rate
+        if "wht_rate" in line:
+            receipt_line["wht_rate"] = line["wht_rate"]
+        receipt_lines.append(receipt_line)
         po_lines_to_update.append((po_line, quantity))
 
     document = post_purchase_receipt(
@@ -1942,6 +2085,90 @@ def get_customer_statement(customer, as_of=None):
     return [row for row in invoices if row["customer"].id == customer.id]
 
 
+def get_customer_ledger(customer):
+    rows = []
+    invoices = (
+        SalesInvoice.objects.filter(company=customer.company, customer=customer)
+        .select_related("document")
+        .order_by("document__document_date", "created_at", "id")
+    )
+    for invoice in invoices:
+        rows.append(
+            {
+                "date": invoice.document.document_date,
+                "reference": invoice.document.reference or str(invoice.document_id),
+                "description": "Sales invoice",
+                "debit": invoice_total(invoice),
+                "credit": Decimal("0.00"),
+                "sort_key": (invoice.document.document_date, invoice.created_at, invoice.id, 0),
+            }
+        )
+    payments = (
+        CustomerPayment.objects.filter(company=customer.company, customer=customer)
+        .select_related("document", "invoice")
+        .order_by("payment_date", "created_at", "id")
+    )
+    for payment in payments:
+        rows.append(
+            {
+                "date": payment.payment_date,
+                "reference": payment.reference or payment.document.reference or str(payment.document_id),
+                "description": "Customer payment",
+                "debit": Decimal("0.00"),
+                "credit": _q_money(payment.amount),
+                "sort_key": (payment.payment_date, payment.created_at, payment.id, 1),
+            }
+        )
+    balance = Decimal("0.00")
+    ledger = []
+    for row in sorted(rows, key=lambda item: item["sort_key"]):
+        balance = _q_money(balance + row["debit"] - row["credit"])
+        ledger.append({**row, "balance": balance})
+    return ledger
+
+
+def get_supplier_ledger(supplier):
+    rows = []
+    receipts = (
+        PurchaseReceipt.objects.filter(company=supplier.company, supplier=supplier)
+        .select_related("document")
+        .order_by("document__document_date", "created_at", "id")
+    )
+    for receipt in receipts:
+        rows.append(
+            {
+                "date": receipt.document.document_date,
+                "reference": receipt.document.reference or str(receipt.document_id),
+                "description": "Purchase receipt",
+                "debit": Decimal("0.00"),
+                "credit": receipt_total(receipt),
+                "sort_key": (receipt.document.document_date, receipt.created_at, receipt.id, 0),
+            }
+        )
+    payments = (
+        SupplierPayment.objects.filter(company=supplier.company, supplier=supplier)
+        .select_related("document", "receipt")
+        .order_by("payment_date", "created_at", "id")
+    )
+    for payment in payments:
+        rows.append(
+            {
+                "date": payment.payment_date,
+                "reference": payment.reference or payment.document.reference or str(payment.document_id),
+                "description": "Supplier payment",
+                "debit": _q_money(payment.amount),
+                "credit": Decimal("0.00"),
+                "sort_key": (payment.payment_date, payment.created_at, payment.id, 1),
+            }
+        )
+    balance = Decimal("0.00")
+    ledger = []
+    for row in sorted(rows, key=lambda item: item["sort_key"]):
+        balance = _q_money(balance + row["credit"] - row["debit"])
+        ledger.append({**row, "balance": balance})
+    return ledger
+
+
 def provision_bad_debt(company, user, bad_debt_account, ar_account, threshold_days=90, as_of=None):
     """Create a journal entry for estimated bad debt on overdue AR."""
     as_of = as_of or timezone.now().date()
@@ -1999,6 +2226,7 @@ def create_sales_order(
         _assert_same_company(company, item)
         qty = _q_qty(line["quantity"])
         unit_price = _q_qty(line["unit_price"])
+        vat_rate = _rate(line.get("vat_rate", 0))
         if qty <= 0 or unit_price < 0:
             raise ValueError("Quantity must be positive and price cannot be negative")
 
@@ -2016,6 +2244,9 @@ def create_sales_order(
             item=item,
             quantity=qty,
             unit_price=unit_price,
+            total_amount=_q_money(qty * unit_price),
+            vat_rate=vat_rate,
+            vat_amount=_rate_amount(qty * unit_price, vat_rate),
             reserved_quantity=reserved,
         )
     return so
@@ -2056,6 +2287,7 @@ def ship_sales_order(
             "location": location,
             "quantity": qty,
             "unit_price": so_line.unit_price,
+            "vat_rate": so_line.vat_rate,
         })
         so_lines_to_update.append((so_line, qty))
 
@@ -2370,7 +2602,32 @@ def _enforce_batch_serial(item, batch_number, serial_number, expiry_date):
 
 
 def _consume_fifo_layers(item, location, quantity, consume=True):
-    pass  # existing FIFO — replaced with FEFO-aware version below
+    remaining = _q_qty(quantity)
+    total_cost = Decimal("0.00")
+    layers = (
+        InventoryValuationLayer.objects.select_for_update()
+        .filter(
+            company=item.company,
+            item=item,
+            remaining_quantity__gt=0,
+            movement__location=location,
+        )
+        .order_by("created_at", "id")
+    )
+    for layer in layers:
+        if remaining <= 0:
+            break
+        used = min(layer.remaining_quantity, remaining)
+        used_total = _q_money(used * layer.unit_cost)
+        total_cost += used_total
+        if consume:
+            layer.remaining_quantity = _q_qty(layer.remaining_quantity - used)
+            layer.remaining_total_cost = _q_money(layer.remaining_total_cost - used_total)
+            layer.save(update_fields=["remaining_quantity", "remaining_total_cost", "updated_at"])
+        remaining = _q_qty(remaining - used)
+    if remaining > 0 and not item.allow_negative_stock:
+        raise ValueError(f"Insufficient stock for {item.sku}: need {quantity}")
+    return _q_money(total_cost)
 
 
 def _consume_fefo_layers(item, location, quantity, consume=True):

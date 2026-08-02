@@ -1,0 +1,13 @@
+id,created_at,updated_at,company,parent_account,name,account_number,type,status,currency,cost_center,account_segment_code,description,current_balance
+47,2026-06-20 00:00:00,2026-06-20 00:00:00,10000,,Inventory Asset,1200,ASSET,ACTIVE,NGN,,,Main stock control account for inventory categories and item valuation.,0.00
+48,2026-06-20 00:00:00,2026-06-20 00:00:00,10000,,Finished Goods Inventory,1210,ASSET,ACTIVE,NGN,,,Finished goods inventory control account.,0.00
+49,2026-06-20 00:00:00,2026-06-20 00:00:00,10000,,Withholding Tax Receivable,1220,ASSET,ACTIVE,NGN,,,WHT deducted by customers and recoverable from tax authority.,0.00
+50,2026-06-20 00:00:00,2026-06-20 00:00:00,10000,,VAT Input,1300,ASSET,ACTIVE,NGN,,,Recoverable VAT on purchases.,0.00
+51,2026-06-20 00:00:00,2026-06-20 00:00:00,10000,,Accounts Payable,2010,LIABILITY,ACTIVE,NGN,,,Trade payable control account for inventory suppliers.,0.00
+52,2026-06-20 00:00:00,2026-06-20 00:00:00,10000,,Supplier Withholding Tax Payable,2170,LIABILITY,ACTIVE,NGN,,,WHT deducted from supplier payments and payable to tax authority.,0.00
+53,2026-06-20 00:00:00,2026-06-20 00:00:00,10000,,VAT Output,2200,LIABILITY,ACTIVE,NGN,,,VAT collected on sales and payable to tax authority.,0.00
+54,2026-06-20 00:00:00,2026-06-20 00:00:00,10000,,Inventory Sales Revenue,4020,REVENUE,ACTIVE,NGN,,,Revenue from inventory item sales.,0.00
+55,2026-06-20 00:00:00,2026-06-20 00:00:00,10000,,Inventory Adjustment Gain,4650,REVENUE,ACTIVE,NGN,,,Gains recognized from positive inventory adjustments.,0.00
+56,2026-06-20 00:00:00,2026-06-20 00:00:00,10000,,Cost of Goods Sold,5100,EXPENSE,ACTIVE,NGN,,,Cost recognized when inventory items are sold.,0.00
+57,2026-06-20 00:00:00,2026-06-20 00:00:00,10000,,Inventory Shrinkage Expense,5110,EXPENSE,ACTIVE,NGN,,,"Losses from stock shrinkage, damage, or negative adjustments.",0.00
+58,2026-06-20 00:00:00,2026-06-20 00:00:00,10000,,Freight and Landed Cost Expense,5120,EXPENSE,ACTIVE,NGN,,,Freight and landed cost charges when expensed.,0.00

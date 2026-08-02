@@ -22,7 +22,7 @@
     </div>
 
     <!-- Main Form -->
-    <form method="post" action="{% url 'payroll:payday_create' %}" id="paydayForm" x-data="paydayForm()">
+    <form method="post" action="{% url 'payroll:payday_create' %}" id="paydayForm" x-data="paydayForm()" x-init="init()">
         {% csrf_token %}
         
         <!-- Hidden field for employee IDs -->
@@ -183,7 +183,7 @@
                                             <span class="text-secondary-600" x-text="employee.department"></span>
                                         </div>
                                         <div class="text-center">
-                                            <span class="text-secondary-600" x-text="employee.job_title"></span>
+                                            <span class="text-secondary-600" x-text="employee.job_title_display"></span>
                                         </div>
                                         <div class="text-right">
                                             <span class="font-medium text-secondary-900" x-text="'₦' + employee.net_pay"></span>

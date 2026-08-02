@@ -222,8 +222,50 @@ class PayrollRunCreateForm(forms.Form):
 
     def __init__(self, *args, **kwargs):
         self.user = kwargs.pop("user", None)
+        self._selected_employee_ids = []
         args, kwargs = _normalize_month_widget_data(args, kwargs, "paydays")
         super().__init__(*args, **kwargs)
+
+    def clean_payroll_payday(self):
+        employee_ids_str = self.cleaned_data.get("payroll_payday", "")
+        raw_employee_ids = [
+            employee_id.strip()
+            for employee_id in employee_ids_str.split(",")
+            if employee_id.strip()
+        ]
+        if not raw_employee_ids:
+            raise forms.ValidationError("Select at least one employee for this pay period.")
+
+        employee_ids = []
+        for raw_employee_id in raw_employee_ids:
+            try:
+                employee_ids.append(int(raw_employee_id))
+            except (TypeError, ValueError):
+                raise forms.ValidationError(
+                    "Invalid employee selection. Please refresh the page and try again."
+                )
+
+        employee_ids = list(dict.fromkeys(employee_ids))
+        company = get_user_company(self.user)
+        if not company:
+            raise forms.ValidationError(
+                "Your active company could not be determined. Please select a company and try again."
+            )
+
+        available_employee_ids = set(
+            models.EmployeeProfile.objects.filter(
+                company=company,
+                status="active",
+                id__in=employee_ids,
+            ).values_list("id", flat=True)
+        )
+        if available_employee_ids != set(employee_ids):
+            raise forms.ValidationError(
+                "Selected employees are no longer available for this company. Please refresh the page and try again."
+            )
+
+        self._selected_employee_ids = employee_ids
+        return ",".join(str(employee_id) for employee_id in employee_ids)
 
     def clean(self):
         cleaned_data = super().clean()
@@ -250,37 +292,27 @@ class PayrollRunCreateForm(forms.Form):
             company=company,
         )
 
-        # Get selected employee IDs
-        employee_ids_str = self.cleaned_data.get("payroll_payday", "")
         skipped_employees = []
-        if employee_ids_str:
-            employee_ids = [
-                int(eid.strip()) for eid in employee_ids_str.split(",") if eid.strip()
-            ]
+        for emp_id in self._selected_employee_ids:
+            employee = EmployeeProfile.objects.get(
+                id=emp_id,
+                company=company,
+                status="active",
+            )
+            is_blocked, reason = _employee_blocked_for_payday(
+                employee, self.cleaned_data["paydays"]
+            )
+            if is_blocked:
+                full_name = f"{employee.first_name} {employee.last_name}".strip()
+                skipped_employees.append(f"{full_name or employee.emp_id} ({reason})")
+                continue
 
-            # Create PayrollEntry and PayrollRunEntry entries for selected employees
-            for emp_id in employee_ids:
-                try:
-                    employee = EmployeeProfile.objects.get(
-                        id=emp_id,
-                        company=company,
-                    )
-                    is_blocked, reason = _employee_blocked_for_payday(
-                        employee, self.cleaned_data["paydays"]
-                    )
-                    if is_blocked:
-                        full_name = f"{employee.first_name} {employee.last_name}".strip()
-                        skipped_employees.append(f"{full_name or employee.emp_id} ({reason})")
-                        continue
-
-                    payvar = PayrollEntry.objects.create(
-                        pays=employee,
-                        company=company,
-                        status="active",
-                    )
-                    PayrollRunEntry.objects.create(payroll_run=payt, payroll_entry=payvar)
-                except EmployeeProfile.DoesNotExist:
-                    continue
+            payvar = PayrollEntry.objects.create(
+                pays=employee,
+                company=company,
+                status="active",
+            )
+            PayrollRunEntry.objects.create(payroll_run=payt, payroll_entry=payvar)
 
         if requested_closed:
             payt.closed = True
@@ -360,6 +392,5 @@ class PayrollEntryCreateForm(forms.Form):
                     continue
 
         return payvars
-
 
 

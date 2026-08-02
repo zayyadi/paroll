@@ -26,6 +26,7 @@ from company.utils import get_user_company
 from payroll import utils
 from payroll import models
 from payroll.models import EmployeeProfile, PayrollRun, PayrollRunEntry, Payroll, IOU, AuditTrail
+from payroll.views.payroll_payslips import _queue_payslip_emails_for_payroll_run
 
 CACHE_TTL = getattr(settings, "CACHE_TTL", DEFAULT_TIMEOUT)
 logger = logging.getLogger(__name__)
@@ -57,8 +58,9 @@ def payday_create_new(request):
                 "email": emp.email or emp.user.email if emp.user else "",
                 "emp_id": emp.emp_id,
                 "department": emp.department.name if emp.department else "N/A",
-                "department_id": emp.department.id if emp.department else "",
-                "job_title": emp.get_job_title_display(),
+                "department_id": str(emp.department.id) if emp.department else "",
+                "job_title": emp.job_title,
+                "job_title_display": emp.get_job_title_display(),
                 "net_pay": float(emp.net_pay) if emp.net_pay else 0,
                 "photo": emp.photo.url if emp.photo else "default.png",
                 "initials": f"{(emp.first_name or '')[:1]}{(emp.last_name or '')[:1]}".upper(),
@@ -79,6 +81,9 @@ def payday_create_new(request):
         form = PayrollRunCreateForm(request.POST, user=request.user)
         if not form.is_valid():
             logger.error(f"Form validation errors: {form.errors}")
+            for errors in form.errors.values():
+                for error in errors:
+                    messages.error(request, error)
         else:
             logger.info("Form is valid, proceeding to save")
             # Use the custom save method that creates PayrollRun, PayrollEntry, and PayrollRunEntry entries
@@ -161,8 +166,9 @@ def payday_create(request):
                 "email": emp.email or emp.user.email if emp.user else "",
                 "emp_id": emp.emp_id,
                 "department": emp.department.name if emp.department else "N/A",
-                "department_id": emp.department.id if emp.department else "",
-                "job_title": emp.get_job_title_display(),
+                "department_id": str(emp.department.id) if emp.department else "",
+                "job_title": emp.job_title,
+                "job_title_display": emp.get_job_title_display(),
                 "net_pay": float(emp.net_pay) if emp.net_pay else 0,
                 "photo": emp.photo.url if emp.photo else "default.png",
                 "initials": f"{(emp.first_name or '')[:1]}{(emp.last_name or '')[:1]}".upper(),
@@ -178,7 +184,12 @@ def payday_create(request):
 
     if request.method == "POST":
         form = PayrollRunForm(request.POST, user=request.user)
-        if form.is_valid():
+        if not form.is_valid():
+            logger.error(f"Form validation errors: {form.errors}")
+            for errors in form.errors.values():
+                for error in errors:
+                    messages.error(request, error)
+        else:
             # Save the PayrollRun instance - the form handles ManyToMany automatically
             payt = form.save()
 
@@ -248,8 +259,9 @@ def payvar_create_new(request):
                 "email": emp.email or emp.user.email if emp.user else "",
                 "emp_id": emp.emp_id,
                 "department": emp.department.name if emp.department else "N/A",
-                "department_id": emp.department.id if emp.department else "",
-                "job_title": emp.get_job_title_display(),
+                "department_id": str(emp.department.id) if emp.department else "",
+                "job_title": emp.job_title,
+                "job_title_display": emp.get_job_title_display(),
                 "net_pay": float(emp.net_pay) if emp.net_pay else 0,
                 "photo": emp.photo.url if emp.photo else "default.png",
                 "initials": f"{(emp.first_name or '')[:1]}{(emp.last_name or '')[:1]}".upper(),
@@ -288,4 +300,3 @@ def payvar_create_new(request):
         "job_titles": job_titles,
     }
     return render(request, "payroll/payvar_create_new.html", context)
-

@@ -170,7 +170,28 @@ class EmployeeRequestAccessTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Leave Allowance Slip")
         self.assertContains(response, "Approved allowance")
-        self.assertContains(response, "₦20,000.00")
+        self.assertContains(response, "₦240,000.00")
+
+    def test_employee_leave_requests_page_links_to_approved_allowance_slip(self):
+        request = LeaveRequest.objects.create(
+            employee=self.employee,
+            leave_type="ANNUAL",
+            start_date=date(2026, 7, 15),
+            end_date=date(2026, 7, 15),
+            reason="Approved allowance",
+            status="APPROVED",
+        )
+        allowance = Allowance.objects.get(source_leave_request=request)
+
+        self.client.force_login(self.employee_user)
+        response = self.client.get(reverse("payroll:leave_requests"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Allowance Slip")
+        self.assertContains(
+            response,
+            reverse("payroll:leave_allowance_slip", args=[allowance.pk]),
+        )
 
     def test_employee_cannot_view_another_employee_leave_allowance_slip(self):
         request = LeaveRequest.objects.create(

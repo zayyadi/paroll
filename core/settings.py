@@ -458,6 +458,10 @@ CELERY_TASK_ROUTES = {
         "queue": "notifications_normal",
         "routing_key": "notifications.normal",
     },
+    "users.send_custom_mail": {
+        "queue": "notifications_normal",
+        "routing_key": "notifications.normal",
+    },
     "payroll.send_push_notification": {
         "queue": "notifications_normal",
         "routing_key": "notifications.normal",
@@ -486,6 +490,9 @@ CELERY_TASK_ANNOTATIONS = {
         "rate_limit": "100/m",
     },
     "payroll.send_email_notification": {
+        "rate_limit": "50/m",
+    },
+    "users.send_custom_mail": {
         "rate_limit": "50/m",
     },
     "payroll.send_sms_notification": {

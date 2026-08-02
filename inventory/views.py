@@ -3,14 +3,17 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import Http404
 from django.shortcuts import redirect
 from django.urls import reverse_lazy
+from django.utils import timezone
 from django.views.generic import CreateView, DetailView, FormView, ListView, TemplateView, UpdateView
 from decimal import Decimal
-from django.db.models import Sum
+from django.db.models import Case, DecimalField, ExpressionWrapper, F, Sum, Value, When
+from django.db.models.functions import Coalesce
 
 from accounting.models import Account
 from company.utils import get_user_company
 from inventory.forms import (
     CustomerForm,
+    CustomerPaymentAllocationForm,
     CustomerPaymentForm,
     CustomerReturnForm,
     InventoryAdjustmentForm,
@@ -24,6 +27,7 @@ from inventory.forms import (
     StockLocationForm,
     StockTransferForm,
     SupplierForm,
+    SupplierPaymentAllocationForm,
     SupplierPaymentForm,
     SupplierReturnForm,
     TaxRemittanceForm,
@@ -43,6 +47,7 @@ from inventory.models import (
     InventoryDocument,
     InventoryItem,
     PurchaseOrder,
+    PurchaseOrderLine,
     PurchaseReceipt,
     SalesInvoice,
     StockLocation,
@@ -63,12 +68,17 @@ from inventory.models import (
 )
 from inventory.models import UnitOfMeasure
 from inventory.services import (
+    allocate_customer_payment,
+    allocate_supplier_payment,
+    create_sales_order,
     create_purchase_order,
     DEFAULT_POSTING_ACCOUNTS,
     ensure_default_posting_accounts,
     get_average_unit_cost,
+    get_customer_payment_unapplied_amount,
     get_inventory_value,
     get_stock_on_hand,
+    get_supplier_payment_unapplied_amount,
     post_inventory_adjustment,
     post_customer_payment,
     post_customer_return,
@@ -80,7 +90,178 @@ from inventory.services import (
     post_tax_remittance,
     post_stock_transfer,
     receive_purchase_order,
+    invoice_total,
+    ship_sales_order,
 )
+
+
+def _posted_line_indexes(post_data):
+    indexes = set()
+    for key in post_data:
+        if not key.startswith("lines-"):
+            continue
+        parts = key.split("-", 2)
+        if len(parts) == 3 and parts[1].isdigit():
+            indexes.add(int(parts[1]))
+    if indexes:
+        return sorted(indexes)
+    try:
+        return list(range(int(post_data.get("line_count", 0))))
+    except (TypeError, ValueError):
+        return []
+
+
+def _line_decimal(value, default="0"):
+    return Decimal(value or default)
+
+
+def _model_id(value):
+    return str(value or "").replace(",", "")
+
+
+def _purchase_order_lines_from_post(post_data, company):
+    lines = []
+    for index in _posted_line_indexes(post_data):
+        item_id = post_data.get(f"lines-{index}-item")
+        quantity = post_data.get(f"lines-{index}-quantity")
+        unit_cost = post_data.get(f"lines-{index}-unit_cost")
+        if not item_id and not quantity and not unit_cost:
+            continue
+        if not item_id or not quantity or not unit_cost:
+            raise ValueError("Each purchase order line needs an item, quantity, and unit cost.")
+        try:
+            item = InventoryItem.objects.get(company=company, pk=_model_id(item_id), is_active=True)
+        except InventoryItem.DoesNotExist as exc:
+            raise ValueError("Purchase order line item is invalid.") from exc
+        lines.append(
+            {
+                "item": item,
+                "quantity": _line_decimal(quantity),
+                "unit_cost": _line_decimal(unit_cost),
+                "vat_rate": _line_decimal(post_data.get(f"lines-{index}-vat_rate")),
+            }
+        )
+    return lines
+
+
+def _sales_order_lines_from_post(post_data, company):
+    lines = []
+    for index in _posted_line_indexes(post_data):
+        item_id = post_data.get(f"lines-{index}-item")
+        quantity = post_data.get(f"lines-{index}-quantity")
+        unit_price = post_data.get(f"lines-{index}-unit_price")
+        if not item_id and not quantity and not unit_price:
+            continue
+        if not item_id or not quantity or not unit_price:
+            raise ValueError("Each sales order line needs an item, quantity, and unit price.")
+        try:
+            item = InventoryItem.objects.get(company=company, pk=_model_id(item_id), is_active=True)
+        except InventoryItem.DoesNotExist as exc:
+            raise ValueError("Sales order line item is invalid.") from exc
+        lines.append(
+            {
+                "item": item,
+                "quantity": _line_decimal(quantity),
+                "unit_price": _line_decimal(unit_price),
+                "vat_rate": _line_decimal(post_data.get(f"lines-{index}-vat_rate")),
+            }
+        )
+    return lines
+
+
+def _purchase_order_receive_lines_from_post(post_data, purchase_order):
+    lines = []
+    for index in _posted_line_indexes(post_data):
+        line_id = post_data.get(f"lines-{index}-purchase_order_line")
+        quantity = post_data.get(f"lines-{index}-quantity")
+        if not line_id and not quantity:
+            continue
+        if not line_id or not quantity:
+            raise ValueError("Each receipt line needs a purchase order line and quantity.")
+        try:
+            po_line = purchase_order.lines.get(pk=_model_id(line_id))
+        except PurchaseOrderLine.DoesNotExist as exc:
+            raise ValueError("Receipt line is invalid for this purchase order.") from exc
+        if _line_decimal(quantity) <= 0:
+            continue
+        lines.append(
+            {
+                "purchase_order_line": po_line,
+                "quantity": _line_decimal(quantity),
+                "vat_rate": _line_decimal(post_data.get(f"lines-{index}-vat_rate")),
+            }
+        )
+    return lines
+
+
+def _sales_order_reference(sales_order):
+    return f"SO-{sales_order.reference or sales_order.pk}"
+
+
+def _sales_order_invoice_exists(company, sales_order):
+    references = {_sales_order_reference(sales_order)}
+    if sales_order.reference:
+        references.add(sales_order.reference)
+    return SalesInvoice.objects.filter(
+        company=company,
+        document__reference__in=references,
+    ).exists()
+
+
+def _location_for_sales_order(company, sales_order):
+    lines = list(sales_order.lines.select_related("item"))
+    locations = StockLocation.objects.filter(company=company, is_active=True).select_related(
+        "warehouse"
+    )
+    for location in locations:
+        can_fulfill = True
+        for line in lines:
+            quantity = line.remaining_quantity if line.remaining_quantity > 0 else line.quantity
+            if line.item.allow_negative_stock:
+                continue
+            if get_stock_on_hand(line.item, location) < quantity:
+                can_fulfill = False
+                break
+        if can_fulfill:
+            return location
+    raise ValueError("No active stock location has enough stock to fulfil this sales order.")
+
+
+def _sales_order_invoice_lines(sales_order, *, use_shipped_quantity=False):
+    lines = []
+    for line in sales_order.lines.select_related("item"):
+        quantity = line.shipped_quantity if use_shipped_quantity else line.remaining_quantity
+        if quantity <= 0:
+            quantity = line.quantity
+        lines.append(
+            {
+                "sales_order_line": line,
+                "quantity": quantity,
+            }
+        )
+    return lines
+
+
+def _post_legacy_sales_order_invoice(company, sales_order):
+    location = _location_for_sales_order(company, sales_order)
+    document = post_sales_invoice(
+        company=company,
+        customer=sales_order.customer,
+        location=location,
+        lines=[
+            {
+                "item": line.item,
+                "quantity": line.shipped_quantity if line.shipped_quantity > 0 else line.quantity,
+                "unit_price": line.unit_price,
+                "vat_rate": line.vat_rate,
+            }
+            for line in sales_order.lines.select_related("item")
+        ],
+        posting_date=timezone.now().date(),
+        reference=_sales_order_reference(sales_order),
+        reason=f"Sales order invoice for {sales_order.reference or sales_order.pk}",
+    )
+    return document
 
 
 class InventoryCompanyMixin(LoginRequiredMixin):
@@ -164,12 +345,14 @@ class PostingAccountSetupView(InventoryCompanyMixin, TemplateView):
             for account in company_accounts
             if account.account_number
         }
+        accounts_by_name = {account.name: account for account in company_accounts}
         recommendations = []
         for spec in DEFAULT_POSTING_ACCOUNTS:
             recommendations.append(
                 {
                     **spec,
-                    "account": accounts_by_number.get(spec["account_number"]),
+                    "account": accounts_by_number.get(spec["account_number"])
+                    or accounts_by_name.get(spec["name"]),
                 }
             )
         context.update(
@@ -244,6 +427,31 @@ class InventoryItemListView(InventoryCompanyMixin, ListView):
             super()
             .get_queryset()
             .select_related("category", "base_unit")
+            .annotate(
+                stock_quantity=Coalesce(
+                    Sum("stock_movements__quantity"),
+                    Value(Decimal("0.0000")),
+                    output_field=DecimalField(max_digits=18, decimal_places=4),
+                ),
+                stock_value=Coalesce(
+                    Sum("stock_movements__total_cost"),
+                    Value(Decimal("0.00")),
+                    output_field=DecimalField(max_digits=18, decimal_places=2),
+                ),
+            )
+            .annotate(
+                average_cost=Case(
+                    When(
+                        stock_quantity__gt=0,
+                        then=ExpressionWrapper(
+                            F("stock_value") / F("stock_quantity"),
+                            output_field=DecimalField(max_digits=18, decimal_places=4),
+                        ),
+                    ),
+                    default=Value(Decimal("0.0000")),
+                    output_field=DecimalField(max_digits=18, decimal_places=4),
+                )
+            )
             .order_by("sku", "name")
         )
         search = self.request.GET.get("search")
@@ -339,7 +547,7 @@ class SupplierDetailView(InventoryCompanyMixin, DetailView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         supplier = self.object
-        from inventory.services import get_accounts_payable_aging, receipt_total
+        from inventory.services import get_accounts_payable_aging, get_supplier_ledger
 
         aging = get_accounts_payable_aging(supplier.company)
         supplier_aging = [r for r in aging if r["supplier"].id == supplier.id]
@@ -351,7 +559,18 @@ class SupplierDetailView(InventoryCompanyMixin, DetailView):
 
         payments = SupplierPayment.objects.filter(
             supplier=supplier,
-        ).select_related("document", "receipt").order_by("-payment_date", "-created_at")[:20]
+        ).select_related("document", "receipt").annotate(
+            allocated_amount=Coalesce(
+                Sum("allocations__amount"),
+                Value(Decimal("0.00")),
+                output_field=DecimalField(max_digits=18, decimal_places=2),
+            )
+        ).annotate(
+            unapplied_amount=ExpressionWrapper(
+                F("amount") - F("allocated_amount"),
+                output_field=DecimalField(max_digits=18, decimal_places=2),
+            )
+        ).order_by("-payment_date", "-created_at")[:20]
 
         balance = supplier.payable_account.get_balance() if supplier.payable_account else Decimal("0.00")
 
@@ -361,6 +580,7 @@ class SupplierDetailView(InventoryCompanyMixin, DetailView):
             "receipts": receipts,
             "payments": payments,
             "balance": balance,
+            "ledger_rows": get_supplier_ledger(supplier),
         })
         return context
 
@@ -396,7 +616,7 @@ class CustomerDetailView(InventoryCompanyMixin, DetailView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         customer = self.object
-        from inventory.services import get_accounts_receivable_aging, invoice_total, get_customer_statement
+        from inventory.services import get_customer_ledger, get_customer_statement
 
         statement = get_customer_statement(customer)
         total_outstanding = sum(r["outstanding"] for r in statement)
@@ -407,7 +627,18 @@ class CustomerDetailView(InventoryCompanyMixin, DetailView):
 
         payments = CustomerPayment.objects.filter(
             customer=customer,
-        ).select_related("document", "invoice").order_by("-payment_date", "-created_at")[:20]
+        ).select_related("document", "invoice").annotate(
+            allocated_amount=Coalesce(
+                Sum("allocations__amount"),
+                Value(Decimal("0.00")),
+                output_field=DecimalField(max_digits=18, decimal_places=2),
+            )
+        ).annotate(
+            unapplied_amount=ExpressionWrapper(
+                F("amount") - F("allocated_amount"),
+                output_field=DecimalField(max_digits=18, decimal_places=2),
+            )
+        ).order_by("-payment_date", "-created_at")[:20]
 
         balance = customer.receivable_account.get_balance() if customer.receivable_account else Decimal("0.00")
 
@@ -417,6 +648,7 @@ class CustomerDetailView(InventoryCompanyMixin, DetailView):
             "invoices": invoices,
             "payments": payments,
             "balance": balance,
+            "ledger_rows": get_customer_ledger(customer),
         })
         return context
 
@@ -433,24 +665,33 @@ class PurchaseOrderListView(InventoryCompanyMixin, ListView):
 
 class PurchaseOrderCreateView(InventoryCompanyMixin, FormView):
     form_class = PurchaseOrderForm
-    template_name = "inventory/action_form.html"
+    template_name = "inventory/order_form.html"
     success_url = reverse_lazy("inventory:purchase_order_list")
     page_title = "New Purchase Order"
     action_label = "Create Order"
+    line_amount_field = "unit_cost"
+    party_field = "supplier"
+    party_label = "Supplier"
+    item_amount_label = "Unit Cost"
+    order_kind = "purchase"
 
     def form_valid(self, form):
         data = form.cleaned_data
         try:
-            create_purchase_order(
-                company=self.company,
-                supplier=data["supplier"],
-                lines=[
+            lines = _purchase_order_lines_from_post(self.request.POST, self.company)
+            if not lines and data.get("item"):
+                lines = [
                     {
                         "item": data["item"],
                         "quantity": data["quantity"],
                         "unit_cost": data["unit_cost"],
+                        "vat_rate": data.get("vat_rate") or 0,
                     }
-                ],
+                ]
+            create_purchase_order(
+                company=self.company,
+                supplier=data["supplier"],
+                lines=lines,
                 order_date=data.get("posting_date"),
                 expected_date=data.get("expected_date"),
                 reference=data.get("reference", ""),
@@ -465,12 +706,20 @@ class PurchaseOrderCreateView(InventoryCompanyMixin, FormView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["action_label"] = self.action_label
+        context["order_kind"] = self.order_kind
+        context["party_field"] = self.party_field
+        context["party_label"] = self.party_label
+        context["line_amount_field"] = self.line_amount_field
+        context["item_amount_label"] = self.item_amount_label
+        context["items"] = InventoryItem.objects.filter(
+            company=self.company, is_active=True
+        ).order_by("sku", "name")
         return context
 
 
 class PurchaseOrderReceiveView(InventoryCompanyMixin, FormView):
     form_class = PurchaseOrderReceiveForm
-    template_name = "inventory/action_form.html"
+    template_name = "inventory/purchase_order_receive_form.html"
     success_url = reverse_lazy("inventory:purchase_order_list")
     page_title = "Receive Purchase Order"
     action_label = "Receive"
@@ -492,17 +741,21 @@ class PurchaseOrderReceiveView(InventoryCompanyMixin, FormView):
 
     def form_valid(self, form):
         data = form.cleaned_data
+        purchase_order = self.get_purchase_order()
         try:
-            receive_purchase_order(
-                company=self.company,
-                purchase_order=self.get_purchase_order(),
-                location=data["location"],
-                lines=[
+            lines = _purchase_order_receive_lines_from_post(self.request.POST, purchase_order)
+            if not lines and data.get("purchase_order_line"):
+                lines = [
                     {
                         "purchase_order_line": data["purchase_order_line"],
                         "quantity": data["quantity"],
                     }
-                ],
+                ]
+            receive_purchase_order(
+                company=self.company,
+                purchase_order=purchase_order,
+                location=data["location"],
+                lines=lines,
                 vat_input_account=data.get("vat_input_account"),
                 posting_date=data.get("posting_date"),
                 reference=data.get("reference", ""),
@@ -516,7 +769,11 @@ class PurchaseOrderReceiveView(InventoryCompanyMixin, FormView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context["purchase_order"] = self.get_purchase_order()
+        purchase_order = self.get_purchase_order()
+        context["purchase_order"] = purchase_order
+        context["receivable_lines"] = purchase_order.lines.filter(
+            received_quantity__lt=F("quantity")
+        ).select_related("item")
         context["action_label"] = self.action_label
         return context
 
@@ -627,6 +884,65 @@ class PurchaseReceiptView(InventoryActionView):
         )
 
 
+class SalesInvoiceListView(InventoryCompanyMixin, ListView):
+    model = SalesInvoice
+    template_name = "inventory/sales_invoice_list.html"
+    context_object_name = "sales_invoices"
+    paginate_by = 50
+    page_title = "Sales Invoices"
+
+    def get_queryset(self):
+        queryset = (
+            super()
+            .get_queryset()
+            .select_related("customer", "document")
+            .order_by("-document__document_date", "-created_at")
+        )
+        status = self.request.GET.get("status")
+        if status == "open":
+            return queryset.filter(payment_status__in=["UNPAID", "PARTIAL"]).exclude(
+                workflow_status="VOID"
+            )
+        if status == "pending":
+            return queryset.exclude(
+                document__status__in=[
+                    InventoryDocument.Status.POSTED,
+                    InventoryDocument.Status.CANCELLED,
+                ]
+            ).exclude(workflow_status="VOID")
+        if status == "posted":
+            return queryset.filter(document__status=InventoryDocument.Status.POSTED)
+        return queryset
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["current_status"] = self.request.GET.get("status", "all")
+        return context
+
+
+class SalesInvoiceDetailView(InventoryCompanyMixin, DetailView):
+    model = SalesInvoice
+    template_name = "inventory/sales_invoice_detail.html"
+    context_object_name = "invoice"
+    page_title = "Sales Invoice"
+
+    def get_queryset(self):
+        return (
+            super()
+            .get_queryset()
+            .select_related("customer", "document")
+            .prefetch_related("lines__item", "lines__location", "lines__location__warehouse")
+        )
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["lines"] = self.object.lines.select_related(
+            "item", "location", "location__warehouse"
+        )
+        context["invoice_total"] = invoice_total(self.object)
+        return context
+
+
 class SalesInvoiceView(InventoryActionView):
     form_class = SalesInvoiceForm
     page_title = "Sales Invoice"
@@ -723,6 +1039,50 @@ class CustomerPaymentView(InventoryActionView):
         )
 
 
+class CustomerPaymentAllocateView(InventoryCompanyMixin, FormView):
+    form_class = CustomerPaymentAllocationForm
+    template_name = "inventory/action_form.html"
+    page_title = "Apply Customer Payment"
+    action_label = "Apply Payment"
+
+    def get_payment(self):
+        try:
+            return CustomerPayment.objects.select_related("customer", "document").get(
+                company=self.company,
+                pk=self.kwargs["pk"],
+            )
+        except CustomerPayment.DoesNotExist as exc:
+            raise Http404("Customer payment not found") from exc
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["payment"] = self.get_payment()
+        return kwargs
+
+    def form_valid(self, form):
+        payment = self.get_payment()
+        try:
+            allocate_customer_payment(
+                payment=payment,
+                invoice=form.cleaned_data["invoice"],
+                amount=form.cleaned_data["amount"],
+                allocation_date=form.cleaned_data.get("allocation_date"),
+            )
+        except ValueError as exc:
+            form.add_error(None, str(exc))
+            return self.form_invalid(form)
+        messages.success(self.request, "Customer payment applied to invoice.")
+        return redirect("inventory:customer_detail", pk=payment.customer_id)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        payment = self.get_payment()
+        context["action_label"] = self.action_label
+        context["payment"] = payment
+        context["unapplied_amount"] = get_customer_payment_unapplied_amount(payment)
+        return context
+
+
 class SupplierPaymentView(InventoryActionView):
     form_class = SupplierPaymentForm
     page_title = "Supplier Payment"
@@ -738,6 +1098,50 @@ class SupplierPaymentView(InventoryActionView):
             reference=cleaned_data.get("reference", ""),
             reason=cleaned_data.get("reason") or "Supplier payment",
         )
+
+
+class SupplierPaymentAllocateView(InventoryCompanyMixin, FormView):
+    form_class = SupplierPaymentAllocationForm
+    template_name = "inventory/action_form.html"
+    page_title = "Apply Supplier Payment"
+    action_label = "Apply Payment"
+
+    def get_payment(self):
+        try:
+            return SupplierPayment.objects.select_related("supplier", "document").get(
+                company=self.company,
+                pk=self.kwargs["pk"],
+            )
+        except SupplierPayment.DoesNotExist as exc:
+            raise Http404("Supplier payment not found") from exc
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["payment"] = self.get_payment()
+        return kwargs
+
+    def form_valid(self, form):
+        payment = self.get_payment()
+        try:
+            allocate_supplier_payment(
+                payment=payment,
+                receipt=form.cleaned_data["receipt"],
+                amount=form.cleaned_data["amount"],
+                allocation_date=form.cleaned_data.get("allocation_date"),
+            )
+        except ValueError as exc:
+            form.add_error(None, str(exc))
+            return self.form_invalid(form)
+        messages.success(self.request, "Supplier payment applied to purchase receipt.")
+        return redirect("inventory:supplier_detail", pk=payment.supplier_id)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        payment = self.get_payment()
+        context["action_label"] = self.action_label
+        context["payment"] = payment
+        context["unapplied_amount"] = get_supplier_payment_unapplied_amount(payment)
+        return context
 
 
 class TaxRemittanceView(InventoryActionView):
@@ -993,33 +1397,58 @@ class SalesOrderListView(InventoryCompanyMixin, ListView):
 
 class SalesOrderCreateView(InventoryCompanyMixin, FormView):
     form_class = SalesOrderForm
-    template_name = "inventory/action_form.html"
+    template_name = "inventory/order_form.html"
     success_url = reverse_lazy("inventory:sales_order_list")
     page_title = "New Sales Order"
     action_label = "Create Order"
+    line_amount_field = "unit_price"
+    party_field = "customer"
+    party_label = "Customer"
+    item_amount_label = "Unit Price"
+    order_kind = "sales"
 
     def form_valid(self, form):
         data = form.cleaned_data
         try:
-            order = SalesOrder.objects.create(
+            lines = _sales_order_lines_from_post(self.request.POST, self.company)
+            if not lines and data.get("item"):
+                line = {
+                    "item": data["item"],
+                    "quantity": data["quantity"],
+                    "unit_price": data["unit_price"],
+                    "vat_rate": data.get("vat_rate") or 0,
+                }
+                if data.get("location"):
+                    line["location"] = data["location"]
+                lines = [line]
+            create_sales_order(
                 company=self.company,
                 customer=data["customer"],
                 order_date=data.get("posting_date") or timezone.now().date(),
                 expected_date=data.get("expected_date"),
                 reference=data.get("reference", ""),
                 notes=data.get("notes", ""),
-            )
-            SalesOrderLine.objects.create(
-                sales_order=order,
-                item=data["item"],
-                quantity=data["quantity"],
-                unit_price=data["unit_price"],
+                lines=lines,
+                reserve_stock=False,
             )
         except Exception as exc:
             form.add_error(None, str(exc))
             return self.form_invalid(form)
         messages.success(self.request, "Sales order created.")
         return super().form_valid(form)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["action_label"] = self.action_label
+        context["order_kind"] = self.order_kind
+        context["party_field"] = self.party_field
+        context["party_label"] = self.party_label
+        context["line_amount_field"] = self.line_amount_field
+        context["item_amount_label"] = self.item_amount_label
+        context["items"] = InventoryItem.objects.filter(
+            company=self.company, is_active=True
+        ).order_by("sku", "name")
+        return context
 
 
 class SalesOrderDetailView(InventoryCompanyMixin, DetailView):
@@ -1031,33 +1460,52 @@ class SalesOrderDetailView(InventoryCompanyMixin, DetailView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["lines"] = self.object.lines.select_related("item")
+        context["sales_invoice_exists"] = _sales_order_invoice_exists(
+            self.company, self.object
+        )
         return context
 
 
 class SalesOrderShipView(InventoryCompanyMixin, TemplateView):
     def post(self, request, *args, **kwargs):
-        order = SalesOrder.objects.get(company=self.company, pk=kwargs["pk"])
+        order = SalesOrder.objects.prefetch_related("lines__item").get(
+            company=self.company, pk=kwargs["pk"]
+        )
         if order.status not in [SalesOrder.Status.CONFIRMED, SalesOrder.Status.PARTIALLY_SHIPPED]:
             messages.error(request, "Order cannot be shipped in current status.")
             return redirect("inventory:sales_order_detail", pk=kwargs["pk"])
-        for line in order.lines.all():
-            line.shipped_quantity = line.quantity
-            line.save(update_fields=["shippped_quantity", "updated_at"] if hasattr(line, "shippped_quantity") else ["shipped_quantity", "updated_at"])
-        order.status = SalesOrder.Status.SHIPPED
-        order.save(update_fields=["status", "updated_at"])
-        messages.success(request, "Sales order marked as shipped.")
+        try:
+            ship_sales_order(
+                company=self.company,
+                sales_order=order,
+                location=_location_for_sales_order(self.company, order),
+                lines=_sales_order_invoice_lines(order),
+                reference=_sales_order_reference(order),
+            )
+        except ValueError as exc:
+            messages.error(request, str(exc))
+            return redirect("inventory:sales_order_detail", pk=kwargs["pk"])
+        messages.success(request, "Sales order shipped and invoice posted.")
         return redirect("inventory:sales_order_detail", pk=kwargs["pk"])
 
 
 class SalesOrderInvoiceView(InventoryCompanyMixin, TemplateView):
     def post(self, request, *args, **kwargs):
-        order = SalesOrder.objects.get(company=self.company, pk=kwargs["pk"])
-        if order.status != SalesOrder.Status.SHIPPED:
+        order = SalesOrder.objects.prefetch_related("lines__item").get(
+            company=self.company, pk=kwargs["pk"]
+        )
+        if order.status not in [SalesOrder.Status.SHIPPED, SalesOrder.Status.INVOICED]:
             messages.error(request, "Order must be shipped before invoicing.")
             return redirect("inventory:sales_order_detail", pk=kwargs["pk"])
+        if not _sales_order_invoice_exists(self.company, order):
+            try:
+                _post_legacy_sales_order_invoice(self.company, order)
+            except ValueError as exc:
+                messages.error(request, str(exc))
+                return redirect("inventory:sales_order_detail", pk=kwargs["pk"])
         order.status = SalesOrder.Status.INVOICED
         order.save(update_fields=["status", "updated_at"])
-        messages.success(request, "Sales order marked as invoiced.")
+        messages.success(request, "Sales order invoiced.")
         return redirect("inventory:sales_order_detail", pk=kwargs["pk"])
 
 

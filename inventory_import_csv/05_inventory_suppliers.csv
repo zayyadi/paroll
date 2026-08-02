@@ -1,0 +1,4 @@
+id,created_at,updated_at,company,name,contact_name,email,phone,payable_account,wht_payable_account,default_wht_rate,payment_terms,default_due_days,discount_terms,credit_limit,is_active
+200401,2026-06-20 00:00:00,2026-06-20 00:00:00,10000,Lagos Wholesale Supplies,Tunde Ade,sales@lagoswholesale.example,+2348010001001,51,52,5.0000,Net 30,30,2% 10 Net 30,5000000.00,True
+200402,2026-06-20 00:00:00,2026-06-20 00:00:00,10000,MedPlus Distribution,Ngozi Okeke,orders@medplusdist.example,+2348010001002,51,52,5.0000,Net 15,15,,3000000.00,True
+200403,2026-06-20 00:00:00,2026-06-20 00:00:00,10000,Office Depot Nigeria,Amaka Nwosu,hello@officedepotng.example,+2348010001003,51,52,5.0000,Net 30,30,,1500000.00,True
