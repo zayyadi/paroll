@@ -1,0 +1,3 @@
+id,created_at,updated_at,company,transaction_number,description,date,period,status,created_by,approved_by,approved_at,posted_by,posted_at,reversed_journal,reversal_reason,content_type,object_id
+10001,,,10000,PAYROLL-10001,Payroll for period: January 2026,2026-01-01,1,DRAFT,,,,,,,,33,10001
+10002,,,10000,PAYROLL-10002,Payroll for period: February 2026,2026-02-01,2,DRAFT,,,,,,,,33,10002

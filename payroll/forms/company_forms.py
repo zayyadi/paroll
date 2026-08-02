@@ -49,6 +49,12 @@ class CompanyPayrollSettingForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.fields["leave_allowance_percentage"].label = (
+            "Annual Leave Allowance Rate (%)"
+        )
+        self.fields["leave_allowance_percentage"].help_text = (
+            "Percentage of annual basic salary paid when annual leave is approved."
+        )
         input_classes = (
             "w-full px-4 py-2.5 border border-secondary-300 rounded-xl "
             "focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm"
@@ -99,4 +105,3 @@ CompanyHealthInsuranceTierFormSet = forms.inlineformset_factory(
     extra=1,
     can_delete=True,
 )
-

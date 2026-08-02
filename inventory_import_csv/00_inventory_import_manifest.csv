@@ -1,0 +1,11 @@
+import_order,file,model,rows,notes
+1,00_inventory_required_accounts.csv,accounting.Account,12,Import first if these accounts do not already exist.
+2,01_inventory_units_of_measure.csv,inventory.UnitOfMeasure,6,Import before items; base_unit references IDs in this file.
+3,02_inventory_categories.csv,inventory.InventoryCategory,4,References accounting Account IDs from 00 file plus Opening Balance Equity.
+4,03_inventory_warehouses.csv,inventory.Warehouse,3,Import before locations.
+5,04_inventory_stock_locations.csv,inventory.StockLocation,4,warehouse references 03 file IDs.
+6,05_inventory_suppliers.csv,inventory.Supplier,3,References payable and WHT payable accounts from 00 file.
+7,06_inventory_customers.csv,inventory.Customer,2,References Accounts Receivable and WHT receivable accounts.
+8,07_inventory_tax_jurisdictions.csv,inventory.TaxJurisdiction,2,Import before tax rules.
+9,08_inventory_tax_rules.csv,inventory.TaxRule,4,jurisdiction references 07 file IDs.
+10,09_inventory_items.csv,inventory.InventoryItem,5,References category and unit IDs.

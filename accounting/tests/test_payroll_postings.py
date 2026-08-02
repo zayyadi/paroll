@@ -222,3 +222,80 @@ class PayrollClosePostingTests(TestCase):
 
         self.assertEqual(self._q(other_ded_credit), Decimal("500.00"))
         self.assertEqual(self._q(iou_recovery_credit), Decimal("250.00"))
+
+    def test_close_payroll_posts_each_payroll_component_to_its_account(self):
+        payroll, employee, entry = self._create_employee_stack()
+
+        Allowance.objects.create(employee=employee, amount=Decimal("1000.00"))
+        Deduction.objects.create(
+            employee=employee,
+            deduction_type="MISC",
+            amount=Decimal("500.00"),
+        )
+        iou = IOU.objects.create(employee_id=employee, amount=Decimal("1200.00"), tenor=3)
+
+        payroll_date = date.today().replace(day=1)
+        run = PayrollRun.objects.create(
+            company=self.company,
+            name=f"Period {payroll_date:%Y-%m} ALL",
+            paydays=payroll_date,
+            is_active=True,
+        )
+        PayrollRunEntry.objects.create(payroll_run=run, payroll_entry=entry)
+        IOUDeduction.objects.create(
+            iou=iou,
+            employee=employee,
+            payday=run,
+            amount=Decimal("250.00"),
+        )
+
+        entry.save()
+        run.closed = True
+        run.save()
+
+        run_ct = ContentType.objects.get_for_model(PayrollRun)
+        journal = Journal.objects.get(content_type=run_ct, object_id=run.pk)
+
+        expected = {
+            ("6010", "DEBIT"): Decimal(entry.netpay)
+            - Decimal("1000.00")
+            + Decimal(payroll.payee or 0)
+            + (Decimal(payroll.pension_employee or 0) / Decimal("12"))
+            + (Decimal(payroll.nhf or 0) / Decimal("12"))
+            + (Decimal(payroll.employee_health or 0) / Decimal("12"))
+            + Decimal("500.00")
+            + Decimal("250.00"),
+            ("6015", "DEBIT"): Decimal("1000.00"),
+            ("6020", "DEBIT"): Decimal(payroll.pension_employer or 0) / Decimal("12"),
+            ("6030", "DEBIT"): Decimal(payroll.emplyr_health or 0) / Decimal("12"),
+            ("6040", "DEBIT"): Decimal(payroll.nsitf or 0) / Decimal("12"),
+            ("1100", "CREDIT"): Decimal(entry.netpay),
+            ("1400", "CREDIT"): Decimal("250.00"),
+            ("2110", "CREDIT"): Decimal(payroll.payee or 0),
+            ("2120", "CREDIT"): (
+                Decimal(payroll.pension_employee or 0)
+                + Decimal(payroll.pension_employer or 0)
+            ) / Decimal("12"),
+            ("2130", "CREDIT"): (
+                Decimal(payroll.employee_health or 0)
+                + Decimal(payroll.emplyr_health or 0)
+            ) / Decimal("12"),
+            ("2150", "CREDIT"): Decimal(payroll.nhf or 0) / Decimal("12"),
+            ("2160", "CREDIT"): Decimal("500.00"),
+        }
+
+        for (account_number, entry_type), amount in expected.items():
+            posted_amount = (
+                journal.entries.filter(
+                    account__account_number=account_number,
+                    entry_type=entry_type,
+                )
+                .aggregate(total=Sum("amount"))
+                .get("total")
+                or Decimal("0.00")
+            )
+            self.assertEqual(
+                self._q(posted_amount),
+                self._q(amount),
+                f"{account_number} {entry_type}",
+            )

@@ -1,0 +1,3 @@
+id,created_at,updated_at,company,code,name,country_code,is_default,is_active
+200601,2026-06-20 00:00:00,2026-06-20 00:00:00,10000,NG-FIRS,Nigeria Federal Inland Revenue Service,NG,True,True
+200602,2026-06-20 00:00:00,2026-06-20 00:00:00,10000,NG-LIRS,Lagos Inland Revenue Service,NG,False,True

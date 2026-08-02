@@ -1,4 +1,5 @@
 from django.contrib.auth import get_user_model
+from django.core import mail
 from django.test import TestCase
 from django.core.cache import cache
 from django.contrib.auth.tokens import default_token_generator
@@ -6,7 +7,114 @@ from django.utils.encoding import force_bytes
 from django.utils.http import urlsafe_base64_encode
 from django.urls import reverse
 from django.test import override_settings
+from unittest.mock import patch
+
 from company.models import Company
+from users.email_backend import send_mail
+from users.tasks import send_custom_mail_task
+
+
+TEST_TEMPLATES = [
+    {
+        "BACKEND": "django.template.backends.django.DjangoTemplates",
+        "APP_DIRS": False,
+        "OPTIONS": {
+            "loaders": [
+                (
+                    "django.template.loaders.locmem.Loader",
+                    {
+                        "email/test_async_email.html": "Hello {{ name }}",
+                        "email/test_model_email.html": "Hello {{ company.name }}",
+                    },
+                )
+            ]
+        },
+    }
+]
+
+
+@override_settings(TEMPLATES=TEST_TEMPLATES)
+class AsyncEmailBackendTests(TestCase):
+    @patch("users.email_backend.render_to_string")
+    @patch("users.email_backend.send_custom_mail_task.delay")
+    def test_send_mail_queues_background_task_without_rendering_inline(
+        self, mocked_delay, mocked_render
+    ):
+        company = Company.objects.create(name="Ada Co")
+
+        result = send_mail(
+            subject="Welcome",
+            template_name="email/test_model_email.html",
+            context={"company": company},
+            from_email="noreply@example.com",
+            recipient_list=["ada@example.com"],
+            attachments=[
+                {
+                    "filename": "welcome.pdf",
+                    "content": b"%PDF",
+                    "mimetype": "application/pdf",
+                }
+            ],
+        )
+
+        self.assertEqual(result, mocked_delay.return_value)
+        mocked_delay.assert_called_once()
+        payload = mocked_delay.call_args.args[0]
+        self.assertIsInstance(payload, str)
+        mocked_render.assert_not_called()
+
+    @patch("users.email_backend.logger")
+    @patch(
+        "users.email_backend.send_custom_mail_task.delay",
+        side_effect=RuntimeError("broker down"),
+    )
+    def test_send_mail_does_not_raise_when_queueing_fails(
+        self, mocked_delay, mocked_logger
+    ):
+        result = send_mail(
+            subject="Welcome",
+            template_name="email/test_async_email.html",
+            context={"name": "Ada"},
+            from_email="noreply@example.com",
+            recipient_list=["ada@example.com"],
+        )
+
+        self.assertIsNone(result)
+        mocked_delay.assert_called_once()
+        mocked_logger.exception.assert_called_once()
+
+    @override_settings(
+        EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
+        TEMPLATES=TEST_TEMPLATES,
+    )
+    def test_background_task_sends_rendered_email(self):
+        company = Company.objects.create(name="Ada Co")
+
+        with patch("users.email_backend.send_custom_mail_task.delay") as mocked_delay:
+            send_mail(
+                subject="Welcome",
+                template_name="email/test_model_email.html",
+                context={"company": company},
+                from_email="noreply@example.com",
+                recipient_list=["ada@example.com"],
+                attachments=[
+                    {
+                        "filename": "welcome.pdf",
+                        "content": b"%PDF",
+                        "mimetype": "application/pdf",
+                    }
+                ],
+            )
+
+        payload = mocked_delay.call_args.args[0]
+
+        result = send_custom_mail_task(payload)
+
+        self.assertEqual(result, 1)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].body, "Hello Ada Co")
+        self.assertEqual(mail.outbox[0].attachments[0][0], "welcome.pdf")
+        self.assertEqual(mail.outbox[0].attachments[0][1], b"%PDF")
 
 
 class UsersManagersTests(TestCase):

@@ -9,6 +9,7 @@ from inventory.models import (
     InventoryItem,
     PurchaseOrderLine,
     PurchaseReceipt,
+    SalesInvoice,
     StockLocation,
     Supplier,
     UnitOfMeasure,
@@ -287,9 +288,10 @@ class InventoryActionForm(forms.Form):
 
 class PurchaseOrderForm(InventoryActionForm):
     supplier = forms.ModelChoiceField(queryset=Supplier.objects.none())
-    item = forms.ModelChoiceField(queryset=InventoryItem.objects.none())
-    quantity = forms.DecimalField(max_digits=18, decimal_places=4, min_value=0)
-    unit_cost = forms.DecimalField(max_digits=18, decimal_places=4, min_value=0)
+    item = forms.ModelChoiceField(queryset=InventoryItem.objects.none(), required=False)
+    quantity = forms.DecimalField(max_digits=18, decimal_places=4, min_value=0, required=False)
+    unit_cost = forms.DecimalField(max_digits=18, decimal_places=4, min_value=0, required=False)
+    vat_rate = forms.DecimalField(max_digits=7, decimal_places=4, min_value=0, required=False)
     expected_date = forms.DateField(required=False, widget=forms.DateInput(attrs={"type": "date"}))
     notes = forms.CharField(required=False, max_length=255)
 
@@ -301,9 +303,9 @@ class PurchaseOrderForm(InventoryActionForm):
 
 
 class PurchaseOrderReceiveForm(InventoryActionForm):
-    purchase_order_line = forms.ModelChoiceField(queryset=PurchaseOrderLine.objects.none())
+    purchase_order_line = forms.ModelChoiceField(queryset=PurchaseOrderLine.objects.none(), required=False)
     location = forms.ModelChoiceField(queryset=StockLocation.objects.none())
-    quantity = forms.DecimalField(max_digits=18, decimal_places=4, min_value=0)
+    quantity = forms.DecimalField(max_digits=18, decimal_places=4, min_value=0, required=False)
     vat_input_account = forms.ModelChoiceField(queryset=Account.objects.none(), required=False)
 
     @staticmethod
@@ -449,6 +451,27 @@ class CustomerPaymentForm(InventoryActionForm):
             )
 
 
+class CustomerPaymentAllocationForm(forms.Form):
+    invoice = forms.ModelChoiceField(queryset=SalesInvoice.objects.none())
+    amount = forms.DecimalField(max_digits=18, decimal_places=2, min_value=0)
+    allocation_date = forms.DateField(required=False, widget=forms.DateInput(attrs={"type": "date"}))
+
+    def __init__(self, *args, payment=None, company=None, **kwargs):
+        self.payment = payment
+        super().__init__(*args, **kwargs)
+        if payment is not None:
+            self.fields["invoice"].queryset = (
+                SalesInvoice.objects.filter(
+                    company=payment.company,
+                    customer=payment.customer,
+                )
+                .exclude(payment_status="PAID")
+                .select_related("document")
+                .order_by("document__document_date", "created_at")
+            )
+        _style_fields(self.fields)
+
+
 class SupplierPaymentForm(InventoryActionForm):
     supplier = forms.ModelChoiceField(queryset=Supplier.objects.none())
     cash_account = forms.ModelChoiceField(queryset=Account.objects.none())
@@ -461,6 +484,27 @@ class SupplierPaymentForm(InventoryActionForm):
             self.fields["cash_account"].queryset = _accounts_for(
                 company, Account.AccountType.ASSET
             )
+
+
+class SupplierPaymentAllocationForm(forms.Form):
+    receipt = forms.ModelChoiceField(queryset=PurchaseReceipt.objects.none())
+    amount = forms.DecimalField(max_digits=18, decimal_places=2, min_value=0)
+    allocation_date = forms.DateField(required=False, widget=forms.DateInput(attrs={"type": "date"}))
+
+    def __init__(self, *args, payment=None, company=None, **kwargs):
+        self.payment = payment
+        super().__init__(*args, **kwargs)
+        if payment is not None:
+            self.fields["receipt"].queryset = (
+                PurchaseReceipt.objects.filter(
+                    company=payment.company,
+                    supplier=payment.supplier,
+                )
+                .exclude(payment_status="PAID")
+                .select_related("document")
+                .order_by("document__document_date", "created_at")
+            )
+        _style_fields(self.fields)
 
 
 class TaxRemittanceForm(InventoryActionForm):
@@ -568,10 +612,11 @@ class StockCountLineForm(forms.Form):
 
 class SalesOrderForm(InventoryActionForm):
     customer = forms.ModelChoiceField(queryset=Customer.objects.none())
-    item = forms.ModelChoiceField(queryset=InventoryItem.objects.none())
-    location = forms.ModelChoiceField(queryset=StockLocation.objects.none())
-    quantity = forms.DecimalField(max_digits=18, decimal_places=4, min_value=0)
-    unit_price = forms.DecimalField(max_digits=18, decimal_places=4, min_value=0)
+    item = forms.ModelChoiceField(queryset=InventoryItem.objects.none(), required=False)
+    location = forms.ModelChoiceField(queryset=StockLocation.objects.none(), required=False)
+    quantity = forms.DecimalField(max_digits=18, decimal_places=4, min_value=0, required=False)
+    unit_price = forms.DecimalField(max_digits=18, decimal_places=4, min_value=0, required=False)
+    vat_rate = forms.DecimalField(max_digits=7, decimal_places=4, min_value=0, required=False)
     expected_date = forms.DateField(required=False, widget=forms.DateInput(attrs={"type": "date"}))
     notes = forms.CharField(required=False, max_length=255)
 

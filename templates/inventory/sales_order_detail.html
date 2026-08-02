@@ -29,6 +29,14 @@
       </form>
     </div>
     {% endif %}
+    {% if order.status == 'INVOICED' and not sales_invoice_exists %}
+    <div class="flex space-x-3 mt-4 pt-4 border-t">
+      <form method="post" action="{% url 'inventory:sales_order_invoice' order.pk %}">
+        {% csrf_token %}
+        <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Post Missing Invoice</button>
+      </form>
+    </div>
+    {% endif %}
   </div>
   <div class="bg-white shadow rounded-lg overflow-hidden">
     <table class="min-w-full divide-y divide-gray-200">

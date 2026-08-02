@@ -4,6 +4,7 @@ from datetime import date
 from django.test import TestCase
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
+from django.urls import reverse
 
 from accounting.models import (
     Account,
@@ -97,6 +98,14 @@ class TaxReturnTest(TestCase):
         self.assertEqual(tax_return.total_input_tax, Decimal("375.00"))
         self.assertEqual(tax_return.net_tax_payable, Decimal("375.00"))
         self.assertEqual(tax_return.status, TaxReturn.Status.DRAFT)
+
+    def test_tax_return_list_renders(self):
+        self.client.force_login(self.user)
+
+        response = self.client.get(reverse("accounting:tax_return_list"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Tax Returns")
 
     def test_generate_wht_return(self):
         from accounting.utils import create_journal_with_entries

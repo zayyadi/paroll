@@ -46,6 +46,50 @@ class PostingAccountSetupTests(TestCase):
 
         self.assertEqual(second_result["created"], [])
 
+    def test_default_posting_accounts_reuse_existing_name_when_number_differs(self):
+        existing_adjustment_gain = Account.objects.create(
+            company=self.company,
+            name="Inventory Adjustment Gain",
+            account_number="4650",
+            type=Account.AccountType.REVENUE,
+        )
+
+        result = ensure_default_posting_accounts(self.company)
+
+        self.assertIn(existing_adjustment_gain, result["existing"])
+        self.assertFalse(
+            Account.objects.filter(
+                company=self.company,
+                name="Inventory Adjustment Gain",
+                account_number="4200",
+            ).exists()
+        )
+        self.assertEqual(
+            Account.objects.filter(
+                company=self.company,
+                name="Inventory Adjustment Gain",
+            ).count(),
+            1,
+        )
+
+    def test_posting_account_setup_page_matches_existing_account_by_name(self):
+        existing_adjustment_gain = Account.objects.create(
+            company=self.company,
+            name="Inventory Adjustment Gain",
+            account_number="4650",
+            type=Account.AccountType.REVENUE,
+        )
+
+        response = self.client.get(reverse("inventory:posting_account_setup"))
+
+        self.assertEqual(response.status_code, 200)
+        recommendation = next(
+            item
+            for item in response.context["recommendations"]
+            if item["name"] == "Inventory Adjustment Gain"
+        )
+        self.assertEqual(recommendation["account"], existing_adjustment_gain)
+
     def test_posting_account_setup_page_links_account_creation_and_creates_defaults(self):
         response = self.client.get(reverse("inventory:posting_account_setup"))
 

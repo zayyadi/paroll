@@ -216,12 +216,19 @@ def handle_payroll_period_closure(payroll_run: PayrollRun) -> None:
                 + other_deduction + iou_repayment
             )
 
+            allowance = Decimal(pay_var.calc_allowance or 0)
             net_pay = Decimal(pay_var.netpay or 0)
             _add_entry("cash", "CREDIT", net_pay, f"Net salary payment - {employee_name}")
             _add_entry(
+                "allowance_expense",
+                "DEBIT",
+                allowance,
+                f"Allowance expense - {employee_name}",
+            )
+            _add_entry(
                 "salary_expense",
                 "DEBIT",
-                net_pay + employee_liability_total,
+                net_pay - allowance + employee_liability_total,
                 f"Gross salary expense - {employee_name}",
             )
 

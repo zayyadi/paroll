@@ -82,9 +82,9 @@ class CompanyPayrollSetting(models.Model):
     leave_allowance_percentage = models.DecimalField(
         max_digits=5,
         decimal_places=2,
-        default=Decimal("0.00"),
+        default=Decimal("10.00"),
         validators=[MinValueValidator(Decimal("0")), MaxValueValidator(Decimal("100"))],
-        help_text="Percentage of monthly basic salary paid as leave allowance.",
+        help_text="Percentage of annual basic salary paid as leave allowance.",
     )
     pays_thirteenth_month = models.BooleanField(
         default=True,
@@ -665,8 +665,10 @@ class PayrollEntry(models.Model):
         if not is_on_approved_leave:
             return Decimal("0.00")
 
-        monthly_basic_salary = Decimal(payroll.basic_salary or Decimal("0.00"))
-        return (monthly_basic_salary * leave_allowance_percentage) / Decimal("100")
+        annual_basic_salary = Decimal(payroll.basic_salary or Decimal("0.00")) * Decimal(
+            "12"
+        )
+        return (annual_basic_salary * leave_allowance_percentage) / Decimal("100")
 
     def _get_auto_thirteenth_month_allowance(self, payroll_month: int) -> Decimal:
         if payroll_month != 12:

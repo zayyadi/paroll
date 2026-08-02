@@ -1,0 +1,4 @@
+id,created_at,updated_at,company,code,name,is_active
+200201,2026-06-20 00:00:00,2026-06-20 00:00:00,10000,MAIN,Main Warehouse,True
+200202,2026-06-20 00:00:00,2026-06-20 00:00:00,10000,SHOP,Retail Shop,True
+200203,2026-06-20 00:00:00,2026-06-20 00:00:00,10000,DAMAGED,Damaged Goods Hold,True
