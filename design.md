@@ -729,7 +729,313 @@ For each redesigned page, the model must provide:
 
 ---
 
-## 13. Recommended Shared Template Architecture
+## 13. Required Screen Inventory, Relationships, Data and Fields
+
+This section is prescriptive. A UI/UX model must design every screen listed below. Routes that only perform an action—approve, reject, acknowledge, mark read, clock, post, download or delete—do not need an unrelated standalone page; they need a confirmation, progress and result state inside the parent workflow.
+
+### 13.1 Product-wide relationship map
+
+```mermaid
+flowchart TD
+    Public["Public website"] --> Auth["Authentication"]
+    Auth --> RoleHome["Role dashboard"]
+    RoleHome --> HR["People and HR"]
+    RoleHome --> Payroll["Payroll"]
+    RoleHome --> Accounting["Accounting"]
+    RoleHome --> Inventory["Inventory"]
+    HR --> Employee["Employee record"]
+    Employee --> Payroll
+    Employee --> SelfService["Employee self-service"]
+    Payroll --> Accounting
+    Inventory --> Accounting
+    RoleHome --> Notifications["Notifications"]
+    Notifications --> HR
+    Notifications --> Payroll
+    Notifications --> Accounting
+    Notifications --> Inventory
+```
+
+The global company switcher scopes every authenticated page. Employee identity is the shared record connecting HR, payroll, attendance, leave, IOU, appraisal, discipline, documents, assets, benefits, learning and surveys. Posted payroll and inventory transactions feed accounting. Notifications deep-link to the exact related record, not merely to a module dashboard.
+
+### 13.2 Date, time, money and identity fields
+
+Use these rules on every relevant page:
+
+| Data type | Display | Input and behaviour |
+|---|---|---|
+| Date | `02 Aug 2026` | Native/accessible picker plus typed `DD/MM/YYYY`; store ISO date |
+| Month/period | `August 2026` | Month and year selector; never a free-text month |
+| Date range | `01–31 Aug 2026` | Start and end fields; validate end ≥ start |
+| Time | `14:35` | 24-hour time by default; show timezone when cross-zone relevance exists |
+| Date and time | `02 Aug 2026, 14:35 WAT` | Store timezone-aware timestamp; relative time may supplement, never replace |
+| Money | `₦1,250,000.00` | Currency-aware numeric input, no negative value unless the transaction permits it |
+| Percentage | `7.50%` | Numeric input with `%` suffix and explicit bounds |
+| Quantity | `1,250.0000 kg` | Respect unit precision; show unit beside value |
+| Person | Avatar/initial, full name, employee ID | Search by name, email or employee ID |
+| Record identity | Human-readable reference such as `JE-0042` | Show reference consistently in title, URL context, confirmation and audit trail |
+| Audit timestamp | Exact timestamp plus actor | Immutable and company-scoped |
+
+Every detail page must expose `created_at`, `updated_at`, status and responsible actor in an Activity/Audit section when those fields exist. Do not clutter the primary summary with system timestamps.
+
+### 13.3 Public website and authentication screens
+
+| Screen | Relationship and destinations | Required data and fields |
+|---|---|---|
+| Landing | Entry to Pricing, About, Security, Support, Contact, Register and Login | Product name/logo; headline; description; primary/secondary CTA; verified product capabilities; trust evidence; feature names/descriptions; testimonial/customer data only if real |
+| Pricing | Landing → plan selection → Register/Contact | Billing frequency; plan name; price/currency; billing interval; employee/user limit; feature list; exclusions; trial details; CTA; FAQ |
+| About | Public navigation → Contact/Register | Mission; story; values; audience; team/company facts; CTA |
+| Support | Public/app help → Contact | Search query; help categories; article title/summary/link; support channel; availability; expected response time |
+| Security | Public navigation → Contact | Security control category; description; data/backup/access/audit facts; disclosure contact; last reviewed date |
+| Contact | Public navigation → success state | Full name; work email; phone optional; company; employee count optional; topic; message; consent; submitted timestamp/reference |
+| Legal pages | Footer → privacy/terms/cookies | Document title; effective date; last updated date; version; table of contents; sections; contact |
+| Login | Public/Register/Reset → role dashboard | Email; password; remember session; show password; forgot password; SSO choices when configured; error; safe return path |
+| Register | Public/Login → OTP/activation → dashboard | First name; last name; work email; company name; password; password confirmation; terms/privacy consent; optional invitation code |
+| OTP/activation | Register/reset/security action → success destination | Masked destination; six-digit code; expiry timestamp/countdown; resend; change address; attempt/error state |
+| Password reset | Login → reset email → confirm → Login | Email; new password; confirmation; password rules; token validity; completion state |
+| Password change | Settings → re-auth/completion | Current password; new password; confirmation; session-revocation option |
+| Company switcher | Any app page → same logical page in new company or company dashboard | Company logo/initial; company name; user role; current/default indicator; search; switch progress/error |
+
+### 13.4 Dashboards and module entry screens
+
+| Screen | Relationship and destinations | Required data and fields |
+|---|---|---|
+| Employee dashboard | Auth → self-service pages | Greeting/name; company; current clock status; next payday/date; latest net pay/period; leave balances; pending request counts; documents awaiting acknowledgement; learning/review due dates; announcements |
+| Admin dashboard | Auth → all modules/settings | Company; reporting period; employee count/status; payroll readiness/status; approval counts; accounting exceptions; inventory exceptions; compliance deadlines; setup completion; recent activity |
+| HR dashboard | App → employees, attendance, leave, hiring, appraisal, discipline | Date/period; headcount; new hires/exits; attendance/absence; pending leave; hiring pipeline; overdue appraisals; open cases; expiring documents; task owner/due date |
+| Payroll dashboard | App → pay period/run, variables, payslips, reports | Current period; start/end/pay date; payroll status; employee coverage; gross; deductions; net; unresolved errors/warnings; approval stage; processor; prior periods |
+| Accounting dashboard | App → accounts, journals, reconciliation, periods, reports | Fiscal year/period; cash/account balances; draft/unposted journal counts; debit/credit totals; reconciliation differences; close readiness; approval queue; report links |
+| Inventory dashboard | App → items, orders, movements, transactions | As-of date; stock value; item count; low/out-of-stock count; pending orders/receipts; movement totals; posting errors; warehouse/category filters |
+| Standup dashboard | App/HR → team/date detail | Standup date; team; participant count; submitted/missing; updates; blockers; blocker owner/status; previous/next date |
+
+### 13.5 Employee record and People/HR screens
+
+```mermaid
+flowchart TD
+    Directory["Employee directory"] --> Profile["Employee profile"]
+    Profile --> Employment["Employment and pay"]
+    Profile --> Time["Attendance and leave"]
+    Profile --> Growth["Performance and learning"]
+    Profile --> Resources["Documents, assets and benefits"]
+    Profile --> Cases["IOU and discipline"]
+```
+
+| Screen | Relationship and destinations | Required list/detail/form fields |
+|---|---|---|
+| Employee directory | HR dashboard → profile; Add employee | Search; department; status; contract type; manager filter; employee photo/initial; full name; employee ID; email; job title; department; manager; employment/active status; created/joined date |
+| Add/edit employee | Directory/profile → profile | First/last name; email; phone; photo; gender where lawfully required; address; employee ID; department; job title; manager; contract type; employment status; start/created date; probation start/end/status; salary/pay grade; rent paid; bank; account number; HMO provider; pension fund manager; emergency contact name/relationship/phone; next of kin name/relationship/contact; role/permissions; invitation state |
+| Employee profile | Directory → all employee-related records | Header: photo, full name, ID, job title, department, status. Overview: email, phone, address, contract, manager, start date, probation. Payroll: pay grade/salary permission-gated, bank, HMO, pension. Related tabs: leave, attendance, payslips, documents, assets, benefits, learning, performance, IOU, appraisal, discipline, audit |
+| Self-profile | Employee dashboard → edit/export | User-editable contact/address/photo/emergency fields; employer-controlled job/company fields; bank/pension/HMO; verification state; last update; data export request |
+| Departments | People settings → directory filter | Department name; description; head/manager; employee count; active state; created/updated dates |
+| Company chat | Employee dashboard → room/thread/member profile | Room name/type/description; member count; unread count; sender; message body; sent timestamp; read state; attachment metadata if supported; compose field |
+| Documents self/overview | Profile/dashboard → document detail/acknowledge | Title; document type; employee; file name/type/size; uploaded date; acknowledgement required/state/date; expiry date; owner; visibility/status |
+| Assets self/overview | Profile → asset detail/return | Asset name; category; asset tag; serial number; employee; issue date; expected return if supported; returned date; condition/status; notes |
+| Benefits self/overview | Profile → enrollment | Plan name/type; description; eligibility; enrollment window start/end; active state; enrollment status; effective/end date; employer/employee contribution if available |
+| Learning self/overview | Profile → course/enrollment completion | Course title/type; delivery mode; description; estimated minutes; mandatory flag; enrollment status; due date; completed date/time; score |
+| Surveys self/overview | Profile → response form/results | Survey name/type/description; anonymous flag; open/close dates if available; question prompt/type/choices/order/required; response progress; submitted timestamp; response-rate aggregate |
+| Performance self/overview | Profile → goal/one-on-one/review | Goal title/description/cycle/status/progress/due date; employee; manager; one-on-one scheduled time/status/agenda/notes/completed time; appraisal links |
+| Workflow overview | HR/Profile → execution detail | Template name/type/trigger/active state; employee; execution status; current step; owner; start/completion dates; context; overdue/blocker state |
+
+### 13.6 Attendance and leave screens
+
+| Screen | Relationship and destinations | Required data and fields |
+|---|---|---|
+| My attendance day | Employee dashboard → clock action/history | Work date; current local time/timezone; status; clock-in; clock-out; hours worked; break total if supported; location label; notes; correction action |
+| Attendance overview | HR dashboard → employee/day | Date range; employee; department; status; clock-in/out; hours; lateness/overtime; location; exception reason; totals |
+| Who is out | Leave calendar → employee/request | Date/range; employee; department/team; leave type where permitted; partial/full day; approved status; return date |
+| Apply/edit leave | Employee dashboard → request detail | Leave type; start date; end date; partial-day selection; calculated days; available/projected balance; reason; handover/contact; attachment; approver; policy warning |
+| My leave requests | Employee dashboard → request detail/edit/delete | Reference; leave type; start/end; days; submitted date; status; approver; decision date; next action |
+| Manage leave requests | HR dashboard → approval detail | Employee; department; leave type; dates/days; submitted time; overlap/team coverage; balance; status; approver; age |
+| Leave request detail | Lists/calendar → approve/reject/edit | Request identity; employee; type; dates; duration; reason/attachment; balance impact; approver; approval timeline; comments; created/updated dates |
+| Leave calendar | Employee/HR → request detail | Month/week; team/department; employee; leave type/status; start/end; duration; today indicator |
+| Leave policies | Leave form/settings | Policy name/type; eligibility; annual allowance; accrual; carryover; notice; max consecutive days; documentation rule; effective start/end; active status |
+| Leave allowance slip | Request/profile → print/PDF | Company/employee identity; period; entitlement; basic pay/inputs; calculation lines; gross/deductions/net allowance; approval names/dates; reference; generated date |
+
+### 13.7 Hiring, appraisal and discipline screens
+
+| Screen | Relationship and destinations | Required data and fields |
+|---|---|---|
+| Hiring workspace | HR dashboard → requisition/candidate | Pipeline filters; requisition title/department/status/openings/owner; candidate name/email/phone/current stage/source/applied date; next action |
+| Requisition create/detail | Hiring → candidates | Title; department; hiring manager; employment type; openings; description; requirements; salary range/currency when permitted; target/start date; status; created by/date |
+| Candidate create/detail | Requisition → scorecard/advance/offer | Full name; email; phone; source; resume/document; requisition; current stage; status; notes; applied/created date; stage history |
+| Scorecard | Candidate → candidate detail | Interviewer; competency names/scores; average score; recommendation; notes; submitted timestamp |
+| Offer | Candidate → accept/status | Candidate; title; employment type; salary amount; currency; start date; expiry date; terms; status; created by/date; accepted timestamp |
+| Appraisal list | HR/performance → appraisal detail | Name/cycle; start/end/due dates; participant count; completion; status; owner |
+| Appraisal create/edit | List → assign/detail | Title/name; description; cycle; period dates; due date; rating scale; criteria/questions; reviewer roles; status |
+| Assign appraisal | Appraisal → progress | Appraisal; employees; department/team filter; reviewer/manager; assignment due date; selected/excluded count |
+| Review form/detail | Appraisal/profile → appraisal detail | Employee; reviewer; criterion/question; score with anchors; comments; goals/summary; draft/submitted state; submitted timestamp |
+| Discipline system/list | HR dashboard → case | Reference; employee; category; severity; owner; opened date; next deadline; status; confidential indicator |
+| Discipline case form/detail | Case list → evidence/decision/sanction/appeal | Employee; allegation/title; description; incident date/time/location; reported date; reporter; category; severity; policy; investigator/owner; witnesses; confidentiality; status; target/completion dates; outcome; full timeline |
+| Evidence | Case → case detail | Evidence type; title/description; source; file/link; collected date/time; collected by; confidentiality; notes |
+| Decision and sanction | Case → appeal | Finding/outcome; rationale; policy basis; decision maker/date; sanction type; effective start/end; conditions; review date; attachment |
+| Appeal/review | Case → final case state | Appeal grounds; requested remedy; filed date; appellant; reviewer; hearing/review date; outcome; rationale; decided date |
+
+### 13.8 Payroll, pay period, payslip and statutory-report screens
+
+```mermaid
+flowchart TD
+    Settings["Payroll settings"] --> Period["Pay period"]
+    Employees["Eligible employees"] --> Period
+    Variables["Allowances and deductions"] --> Period
+    Period --> Validate["Validate and review"]
+    Validate --> Approve["Approve and process"]
+    Approve --> Payslips["Payslips and reports"]
+    Approve --> Ledger["Accounting journals"]
+```
+
+| Screen | Relationship and destinations | Required data and fields |
+|---|---|---|
+| Payroll settings | Company settings → pay-period creation | Pay frequency; default currency; pay-day rule; period rule; statutory rates/configuration; approval workflow; payslip delivery; bank/report settings; rounding; active state; modified by/time |
+| Pay-period list | Payroll dashboard → detail/create | Name/reference; start date; end date; pay date; status; employee count; gross; allowances; deductions; tax; pension; net; processor; created/processed dates |
+| Create/edit pay period | List → variables/validation | Period name; start/end/pay dates; employee scope; include/exclude employees; copied period/source; notes; draft state |
+| Pay-variable list/create | Pay period/employee → validation | Employee; pay period; variable/type; allowance or deduction; fixed/percentage/rate; amount/rate; taxable; pensionable; recurring flag; effective start/end; reason/reference |
+| Payroll readiness/processing | Period → payslips/reports | Period; employee coverage; missing pay/bank/tax data; input errors/warnings; gross totals; deduction/tax/pension/NHF/NHIS totals; net; approval state; processor/approver; calculated/approved/processed timestamps |
+| Payslip list | Period/profile → payslip | Employee name/ID; period; gross; deductions; tax; pension; net; status; generated/sent/viewed dates; delivery status |
+| Payslip detail/PDF | List/profile → download/email | Company; employee; ID; job/department; period/start/end/pay date; earnings lines; deduction lines; employer contributions; gross; taxable pay; total deductions; net; YTD values; bank/payment reference; generated timestamp |
+| Bank report list/detail | Payroll → download | Period; bank; account name/number (masked on screen where appropriate); employee ID/name; payment amount; reference/narration; total; generated date/status |
+| Pension report | Payroll → download | Period; employee; RSA/PIN; pension fund manager; pensionable earnings; employee contribution; employer contribution; total; generated date |
+| PAYE report | Payroll → download | Period; employee; tax ID if stored; gross/taxable pay; reliefs; tax due/deducted; jurisdiction; total; generated date |
+| NHF report | Payroll → download | Period; employee; NHF identifier if stored; eligible earnings/base; contribution; total; generated date |
+| NHIS report | Payroll → download | Period; employee; HMO/provider; identifier if stored; employee/employer contribution; total; generated date |
+| Payroll audit trail | Payroll/detail → source record | Timestamp; actor; action; entity/reference; employee/period; before/after values; IP/source where authorized; reason |
+
+### 13.9 IOU/employee-advance screens
+
+| Screen | Relationship and destinations | Required data and fields |
+|---|---|---|
+| Request IOU | Employee dashboard → detail/tracker | Requested amount; purpose/reason; request date; desired disbursement date; proposed repayment amount/frequency/start date; outstanding balance; attachment; acknowledgement/consent |
+| IOU list/history | Payroll/HR dashboard → detail | Reference; employee; requested/approved amount; request/approval dates; repayment start; amount repaid; outstanding balance; next deduction/date; status; approver |
+| My tracker | Employee dashboard → detail/payment slip | Total outstanding; active IOUs; next deduction/date; original amount; repaid; balance; repayment timeline |
+| IOU detail | List/tracker → approve/update/delete/payment slip | Request fields; employee/payroll context; approval decision/reason/date; disbursement; repayment schedule; payment/deduction rows; running balance; attachments; activity |
+| Approve/update | Detail → updated detail | Approved amount; repayment amount/frequency/start/end estimate; payroll impact; decision; reason/notes; approver; decision timestamp |
+| Payment slip | IOU detail → print | Reference; employee; IOU; payment date; amount; method; payroll period/reference; prior/new balance; received/authorized by; generated date |
+
+### 13.10 Notifications and settings screens
+
+| Screen | Relationship and destinations | Required data and fields |
+|---|---|---|
+| Notification dropdown | Top bar → related record/all notifications | Type/category icon; title; short message; unread state; source object/reference; created timestamp; destination URL |
+| Notification list | Top bar → detail/related record | All dropdown fields; category/status/date filters; read timestamp; bulk selection |
+| Notification detail | List → source record | Title; complete message; category; priority; actor/source; related object/reference; created/read timestamps; primary related-record action |
+| Aggregated notifications | List → expanded children | Group type/key; title; count; first/latest timestamp; child notifications; read state |
+| Digest settings | Preferences → notifications | Enabled; frequency daily/weekly; delivery day/time; timezone; channel/email; last/next delivery |
+| Notification preferences | Settings → type detail | Master email/in-app toggles; notification category; enabled channels; digest mode; mandatory/non-disableable state; save timestamp |
+| User settings | App menu → security/company/profile | First/last name; email/verification; avatar; phone; locale/timezone; default company; preferences; password/MFA/session links |
+| Company settings | Admin → module settings | Company name; slug; logo/branding; active state; address/contact/tax identifiers if supported; memberships; role; default member flag; created/updated timestamps |
+
+### 13.11 Accounting screens
+
+```mermaid
+flowchart TD
+    COA["Chart of accounts"] --> Journal["Journal entries"]
+    Journal --> Approval["Approve and post"]
+    Approval --> Ledger["General ledger"]
+    Ledger --> Statements["Financial reports"]
+    Periods["Fiscal years and periods"] --> Journal
+    Bank["Bank statement"] --> Reconcile["Reconciliation"]
+    Reconcile --> Ledger
+```
+
+| Screen | Relationship and destinations | Required data and fields |
+|---|---|---|
+| Chart of accounts list | Accounting dashboard → account detail/create | Search; account type/status; code; name; parent; type; normal balance; current balance; posting allowed; active state |
+| Account form | List → detail | Code; name; description; account type; parent; normal balance; currency if supported; posting allowed; active state; opening balance route |
+| Account detail/activity | List/reports → journal entry | Account identity; current/opening balance; debit/credit totals; period/date range; journal date/reference/description; debit; credit; running balance; source link |
+| Opening-balance import | Accounts → validation/result | Effective date; fiscal period; file; sheet/mapping; account code/name; debit/credit/opening balance; row error; import totals; uploaded/committed by/time |
+| Balance adjustment | Account detail → journal detail | Adjustment date; account; current balance; target/change amount; debit/credit counterpart; reason; attachment/reference; resulting balance |
+| Journal list | Dashboard → journal detail/create | Search; status/date/creator/account filters; journal number; date; description/reference; source; debit total; credit total; status; creator; submitted/posted dates |
+| Journal create/edit | List → validation/detail | Journal date; accounting period; reference; description/memo; source; line number; account; line description; debit; credit; dimensions if supported; attachment; running totals; difference; save draft |
+| Journal detail | List/source record → approval/post/reversal/history | Header and lines above; status; creator; submitter; approver; poster; created/submitted/approved/posted timestamps; source object; attachments; comments; audit timeline |
+| Journal approval/post | Detail → ledger | Complete journal preview; debit/credit/difference; period state; validation results; approval/post decision; comments/reason; MFA where required |
+| Journal reversal/correction | Posted detail → replacement journals | Original journal/reference/date/lines; reversal date/period; full/partial choice; selected lines/amount; reason; correction lines; resulting journals; requester/approver |
+| Fiscal-year list/detail | Accounting dashboard → periods | Name/year; start/end dates; status; current flag; periods count; opened/closed by/time; close readiness |
+| Accounting-period list/detail | Fiscal year → close | Name/number; fiscal year; start/end; status; unposted journal count; reconciliation state; payroll/inventory blockers; closed by/time |
+| Reconciliation list | Dashboard → detail/create | Account; statement start/end; opening/closing balances; statement/ledger totals; matched/unmatched count/amount; difference; status; preparer/approver |
+| Reconciliation create/import | List → matching | Account; statement dates; opening/closing balance; statement file; format/mapping; transaction date; description; reference; debit/credit/amount; import error |
+| Reconciliation matching | Detail → approval | Statement transaction; ledger candidate; dates; references; amounts; difference; match type/confidence; selected/matched state; adjustment action |
+| Reconciliation detail/approval | List → account/ledger | Summary fields; matched/unmatched groups; adjustments; difference; preparer; approval decision/comments; created/submitted/approved dates |
+| Audit-trail list/detail | Accounting/settings → source object | Date range; actor; action; entity/model; object/reference; company; timestamp; before/after structured diff; source/IP metadata where authorized |
+| Reports index | Dashboard → selected report | Report name; category; description; data requirements; last run; favorite/recent state |
+| Financial report viewer | Reports → account/journal/export | Report type; company; as-of date or start/end period; comparison period; basis/currency; generated timestamp; row label; current/comparison amount; variance value/%; drilldown link; notes |
+| AR/AP aging | Reports → customer/supplier/source document | As-of date; party; document/reference; invoice/due dates; original/open amount; age; 0–30/31–60/61–90/90+ buckets; total |
+| Cash flow/ratios/margin/turnover | Reports → drilldown | Period; metric/line; value; comparison; variance; formula/method note; underlying report link |
+| Month-end checklist | Period → blocker/source | Period; task; category; owner; due date; dependency; status; evidence/link; completed by/time; blocker reason |
+| Report designer | Reports → preview | Name; description; statement/report type; line label; line type; linked accounts/formula; sign/display rule; order; subtotal; active/version state |
+| Report jobs | Reports → status/download | Report type; parameters/period; requested by/time; status; progress when real; started/completed time; error; file/expiry/download |
+| MFA verification | Sensitive action → original action | Masked method/destination; verification code; expiry/resend; original action summary; cancel path |
+
+All accounting report pages must show the data “as of” or period range, company, currency, generation timestamp and whether journals are posted-only. These are mandatory trust fields.
+
+### 13.12 Inventory screens
+
+```mermaid
+flowchart TD
+    Setup["Units, categories and accounts"] --> Items["Items"]
+    Items --> Purchase["Purchase order and receipt"]
+    Items --> Sale["Sales invoice"]
+    Purchase --> Stock["Stock movements"]
+    Sale --> Stock
+    Stock --> Documents["Inventory documents"]
+    Documents --> Accounting["Accounting journals"]
+```
+
+| Screen | Relationship and destinations | Required data and fields |
+|---|---|---|
+| Unit form | Inventory setup → item form | Name; abbreviation; base unit; conversion factor; decimal places; created/updated dates |
+| Category list/form | Dashboard → items/accounts | Name; costing method; inventory account; opening-equity account; adjustment-gain account; shrinkage-expense account; sales-revenue account; COGS account; item count; created/updated dates |
+| Item list | Dashboard → item detail/create | Search; category/type/status/stock-state filters; SKU; name; barcode; category; base unit; on hand; available; reorder point; standard cost; sales price; stock value; active state |
+| Item form/detail | List → movements/orders/documents | Category; SKU; name; item type; base unit; barcode/format; track batch; track expiry; negative-stock rule; reorder point; standard cost; default sales price; VAT rate; WHT rate; active state; warehouse/location balances; recent movements |
+| Warehouse/location list/form | Dashboard → balances/transactions | Warehouse code/name/status; location code/name; parent warehouse; item count; on-hand quantity; stock value; created/updated dates |
+| Supplier list/detail/form | Dashboard/PO → orders/receipts/payments | Name; contact name; email; phone; payable account; WHT payable account; default WHT rate; payment terms; due days; discount terms; credit limit; balance; active state; recent documents |
+| Customer list/detail/form | Dashboard/invoice → invoices/payments | Name; contact name; email; phone; receivable account; WHT receivable account; default WHT rate; payment terms; due days; credit limit; collections status; balance; active state; recent documents |
+| Purchase-order list | Dashboard/supplier → PO detail/receive | Order reference; supplier; order date; expected date; status; quantity/line count; subtotal/tax/total; received progress; notes; created/updated dates |
+| Purchase-order form/detail | List → receive | Supplier; order/expected dates; reference; notes; line item; quantity; received quantity; unit; unit cost; line total; order total; status |
+| Inventory document list | Dashboard → source transaction/journal | Document number/type; date; reference; party/location; total amount; status; requested/approved/posted actors and timestamps; journal link; reason |
+| Stock-movement list | Item/warehouse/document → source | Movement date; type; item/SKU; warehouse/location; quantity; unit; unit cost; total cost; batch; serial; expiry date; document/reference; memo |
+| Transaction form shared header | New receipt/invoice/return/payment/remittance/adjustment/transfer → posted document | Document date; reference; reason/notes; party; source document/order/invoice; source/destination warehouse/location; currency if supported; attachment; draft/approval state |
+| Purchase receipt | PO/supplier → movement/document/journal | Supplier; purchase order; invoice date; due date; payment terms/status; paid amount; item; location; quantity; unit cost; VAT/WHT rates and amounts; line/overall totals |
+| Sales invoice | Customer → movement/payment/document/journal | Customer; invoice/due dates; payment terms; workflow/payment status; sent/paid timestamps; paid amount; item; location; quantity; unit price/cost; revenue; COGS; VAT/WHT; totals |
+| Customer return | Invoice/customer → stock/document/journal | Customer; source invoice; date/reason; item; location; quantity; unit price/cost; revenue/COGS reversal; VAT/WHT; totals |
+| Supplier return | Receipt/supplier → stock/document/journal | Supplier; source receipt; date/reason; item; location; quantity; unit cost; VAT/WHT; total cost |
+| Customer/supplier payment | Party/invoice/receipt → document/journal | Party; invoice/source; cash/bank account; payment date; amount; reference; method/narration if supported; unapplied amount; status |
+| Tax remittance | Documents → accounting | Tax type; jurisdiction; period/start/end; remittance date; liability account; cash account; amount; reference; covered documents; status |
+| Adjustment | Item/location → movement/document/journal | Date; item; location; quantity increase/decrease or counted quantity; unit cost; reason code; explanation; batch/serial/expiry; approver |
+| Transfer | Source warehouse → destination warehouse | Date; item; source/destination location; quantity; unit cost/value; batch/serial/expiry; reason/reference; status |
+| Posting-account setup | Inventory settings → transactions | Transaction/category mapping; inventory/COGS/revenue/receivable/payable/tax/cash/adjustment accounts; effective/active state; validation error |
+| Approval-workflow list/detail | Documents → approve/post | Document/reference/type; requester; request date; amount/value; approver; age; status; validation summary; decision/comments/date |
+
+### 13.13 Error, email, PDF and system-state screens
+
+| Screen | Relationship and destinations | Required data and fields |
+|---|---|---|
+| 400 | Failed request → safe previous/home | Error title; plain explanation; corrective action; reference ID if available |
+| 403 | Protected page → login/request access/home | Authentication state; missing permission explanation; current company/role; safe action |
+| 404 | Invalid URL → dashboard/home | Requested resource context where safe; home/back action |
+| 500 | Server failure → retry/support | Incident/reference ID; timestamp; retry; safe home; support link; no internal exception |
+| Email | Event → related application record | Product/company identity; recipient-safe title; event summary; exact status/date/reference; one CTA; fallback URL; why recipient received it; support/footer |
+| PDF/print document | Detail/report → download/print | Company/legal identity; document title/reference; subject/employee/party; period or as-of date; exact table fields/totals; approval/signature fields; generated timestamp; page number; confidentiality label |
+
+### 13.14 Page relationship and field acceptance rules
+
+For every designed page, the UI/UX model must attach a mini-spec containing:
+
+1. **Named route and template** being redesigned.
+2. **Entry points:** pages, notifications or actions that lead here.
+3. **Exit points:** related detail, edit, approval, report, download and safe-back destinations.
+4. **Primary object and related objects.**
+5. **Displayed fields:** header, summary, table/card and audit fields.
+6. **Editable fields:** required/optional, control type, validation and dependency.
+7. **Date fields:** meaning, format, timezone, allowed range and default.
+8. **Filters and sorting:** including query-string names where possible.
+9. **Status model:** all possible states and actions permitted in each state.
+10. **Roles and field visibility:** especially salary, bank, tax, health, discipline and audit information.
+11. **Loading, empty, no-result, error, permission and success states.**
+12. **Desktop, tablet, mobile and print behaviour.**
+
+Do not invent a database field simply because a layout would look richer. If a required UX field does not exist in the current model, label it **“proposed—requires backend support”** in the implementation handoff. Derived values such as totals, balances, ages, variances and progress must name their source fields and calculation.
+
+---
+
+## 14. Recommended Shared Template Architecture
 
 Gradually introduce reusable partials/components under `templates/components/`:
 
@@ -779,7 +1085,7 @@ Centralize tokens and component styles in a compiled stylesheet. Runtime Tailwin
 
 ---
 
-## 14. Migration Order
+## 15. Migration Order
 
 ### Phase 1: foundation
 
@@ -817,7 +1123,7 @@ Do not redesign everything as a visual-only big bang. Migrate complete workflows
 
 ---
 
-## 15. Definition of Done
+## 16. Definition of Done
 
 A page is complete only when:
 
@@ -837,7 +1143,7 @@ A page is complete only when:
 
 ---
 
-## 16. Final Design Direction
+## 17. Final Design Direction
 
 PayNest should feel like one composed operational product, even though its domain is broad. The shared canvas is warm white; teal gives authority; typography establishes hierarchy; semantic colour calls attention only when necessary; tables are precise; forms are calm; workflow state is explicit; and role-aware navigation protects users from complexity.
 
