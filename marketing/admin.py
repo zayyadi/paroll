@@ -1,6 +1,21 @@
 from django.contrib import admin
 
-from marketing.models import LeadInquiry, MarketingEvent
+from marketing.models import Competitor, LeadInquiry, MarketingEvent, PricingPlan
+
+
+@admin.register(Competitor)
+class CompetitorAdmin(admin.ModelAdmin):
+    list_display = (
+        "name",
+        "segment",
+        "status",
+        "pricing_as_of",
+        "last_verified",
+        "updated_at",
+    )
+    list_filter = ("segment", "status")
+    search_fields = ("name", "website", "positioning_notes")
+    ordering = ("segment", "name")
 
 
 @admin.register(LeadInquiry)
@@ -30,6 +45,23 @@ class LeadInquiryAdmin(admin.ModelAdmin):
     @admin.action(description="Assign selected leads to me")
     def assign_to_me(self, request, queryset):
         queryset.update(assignee=request.user)
+
+
+@admin.register(PricingPlan)
+class PricingPlanAdmin(admin.ModelAdmin):
+    list_display = (
+        "sort_order",
+        "name",
+        "monthly_price",
+        "annual_monthly_price",
+        "max_employees",
+        "highlight",
+        "is_active",
+    )
+    list_display_links = ("name",)
+    list_editable = ("highlight", "is_active", "sort_order")
+    search_fields = ("name", "slug", "tagline")
+    ordering = ("sort_order", "id")
 
 
 @admin.register(MarketingEvent)

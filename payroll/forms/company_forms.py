@@ -32,9 +32,19 @@ class CompanyPayrollSettingForm(forms.ModelForm):
             "pension_employee_percentage",
             "pension_employer_percentage",
             "nhf_percentage",
+            "health_basis",
+            "hmo_monthly_premium",
+            "nhia_applicable",
+            "itf_applicable",
+            "nsitf_applicable",
             "leave_allowance_percentage",
             "pays_thirteenth_month",
             "thirteenth_month_percentage",
+            "ewa_enabled",
+            "ewa_advance_percent",
+            "ewa_max_per_cycle",
+            "ewa_min_days_between",
+            "ewa_min_take_home_percent",
         ]
         widgets = {
             "basic_percentage": forms.NumberInput(attrs={"step": "0.01"}),
@@ -45,6 +55,10 @@ class CompanyPayrollSettingForm(forms.ModelForm):
             "nhf_percentage": forms.NumberInput(attrs={"step": "0.01"}),
             "leave_allowance_percentage": forms.NumberInput(attrs={"step": "0.01"}),
             "thirteenth_month_percentage": forms.NumberInput(attrs={"step": "0.01"}),
+            "ewa_advance_percent": forms.NumberInput(attrs={"step": "0.01"}),
+            "ewa_max_per_cycle": forms.NumberInput(attrs={"min": "1", "step": "1"}),
+            "ewa_min_days_between": forms.NumberInput(attrs={"min": "0", "step": "1"}),
+            "ewa_min_take_home_percent": forms.NumberInput(attrs={"step": "0.01"}),
         }
 
     def __init__(self, *args, **kwargs):

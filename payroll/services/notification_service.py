@@ -21,6 +21,7 @@ from django.utils import timezone
 from django.db.models import Q, Count
 from django.conf import settings
 
+from company.tenancy import tenant_cache_key
 from payroll.models.notification import (
     Notification,
     NotificationPreference,
@@ -47,17 +48,22 @@ class NotificationCacheService:
         """Initialize the cache service."""
         self.prefix = self.CACHE_PREFIX
 
-    def _get_cache_key(self, *parts: str) -> str:
+    def _get_cache_key(self, *parts: object) -> str:
         """
-        Generate a cache key from parts.
+        Generate a tenant-scoped cache key from parts.
+
+        Model parts (e.g. the recipient EmployeeProfile) are normalized to
+        their primary key and contribute their company, so every key carries
+        the company dimension (OWASP multi-tenant caching rule) and two
+        same-named employees in different companies can never share an entry.
 
         Args:
-            *parts: Variable number of strings to combine into a key
+            *parts: Variable number of strings/objects to combine into a key
 
         Returns:
             str - Generated cache key
         """
-        return f"{self.prefix}:{':'.join(str(p) for p in parts)}"
+        return tenant_cache_key(self.prefix, *parts)
 
     @staticmethod
     def _normalize_read_status(
@@ -69,7 +75,7 @@ class NotificationCacheService:
 
     def get_notifications(
         self,
-        recipient_id: str,
+        recipient_id: "EmployeeProfile | str",
         unread_only: bool = False,
         notification_type: Optional[str] = None,
         priority: Optional[str] = None,
@@ -116,7 +122,7 @@ class NotificationCacheService:
 
     def set_notifications(
         self,
-        recipient_id: str,
+        recipient_id: "EmployeeProfile | str",
         notifications: List[Notification],
         unread_only: bool = False,
         notification_type: Optional[str] = None,
@@ -164,7 +170,7 @@ class NotificationCacheService:
             logger.error(f"Error caching notifications: {e}")
             return False
 
-    def get_unread_count(self, recipient_id: str) -> Optional[int]:
+    def get_unread_count(self, recipient_id: "EmployeeProfile | str") -> Optional[int]:
         """
         Get cached unread notification count for a recipient.
 
@@ -190,7 +196,7 @@ class NotificationCacheService:
             return None
 
     def set_unread_count(
-        self, recipient_id: str, count: int, timeout: Optional[int] = None
+        self, recipient_id: "EmployeeProfile | str", count: int, timeout: Optional[int] = None
     ) -> bool:
         """
         Cache unread notification count for a recipient.
@@ -217,7 +223,7 @@ class NotificationCacheService:
             logger.error(f"Error caching unread count: {e}")
             return False
 
-    def get_preferences(self, recipient_id: str) -> Optional[Dict]:
+    def get_preferences(self, recipient_id: "EmployeeProfile | str") -> Optional[Dict]:
         """
         Get cached notification preferences for a recipient.
 
@@ -243,7 +249,7 @@ class NotificationCacheService:
             return None
 
     def set_preferences(
-        self, recipient_id: str, preferences: Dict, timeout: Optional[int] = None
+        self, recipient_id: "EmployeeProfile | str", preferences: Dict, timeout: Optional[int] = None
     ) -> bool:
         """
         Cache notification preferences for a recipient.
@@ -270,7 +276,7 @@ class NotificationCacheService:
             logger.error(f"Error caching preferences: {e}")
             return False
 
-    def invalidate_user_cache(self, recipient_id: str) -> bool:
+    def invalidate_user_cache(self, recipient_id: "EmployeeProfile | str") -> bool:
         """
         Invalidate all cache entries for a specific user.
 
@@ -286,7 +292,7 @@ class NotificationCacheService:
                 from django_redis import get_redis_connection
 
                 redis = get_redis_connection("default")
-                pattern = f"{self.prefix}:{recipient_id}:*"
+                pattern = self._get_cache_key(recipient_id, "*")
                 keys = redis.keys(pattern)
 
                 if keys:
@@ -360,7 +366,7 @@ class PreferenceService:
         """
         try:
             # Try cache first
-            cached = self.cache_service.get_preferences(str(employee.id))
+            cached = self.cache_service.get_preferences(employee)
             if cached:
                 # Convert cached dict back to model-like object
                 preference, _ = NotificationPreference.objects.get_or_create(
@@ -378,7 +384,7 @@ class PreferenceService:
 
             # Cache the preferences
             self.cache_service.set_preferences(
-                str(employee.id),
+                employee,
                 {
                     "notifications_enabled": preference.notifications_enabled,
                     "in_app_enabled": preference.in_app_enabled,
@@ -465,7 +471,7 @@ class PreferenceService:
             logger.info(f"Updated preferences for employee {employee.id}")
 
             # Invalidate cache
-            self.cache_service.invalidate_user_cache(str(employee.id))
+            self.cache_service.invalidate_user_cache(employee)
 
             return preference
 
@@ -1170,14 +1176,14 @@ class NotificationService:
                 )
                 if aggregated:
                     # Invalidate cache for aggregated notification
-                    self.cache_service.invalidate_user_cache(str(recipient.id))
+                    self.cache_service.invalidate_user_cache(recipient)
                     return aggregated
 
             # Queue for delivery
             self._queue_notification(notification)
 
             # Invalidate cache
-            self.cache_service.invalidate_user_cache(str(recipient.id))
+            self.cache_service.invalidate_user_cache(recipient)
 
             return notification
 
@@ -1359,8 +1365,8 @@ class NotificationService:
 
             # Invalidate notification lists and force the badge count to the
             # post-update value. Pattern deletion can miss prefixed Redis keys.
-            self.cache_service.invalidate_user_cache(str(recipient.id))
-            self.cache_service.set_unread_count(str(recipient.id), 0)
+            self.cache_service.invalidate_user_cache(recipient)
+            self.cache_service.set_unread_count(recipient, 0)
 
             logger.info(f"Marked {updated} notifications as read for {recipient.id}")
 
@@ -1382,7 +1388,7 @@ class NotificationService:
         """
         try:
             # Try cache first
-            cached = self.cache_service.get_unread_count(str(recipient.id))
+            cached = self.cache_service.get_unread_count(recipient)
             if cached is not None:
                 return cached
 
@@ -1394,7 +1400,7 @@ class NotificationService:
             ).count()
 
             # Cache the result
-            self.cache_service.set_unread_count(str(recipient.id), count)
+            self.cache_service.set_unread_count(recipient, count)
 
             return count
 
@@ -1430,7 +1436,7 @@ class NotificationService:
         try:
             # Try cache first
             cached = self.cache_service.get_notifications(
-                str(recipient.id),
+                recipient,
                 unread_only,
                 notification_type,
                 priority,
@@ -1471,7 +1477,7 @@ class NotificationService:
 
             # Cache result
             self.cache_service.set_notifications(
-                str(recipient.id),
+                recipient,
                 notifications,
                 unread_only,
                 notification_type,
@@ -1509,7 +1515,7 @@ class NotificationService:
             logger.info(f"Deleted notification {notification_id}")
 
             # Invalidate cache
-            self.cache_service.invalidate_user_cache(str(recipient.id))
+            self.cache_service.invalidate_user_cache(recipient)
 
             return True
 
@@ -1537,7 +1543,7 @@ class NotificationService:
             ).update(is_deleted=True, deleted_at=timezone.now())
 
             # Invalidate cache
-            self.cache_service.invalidate_user_cache(str(recipient.id))
+            self.cache_service.invalidate_user_cache(recipient)
 
             logger.info(f"Deleted {updated} notifications for {recipient.id}")
 
@@ -1591,7 +1597,7 @@ class NotificationService:
                     )
                     if aggregated:
                         # Invalidate cache
-                        self.cache_service.invalidate_user_cache(str(recipient.id))
+                        self.cache_service.invalidate_user_cache(recipient)
                         return aggregated
 
             return None

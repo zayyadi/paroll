@@ -183,12 +183,17 @@ def setup_groups_and_permissions():
         f"Configured Supervisor group with {len(supervisor_permissions_list)} permissions."
     )
 
+    # The Employee group gets self-service permissions only. EmployeeProfile
+    # view/change are deliberately withheld: view_employeeprofile is the HR/
+    # management marker (gating the HR dashboard, attendance overview, hiring,
+    # transfers, contracts, etc.) and change_employeeprofile gates editing any
+    # colleague's profile. Employees manage their own profile through the
+    # user-scoped self-service views, which need no such permission.
     employee_permissions_list = []
     payroll_models_for_employee = {
         LeaveRequest: ["add_leaverequest", "view_leaverequest", "delete_leaverequest"],
         LeavePolicy: ["view_leavepolicy"],
         IOU: ["add_iou", "view_iou", "delete_iou"],
-        EmployeeProfile: ["view_employeeprofile", "change_employeeprofile"],
         Payroll: ["view_payroll"],
     }
     for model, codenames in payroll_models_for_employee.items():

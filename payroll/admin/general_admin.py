@@ -40,6 +40,8 @@ from payroll.models import (
     AppraisalAssignment,
     CompanyPayrollSetting,
     CompanyHealthInsuranceTier,
+    StatutoryRateVersion,
+    RemittanceRecord,
     Position,
     HiringCandidate,
     HiringStage,
@@ -367,6 +369,29 @@ class CompanyPayrollSettingAdmin(admin.ModelAdmin):
     )
     search_fields = ("company__name",)
     inlines = (CompanyHealthInsuranceTierInline,)
+
+
+@admin.register(StatutoryRateVersion)
+class StatutoryRateVersionAdmin(admin.ModelAdmin):
+    list_display = (
+        "name",
+        "effective_date",
+        "minimum_wage_monthly",
+        "pension_employee_percentage",
+        "pension_employer_percentage",
+        "nhf_percentage",
+        "updated_at",
+    )
+    ordering = ("-effective_date",)
+    search_fields = ("name",)
+
+
+@admin.register(RemittanceRecord)
+class RemittanceRecordAdmin(admin.ModelAdmin):
+    list_display = ("company", "obligation", "period", "remitted_on", "reference")
+    list_filter = ("obligation", "company", "remitted_on")
+    search_fields = ("company__name", "reference")
+    date_hierarchy = "period"
 
 
 @admin.register(IOU)

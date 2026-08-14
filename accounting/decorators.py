@@ -8,6 +8,7 @@ from .permissions import (
     is_auditor,
     is_accountant,
     is_payroll_processor,
+    is_finance_user,
     can_access_disciplinary,
     can_manage_disciplinary_case,
     can_reverse_journal,
@@ -23,6 +24,7 @@ def _accounting_lockdown_denied(request):
         and "test" not in sys.argv
         and request.user.is_authenticated
         and not request.user.is_superuser
+        and not is_finance_user(request.user)
     )
 
 
@@ -196,6 +198,30 @@ def reversal_with_correction_required(view_func=None):
     return decorator
 
 
+def auditor_or_finance_read_required(view_func):
+    """
+    Decorator to ensure user has auditor role or is a read-only finance user.
+    """
+
+    def _wrapped_view(request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return redirect("login")
+
+        if _accounting_lockdown_denied(request):
+            return HttpResponseForbidden(
+                "Accounting access is temporarily restricted to superusers until tenant scoping is complete."
+            )
+
+        if not (is_auditor(request.user) or is_finance_user(request.user)):
+            return HttpResponseForbidden(
+                "Access denied. Auditor or Finance role required."
+            )
+
+        return view_func(request, *args, **kwargs)
+
+    return _wrapped_view
+
+
 def accounting_role_required(view_func):
     """
     Decorator to ensure user has any accounting role (auditor, accountant, or payroll processor)
@@ -214,6 +240,7 @@ def accounting_role_required(view_func):
             is_auditor(request.user)
             or is_accountant(request.user)
             or is_payroll_processor(request.user)
+            or is_finance_user(request.user)
         ):
             return HttpResponseForbidden("Access denied. Accounting role required.")
 
@@ -236,7 +263,9 @@ def auditor_or_accountant_required(view_func):
                 "Accounting access is temporarily restricted to superusers until tenant scoping is complete."
             )
 
-        if not (is_auditor(request.user) or is_accountant(request.user)):
+        if not (
+            is_auditor(request.user) or is_accountant(request.user) or is_finance_user(request.user)
+        ):
             return HttpResponseForbidden(
                 "Access denied. Auditor or Accountant role required."
             )

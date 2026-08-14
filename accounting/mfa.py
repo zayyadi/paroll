@@ -5,6 +5,10 @@ from functools import wraps
 import time
 
 
+# Auth-level security keys (login lockout, MFA step-up) are account-scoped,
+# not tenant data: they deliberately do NOT go through tenant_cache_key.
+# Prefixing them per company would let a locked-out user simply switch
+# companies to reset the control.
 def get_login_attempts_cache_key(user_identifier):
     return f"login_attempts:{user_identifier}"
 

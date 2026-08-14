@@ -859,7 +859,7 @@ class TransactionNumber(BaseModel):
 
     @classmethod
     def get_next_number(cls, fiscal_year, prefix="TXN"):
-        """Get next globally unique transaction number for this fiscal year/prefix."""
+        """Get the next transaction number for this fiscal year/prefix."""
         JournalModel = cls._meta.apps.get_model("accounting", "Journal")
 
         with transaction.atomic():
@@ -870,10 +870,12 @@ class TransactionNumber(BaseModel):
             next_number = txn_number.current_number
             formatted_number = f"{prefix}{str(next_number).zfill(txn_number.padding)}"
 
-            # transaction_number is globally unique on Journal, so back-posting older
-            # periods can collide with numbers already issued in a different fiscal year.
+            # Numbering restarts per company (transaction_number is unique per
+            # company); back-posting older periods can still collide with
+            # numbers already issued in a different fiscal year of the same
+            # company, so the existence check stays company-scoped.
             while JournalModel.objects.filter(
-                transaction_number=formatted_number
+                company_id=fiscal_year.company_id, transaction_number=formatted_number
             ).exists():
                 next_number += 1
                 formatted_number = f"{prefix}{str(next_number).zfill(txn_number.padding)}"
@@ -1041,7 +1043,7 @@ class Journal(BaseModel):
     company = models.ForeignKey(
         "company.Company", on_delete=models.CASCADE, related_name="journals"
     )
-    transaction_number = models.CharField(max_length=20, unique=True, editable=False)
+    transaction_number = models.CharField(max_length=20, editable=False)
     description = models.CharField(max_length=255)
     date = models.DateField(default=timezone.now)
     period = models.ForeignKey(
@@ -1285,6 +1287,12 @@ class Journal(BaseModel):
         verbose_name = "Journal"
         verbose_name_plural = "Journals"
         ordering = ["-date", "-created_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["company", "transaction_number"],
+                name="uniq_journal_company_transaction_number",
+            ),
+        ]
 
 
 class JournalEntry(BaseModel):
@@ -1368,7 +1376,7 @@ class DisciplinaryCase(BaseModel):
         PANEL = "PANEL", "Disciplinary Panel"
         EXECUTIVE = "EXECUTIVE", "Executive Oversight"
 
-    case_number = models.CharField(max_length=30, unique=True, editable=False)
+    case_number = models.CharField(max_length=30, editable=False)
     company = models.ForeignKey(
         "company.Company",
         on_delete=models.CASCADE,
@@ -1449,6 +1457,12 @@ class DisciplinaryCase(BaseModel):
             models.Index(fields=["violation_level"]),
             models.Index(fields=["required_review_level"]),
         ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["company", "case_number"],
+                name="uniq_case_company_case_number",
+            ),
+        ]
 
     def __str__(self):
         return f"{self.case_number} - {self.allegation_summary}"
@@ -1467,7 +1481,9 @@ class DisciplinaryCase(BaseModel):
             year = timezone.now().year
             prefix = f"DISC-{year}-"
             latest = (
-                DisciplinaryCase.objects.filter(case_number__startswith=prefix)
+                DisciplinaryCase.objects.filter(
+                    company=self.company, case_number__startswith=prefix
+                )
                 .order_by("-case_number")
                 .first()
             )

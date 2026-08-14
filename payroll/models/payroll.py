@@ -24,6 +24,7 @@ from payroll import utils
 from payroll import choices
 
 from monthyear.models import MonthField
+from company.tenancy import CompanyOwnedModel
 from payroll.models.employee_profile import EmployeeProfile
 from payroll.models.utils import SoftDeleteModel
 
@@ -79,12 +80,106 @@ class CompanyPayrollSetting(models.Model):
         default=Decimal("2.50"),
         validators=[MinValueValidator(Decimal("0")), MaxValueValidator(Decimal("100"))],
     )
+    health_basis = models.CharField(
+        max_length=20,
+        blank=True,
+        choices=[
+            ("basic", "Basic salary (employee 5% / employer 10%)"),
+            (
+                "consolidated",
+                "Consolidated salary (employee 1.75% / employer 3.25%)",
+            ),
+        ],
+        default="basic",
+        help_text=(
+            "NHIA/NHIS contribution basis used when no health-insurance tier "
+            "matches the employee's basic salary."
+        ),
+    )
+    hmo_monthly_premium = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        default=None,
+        help_text=(
+            "Negotiated HMO premium per employee per month. When set, the "
+            "employer pays the premium minus the employee's statutory share."
+        ),
+    )
+    nhia_applicable = models.BooleanField(
+        default=False,
+        help_text=(
+            "NHIA Act 2022 mandates health insurance for employers with 5 or "
+            "more employees; per-employee enrollment is the is_nhif flag."
+        ),
+    )
+    itf_applicable = models.BooleanField(
+        default=False,
+        help_text=(
+            "ITF training levy applies to employers with 5+ staff or annual "
+            "turnover of NGN 50m or more (1% of annual payroll, employer-paid)."
+        ),
+    )
+    nsitf_applicable = models.BooleanField(
+        default=True,
+        help_text=(
+            "NSITF Employees' Compensation levy (1% of monthly payroll) is "
+            "employer-paid under the ECA 2010."
+        ),
+    )
     leave_allowance_percentage = models.DecimalField(
         max_digits=5,
         decimal_places=2,
         default=Decimal("10.00"),
         validators=[MinValueValidator(Decimal("0")), MaxValueValidator(Decimal("100"))],
         help_text="Percentage of annual basic salary paid as leave allowance.",
+    )
+    ewa_enabled = models.BooleanField(
+        default=False,
+        help_text="Enable self-service earned wage access (EWA) advances.",
+    )
+    ewa_advance_percent = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=Decimal("50.00"),
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(Decimal("1")), MaxValueValidator(Decimal("100"))],
+        help_text=(
+            "Max single advance as % of the employee's earned-but-unpaid net "
+            "pay in the current pay cycle. Blank uses the 50% rule default."
+        ),
+    )
+    ewa_max_per_cycle = models.PositiveIntegerField(
+        default=2,
+        null=True,
+        blank=True,
+        help_text=(
+            "Max EWA advances an employee may request per pay cycle. "
+            "Blank uses the rule default of 2."
+        ),
+    )
+    ewa_min_days_between = models.PositiveIntegerField(
+        default=7,
+        null=True,
+        blank=True,
+        help_text=(
+            "Minimum days an employee must wait between EWA advances. "
+            "Blank uses the rule default of 7."
+        ),
+    )
+    ewa_min_take_home_percent = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=Decimal("50.00"),
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(Decimal("1")), MaxValueValidator(Decimal("100"))],
+        help_text=(
+            "Take-home guardrail: outstanding advances may not exceed this % "
+            "of net pay. Blank uses the 50% rule default."
+        ),
     )
     pays_thirteenth_month = models.BooleanField(
         default=True,
@@ -254,6 +349,121 @@ class CompanyHealthInsuranceTier(models.Model):
         return salary <= self.max_salary
 
 
+class StatutoryRateVersion(models.Model):
+    """
+    Effective-dated national statutory rate schedule.
+
+    Rates are resolved by effective_date so a payroll run is computed against
+    the regime in force for its pay period. PayNest ships the pre-Nigeria Tax
+    Act PITA bands (for retrospective runs) and the Nigeria Tax Act 2025
+    regime, and admins can add future versions without code changes.
+    """
+
+    name = models.CharField(max_length=120)
+    effective_date = models.DateField(unique=True, db_index=True)
+    # JSON list of [upper_threshold_or_null, rate_percent] as integers, e.g.
+    # [[300000, 7], [600000, 11], [None, 24]]. The final band is open-ended.
+    paye_bands = models.JSONField(default=list)
+    minimum_wage_monthly = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=Decimal("70000.00"),
+    )
+    pension_employee_percentage = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=Decimal("8.00"),
+        validators=[MinValueValidator(Decimal("0")), MaxValueValidator(Decimal("100"))],
+    )
+    pension_employer_percentage = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=Decimal("10.00"),
+        validators=[MinValueValidator(Decimal("0")), MaxValueValidator(Decimal("100"))],
+    )
+    nhf_percentage = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=Decimal("2.50"),
+        validators=[MinValueValidator(Decimal("0")), MaxValueValidator(Decimal("100"))],
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Statutory Rate Version"
+        verbose_name_plural = "Statutory Rate Versions"
+        ordering = ("effective_date",)
+
+    def __str__(self):
+        return f"{self.name} ({self.effective_date})"
+
+    @classmethod
+    def for_date(cls, as_of=None):
+        """Latest version effective on or before ``as_of`` (default: today)."""
+        target = as_of or timezone.localdate()
+        return (
+            cls.objects.filter(effective_date__lte=target)
+            .order_by("-effective_date")
+            .first()
+        )
+
+
+class RemittanceRecord(CompanyOwnedModel):
+    """
+    Tracks whether a statutory remittance/filing for a pay period has been
+    made. Rows are created on demand from the compliance calendar; the due
+    dates and amounts themselves are computed from payroll runs by
+    ``payroll.services.compliance``.
+    """
+
+    OBLIGATION_CHOICES = [
+        ("paye", "PAYE"),
+        ("pension", "Pension"),
+        ("nhf", "NHF"),
+        ("nhia", "NHIA"),
+        ("paye_annual", "PAYE Annual Return"),
+        ("itf", "ITF"),
+        ("nsitf", "NSITF"),
+    ]
+
+    # ``company`` field is inherited-or-overridden from CompanyOwnedModel; the
+    # explicit field keeps the reverse relation name.
+    company = models.ForeignKey(
+        "company.Company",
+        on_delete=models.CASCADE,
+        related_name="remittance_records",
+        db_index=True,
+    )
+    obligation = models.CharField(max_length=20, choices=OBLIGATION_CHOICES)
+    period = MonthField(
+        "Pay period",
+        help_text="Pay period the remittance relates to (mirrors PayrollRun.paydays).",
+        null=True,
+    )
+    remitted_on = models.DateField(
+        null=True,
+        blank=True,
+        help_text="Date the remittance/filing was completed; empty means not yet done.",
+    )
+    reference = models.CharField(max_length=120, blank=True, help_text="Optional remittance reference.")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = (("company", "obligation", "period"),)
+        ordering = ("period", "obligation")
+        verbose_name = "Remittance Record"
+        verbose_name_plural = "Remittance Records"
+
+    def __str__(self):
+        return f"{self.company} {self.get_obligation_display()} {self.period}"
+
+    @property
+    def is_remitted(self) -> bool:
+        return self.remitted_on is not None
+
+
 class Payroll(models.Model):
     company = models.ForeignKey(
         "company.Company",
@@ -323,6 +533,20 @@ class Payroll(models.Model):
         verbose_name="is NHF deductable",
         default=False,
     )
+    nhf_scheme = models.CharField(
+        max_length=20,
+        blank=True,
+        choices=[
+            ("none", "Not contributing"),
+            ("voluntary", "Voluntary (private sector)"),
+            ("compulsory", "Compulsory (public sector)"),
+        ],
+        default="none",
+        help_text=(
+            "NHF classification after the 2023 amendment: compulsory for "
+            "public-sector employees, voluntary for private-sector employees."
+        ),
+    )
     is_nhif = models.BooleanField(
         verbose_name="is NHIF deductable",
         default=False,
@@ -375,6 +599,12 @@ class Payroll(models.Model):
         decimal_places=2,
         blank=True,
     )
+    itf = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        blank=True,
+        default=Decimal(0.0),
+    )
     timestamp = models.DateTimeField(auto_now_add=True)
     updated = models.DateTimeField(auto_now=True)
     status = models.CharField(
@@ -393,7 +623,13 @@ class Payroll(models.Model):
 
     @property
     def get_nsitf(self):
+        # NSITF Employees' Compensation: 1% of monthly basic salary, employer-funded.
         return self.basic_salary * Decimal(1) / Decimal(100)
+
+    @property
+    def get_itf(self):
+        """ITF training levy: 1% of annual gross, employer-funded, if applicable."""
+        return self.gross_income * Decimal(1) / Decimal(100)
 
     # @property
     # def get_gross_income(self):
@@ -401,9 +637,38 @@ class Payroll(models.Model):
     #     print(f" gross : {gross}")
     #     return gross
 
+    def recompute_statutory(self, as_of=None):
+        """
+        Recompute the statutory fields against the rate version in force on
+        ``as_of`` (e.g. a retroactive pay run's paydays month).
+
+        This updates the in-memory values only; callers persist with
+        ``save(update_fields=[...])`` so the salary structure (basic, housing,
+        transport) configured for the current regime is left untouched.
+        """
+        cents = Decimal("0.01")
+        self.pension_employee = utils.get_pension_employee(self, as_of=as_of).quantize(
+            cents
+        )
+        self.pension_employer = utils.get_pension_employer(self, as_of=as_of).quantize(
+            cents
+        )
+        self.pension = utils.get_pension(self, as_of=as_of).quantize(cents)
+        self.nhf = utils.calc_housing(self, as_of=as_of).quantize(cents)
+        self.taxable_income = utils.calculate_taxable_income(self).quantize(cents)
+        self.payee = utils.get_payee(self, as_of=as_of).quantize(cents)
+        return self
+
     def save(self, *args, **kwargs):
         # employee = self.employee_pay.first()
         # self.name = self.get_name
+        # Keep the NHF scheme and the legacy is_housing switch in sync so both
+        # existing rows and the new classification flag drive the deduction.
+        if self.nhf_scheme == "none" and self.is_housing:
+            self.nhf_scheme = "voluntary"
+        elif self.nhf_scheme != "none":
+            self.is_housing = True
+
         self.basic = utils.get_basic(self)  # noqa: F405
         self.housing = utils.get_housing(self)  # noqa: F405
         self.transport = utils.get_transport(self)  # noqa: F405
@@ -416,7 +681,8 @@ class Payroll(models.Model):
         self.employee_health = utils.calc_employee_health_contrib(self)
         self.emplyr_health = utils.calc_employer_health_contrib(self)
         self.nhif = utils.calc_health_contrib(self)
-        self.nsitf = self.get_nsitf
+        self.nsitf = utils.get_nsitf(self)
+        self.itf = utils.get_itf(self)
         self.taxable_income = utils.calculate_taxable_income(self)
         self.payee = utils.get_payee(self)  # noqa: F405
         self.water_rate = utils.get_water_rate(self)  # noqa: F405
@@ -823,6 +1089,15 @@ class PayrollRun(models.Model):
         help_text="some help...",
         null=True,
     )
+    payment_date = models.DateField(
+        null=True,
+        blank=True,
+        help_text=(
+            "Actual date salaries were paid for this run. When set, statutory "
+            "deadlines that run from payment (e.g. pension remittance, due "
+            "within 7 working days) anchor to this date instead of the period start."
+        ),
+    )
     # month = MonthField()
     payroll_payday = models.ManyToManyField(
         PayrollEntry, related_name="payroll_payday", through="PayrollRunEntry"
@@ -1041,6 +1316,13 @@ class IOU(SoftDeleteModel):
         validators=[MinValueValidator(Decimal("1.00")), MaxValueValidator(Decimal("100.00"))],
         help_text="Percentage of monthly salary to deduct for IOU repayment.",
     )
+    is_ewa = models.BooleanField(
+        default=False,
+        help_text=(
+            "True for earned-wage-access advances, which are repaid from the "
+            "next pay cycle and governed by the company EWA policy."
+        ),
+    )
     reason = models.TextField(
         help_text="Reason for the IOU request",
         blank=True,
@@ -1128,7 +1410,10 @@ class IOU(SoftDeleteModel):
         super().save(*args, **kwargs)
 
 
-class PublicHoliday(models.Model):
+class PublicHoliday(CompanyOwnedModel):
+    # ``company`` field is inherited-or-overridden from CompanyOwnedModel; the
+    # explicit field keeps the reverse relation name and the nullable legacy
+    # semantics.
     company = models.ForeignKey(
         "company.Company",
         on_delete=models.CASCADE,

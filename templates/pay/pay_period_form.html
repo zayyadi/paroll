@@ -56,6 +56,19 @@
                             {% endfor %}
                         </div>
 
+                        <div>
+                            <label for="{{ form.payment_date.id_for_label }}" class="block text-sm font-medium text-secondary-700 mb-2">
+                                {{ form.payment_date.label }}
+                            </label>
+                            {{ form.payment_date }}
+                            {% if form.payment_date.help_text %}
+                            <p class="mt-1 text-xs text-secondary-500">{{ form.payment_date.help_text }}</p>
+                            {% endif %}
+                            {% for error in form.payment_date.errors %}
+                            <p class="mt-1 text-sm text-danger-600">{{ error }}</p>
+                            {% endfor %}
+                        </div>
+
                         <div class="rounded-lg border border-secondary-200 p-3">
                             <label for="{{ form.is_active.id_for_label }}" class="flex items-center gap-2 text-sm text-secondary-700 cursor-pointer">
                                 {{ form.is_active }}

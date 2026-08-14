@@ -103,6 +103,7 @@ TEMPLATES = [
                 "django.template.context_processors.i18n",
                 "company.context_processors.tenant_context",
                 "core.context_processors.branding",
+                "core.context_processors.user_roles",
             ],
         },
     },
@@ -292,6 +293,11 @@ MULTI_COMPANY_MEMBERSHIP_ENABLED = (
 
 SAAS_ENFORCE_ACTIVE_COMPANY = env_bool("SAAS_ENFORCE_ACTIVE_COMPANY", True)
 ALLOW_DEFAULT_COMPANY_FALLBACK = env_bool("ALLOW_DEFAULT_COMPANY_FALLBACK", False)
+# Fail-closed read scoping: when enabled, CompanyOwnedModel queries without a
+# company context raise CompanyContextRequired instead of returning unscoped
+# results. Flip together with ALLOW_DEFAULT_COMPANY_FALLBACK off once the
+# tenant-scoping adoption is complete (see plans/TENANT_ISOLATION_ACCEPTANCE_MATRIX.md).
+TENANT_SCOPING_ENFORCED = env_bool("TENANT_SCOPING_ENFORCED", False)
 
 REGISTRATION_OTP_TIMEOUT_SECONDS = int(
     os.getenv("REGISTRATION_OTP_TIMEOUT_SECONDS", "600")

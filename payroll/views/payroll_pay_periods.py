@@ -30,15 +30,14 @@ from payroll.models import EmployeeProfile, PayrollRun, PayrollRunEntry, Payroll
 CACHE_TTL = getattr(settings, "CACHE_TTL", DEFAULT_TIMEOUT)
 logger = logging.getLogger(__name__)
 from payroll.forms import PayrollRunForm
-from payroll.views.payroll_helpers import _get_payroll_close_journal_transaction_number
+from payroll.views.payroll_helpers import (
+    _get_payroll_close_journal_transaction_number,
+    payroll_runs_distinct_by_period,
+)
 
 def varview(request):  # Lists PayrollRun objects (Pay Periods)
     company = get_user_company(request.user)
-    var = (
-        PayrollRun.objects.filter(company=company)
-        .order_by("paydays")
-        .distinct("paydays")
-    )
+    var = payroll_runs_distinct_by_period(company)
     dates = [
         utils.convert_month_to_word(str(varss.paydays)) for varss in var
     ]  # Access .paydays attribute

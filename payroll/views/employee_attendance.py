@@ -102,6 +102,7 @@ def attendance_clock(request):
 
 
 @login_required
+@permission_required("payroll.view_employeeprofile", raise_exception=True)
 
 def attendance_overview(request):
     company = get_user_company(request.user)

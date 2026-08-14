@@ -87,6 +87,7 @@ class PayrollRunForm(forms.ModelForm):
             "name",
             # "slug", # Removed as it's auto-generated
             "paydays",
+            "payment_date",
             "payroll_payday",
             "is_active",
             "closed",
@@ -195,6 +196,21 @@ class PayrollRunCreateForm(forms.Form):
         label="Month",
         required=True,
     )
+    payment_date = forms.DateField(
+        label="Actual Payment Date",
+        required=False,
+        help_text=(
+            "When salaries were actually paid. Pension remittance is due within "
+            "7 working days of this date when set."
+        ),
+        widget=forms.DateInput(
+            attrs={
+                "type": "date",
+                "class": "w-full px-4 py-2.5 border border-secondary-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm bg-white",
+            },
+            format="%Y-%m-%d",
+        ),
+    )
     is_active = forms.BooleanField(
         label="Mark as Active",
         required=False,
@@ -287,6 +303,7 @@ class PayrollRunCreateForm(forms.Form):
         payt = PayrollRun.objects.create(
             name=self.cleaned_data["name"],
             paydays=self.cleaned_data["paydays"],
+            payment_date=self.cleaned_data.get("payment_date"),
             is_active=self.cleaned_data.get("is_active", False),
             closed=False,
             company=company,

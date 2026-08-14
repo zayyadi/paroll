@@ -2,7 +2,12 @@ from __future__ import annotations
 
 from rest_framework.permissions import BasePermission, SAFE_METHODS
 
-from accounting.permissions import is_accountant, is_auditor, is_payroll_processor
+from accounting.permissions import (
+    is_accountant,
+    is_auditor,
+    is_payroll_processor,
+    is_finance_user,
+)
 from company.utils import get_user_company
 
 
@@ -38,6 +43,7 @@ class IsAccountingRole(BasePermission):
             or is_accountant(user)
             or is_auditor(user)
             or is_payroll_processor(user)
+            or is_finance_user(user)
         )
 
 
@@ -58,5 +64,6 @@ class CanMutateAccounting(BasePermission):
                 or is_accountant(user)
                 or is_auditor(user)
                 or is_payroll_processor(user)
+                or is_finance_user(user)
             )
         return user.is_superuser or is_accountant(user) or is_payroll_processor(user)

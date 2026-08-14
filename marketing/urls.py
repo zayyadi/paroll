@@ -14,4 +14,5 @@ urlpatterns = [
     path("legal/privacy/", views.privacy, name="privacy"),
     path("legal/terms/", views.terms, name="terms"),
     path("legal/cookies/", views.cookies, name="cookies"),
+    path("competitor-tracking/", views.competitor_tracking, name="competitor_tracking"),
 ]

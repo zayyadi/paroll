@@ -348,6 +348,9 @@ def _get_client_ip(request):
     return request.META.get("REMOTE_ADDR", "unknown")
 
 
+# OTP/cooldown keys are auth-level security controls keyed by account email
+# (account-scoped, not tenant data): they deliberately do NOT go through
+# tenant_cache_key, so a lockout applies to the account across companies.
 def _otp_attempts_key(flow: str, email: str, ip: str) -> str:
     return f"otp_attempts:{flow}:{email.lower()}:{ip}"
 

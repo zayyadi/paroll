@@ -38,9 +38,9 @@ def company_payroll_settings(request):
         messages.error(request, "No active company found for your account.")
         return redirect("payroll:dashboard")
 
+    # New companies start on the statutory NHIA engine (5%/10% of basic or
+    # 1.75%/3.25% of consolidated); health tiers are an explicit customization.
     settings_obj, created = CompanyPayrollSetting.objects.get_or_create(company=company)
-    if created:
-        settings_obj.create_default_health_tiers()
     tiers = settings_obj.health_insurance_tiers.all()
 
     context = {
@@ -60,8 +60,6 @@ def company_payroll_settings_edit(request):
         return redirect("payroll:dashboard")
 
     settings_obj, created = CompanyPayrollSetting.objects.get_or_create(company=company)
-    if created:
-        settings_obj.create_default_health_tiers()
 
     if request.method == "POST":
         form = CompanyPayrollSettingForm(request.POST, instance=settings_obj)

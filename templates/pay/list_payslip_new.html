@@ -5,14 +5,15 @@
 {% block content %}
 <div class="space-y-6">
     <!-- Header Section -->
-    <div class="bg-gradient-to-r from-primary-500 to-primary-600 rounded-2xl p-6 text-white shadow-medium">
+    <div class="editorial-gradient rounded-3xl p-6 text-white shadow-medium">
         <div class="flex flex-col md:flex-row md:items-center md:justify-between">
             <div>
-                <h1 class="text-2xl font-bold mb-2">My Payslips</h1>
-                <p class="text-primary-100">View and download your payslips</p>
+                <p class="text-xs font-bold uppercase tracking-[0.24em] text-white/70">Employee Portal</p>
+                <h1 class="mt-1 font-headline text-2xl font-extrabold">My Payslips</h1>
+                <p class="text-white/80">View and download your payslips</p>
             </div>
             <div class="mt-4 md:mt-0">
-                <a href="{% url 'payroll:profile' emp.user.id %}" class="bg-white bg-opacity-20 hover:bg-opacity-30 text-white font-medium py-2 px-4 rounded-lg transition-colors inline-flex items-center">
+                <a href="{% url 'payroll:profile' emp.user.id %}" class="bg-white bg-opacity-20 hover:bg-opacity-30 text-white font-medium py-2 px-4 rounded-xl transition-colors inline-flex items-center">
                     <i data-lucide="arrow-left" class="h-4 w-4 mr-2"></i>
                     Back to Profile
                 </a>
@@ -21,57 +22,57 @@
     </div>
 
     <!-- Employee Information -->
-    <div class="bg-white rounded-xl shadow-soft p-6">
+    <div class="bento-card">
         <div class="flex items-center">
             <div class="flex-shrink-0 h-16 w-16">
                 {% if emp.photo %}
-                <img class="h-16 w-16 rounded-full object-cover" src="{{ emp.photo.url }}" alt="{{ emp.first_name }} {{ emp.last_name }}" width="64" height="64">
+                <img class="h-16 w-16 rounded-full object-cover border border-outline-variant" src="{{ emp.photo.url }}" alt="{{ emp.first_name }} {{ emp.last_name }}" width="64" height="64">
                 {% else %}
-                <div class="h-16 w-16 rounded-full bg-primary-200 flex items-center justify-center">
+                <div class="h-16 w-16 rounded-full bg-primary-100 flex items-center justify-center">
                     <span class="text-primary-800 font-bold text-lg">{{ emp.first_name|first|upper }}{{ emp.last_name|first|upper }}</span>
                 </div>
                 {% endif %}
             </div>
             <div class="ml-6">
-                <h2 class="text-xl font-semibold text-secondary-900">{{ emp.first_name }} {{ emp.last_name }}</h2>
-                <p class="text-sm text-secondary-600">{{ emp.emp_id|default:"N/A" }} · {{ emp.job_title_display|default:emp.job_title }}</p>
+                <h2 class="font-headline text-xl font-bold text-on-surface">{{ emp.first_name }} {{ emp.last_name }}</h2>
+                <p class="text-sm text-on-surface-variant">{{ emp.emp_id|default:"N/A" }} · {{ emp.job_title_display|default:emp.job_title }}</p>
                 <p class="text-sm text-secondary-500">{{ emp.department.name|default:"N/A" }}</p>
             </div>
         </div>
     </div>
 
     <!-- Payslips List -->
-    <div class="bg-white rounded-xl shadow-soft overflow-hidden">
-        <div class="px-6 py-4 border-b border-secondary-200">
-            <h2 class="text-lg font-semibold text-secondary-900 flex items-center">
+    <div class="bg-white rounded-2xl border border-outline-variant overflow-hidden shadow-card">
+        <div class="px-6 py-4 border-b border-outline-variant">
+            <h2 class="font-headline text-lg font-bold text-primary-800 flex items-center">
                 <i data-lucide="file-text" class="h-5 w-5 mr-2 text-primary-600"></i>
                 Payslip History
             </h2>
         </div>
         
         <div class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-secondary-200">
-                <thead class="bg-secondary-50">
+            <table class="min-w-full divide-y divide-outline-variant/30">
+                <thead class="bg-surface-container-low">
                     <tr>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">#</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">Pay Period</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">Net Pay</th>
-                        <th class="px-6 py-3 text-right text-xs font-medium text-secondary-500 uppercase tracking-wider">Actions</th>
+                        <th class="px-6 py-3 text-left text-xs font-bold text-secondary-500 uppercase tracking-[0.12em]">#</th>
+                        <th class="px-6 py-3 text-left text-xs font-bold text-secondary-500 uppercase tracking-[0.12em]">Pay Period</th>
+                        <th class="px-6 py-3 text-left text-xs font-bold text-secondary-500 uppercase tracking-[0.12em]">Net Pay</th>
+                        <th class="px-6 py-3 text-right text-xs font-bold text-secondary-500 uppercase tracking-[0.12em]">Actions</th>
                     </tr>
                 </thead>
-                <tbody class="bg-white divide-y divide-secondary-200">
+                <tbody class="bg-white divide-y divide-outline-variant/30">
                     {% for payday in pay %}
-                    <tr class="table-row-hover">
-                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-secondary-900">{{ forloop.counter }}</td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-secondary-900">
+                    <tr class="hover:bg-primary-50/50 transition-colors">
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-on-surface tabular-nums">{{ forloop.counter }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-on-surface">
                             <div class="flex items-center">
                                 <i data-lucide="calendar" class="h-4 w-4 text-secondary-400 mr-2"></i>
                                 {{ payday.payroll_run.paydays|date:"F Y"|default:"N/A" }}
                             </div>
                         </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-secondary-900">
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-on-surface">
                             <div class="flex items-center">
-                                <span class="text-success-600 font-medium">₦{{ payday.payroll_entry.netpay|intcomma }}</span>
+                                <span class="text-success-600 font-medium tabular-nums">₦{{ payday.payroll_entry.netpay|intcomma }}</span>
                             </div>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
@@ -87,7 +88,7 @@
                     <tr>
                         <td colspan="4" class="px-6 py-12 text-center">
                             <i data-lucide="file-x" class="h-12 w-12 mx-auto text-secondary-400 mb-3"></i>
-                            <p class="text-lg text-secondary-600 mb-2">No payslips found</p>
+                            <p class="text-lg text-on-surface-variant mb-2">No payslips found</p>
                             <p class="text-sm text-secondary-500">You don't have any payslips available yet.</p>
                         </td>
                     </tr>
@@ -98,28 +99,28 @@
     </div>
 
     <!-- Information Card -->
-    <div class="bg-white rounded-xl shadow-soft p-6">
-        <h2 class="text-lg font-semibold text-secondary-900 mb-4 flex items-center">
+    <div class="bg-white rounded-2xl border border-outline-variant p-6 shadow-card">
+        <h2 class="font-headline text-lg font-bold text-primary-800 mb-4 flex items-center">
             <i data-lucide="info" class="h-5 w-5 mr-2 text-primary-600"></i>
             About Your Payslips
         </h2>
         <div class="space-y-4">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                    <h3 class="text-sm font-medium text-secondary-900 mb-2">Payslip Availability</h3>
-                    <p class="text-sm text-secondary-600">Payslips are typically available within 3-5 business days after the end of each pay period.</p>
+                    <h3 class="text-sm font-semibold text-on-surface mb-2">Payslip Availability</h3>
+                    <p class="text-sm text-on-surface-variant">Payslips are typically available within 3-5 business days after the end of each pay period.</p>
                 </div>
                 <div>
-                    <h3 class="text-sm font-medium text-secondary-900 mb-2">PDF Downloads</h3>
-                    <p class="text-sm text-secondary-600">You can download your payslips as PDF files for your records or for tax purposes.</p>
+                    <h3 class="text-sm font-semibold text-on-surface mb-2">PDF Downloads</h3>
+                    <p class="text-sm text-on-surface-variant">You can download your payslips as PDF files for your records or for tax purposes.</p>
                 </div>
                 <div>
-                    <h3 class="text-sm font-medium text-secondary-900 mb-2">Data Security</h3>
-                    <p class="text-sm text-secondary-600">Your payslip information is secure and can only be accessed by you and authorized personnel.</p>
+                    <h3 class="text-sm font-semibold text-on-surface mb-2">Data Security</h3>
+                    <p class="text-sm text-on-surface-variant">Your payslip information is secure and can only be accessed by you and authorized personnel.</p>
                 </div>
                 <div>
-                    <h3 class="text-sm font-medium text-secondary-900 mb-2">Questions?</h3>
-                    <p class="text-sm text-secondary-600">If you have questions about your payslip, please contact HR or the payroll department.</p>
+                    <h3 class="text-sm font-semibold text-on-surface mb-2">Questions?</h3>
+                    <p class="text-sm text-on-surface-variant">If you have questions about your payslip, please contact HR or the payroll department.</p>
                 </div>
             </div>
         </div>

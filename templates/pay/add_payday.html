@@ -54,6 +54,9 @@
               {{ form.paydays|as_crispy_field }} {# Render MonthField with crispy #}
             </div>
             <div class="form-group">
+              {{ form.payment_date|as_crispy_field }}
+            </div>
+            <div class="form-group">
               {{ form.is_active|as_crispy_field }}
             </div>
             <div class="form-group">

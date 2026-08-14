@@ -5,6 +5,7 @@ from accounting.permissions import (
     assign_user_to_auditor_role,
     assign_user_to_accountant_role,
     assign_user_to_payroll_processor_role,
+    assign_user_to_finance_role,
 )
 
 User = get_user_model()
@@ -36,6 +37,12 @@ class Command(BaseCommand):
             "--assign-payroll-processor",
             type=str,
             help="Assign a user (by email) to the payroll processor role",
+        )
+
+        parser.add_argument(
+            "--assign-finance",
+            type=str,
+            help="Assign a user (by email) to the finance role",
         )
 
     def handle(self, *args, **options):
@@ -90,6 +97,22 @@ class Command(BaseCommand):
                 self.stdout.write(
                     self.style.SUCCESS(
                         f"User {email} assigned to Payroll Processor role successfully."
+                    )
+                )
+            except User.DoesNotExist:
+                self.stdout.write(
+                    self.style.ERROR(f"User with email {email} does not exist.")
+                )
+
+        # Assign user to finance role
+        if options["assign_finance"]:
+            email = options["assign_finance"]
+            try:
+                user = User.objects.get(email=email)
+                assign_user_to_finance_role(user)
+                self.stdout.write(
+                    self.style.SUCCESS(
+                        f"User {email} assigned to Finance role successfully."
                     )
                 )
             except User.DoesNotExist:

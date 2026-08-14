@@ -1,4 +1,4 @@
-from django.shortcuts import render, get_object_or_404
+from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import (
     login_required,
     permission_required,
@@ -6,6 +6,8 @@ from django.contrib.auth.decorators import (
 from django.db.models import Sum
 from django.template.loader import render_to_string
 from django.http import Http404, HttpResponse, HttpResponseForbidden
+from django.utils import timezone
+from django.views.decorators.http import require_POST
 
 # user_passes_test is removed as it's no longer used
 
@@ -14,6 +16,8 @@ from payroll.models import (
     PayrollEntry,
     PayrollRunEntry,
     EmployeeProfile,
+    CompanyPayrollSetting,
+    RemittanceRecord,
     log_sensitive_employee_data_access,
 )
 from payroll import utils
@@ -21,6 +25,8 @@ from company.utils import get_user_company
 from accounting.permissions import is_auditor
 from payroll.services.payslips import resolve_payslip_run_entry
 from payroll.services.employee_data_export import _simple_pdf
+from payroll.services.compliance import compliance_summary
+from payroll.views.payroll_helpers import payroll_runs_distinct_by_period
 try:
     from weasyprint import HTML
 except ImportError:  # pragma: no cover - optional PDF dependency.
@@ -229,7 +235,7 @@ def payslip_pdf(request, id):
 @permission_required("payroll.view_payrollrun", raise_exception=True)
 def bank_reports(request):
     company = get_user_company(request.user)
-    payroll = PayrollRun.objects.filter(company=company).order_by("paydays").distinct("paydays")
+    payroll = payroll_runs_distinct_by_period(company)
     dates = [
         utils.convert_month_to_word(str(varss.paydays)) for varss in payroll
     ]  # Access .paydays
@@ -312,10 +318,152 @@ def bank_report_download(request, pay_id):
     )
 
 
+COST_REPORT_KEYS = (
+    "gross",
+    "employee_paye",
+    "employee_pension",
+    "employee_nhf",
+    "employee_nhia",
+    "employee_water",
+    "net_pay",
+    "employer_pension",
+    "employer_nhia",
+    "employer_nsitf",
+    "employer_itf",
+    "employer_cost",
+)
+
+
+def _cost_of_employment_rows(payroll_data):
+    """
+    Per-employee monthly employer-vs-employee cost rows for a pay run.
+
+    Delegates the per-config math to ``utils.monthly_cost_breakdown`` so the
+    report and the payroll dashboard summary can never drift apart.
+    """
+    rows = []
+    totals = {key: Decimal("0.00") for key in COST_REPORT_KEYS}
+
+    for entry in payroll_data:
+        config = entry.payroll_entry.pays.employee_pay
+        if config is None:
+            continue
+        values = utils.monthly_cost_breakdown(config)
+        rows.append({"employee": entry.payroll_entry.pays, **values})
+        for key in COST_REPORT_KEYS:
+            totals[key] += values[key]
+
+    return rows, {key: value.quantize(Decimal("0.01")) for key, value in totals.items()}
+
+
+@permission_required("payroll.view_payrollrun", raise_exception=True)
+def cost_of_employment_reports(request):
+    company = get_user_company(request.user)
+    payroll = payroll_runs_distinct_by_period(company)
+    dates = [utils.convert_month_to_word(str(run.paydays)) for run in payroll]
+    return render(
+        request,
+        "pay/cost_of_employment_reports.html",
+        {"payroll": payroll, "dates": dates},
+    )
+
+
+@permission_required("payroll.view_payrollrun", raise_exception=True)
+def cost_of_employment_report(request, pay_id):
+    company = get_user_company(request.user)
+    pay_period_obj = get_object_or_404(PayrollRun, id=pay_id, company=company)
+    payroll_data = PayrollRunEntry.objects.filter(
+        payroll_run=pay_period_obj,
+        payroll_entry__company=company,
+    ).select_related("payroll_entry__pays__employee_pay")
+    dates = utils.convert_month_to_word(str(pay_period_obj.paydays))
+    rows, totals = _cost_of_employment_rows(payroll_data)
+    return render(
+        request,
+        "pay/cost_of_employment_report.html",
+        {"rows": rows, "totals": totals, "dates": dates},
+    )
+
+
+@permission_required("payroll.view_payrollrun", raise_exception=True)
+def cost_of_employment_report_download(request, pay_id):
+    """Excel export of the cost-of-employment report for finance handoff.
+
+    Reuses ``_cost_of_employment_rows`` so the export matches the page row
+    for row (same monthly conventions and totals).
+    """
+    company = get_user_company(request.user)
+    pay_period = get_object_or_404(PayrollRun, id=pay_id, company=company)
+    payroll_data = PayrollRunEntry.objects.filter(
+        payroll_run=pay_period,
+        payroll_entry__company=company,
+    ).select_related("payroll_entry__pays__employee_pay")
+    rows, totals = _cost_of_employment_rows(payroll_data)
+    columns = [
+        "EmpNo",
+        "Employee First_Name",
+        "Employee Last Name",
+        "Gross",
+        "PAYE",
+        "Pension (EE)",
+        "NHF",
+        "NHIA (EE)",
+        "Water",
+        "Net Pay",
+        "Pension (ER)",
+        "NHIA (ER)",
+        "NSITF",
+        "ITF",
+        "Employer Cost",
+    ]
+    data_rows = [
+        [
+            row["employee"].emp_id,
+            row["employee"].first_name,
+            row["employee"].last_name,
+            row["gross"],
+            row["employee_paye"],
+            row["employee_pension"],
+            row["employee_nhf"],
+            row["employee_nhia"],
+            row["employee_water"],
+            row["net_pay"],
+            row["employer_pension"],
+            row["employer_nhia"],
+            row["employer_nsitf"],
+            row["employer_itf"],
+            row["employer_cost"],
+        ]
+        for row in rows
+    ]
+    return generate_excel_report(
+        "cost_of_employment_report",
+        "Cost of Employment Report",
+        pay_period.paydays,
+        columns,
+        data_rows,
+        "Total Employer Cost",
+        len(columns) - 1,
+    )
+
+
+def _nhis_mode_label(company):
+    """Human-readable NHIA computation mode for the report header."""
+    setting = CompanyPayrollSetting.objects.filter(company=company).first()
+    if setting is None:
+        return "Basic salary basis \u2014 employee 5% / employer 10%"
+    if setting.hmo_monthly_premium:
+        return (
+            f"HMO premium \u20a6{Decimal(setting.hmo_monthly_premium):,.2f} "
+            f"per employee/month ({setting.get_health_basis_display()})"
+        )
+    return setting.get_health_basis_display()
+
+
 @permission_required("payroll.view_payrollrun", raise_exception=True)
 def nhis_reports(request):
     company = get_user_company(request.user)
-    payroll = PayrollRun.objects.filter(company=company).order_by("paydays").distinct("paydays")
+    payroll = payroll_runs_distinct_by_period(company)
     dates = [
         utils.convert_month_to_word(str(varss.paydays)) for varss in payroll
     ]  # Access .paydays
@@ -334,6 +482,10 @@ def nhis_report(request, pay_id):
     )
     dates = utils.convert_month_to_word(str(pay_period_obj.paydays))
     nhis_total = payroll_data.aggregate(Sum("payroll_entry__pays__employee_pay__nhif"))
+    nhis_split = payroll_data.aggregate(
+        employee=Sum("payroll_entry__pays__employee_pay__employee_health"),
+        employer=Sum("payroll_entry__pays__employee_pay__emplyr_health"),
+    )
     _log_payroll_report_sensitive_access(
         request=request,
         payroll_entries=payroll_data,
@@ -347,6 +499,9 @@ def nhis_report(request, pay_id):
         {
             "payroll": payroll_data,
             "total": nhis_total["payroll_entry__pays__employee_pay__nhif__sum"],
+            "employee_total": nhis_split["employee"],
+            "employer_total": nhis_split["employer"],
+            "mode": _nhis_mode_label(company),
             "dates": dates,
         },
     )
@@ -401,7 +556,7 @@ def nhis_report_download(request, pay_id):
 @permission_required("payroll.view_payrollrun", raise_exception=True)
 def nhf_reports(request):
     company = get_user_company(request.user)
-    payroll = PayrollRun.objects.filter(company=company).order_by("paydays").distinct("paydays")
+    payroll = payroll_runs_distinct_by_period(company)
     dates = [
         utils.convert_month_to_word(str(varss.paydays)) for varss in payroll
     ]  # Access .paydays
@@ -485,7 +640,7 @@ def nhf_report_download(request, pay_id):
 )  # Assuming these list PayrollRun periods for selection
 def payee_reports(request):
     company = get_user_company(request.user)
-    payroll = PayrollRun.objects.filter(company=company).order_by("paydays").distinct("paydays")
+    payroll = payroll_runs_distinct_by_period(company)
     dates = [
         utils.convert_month_to_word(str(varss.paydays)) for varss in payroll
     ]  # Access .paydays
@@ -568,12 +723,53 @@ def payee_report_download(request, pay_id):
     )
 
 
+@permission_required("payroll.view_payrollrun", raise_exception=True)
+def compliance_calendar(request):
+    """
+    Statutory compliance calendar: due dates for PAYE, pension, NHF, NHIA,
+    NSITF and ITF remittances derived from the company's payroll runs, with
+    overdue flags and penalty exposure.
+    """
+    company = get_user_company(request.user)
+    return render(request, "pay/compliance_calendar.html", compliance_summary(company))
+
+
+@require_POST
+@permission_required("payroll.view_payrollrun", raise_exception=True)
+def mark_remittance(request, obligation, period):
+    """
+    Record (or clear, with ``unmark=1``) the remittance/filing for one
+    obligation-period of the caller's company.
+    """
+    company = get_user_company(request.user)
+    valid_obligations = {key for key, _ in RemittanceRecord.OBLIGATION_CHOICES}
+    if obligation not in valid_obligations:
+        raise Http404("Unknown obligation type.")
+
+    period_date = utils.try_parse_date(period)  # YYYY-MM
+    if period_date is None:
+        raise Http404("Invalid pay period.")
+
+    record, _ = RemittanceRecord.objects.get_or_create(
+        company=company,
+        obligation=obligation,
+        period=period_date,
+        defaults={"remitted_on": None},
+    )
+    if request.POST.get("unmark"):
+        record.remitted_on = None
+    else:
+        record.remitted_on = timezone.localdate()
+    record.save(update_fields=["remitted_on", "updated_at"])
+    return redirect("payroll:compliance_calendar")
+
+
 @permission_required(
     "payroll.view_payrollrun", raise_exception=True
 )  # Assuming these list PayrollRun periods
 def pension_reports(request):
     company = get_user_company(request.user)
-    payroll = PayrollRun.objects.filter(company=company).order_by("paydays").distinct("paydays")
+    payroll = payroll_runs_distinct_by_period(company)
     dates = [
         utils.convert_month_to_word(str(varss.paydays)) for varss in payroll
     ]  # Access .paydays
@@ -591,11 +787,29 @@ def pension_report(request, pay_id):
     payroll_data = PayrollRunEntry.objects.filter(
         payroll_run=pay_period_obj,
         payroll_entry__company=company,
-    )
+    ).select_related("payroll_entry__pays__employee_pay")
     dates = utils.convert_month_to_word(str(pay_period_obj.paydays))
     pension_total = payroll_data.aggregate(
         Sum("payroll_entry__pays__employee_pay__pension")
     )
+    pension_split = payroll_data.aggregate(
+        employee=Sum("payroll_entry__pays__employee_pay__pension_employee"),
+        employer=Sum("payroll_entry__pays__employee_pay__pension_employer"),
+    )
+    # Stored pension fields are annual (basic x 12 x rate); the report shows
+    # the monthly remittance (÷12) so it agrees with the compliance calendar
+    # and the cost-of-employment report.
+    cents = Decimal("0.01")
+    rows = [
+        (
+            entry,
+            (
+                Decimal(entry.payroll_entry.pays.employee_pay.pension or 0)
+                / Decimal("12")
+            ).quantize(cents),
+        )
+        for entry in payroll_data
+    ]
     _log_payroll_report_sensitive_access(
         request=request,
         payroll_entries=payroll_data,
@@ -607,8 +821,20 @@ def pension_report(request, pay_id):
         request,
         "pay/pension_report_new.html",
         {
-            "payroll": payroll_data,
-            "total": pension_total["payroll_entry__pays__employee_pay__pension__sum"],
+            "rows": rows,
+            "total": (
+                Decimal(
+                    pension_total["payroll_entry__pays__employee_pay__pension__sum"]
+                    or 0
+                )
+                / Decimal("12")
+            ).quantize(cents),
+            "employee_total": (
+                Decimal(pension_split["employee"] or 0) / Decimal("12")
+            ).quantize(cents),
+            "employer_total": (
+                Decimal(pension_split["employer"] or 0) / Decimal("12")
+            ).quantize(cents),
             "dates": dates,
         },
     )
@@ -627,7 +853,7 @@ def pension_report_download(request, pay_id):
         "Gross Pay",
         "Total Pension Contribution",
     ]
-    data_rows = PayrollRunEntry.objects.filter(
+    raw_rows = PayrollRunEntry.objects.filter(
         payroll_run_id=pay_id,
         payroll_entry__company=company,
     ).values_list(
@@ -639,6 +865,16 @@ def pension_report_download(request, pay_id):
         "payroll_entry__pays__employee_pay__basic_salary",
         "payroll_entry__pays__employee_pay__pension",
     )
+    # Stored pension is annual; export the monthly remittance (÷12) so the
+    # workbook matches the on-page report and the compliance calendar.
+    cents = Decimal("0.01")
+    data_rows = [
+        (
+            *row[:-1],
+            (Decimal(row[-1] or 0) / Decimal("12")).quantize(cents),
+        )
+        for row in raw_rows
+    ]
     _log_payroll_report_sensitive_access(
         request=request,
         payroll_entries=PayrollRunEntry.objects.filter(

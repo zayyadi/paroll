@@ -32,12 +32,22 @@ CACHE_TTL = getattr(settings, "CACHE_TTL", DEFAULT_TIMEOUT)
 logger = logging.getLogger(__name__)
 from payroll.forms import IOUApprovalForm, IOURequestForm, IOUUpdateForm
 from payroll.models import IOU
+from payroll.services.ewa import ew_advance_limits
 from payroll.views.payroll_helpers import _can_manage_employee_requests
 
 
 @login_required
-def request_iou(request):
-    # Try to get the employee profile linked to the current user
+def request_iou(request, kind="iou"):
+    """
+    Self-service advance request.
+
+    ``kind="iou"`` keeps the legacy flow (cap = monthly net minus
+    outstanding). ``kind="ewa"`` is the productized earned-wage-access flow
+    governed by the company EWA policy (see ``payroll.services.ewa``):
+    advance caps against earned-but-unpaid wages, per-cycle frequency rules,
+    and a net-pay take-home guardrail.
+    """
+    is_ewa = kind == "ewa"
     try:
         company = get_user_company(request.user)
         employee_profile = EmployeeProfile.objects.get(
@@ -45,14 +55,10 @@ def request_iou(request):
             company=company,
         )
     except EmployeeProfile.DoesNotExist:
-        # This can happen if the OneToOneField relation from User to EmployeeProfile
-        # is not yet created for this user, or if the related_name is different.
-        # Or, if EmployeeProfile has a ForeignKey to User, and no profile exists.
         messages.error(
             request,
             "Your user account is not linked to an employee profile. Please contact HR.",
         )
-        # Redirect to a relevant page, perhaps the main dashboard or a profile creation page
         return redirect("payroll:dashboard")
 
     monthly_salary = employee_profile.net_pay or Decimal("0.00")
@@ -63,36 +69,63 @@ def request_iou(request):
         .exclude(status__in=["REJECTED", "PAID"])
         .aggregate(total=Sum("amount"))
         .get("total")
-        or 0
+        or Decimal("0.00")
     )
-    max_iou_amount = max(monthly_salary - outstanding_balance, Decimal("0.00"))
-    enforce_max_iou_amount = max_iou_amount if max_iou_amount > 0 else None
+
+    if is_ewa:
+        ew_limits = ew_advance_limits(employee_profile)
+        max_amount = ew_limits["max_available"]
+    else:
+        ew_limits = None
+        max_amount = max(monthly_salary - outstanding_balance, Decimal("0.00"))
+    enforce_max = max_amount if max_amount > 0 else None
 
     if request.method == "POST":
-        form = IOURequestForm(request.POST, max_iou_amount=enforce_max_iou_amount)
+        if is_ewa:
+            if not ew_limits["eligible"]:
+                for reason in ew_limits["reasons"]:
+                    messages.error(request, reason)
+                return redirect("payroll:request_ewa")
+            data = request.POST.copy()
+            # EWA advances are repaid from the next pay cycle.
+            data["tenor"] = "1"
+            form = IOURequestForm(data, max_iou_amount=enforce_max)
+        else:
+            form = IOURequestForm(request.POST, max_iou_amount=enforce_max)
         if form.is_valid():
             iou = form.save(commit=False)
-            iou.employee_id = employee_profile  # Assign the EmployeeProfile instance
+            iou.employee_id = employee_profile
+            iou.is_ewa = is_ewa
+            if is_ewa:
+                iou.tenor = 1
             iou.save()
-            messages.success(request, "IOU request submitted successfully.")
+            messages.success(
+                request,
+                "Advance request submitted for approval."
+                if is_ewa
+                else "IOU request submitted successfully.",
+            )
             return redirect("payroll:iou_history")
     else:
-        # Pass the employee_profile to the form if you want to pre-fill or hide the employee field
-        # This depends on how IOURequestForm is defined.
-        # If 'employee_id' is a field in your form, you might want to make it read-only
-        # or exclude it if it's always the current user.
-        form = IOURequestForm(max_iou_amount=enforce_max_iou_amount)
-        # Or, if you exclude 'employee_id' from the form:
-        # form = IOURequestForm()
+        form = IOURequestForm(max_iou_amount=enforce_max)
+
     context = {
         "form": form,
-        "employee_profile": employee_profile,  # Pass the profile for context
+        "employee_profile": employee_profile,
         "monthly_salary": monthly_salary,
         "outstanding_balance": outstanding_balance,
-        "max_iou_amount": max_iou_amount,
+        "max_iou_amount": max_amount,
+        "is_ewa": is_ewa,
+        "ew_limits": ew_limits,
     }
+    template = "iou/request_ewa_new.html" if is_ewa else "iou/request_iou_new.html"
+    return render(request, template, context)
 
-    return render(request, "iou/request_iou_new.html", context)
+
+@login_required
+def request_ewa(request):
+    """Self-service earned wage access (EWA) advance request."""
+    return request_iou(request, kind="ewa")
 
 
 @login_required

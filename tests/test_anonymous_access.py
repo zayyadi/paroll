@@ -31,6 +31,8 @@ class AnonymousAccessTests(TestCase):
         user.user_permissions.add(permission)
         self.client.force_login(user)
 
+        # HR users are now routed to the HR dashboard.
         response = self.client.get(reverse("root"))
 
-        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response["Location"], reverse("payroll:hr_dashboard"))

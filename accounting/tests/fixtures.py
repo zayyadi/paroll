@@ -155,6 +155,28 @@ class UserFactory:
         )
 
     @staticmethod
+    def create_finance(username="test_finance", email="finance@test.com"):
+        """Create a user with the view-only finance role"""
+        user = UserFactory._create_user(
+            email=email,
+            password="testpass123",
+            first_name="Test",
+            last_name="Finance",
+        )
+        return UserFactory._grant_role(
+            user,
+            "Finance",
+            [
+                (Account, ["view_account"]),
+                (Journal, ["view_journal"]),
+                (JournalEntry, ["view_journalentry"]),
+                (FiscalYear, ["view_fiscalyear"]),
+                (AccountingPeriod, ["view_accountingperiod"]),
+                (AccountingAuditTrail, ["view_accountingaudittrail"]),
+            ],
+        )
+
+    @staticmethod
     def create_admin(username="test_admin", email="admin@test.com"):
         """Create an admin user"""
         user = UserFactory._create_user(

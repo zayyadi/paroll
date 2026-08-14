@@ -31,6 +31,24 @@ from payroll.models import EmployeeProfile, PayrollRun, PayrollRunEntry, Payroll
 CACHE_TTL = getattr(settings, "CACHE_TTL", DEFAULT_TIMEOUT)
 logger = logging.getLogger(__name__)
 
+
+def payroll_runs_distinct_by_period(company):
+    """PayrollRun rows deduplicated by pay period, SQLite-portable.
+
+    ``DISTINCT ON (paydays)`` is Postgres-only and raises under the SQLite
+    test settings; dedupe in Python instead, keeping the first run per period
+    in ``paydays`` order. Used by the report period-list pages.
+    """
+    runs = []
+    seen = set()
+    for run in PayrollRun.objects.filter(company=company).order_by("paydays"):
+        if run.paydays in seen:
+            continue
+        seen.add(run.paydays)
+        runs.append(run)
+    return runs
+
+
 def _can_manage_employee_requests(user):
     """
     HR, managers, staff admins, and superusers can review employee requests.

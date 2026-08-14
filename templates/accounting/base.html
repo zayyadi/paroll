@@ -153,7 +153,7 @@
                 </a>
                 {% endif %}
 
-                {% if is_auditor %}
+                {% if is_auditor or is_finance_user %}
                 <div class="pt-2 pb-1">
                     <p class="px-3 text-xs font-semibold text-secondary-500 uppercase tracking-wider">Audit</p>
                 </div>
@@ -179,7 +179,7 @@
                     <div class="ml-3">
                         <p class="text-sm font-medium text-primary-900">{{ user.first_name|default:user.email }}</p>
                         <p class="text-xs text-primary-700">
-                            {% if is_auditor %}Auditor{% elif is_accountant %}Accountant{% elif is_payroll_processor %}Payroll Processor{% else %}User{% endif %}
+                            {% if is_auditor %}Auditor{% elif is_accountant %}Accountant{% elif is_payroll_processor %}Payroll Processor{% elif is_finance_user %}Finance{% else %}User{% endif %}
                         </p>
                     </div>
                 </div>

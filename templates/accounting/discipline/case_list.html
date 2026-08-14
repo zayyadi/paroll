@@ -1,67 +1,8 @@
 {% extends "employee/discipline_base.html" %}
-
 {% block accounting_content %}
-<div class="space-y-4">
-    <div class="bg-white rounded-lg shadow-soft p-5 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-        <div>
-            <h2 class="text-xl font-semibold text-secondary-900">Disciplinary Cases</h2>
-            <p class="text-sm text-secondary-600">Track investigations, decisions, sanctions, and appeals.</p>
-        </div>
-        <a href="{% url 'payroll:discipline_case_create' %}" class="inline-flex items-center px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700">
-            New Case
-        </a>
-    </div>
-
-    <form method="get" class="bg-white rounded-lg shadow-soft p-4 grid grid-cols-1 md:grid-cols-4 gap-3">
-        <input type="text" name="search" value="{{ request.GET.search }}" placeholder="Search case number, summary, respondent..." class="w-full px-3 py-2 border border-secondary-300 rounded-md">
-        <select name="status" class="w-full px-3 py-2 border border-secondary-300 rounded-md">
-            <option value="">All statuses</option>
-            {% for value, label in status_choices %}
-            <option value="{{ value }}" {% if request.GET.status == value %}selected{% endif %}>{{ label }}</option>
-            {% endfor %}
-        </select>
-        <select name="level" class="w-full px-3 py-2 border border-secondary-300 rounded-md">
-            <option value="">All levels</option>
-            {% for value, label in level_choices %}
-            <option value="{{ value }}" {% if request.GET.level == value %}selected{% endif %}>{{ label }}</option>
-            {% endfor %}
-        </select>
-        <button class="px-4 py-2 bg-secondary-900 text-white rounded-md hover:bg-secondary-800">Filter</button>
-    </form>
-
-    <div class="bg-white rounded-lg shadow-soft overflow-x-auto">
-        <table class="min-w-full text-sm divide-y divide-secondary-200">
-            <thead class="bg-secondary-50">
-                <tr>
-                    <th class="px-3 py-2 text-left">Case #</th>
-                    <th class="px-3 py-2 text-left">Summary</th>
-                    <th class="px-3 py-2 text-left">Respondent</th>
-                    <th class="px-3 py-2 text-left">Level</th>
-                    <th class="px-3 py-2 text-left">Status</th>
-                    <th class="px-3 py-2 text-left">Review Level</th>
-                    <th class="px-3 py-2 text-left">Created</th>
-                </tr>
-            </thead>
-            <tbody class="divide-y divide-secondary-200">
-                {% for case in cases %}
-                <tr>
-                    <td class="px-3 py-2">
-                        <a href="{% url 'payroll:discipline_case_detail' case.pk %}" class="text-primary-700 hover:text-primary-900 font-medium">{{ case.case_number }}</a>
-                    </td>
-                    <td class="px-3 py-2">{{ case.allegation_summary }}</td>
-                    <td class="px-3 py-2">{{ case.respondent.email|default:"-" }}</td>
-                    <td class="px-3 py-2">{{ case.get_violation_level_display }}</td>
-                    <td class="px-3 py-2">{{ case.get_status_display }}</td>
-                    <td class="px-3 py-2">{{ case.get_required_review_level_display }}</td>
-                    <td class="px-3 py-2">{{ case.created_at|date:"Y-m-d H:i" }}</td>
-                </tr>
-                {% empty %}
-                <tr>
-                    <td colspan="7" class="px-3 py-8 text-center text-secondary-500">No disciplinary cases found.</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
+<div class="space-y-8">
+    <section class="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between"><div><h2 class="font-headline text-4xl font-extrabold text-primary-800">Disciplinary Review</h2><p class="mt-3 max-w-2xl text-base leading-7 text-on-surface-variant">Confidential tracking and resolution management for employee relations cases, evidence, decisions, and appeals.</p></div><a href="{% url 'payroll:discipline_case_create' %}" class="btn-primary editorial-action inline-flex items-center gap-2 px-5 py-3"><i data-lucide="plus" class="h-4 w-4"></i>New case entry</a></section>
+    <section class="grid gap-5 md:grid-cols-3"><article class="editorial-panel border-l-4 border-tertiary-fixed p-6"><div class="flex justify-between"><p class="text-xs font-bold uppercase tracking-[.16em]">Active cases</p><i data-lucide="clipboard-clock" class="h-5 w-5 text-tertiary"></i></div><p class="mt-5 font-headline text-5xl font-extrabold text-primary-800">{{ active_cases_count|default:0 }}</p><p class="mt-2 text-sm text-secondary-600">In intake, investigation, or panel review</p></article><article class="editorial-panel p-6"><div class="flex justify-between"><p class="text-xs font-bold uppercase tracking-[.16em]">Resolved</p><i data-lucide="timer" class="h-5 w-5 text-primary-700"></i></div><p class="mt-5 font-headline text-5xl font-extrabold text-primary-800">{{ resolved_cases_count|default:0 }}</p><p class="mt-2 text-sm text-secondary-600">Decided, appealed, closed, or dismissed</p></article><article class="editorial-panel p-6"><div class="flex justify-between"><p class="text-xs font-bold uppercase tracking-[.16em]">Documentation rate</p><i data-lucide="shield-check" class="h-5 w-5 text-success-600"></i></div><p class="mt-5 font-headline text-5xl font-extrabold text-primary-800">{{ documentation_rate|default:0 }}%</p><p class="mt-2 text-sm text-secondary-600">{{ documented_findings_count|default:0 }} cases with a recorded finding</p></article></section>
+    <div class="grid gap-7 xl:grid-cols-3"><section class="editorial-panel overflow-hidden xl:col-span-2"><div class="flex flex-col gap-4 px-6 py-6 sm:flex-row sm:items-center sm:justify-between"><h2 class="font-headline text-xl font-bold text-primary-800">Case directory</h2><form method="get" class="flex flex-wrap gap-2"><label class="sr-only" for="case-search">Search cases</label><input id="case-search" type="search" name="search" value="{{ request.GET.search }}" placeholder="Search cases or staff…" class="min-w-56"><select name="status" aria-label="Filter case status"><option value="">All statuses</option>{% for value,label in status_choices %}<option value="{{ value }}" {% if request.GET.status == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select><button class="editorial-secondary px-4">Filter</button></form></div><div class="table-responsive !rounded-none !border-x-0"><table><thead><tr><th>Employee / case</th><th>Subject</th><th>Priority</th><th>Status</th><th>Created</th></tr></thead><tbody>{% for case in cases %}<tr><td><a href="{% url 'payroll:discipline_case_detail' case.pk %}" class="font-bold text-primary-800">{{ case.respondent.email|default:"Employee" }}</a><small class="block font-mono">{{ case.case_number }}</small></td><td>{{ case.allegation_summary|truncatechars:46 }}</td><td><span class="badge {% if case.violation_level == 'high' %}bg-danger{% elif case.violation_level == 'medium' %}bg-warning{% else %}bg-info{% endif %}">{{ case.get_violation_level_display }}</span></td><td>{{ case.get_status_display }}</td><td>{{ case.created_at|date:"d M Y" }}</td></tr>{% empty %}<tr><td colspan="5" class="py-12 text-center text-secondary-500">No disciplinary cases match the current filters.</td></tr>{% endfor %}</tbody></table></div></section><aside class="space-y-5"><section class="rounded-[1.5rem] border border-dashed border-outline-variant bg-surface-container-low p-8 text-center"><i data-lucide="file-search-2" class="mx-auto h-8 w-8 text-secondary-400"></i><h2 class="mt-5 font-headline text-xl font-bold text-primary-800">Select a case</h2><p class="mt-3 text-sm leading-6 text-secondary-600">Open an entry to view evidence, decisions, hearing history, and the full outcome timeline.</p></section><section class="editorial-panel p-6"><p class="text-xs font-bold uppercase tracking-[.16em] text-danger-700">Confidential workflow</p><h2 class="mt-4 font-headline text-xl font-bold text-primary-800">Evidence and resolution</h2><p class="mt-3 text-sm leading-6 text-secondary-600">Each case maintains an auditable record of documentation, review levels, sanctions, and appeals.</p><a href="{% url 'payroll:discipline_case_create' %}" class="mt-6 inline-flex w-full justify-center rounded-xl bg-primary-700 px-4 py-3 font-bold text-white">Start a case</a></section></aside></div>
 </div>
 {% endblock %}

@@ -10,6 +10,9 @@ from .models import (
     AccountingPeriod,
     AccountingAuditTrail,
     TransactionNumber,
+    Budget,
+    TaxReturn,
+    AccountReconciliation,
 )
 
 User = get_user_model()
@@ -19,6 +22,20 @@ def _split_user_and_object(first, second):
     if hasattr(first, "is_authenticated"):
         return first, second
     return second, first
+
+
+def _view_permissions_for(*models):
+    """Return the view_<model> permissions for the given models."""
+    permissions = []
+    for model in models:
+        content_type = ContentType.objects.get_for_model(model)
+        permissions.extend(
+            Permission.objects.filter(
+                content_type=content_type,
+                codename__in=[f"view_{content_type.model}"],
+            )
+        )
+    return permissions
 
 
 def setup_accounting_groups_and_permissions():
@@ -203,10 +220,99 @@ def setup_accounting_groups_and_permissions():
         )
     )
 
+    # Payroll model permissions so the role can actually run payroll:
+    # pay periods, salary config, allowances/deductions, and payment files.
+    # Delete is intentionally withheld for Payroll/PayrollRun (audit-sensitive).
+    from payroll.models import Payroll, PayrollRun, Allowance, Deduction
+
+    payroll_processor_payroll_models = {
+        Payroll: ["view_payroll", "add_payroll", "change_payroll"],
+        PayrollRun: ["view_payrollrun", "add_payrollrun", "change_payrollrun"],
+        Allowance: [
+            "view_allowance",
+            "add_allowance",
+            "change_allowance",
+            "delete_allowance",
+        ],
+        Deduction: [
+            "view_deduction",
+            "add_deduction",
+            "change_deduction",
+            "delete_deduction",
+        ],
+    }
+    for model, codenames in payroll_processor_payroll_models.items():
+        content_type = ContentType.objects.get_for_model(model)
+        payroll_processor_permissions.extend(
+            Permission.objects.filter(
+                content_type=content_type, codename__in=codenames
+            )
+        )
+
     # Assign permissions to Payroll Processor group
     payroll_processor_group.permissions.set(payroll_processor_permissions)
     print(
         f"Configured Payroll Processor group with {len(payroll_processor_permissions)} permissions."
+    )
+
+    # FINANCE PERMISSIONS
+    # Finance is a view-only cross-cutting role (accounting + payroll reporting).
+    # It intentionally excludes people-management (payroll.view_employeeprofile)
+    # and any add/change/delete permissions (segregation of duties).
+    finance_group, _ = Group.objects.get_or_create(name="Finance")
+    finance_permissions = []
+
+    # View-only access to accounting records
+    finance_permissions.extend(
+        Permission.objects.filter(
+            content_type=account_ct,
+            codename__in=["view_account"],
+        )
+    )
+    finance_permissions.extend(
+        Permission.objects.filter(
+            content_type=journal_ct,
+            codename__in=["view_journal"],
+        )
+    )
+    finance_permissions.extend(
+        Permission.objects.filter(
+            content_type=journal_entry_ct,
+            codename__in=["view_journalentry"],
+        )
+    )
+    finance_permissions.extend(
+        Permission.objects.filter(
+            content_type=fiscal_year_ct,
+            codename__in=["view_fiscalyear"],
+        )
+    )
+    finance_permissions.extend(
+        Permission.objects.filter(
+            content_type=period_ct,
+            codename__in=["view_accountingperiod"],
+        )
+    )
+    finance_permissions.extend(
+        Permission.objects.filter(
+            content_type=audit_trail_ct,
+            codename__in=["view_accountingaudittrail"],
+        )
+    )
+
+    # View-only perms for the other accounting pages linked in the Finance nav.
+    finance_permissions.extend(_view_permissions_for(Budget, TaxReturn, AccountReconciliation))
+
+    # View-only access to payroll records for payroll reporting.
+    from payroll.models import PayrollEntry
+
+    finance_permissions.extend(
+        _view_permissions_for(Payroll, PayrollRun, PayrollEntry)
+    )
+
+    finance_group.permissions.set(finance_permissions)
+    print(
+        f"Configured Finance group with {len(finance_permissions)} permissions."
     )
 
     print("Accounting groups and permissions configuration complete.")
@@ -239,6 +345,15 @@ def assign_user_to_payroll_processor_role(user):
     print(f"User {user.email} assigned to Payroll Processor role.")
 
 
+def assign_user_to_finance_role(user):
+    """
+    Assign a user to the finance role
+    """
+    finance_group = Group.objects.get(name="Finance")
+    user.groups.add(finance_group)
+    print(f"User {user.email} assigned to Finance role.")
+
+
 def is_auditor(user):
     """
     Check if user has auditor role or is superuser
@@ -258,6 +373,14 @@ def is_payroll_processor(user):
     Check if user has payroll processor role or is superuser
     """
     return user.is_superuser or user.groups.filter(name="Payroll Processor").exists()
+
+
+def is_finance_user(user):
+    """
+    Check if user has the finance role or is superuser.
+    Finance is a view-only, cross-cutting role (accounting + payroll reporting).
+    """
+    return user.is_superuser or user.groups.filter(name="Finance").exists()
 
 
 def is_hr_staff(user):
@@ -434,12 +557,14 @@ def can_view_payroll_data(user):
     - Auditors can view payroll data (read-only)
     - Accountants can view payroll data (read-only)
     - Payroll processors have full access to payroll data
+    - Finance users can view payroll data (read-only)
     """
     return (
         user.is_superuser
         or is_auditor(user)
         or is_accountant(user)
         or is_payroll_processor(user)
+        or is_finance_user(user)
     )
 
 
