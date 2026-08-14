@@ -3,23 +3,34 @@ from django.db.models import QuerySet
 
 
 def get_user_company(user):
+    """Resolve the user's active company and establish it as the tenant context.
+
+    Resolving a company also sets the contextvars-based company context (see
+    ``company.tenancy``), so any tenant-scoped model queried afterwards in the
+    same task/request is scoped to that company. Callers that need a different
+    context should wrap their work in ``company_context(...)`` explicitly.
+    """
     if not getattr(user, "is_authenticated", False):
         return None
     if settings.MULTI_COMPANY_MEMBERSHIP_ENABLED:
         active_company = getattr(user, "active_company", None)
         if active_company and user.company_memberships.filter(company=active_company).exists():
-            return active_company
+            company = active_company
+        else:
+            primary_company = getattr(user, "company", None)
+            if primary_company and user.company_memberships.filter(company=primary_company).exists():
+                company = primary_company
+            else:
+                membership = user.company_memberships.select_related("company").first()
+                company = membership.company if membership else None
+    else:
+        company = getattr(user, "company", None) or getattr(user, "active_company", None)
 
-        primary_company = getattr(user, "company", None)
-        if primary_company and user.company_memberships.filter(company=primary_company).exists():
-            return primary_company
+    if company is not None:
+        from company.tenancy import set_current_company
 
-        membership = user.company_memberships.select_related("company").first()
-        if membership:
-            return membership.company
-        return None
-
-    return getattr(user, "company", None) or getattr(user, "active_company", None)
+        set_current_company(company)
+    return company
 
 
 def get_user_companies(user):

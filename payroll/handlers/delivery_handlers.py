@@ -19,6 +19,7 @@ from django.template import TemplateDoesNotExist
 from django.template.loader import render_to_string
 from django.utils import timezone
 
+from company.tenancy import tenant_cache_key
 from payroll.models.notification import (
     Notification,
     NotificationChannel,
@@ -253,7 +254,7 @@ class InAppHandler(BaseHandler):
             recipient_id: ID of the recipient user
         """
         try:
-            cache_key = f"{self.cache_prefix}{recipient_id}"
+            cache_key = tenant_cache_key(self.cache_prefix, recipient_id)
 
             # Get current count or query database
             current_count = cache.get(cache_key)
@@ -879,7 +880,7 @@ class SMSHandler(BaseHandler):
             True if within rate limit, False otherwise
         """
         try:
-            cache_key = f"{self.rate_limit_key_prefix}{recipient_id}"
+            cache_key = tenant_cache_key(self.rate_limit_key_prefix, recipient_id)
             current_count = cache.get(cache_key, 0)
 
             if current_count >= self.rate_limit_max:

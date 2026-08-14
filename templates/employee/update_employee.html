@@ -5,9 +5,9 @@
 
 {% block content %}
 <div class="max-w-4xl mx-auto space-y-6">
-    <div class="bg-white rounded-xl shadow-soft p-6 border border-secondary-100">
-        <h2 class="text-lg font-semibold text-secondary-900">Edit Employee Record</h2>
-        <p class="mt-1 text-sm text-secondary-600">
+    <div class="editorial-panel p-6 border-l-4 border-primary-700">
+        <h2 class="font-headline text-xl font-bold text-primary-800">Edit Employee Record</h2>
+        <p class="mt-1 text-sm text-on-surface-variant">
             Update employment, contact, and payroll-related profile data.
         </p>
     </div>
@@ -16,22 +16,22 @@
         {% csrf_token %}
 
         {% if form.non_field_errors %}
-            <div class="rounded-xl border border-danger-200 bg-danger-50 p-4 text-sm text-danger-800">
+            <div class="rounded-2xl border border-danger-200 bg-danger-50 p-4 text-sm text-danger-800">
                 {{ form.non_field_errors }}
             </div>
         {% endif %}
 
-        <section class="bg-white rounded-xl shadow-soft p-6 border border-secondary-100">
+        <section class="bento-card">
             {{ form|crispy }}
         </section>
 
         <div class="flex items-center justify-end gap-3">
             <a href="{% url 'payroll:employee_list' %}"
-               class="px-4 py-2.5 rounded-xl border border-secondary-300 text-secondary-700 hover:bg-secondary-50 text-sm font-medium">
+               class="editorial-secondary editorial-action px-4 py-2.5 rounded-xl text-sm font-medium">
                 Cancel
             </a>
             <button type="submit"
-                class="btn-primary py-2.5 px-6 text-white font-medium rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+                class="btn-primary editorial-action px-6 py-2.5 text-white font-medium rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
                 Save Changes
             </button>
         </div>

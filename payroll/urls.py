@@ -164,6 +164,21 @@ urlpatterns = [
         name="nhisReportDownload",
     ),
     path(
+        "cost-of-employment/",
+        views.cost_of_employment_reports,
+        name="cost_of_employment",
+    ),
+    path(
+        "cost-of-employment/<int:pay_id>/",
+        views.cost_of_employment_report,
+        name="cost_of_employment_report",
+    ),
+    path(
+        "cost-of-employment/<int:pay_id>/download/",
+        views.cost_of_employment_report_download,
+        name="cost_of_employment_report_download",
+    ),
+    path(
         "nhf",
         views.nhf_reports,
         name="nhf",
@@ -184,6 +199,12 @@ urlpatterns = [
         "payee/<int:pay_id>/download/",
         views.payee_report_download,
         name="payeeReportDownload",
+    ),
+    path("compliance/", views.compliance_calendar, name="compliance_calendar"),
+    path(
+        "compliance/<str:obligation>/<str:period>/mark/",
+        views.mark_remittance,
+        name="mark_remittance",
     ),
     path("pension", views.pension_reports, name="pension"),
     path("pension/<int:pay_id>/", views.pension_report, name="pensionReport"),
@@ -229,6 +250,7 @@ urlpatterns = [
         name="leave_allowance_slip_pdf",
     ),
     path("request-iou/", views.request_iou, name="request_iou"),
+    path("request-ewa/", views.request_ewa, name="request_ewa"),
     path("approve-iou/<int:iou_id>/", views.approve_iou, name="approve_iou"),
     path("iou/<int:pk>/update/", views.IOUUpdateView.as_view(), name="iou_update"),
     path("iou/<int:pk>/delete/", views.IOUDeleteView.as_view(), name="iou_delete"),

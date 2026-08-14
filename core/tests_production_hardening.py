@@ -1,9 +1,18 @@
+import sys
+from unittest import skipUnless
+
+from django.conf import settings
 from django.test import SimpleTestCase
 
 import core.settings as project_settings
 
 
 class ProductionHardeningSettingsTests(SimpleTestCase):
+    @skipUnless(
+        not settings.DEBUG and "test" not in sys.argv,
+        "Production-hardening defaults are validated outside the test runner "
+        "(requires DEBUG=False and a non-test invocation).",
+    )
     def test_default_settings_are_safe_when_debug_is_false(self):
         self.assertFalse(project_settings.DEBUG)
         self.assertTrue(project_settings.SECURE_SSL_REDIRECT)

@@ -6,16 +6,17 @@
 {% block content %}
 <div class="max-w-7xl mx-auto">
     <!-- Page Header -->
-    <div class="bg-gradient-to-r from-primary-500 to-primary-600 rounded-2xl p-6 text-white shadow-medium mb-6">
+    <div class="editorial-gradient rounded-3xl p-6 text-white shadow-medium mb-6">
         <div class="flex flex-col md:flex-row md:items-center md:justify-between">
             <div>
-                <h1 class="text-2xl font-bold mb-2">Create New Pay Period</h1>
-                <p class="text-primary-100">Select employees to include in this payroll period</p>
+                <p class="text-xs font-bold uppercase tracking-[0.24em] text-white/70">Payroll</p>
+                <h1 class="mt-1 font-headline text-2xl font-extrabold">Create New Pay Period</h1>
+                <p class="text-white/80">Select employees to include in this payroll period</p>
             </div>
             <div class="mt-4 md:mt-0">
                 <span class="bg-white bg-opacity-20 text-white text-sm font-medium px-4 py-2 rounded-full">
                     <i data-lucide="users" class="inline h-4 w-4 mr-1"></i>
-                    <span id="totalEmployeesCount">{{ total_employees }}</span> Total Employees
+                    <span id="totalEmployeesCount" class="tabular-nums">{{ total_employees }}</span> Total Employees
                 </span>
             </div>
         </div>
@@ -32,7 +33,7 @@
             <!-- Left Panel: Employee Selection -->
             <div class="lg:col-span-2 space-y-6">
                 <!-- Search and Filter Bar -->
-                <div class="bg-white rounded-xl shadow-soft p-6">
+                <div class="bento-card">
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                         <!-- Search -->
                         <div class="md:col-span-2 lg:col-span-2">
@@ -116,7 +117,7 @@
                 </div>
 
                 <!-- Employee List -->
-                <div class="bg-white rounded-xl shadow-soft overflow-hidden">
+                <div class="bg-surface-container-lowest rounded-2xl border border-outline-variant overflow-hidden shadow-card">
                     <!-- List Header -->
                     <div class="bg-secondary-50 px-6 py-3 border-b border-secondary-200">
                         <div class="flex items-center justify-between">
@@ -205,7 +206,7 @@
             <!-- Right Panel: Pay Period Details -->
             <div class="space-y-6">
                 <!-- Pay Period Info -->
-                <div class="bg-white rounded-xl shadow-soft p-6">
+                <div class="bento-card">
                     <h2 class="text-lg font-semibold text-secondary-900 mb-4 flex items-center">
                         <i data-lucide="calendar" class="h-5 w-5 mr-2 text-primary-600"></i>
                         Pay Period Details
@@ -267,7 +268,7 @@
                 </div>
 
                 <!-- Selection Summary -->
-                <div class="bg-white rounded-xl shadow-soft p-6">
+                <div class="bento-card">
                     <h2 class="text-lg font-semibold text-secondary-900 mb-4 flex items-center">
                         <i data-lucide="bar-chart-2" class="h-5 w-5 mr-2 text-primary-600"></i>
                         Selection Summary
@@ -294,7 +295,7 @@
                 </div>
 
                 <!-- Submit Actions -->
-                <div class="bg-white rounded-xl shadow-soft p-6">
+                <div class="bento-card">
                     <div class="space-y-3">
                         <button 
                             type="submit"

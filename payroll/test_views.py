@@ -58,14 +58,21 @@ class EmployeeViewSecurityTests(TestCase):
         # but ensures permissions are set for the test environment if tests are run isolated.
         setup_groups_and_permissions()
 
+        cls.company = Company.objects.create(name="Employee Security Co")
+
         cls.user = User.objects.create_user(
             email="testuser@example.com",
             password="password123",
             first_name="Test",
             last_name="User",
+            company=cls.company,
+            active_company=cls.company,
         )
         cls.admin_user = User.objects.create_superuser(
-            email="admin@example.com", password="password123"
+            email="admin@example.com",
+            password="password123",
+            company=cls.company,
+            active_company=cls.company,
         )
 
         cls.hr_group = Group.objects.get(name="HR")  # Get group created by setup
@@ -74,6 +81,8 @@ class EmployeeViewSecurityTests(TestCase):
             password="password123",
             first_name="HR",
             last_name="Person",
+            company=cls.company,
+            active_company=cls.company,
         )
         cls.hr_user.groups.add(cls.hr_group)
 
@@ -83,6 +92,8 @@ class EmployeeViewSecurityTests(TestCase):
             password="password123",
             first_name="No",
             last_name="Permission",
+            company=cls.company,
+            active_company=cls.company,
         )
 
         # Assign users to the 'Employee' group if your setup_groups_and_permissions expects it for base perms
@@ -134,10 +145,12 @@ class EmployeeViewSecurityTests(TestCase):
         response = self.client.get(reverse("payroll:employee_list"))
         self.assertEqual(response.status_code, 200)
 
-    def test_hr_dashboard_available_to_employee_group(self):
+    def test_hr_dashboard_denied_to_employee_group(self):
+        # The Employee group does not grant payroll.view_employeeprofile, so
+        # HR-scoped pages are off-limits to regular employees.
         self.client.login(email="noperm@example.com", password="password123")
         response = self.client.get(reverse("payroll:hr_dashboard"))
-        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.status_code, 403)
 
         # Test with HR user
         self.client.login(email="hruser@example.com", password="password123")
@@ -203,10 +216,11 @@ class EmployeeViewSecurityTests(TestCase):
         self.assertEqual(response.status_code, 200)
 
     def test_employee_profile_view_other_profile_denied(self):
-        # noperm_user trying to access testuser's profile
+        # noperm_user (Employee group) cannot view another employee's profile
+        # without the HR view_employeeprofile permission.
         self.client.login(email="noperm@example.com", password="password123")
         response = self.client.get(reverse("payroll:profile", args=[self.user.id]))
-        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.status_code, 403)
 
     def test_employee_profile_view_hr_can_view_other(self):
         self.client.login(email="hruser@example.com", password="password123")
@@ -308,6 +322,35 @@ class AttendanceViewTests(TestCase):
             active_company=cls.company,
         )
 
+        # Roles without payroll.view_employeeprofile: denied on HR pages.
+        cls.pp_user = User.objects.create_user(
+            email="attendance-pp@example.com",
+            password="password123",
+            first_name="Payroll",
+            last_name="Processor",
+            company=cls.company,
+            active_company=cls.company,
+        )
+        cls.pp_user.groups.add(Group.objects.get_or_create(name="Payroll Processor")[0])
+
+        cls.finance_user = User.objects.create_user(
+            email="attendance-finance@example.com",
+            password="password123",
+            first_name="Finance",
+            last_name="User",
+            company=cls.company,
+            active_company=cls.company,
+        )
+        cls.finance_user.groups.add(Group.objects.get_or_create(name="Finance")[0])
+
+        # Superusers bypass permission checks.
+        cls.superuser = User.objects.create_superuser(
+            email="attendance-super@example.com",
+            password="password123",
+            company=cls.company,
+            active_company=cls.company,
+        )
+
         cls.hr_profile = EmployeeProfile.objects.get(user=cls.hr_user)
         cls.hr_profile.company = cls.company
         cls.hr_profile.save(update_fields=["company"])
@@ -320,12 +363,65 @@ class AttendanceViewTests(TestCase):
         self.client = Client()
 
     def test_attendance_overview_requires_hr_permission(self):
+        # Anonymous users are redirected to login
         response = self.client.get(reverse("payroll:attendance_overview"))
         self.assertEqual(response.status_code, 302)
 
+        # A user without payroll.view_employeeprofile is denied
         self.client.login(email="attendance-employee@example.com", password="password123")
         response = self.client.get(reverse("payroll:attendance_overview"))
         self.assertEqual(response.status_code, 403)
+
+        # Payroll Processor and Finance roles do not carry view_employeeprofile
+        self.client.login(email="attendance-pp@example.com", password="password123")
+        response = self.client.get(reverse("payroll:attendance_overview"))
+        self.assertEqual(response.status_code, 403)
+
+        self.client.login(email="attendance-finance@example.com", password="password123")
+        response = self.client.get(reverse("payroll:attendance_overview"))
+        self.assertEqual(response.status_code, 403)
+
+        # HR (which holds view_employeeprofile via the HR group) keeps access
+        self.client.login(email="attendance-hr@example.com", password="password123")
+        response = self.client.get(reverse("payroll:attendance_overview"))
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "employee/attendance_overview.html")
+
+        # Superusers bypass the permission check
+        self.client.login(email="attendance-super@example.com", password="password123")
+        response = self.client.get(reverse("payroll:attendance_overview"))
+        self.assertEqual(response.status_code, 200)
+
+    def test_who_is_out_requires_hr_permission(self):
+        # who_is_out shares the same view_employeeprofile gate as the overview.
+        # Anonymous users are redirected to login
+        response = self.client.get(reverse("payroll:who_is_out"))
+        self.assertEqual(response.status_code, 302)
+
+        # A user without payroll.view_employeeprofile is denied
+        self.client.login(email="attendance-employee@example.com", password="password123")
+        response = self.client.get(reverse("payroll:who_is_out"))
+        self.assertEqual(response.status_code, 403)
+
+        # Payroll Processor and Finance roles do not carry view_employeeprofile
+        self.client.login(email="attendance-pp@example.com", password="password123")
+        response = self.client.get(reverse("payroll:who_is_out"))
+        self.assertEqual(response.status_code, 403)
+
+        self.client.login(email="attendance-finance@example.com", password="password123")
+        response = self.client.get(reverse("payroll:who_is_out"))
+        self.assertEqual(response.status_code, 403)
+
+        # HR keeps access
+        self.client.login(email="attendance-hr@example.com", password="password123")
+        response = self.client.get(reverse("payroll:who_is_out"))
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "employee/who_is_out.html")
+
+        # Superusers bypass the permission check
+        self.client.login(email="attendance-super@example.com", password="password123")
+        response = self.client.get(reverse("payroll:who_is_out"))
+        self.assertEqual(response.status_code, 200)
 
     def test_who_is_out_lists_leave_and_absence(self):
         LeaveRequest.objects.create(
@@ -388,6 +484,99 @@ class AttendanceViewTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, timezone.localdate().strftime("%B"))
+
+
+class ManagementOverviewPermissionTests(TestCase):
+    """The *_overview management pages share the view_employeeprofile gate."""
+
+    @classmethod
+    def setUpTestData(cls):
+        setup_groups_and_permissions()
+        cls.company = Company.objects.create(name="Overview Co")
+        cls.hr_group = Group.objects.get(name="HR")
+
+        cls.hr_user = User.objects.create_user(
+            email="overview-hr@example.com",
+            password="password123",
+            first_name="Overview",
+            last_name="HR",
+            company=cls.company,
+            active_company=cls.company,
+        )
+        cls.hr_user.groups.add(cls.hr_group)
+
+        cls.employee_user = User.objects.create_user(
+            email="overview-employee@example.com",
+            password="password123",
+            first_name="Regular",
+            last_name="Employee",
+            company=cls.company,
+            active_company=cls.company,
+        )
+
+        cls.pp_user = User.objects.create_user(
+            email="overview-pp@example.com",
+            password="password123",
+            first_name="Payroll",
+            last_name="Processor",
+            company=cls.company,
+            active_company=cls.company,
+        )
+        cls.pp_user.groups.add(Group.objects.get_or_create(name="Payroll Processor")[0])
+
+        cls.finance_user = User.objects.create_user(
+            email="overview-finance@example.com",
+            password="password123",
+            first_name="Finance",
+            last_name="User",
+            company=cls.company,
+            active_company=cls.company,
+        )
+        cls.finance_user.groups.add(Group.objects.get_or_create(name="Finance")[0])
+
+        cls.superuser = User.objects.create_superuser(
+            email="overview-super@example.com",
+            password="password123",
+            company=cls.company,
+            active_company=cls.company,
+        )
+
+    def test_overview_pages_require_hr_permission(self):
+        overview_urls = [
+            "payroll:learning_overview",
+            "payroll:asset_overview",
+            "payroll:document_overview",
+            "payroll:benefit_overview",
+        ]
+        denied_emails = [
+            "overview-employee@example.com",
+            "overview-pp@example.com",
+            "overview-finance@example.com",
+        ]
+        allowed_emails = ["overview-hr@example.com", "overview-super@example.com"]
+
+        for url_name in overview_urls:
+            with self.subTest(page=url_name):
+                # Anonymous users are redirected to login
+                self.client.logout()
+                response = self.client.get(reverse(url_name))
+                self.assertEqual(response.status_code, 302)
+
+                # Roles without view_employeeprofile are denied
+                for email in denied_emails:
+                    with self.subTest(page=url_name, role=email):
+                        self.client.logout()
+                        self.client.login(email=email, password="password123")
+                        response = self.client.get(reverse(url_name))
+                        self.assertEqual(response.status_code, 403)
+
+                # HR and superusers keep access
+                for email in allowed_emails:
+                    with self.subTest(page=url_name, role=email):
+                        self.client.logout()
+                        self.client.login(email=email, password="password123")
+                        response = self.client.get(reverse(url_name))
+                        self.assertEqual(response.status_code, 200)
 
 
 class WorkflowExecutionViewTests(TestCase):

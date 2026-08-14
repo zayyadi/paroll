@@ -5,6 +5,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from company.models import Company
+from company.tenancy import tenant_cache_key
 from payroll.handlers.delivery_handlers import EmailHandler
 from payroll.models import Notification
 
@@ -185,14 +186,17 @@ class NotificationMarkReadTests(TestCase):
         self.assertFalse(self.notification.is_deleted)
 
     def test_mark_all_read_clears_cached_badge_count(self):
-        cache.set(f"notifications:{self.employee.id}:unread_count", 2, 300)
+        # Keys are tenant-scoped (company prefix); build the expected key the
+        # same way NotificationCacheService does.
+        key = tenant_cache_key("notifications", self.employee, "unread_count")
+        cache.set(key, 2, 300)
 
         self.client.login(email=self.user.email, password="password123")
         response = self.client.post(reverse("payroll:mark_all_read"))
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["unread_count"], 0)
-        self.assertEqual(cache.get(f"notifications:{self.employee.id}:unread_count"), 0)
+        self.assertEqual(cache.get(key), 0)
 
         count_response = self.client.get(reverse("payroll:notification_count"))
         self.assertEqual(count_response.status_code, 200)

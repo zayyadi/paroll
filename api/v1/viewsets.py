@@ -13,7 +13,7 @@ from django.utils.text import slugify
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied, ValidationError as DRFValidationError
-from rest_framework.permissions import AllowAny, DjangoModelPermissions, IsAuthenticated
+from rest_framework.permissions import AllowAny, DjangoModelPermissions, IsAuthenticated, SAFE_METHODS
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from drf_spectacular.utils import extend_schema, inline_serializer
@@ -181,7 +181,7 @@ def _mobile_navigation_for_user(user):
     if "accounting" in enabled_features and (
         user.has_perm("accounting.view_journal")
         or user.groups.filter(
-            name__in=["Accountant", "Auditor", "Payroll Processor"]
+            name__in=["Accountant", "Auditor", "Payroll Processor", "Finance"]
         ).exists()
     ):
         navigation.append("accounting")
@@ -234,13 +234,20 @@ class TenantScopedModelViewSet(viewsets.ModelViewSet):
 class SuperuserOnlyAccountingMixin:
     """
     Temporary safety gate for accounting APIs until models are fully tenant-scoped.
+    Finance users are allowed read-only access; mutations remain superuser-only.
     """
 
     def _ensure_superuser(self):
-        if not self.request.user.is_superuser:
-            raise PermissionDenied(
-                "Accounting API access is temporarily restricted to superusers."
-            )
+        from accounting.permissions import is_finance_user
+
+        request = self.request
+        if request.user.is_superuser:
+            return
+        if request.method in SAFE_METHODS and is_finance_user(request.user):
+            return
+        raise PermissionDenied(
+            "Accounting API access is temporarily restricted to superusers."
+        )
 
 
 class DepartmentViewSet(TenantScopedModelViewSet):

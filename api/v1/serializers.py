@@ -316,6 +316,7 @@ class PayrollRunSerializer(serializers.ModelSerializer):
             "name",
             "slug",
             "paydays",
+            "payment_date",
             "is_active",
             "closed",
         ]

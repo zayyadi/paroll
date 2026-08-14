@@ -57,7 +57,7 @@ Usage:
 
     # Cache management
     cache_service = NotificationCacheService()
-    cache_service.invalidate_user_cache(str(employee.id))
+    cache_service.invalidate_user_cache(employee)
 """
 
 from payroll.services.notification_service import (

@@ -4,52 +4,52 @@
 
 {% block content %}
 <div class="max-w-4xl mx-auto space-y-6">
-    <div class="bg-white rounded-xl shadow-soft p-6 border border-secondary-100">
-        <h2 class="text-lg font-semibold text-secondary-900">New Leave Request</h2>
-        <p class="mt-1 text-sm text-secondary-600">Submit leave details for review and approval.</p>
+    <div class="editorial-panel p-6 border-l-4 border-tertiary-fixed">
+        <h2 class="font-headline text-xl font-bold text-primary-800">New Leave Request</h2>
+        <p class="mt-1 text-sm text-on-surface-variant">Submit leave details for review and approval.</p>
     </div>
 
     <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
-        <div class="bg-white rounded-xl shadow-soft p-4"><p class="text-xs text-secondary-500 uppercase">Annual</p><p class="text-xl font-semibold">{{ leave_balances.annual|default:0 }}</p></div>
-        <div class="bg-white rounded-xl shadow-soft p-4"><p class="text-xs text-secondary-500 uppercase">Sick</p><p class="text-xl font-semibold">{{ leave_balances.sick|default:0 }}</p></div>
-        <div class="bg-white rounded-xl shadow-soft p-4"><p class="text-xs text-secondary-500 uppercase">Casual</p><p class="text-xl font-semibold">{{ leave_balances.casual|default:0 }}</p></div>
-        <div class="bg-white rounded-xl shadow-soft p-4"><p class="text-xs text-secondary-500 uppercase">Maternity</p><p class="text-xl font-semibold">{{ leave_balances.maternity|default:0 }}</p></div>
-        <div class="bg-white rounded-xl shadow-soft p-4"><p class="text-xs text-secondary-500 uppercase">Paternity</p><p class="text-xl font-semibold">{{ leave_balances.paternity|default:0 }}</p></div>
+        <div class="bento-card text-center"><p class="text-xs font-bold uppercase tracking-[0.14em] text-secondary-500">Annual</p><p class="mt-1 font-headline text-2xl font-extrabold text-on-surface tabular-nums">{{ leave_balances.annual|default:0 }}</p></div>
+        <div class="bento-card text-center"><p class="text-xs font-bold uppercase tracking-[0.14em] text-secondary-500">Sick</p><p class="mt-1 font-headline text-2xl font-extrabold text-on-surface tabular-nums">{{ leave_balances.sick|default:0 }}</p></div>
+        <div class="bento-card text-center"><p class="text-xs font-bold uppercase tracking-[0.14em] text-secondary-500">Casual</p><p class="mt-1 font-headline text-2xl font-extrabold text-on-surface tabular-nums">{{ leave_balances.casual|default:0 }}</p></div>
+        <div class="bento-card text-center"><p class="text-xs font-bold uppercase tracking-[0.14em] text-secondary-500">Maternity</p><p class="mt-1 font-headline text-2xl font-extrabold text-on-surface tabular-nums">{{ leave_balances.maternity|default:0 }}</p></div>
+        <div class="bento-card text-center"><p class="text-xs font-bold uppercase tracking-[0.14em] text-secondary-500">Paternity</p><p class="mt-1 font-headline text-2xl font-extrabold text-on-surface tabular-nums">{{ leave_balances.paternity|default:0 }}</p></div>
     </div>
 
-    <form method="post" class="bg-white rounded-xl shadow-soft p-6 border border-secondary-100 space-y-5">
+    <form method="post" class="bento-card space-y-5">
         {% csrf_token %}
         {% if form.non_field_errors %}
-        <div class="rounded-xl border border-danger-200 bg-danger-50 p-4 text-sm text-danger-800">{{ form.non_field_errors }}</div>
+        <div class="rounded-2xl border border-danger-200 bg-danger-50 p-4 text-sm text-danger-800">{{ form.non_field_errors }}</div>
         {% endif %}
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
             <div>
-                <label for="{{ form.leave_type.id_for_label }}" class="block text-sm font-medium text-secondary-700 mb-1">Leave Type</label>
+                <label for="{{ form.leave_type.id_for_label }}" class="block text-xs font-bold uppercase tracking-[0.12em] text-on-surface-variant mb-1.5">Leave Type</label>
                 {{ form.leave_type }}
                 {% for error in form.leave_type.errors %}<p class="text-xs text-danger-600 mt-1">{{ error }}</p>{% endfor %}
             </div>
             <div></div>
             <div>
-                <label for="{{ form.start_date.id_for_label }}" class="block text-sm font-medium text-secondary-700 mb-1">Start Date</label>
+                <label for="{{ form.start_date.id_for_label }}" class="block text-xs font-bold uppercase tracking-[0.12em] text-on-surface-variant mb-1.5">Start Date</label>
                 {{ form.start_date }}
                 {% for error in form.start_date.errors %}<p class="text-xs text-danger-600 mt-1">{{ error }}</p>{% endfor %}
             </div>
             <div>
-                <label for="{{ form.end_date.id_for_label }}" class="block text-sm font-medium text-secondary-700 mb-1">End Date</label>
+                <label for="{{ form.end_date.id_for_label }}" class="block text-xs font-bold uppercase tracking-[0.12em] text-on-surface-variant mb-1.5">End Date</label>
                 {{ form.end_date }}
                 {% for error in form.end_date.errors %}<p class="text-xs text-danger-600 mt-1">{{ error }}</p>{% endfor %}
             </div>
             <div class="md:col-span-2">
-                <label for="{{ form.reason.id_for_label }}" class="block text-sm font-medium text-secondary-700 mb-1">Reason</label>
+                <label for="{{ form.reason.id_for_label }}" class="block text-xs font-bold uppercase tracking-[0.12em] text-on-surface-variant mb-1.5">Reason</label>
                 {{ form.reason }}
                 {% for error in form.reason.errors %}<p class="text-xs text-danger-600 mt-1">{{ error }}</p>{% endfor %}
             </div>
         </div>
 
         <div class="flex justify-end gap-3">
-            <a href="{% url 'payroll:leave_requests' %}" class="px-4 py-2.5 rounded-xl border border-secondary-300 text-secondary-700 hover:bg-secondary-50 text-sm font-medium">Cancel</a>
-            <button type="submit" class="btn-primary px-6 py-2.5 rounded-xl text-white text-sm font-medium">Submit Request</button>
+            <a href="{% url 'payroll:leave_requests' %}" class="editorial-secondary editorial-action px-4 py-2.5 rounded-xl text-sm font-medium">Cancel</a>
+            <button type="submit" class="btn-primary editorial-action px-6 py-2.5 rounded-xl text-white text-sm font-medium">Submit Request</button>
         </div>
     </form>
 </div>

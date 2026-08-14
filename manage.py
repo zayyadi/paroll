@@ -9,7 +9,13 @@ import dotenv
 def main():
     """Run administrative tasks."""
     dotenv.load_dotenv(".env")
-    os.environ.setdefault("DJANGO_SETTINGS_MODULE", "core.settings")
+    # Tests run against core.settings_test: SQLite + in-memory cache + the
+    # default-company fallback, so the suite is hermetic and deterministic.
+    # An explicit --settings flag still overrides this choice.
+    if "test" in sys.argv:
+        os.environ.setdefault("DJANGO_SETTINGS_MODULE", "core.settings_test")
+    else:
+        os.environ.setdefault("DJANGO_SETTINGS_MODULE", "core.settings")
     try:
         from django.core.management import execute_from_command_line
     except ImportError as exc:

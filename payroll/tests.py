@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 from io import StringIO
 
@@ -14,6 +14,8 @@ from unittest.mock import patch
 from company.models import Company
 from accounting.models import DisciplinaryCase, DisciplinarySanction, Journal, JournalEntry
 from payroll.forms import PayrollRunCreateForm, IOURequestForm, IOUApprovalForm
+from payroll.models.utils import AuditTrail
+from payroll.services.ewa import ew_advance_limits
 from payroll.models import (
     CompanyPayrollSetting,
     EmployeeProfile,
@@ -485,6 +487,30 @@ class PayrollRunCreateViewTests(TestCase):
         self.assertEqual(payroll_run.payroll_run_entries.count(), 1)
         self.assertEqual(PayslipEmailJob.objects.filter(payroll_run=payroll_run).count(), 1)
         mocked_enqueue.assert_called_once()
+
+    @patch("payroll.models.payroll.PayslipEmailJob.enqueue")
+    def test_create_page_posts_payment_date(self, mocked_enqueue):
+        self.client.force_login(self.hr_user)
+
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.post(
+                reverse("payroll:payday_create_new"),
+                data={
+                    "name": "June Payroll Paid",
+                    "paydays": "2026-06",
+                    "payment_date": "2026-06-15",
+                    "is_active": "on",
+                    "payroll_payday": str(self.employee.pk),
+                },
+            )
+
+        payroll_run = PayrollRun.objects.get(name="June Payroll Paid")
+        self.assertRedirects(
+            response,
+            reverse("payroll:pay_period_detail", kwargs={"slug": payroll_run.slug}),
+            fetch_redirect_response=False,
+        )
+        self.assertEqual(payroll_run.payment_date, date(2026, 6, 15))
 
     def test_create_page_post_shows_error_when_no_employee_is_selected(self):
         self.client.force_login(self.hr_user)
@@ -1818,3 +1844,265 @@ class HiringWorkflowFoundationTests(TestCase):
         self.assertEqual(requisition.status, JobRequisition.Status.FILLED)
         self.assertEqual(execution.template, onboarding_template)
         self.assertEqual(execution.context["candidate_email"], "mira@example.com")
+
+
+class EWAAdvanceEngineTests(TestCase):
+    """EWA productizes the IOU engine: advance caps, frequency rules, guardrails."""
+
+    def setUp(self):
+        self.company = Company.objects.create(name="EWA Co")
+        self.user = get_user_model().objects.create_user(
+            email="ewa@example.com",
+            password="testpass123",
+            first_name="Ewa",
+            last_name="Employee",
+            company=self.company,
+            active_company=self.company,
+        )
+        self.employee = EmployeeProfile.objects.get(user=self.user)
+        self.employee.company = self.company
+        self.employee.status = "active"
+        self.employee.employee_pay = Payroll.objects.create(
+            company=self.company, basic_salary=Decimal("200000.00")
+        )
+        self.employee.save(update_fields=["company", "status", "employee_pay"])
+        # EmployeeProfile.save() recomputes net_pay; pin it via update() so
+        # the engine tests assert against a deterministic 200,000.
+        EmployeeProfile.objects.filter(pk=self.employee.pk).update(
+            net_pay=Decimal("200000.00")
+        )
+        self.employee.refresh_from_db()
+        self.setting = CompanyPayrollSetting.objects.create(
+            company=self.company, ewa_enabled=True
+        )
+
+    def _add_advance(self, amount, status="APPROVED", created=None):
+        iou = IOU.objects.create(
+            employee_id=self.employee,
+            amount=Decimal(amount),
+            tenor=1,
+            status=status,
+            is_ewa=True,
+        )
+        if created:
+            IOU.objects.filter(pk=iou.pk).update(created_at=created)
+        return iou
+
+    def test_advance_cap_scales_with_earned_pay(self):
+        # June 2026 has 30 days: by the 15th half the net is earned, and the
+        # 50% advance cap = 50,000 for a 200,000 monthly net.
+        limits = ew_advance_limits(self.employee, as_of=date(2026, 6, 15))
+        self.assertTrue(limits["enabled"])
+        self.assertEqual(limits["earned_net"], Decimal("100000.00"))
+        self.assertEqual(limits["cycle_advance_cap"], Decimal("50000.00"))
+        self.assertEqual(limits["max_available"], Decimal("50000.00"))
+        self.assertTrue(limits["eligible"])
+
+    def test_frequency_rule_blocks_after_max_per_cycle(self):
+        self._add_advance("20000")
+        self._add_advance("30000")
+        limits = ew_advance_limits(self.employee, as_of=timezone.localdate())
+        self.assertEqual(limits["advances_this_cycle"], 2)
+        self.assertEqual(limits["remaining_this_cycle"], 0)
+        self.assertFalse(limits["eligible"])
+        self.assertTrue(any("used all 2" in reason for reason in limits["reasons"]))
+
+    def test_min_days_between_blocks_repeat_requests(self):
+        self._add_advance("20000")  # created today
+        blocked = ew_advance_limits(
+            self.employee, as_of=timezone.localdate() + timedelta(days=3)
+        )
+        self.assertFalse(blocked["eligible"])
+        self.assertTrue(
+            any("next advance" in reason.lower() for reason in blocked["reasons"])
+        )
+        # After the waiting window the frequency rule no longer blocks.
+        allowed = ew_advance_limits(
+            self.employee, as_of=timezone.localdate() + timedelta(days=7)
+        )
+        self.assertTrue(allowed["eligible"])
+
+    def test_net_pay_guardrail_binds_below_cycle_cap(self):
+        # A 60,000 outstanding advance from a prior cycle leaves 40,000 of
+        # headroom against the 50% take-home floor (100,000) - which binds
+        # below the 50,000 earned-pay cap.
+        self._add_advance("60000", created=date(2026, 5, 1))
+        limits = ew_advance_limits(self.employee, as_of=date(2026, 6, 15))
+        self.assertEqual(limits["outstanding_total"], Decimal("60000.00"))
+        self.assertEqual(limits["outstanding_in_cycle"], Decimal("0.00"))
+        self.assertEqual(limits["guardrail_cap"], Decimal("40000.00"))
+        self.assertEqual(limits["max_available"], Decimal("40000.00"))
+        self.assertTrue(limits["eligible"])
+
+    def test_ew_advance_ineligible_when_disabled(self):
+        self.setting.ewa_enabled = False
+        self.setting.save(update_fields=["ewa_enabled"])
+        limits = ew_advance_limits(self.employee, as_of=date(2026, 6, 15))
+        self.assertFalse(limits["enabled"])
+        self.assertFalse(limits["eligible"])
+        self.assertEqual(limits["max_available"], Decimal("0.00"))
+
+
+class EWASelfServiceViewTests(TestCase):
+    """The self-service EWA request flow enforces the rules engine."""
+
+    def setUp(self):
+        self.company = Company.objects.create(name="EWA View Co")
+        self.user = get_user_model().objects.create_user(
+            email="ewa-view@example.com",
+            password="testpass123",
+            first_name="Ewa",
+            last_name="View",
+            company=self.company,
+            active_company=self.company,
+        )
+        self.employee = EmployeeProfile.objects.get(user=self.user)
+        self.employee.company = self.company
+        self.employee.status = "active"
+        self.employee.employee_pay = Payroll.objects.create(
+            company=self.company, basic_salary=Decimal("200000.00")
+        )
+        self.employee.save(update_fields=["company", "status", "employee_pay"])
+        # The view reads net_pay from the DB; pin it for deterministic caps.
+        EmployeeProfile.objects.filter(pk=self.employee.pk).update(
+            net_pay=Decimal("200000.00")
+        )
+        CompanyPayrollSetting.objects.create(
+            company=self.company, ewa_enabled=True
+        )
+        self.client.login(email=self.user.email, password="testpass123")
+
+    def test_request_ewa_page_renders_limits(self):
+        response = self.client.get(reverse("payroll:request_ewa"))
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "iou/request_ewa_new.html")
+        self.assertContains(response, "Earned Wage Access")
+        self.assertContains(response, "Maximum advance")
+
+    def test_request_ewa_creates_advance_with_one_month_tenor(self):
+        # 2,000 is below the smallest possible earned-pay cap (day 1 of any
+        # month: 200,000 / 31 x 50%), so the test is date-independent.
+        response = self.client.post(
+            reverse("payroll:request_ewa"),
+            data={"amount": "2000", "tenor": "5", "reason": "School fees"},
+        )
+        self.assertRedirects(
+            response,
+            reverse("payroll:iou_history"),
+            fetch_redirect_response=False,
+        )
+        advance = IOU.objects.get(employee_id=self.employee)
+        self.assertTrue(advance.is_ewa)
+        self.assertEqual(advance.tenor, 1)
+
+    def test_request_ewa_rejects_over_cap_amount(self):
+        setting = CompanyPayrollSetting.objects.get(company=self.company)
+        setting.ewa_advance_percent = Decimal("5.00")
+        setting.save(update_fields=["ewa_advance_percent"])
+        response = self.client.post(
+            reverse("payroll:request_ewa"),
+            data={"amount": "100000", "tenor": "1", "reason": "Too much"},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "cannot be more than")
+        self.assertFalse(IOU.objects.filter(employee_id=self.employee).exists())
+
+    def test_request_ewa_blocked_when_disabled(self):
+        setting = CompanyPayrollSetting.objects.get(company=self.company)
+        setting.ewa_enabled = False
+        setting.save(update_fields=["ewa_enabled"])
+        response = self.client.get(reverse("payroll:request_ewa"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "not enabled for your company")
+
+
+class AuditSignalCascadeDeleteTests(TestCase):
+    """
+    Audit signal handlers must never break cascade teardown.
+
+    Deleting a User (or Company) tears down the employee and its children;
+    ``post_delete`` handlers that resolve ``instance.user`` / ``instance.employee``
+    previously raised ``DoesNotExist`` when the related row was already gone,
+    crashing the delete. The hardened handlers resolve the audit user safely
+    and always fall back to ``None``.
+    """
+
+    def setUp(self):
+        self.company = Company.objects.create(name="Cascade Audit Co")
+        self.user = get_user_model().objects.create_user(
+            email="cascade-audit@example.com",
+            password="testpass123",
+            first_name="Cascade",
+            last_name="Audit",
+            company=self.company,
+            active_company=self.company,
+        )
+        self.employee = EmployeeProfile.objects.get(user=self.user)
+        self.employee.company = self.company
+        self.employee.status = "active"
+        self.employee.employee_pay = Payroll.objects.create(
+            company=self.company, basic_salary=Decimal("120000.00")
+        )
+        self.employee.save(update_fields=["company", "status", "employee_pay"])
+        Allowance.objects.create(
+            employee=self.employee,
+            allowance_type="transport",
+            amount=Decimal("10000"),
+        )
+        LeaveRequest.objects.create(
+            employee=self.employee,
+            leave_type="ANNUAL",
+            start_date="2026-07-01",
+            end_date="2026-07-10",
+            status="PENDING",
+            reason="family",
+        )
+
+    def test_user_cascade_delete_does_not_crash_audit_signals(self):
+        # Deleting the owning user cascades to the employee and its children;
+        # the post_delete audit handlers must not crash on the gone user row.
+        self.user.delete()  # must not raise
+        self.assertFalse(
+            EmployeeProfile.objects.filter(pk=self.employee.pk).exists()
+        )
+        # The teardown is still audited (with user=None once the row is gone).
+        self.assertTrue(
+            AuditTrail.objects.filter(action="Deleted EmployeeProfile").exists()
+        )
+
+    def test_company_cascade_delete_does_not_crash_audit_signals(self):
+        # Payroll.company is PROTECTed, so use a company without a salary
+        # config: deleting it hard-deletes the employee and children via the
+        # collector, and the audit handlers must still complete.
+        company = Company.objects.create(name="Cascade Audit Co 2")
+        user = get_user_model().objects.create_user(
+            email="cascade-audit-2@example.com",
+            password="testpass123",
+            first_name="Cascade",
+            last_name="Two",
+            company=company,
+            active_company=company,
+        )
+        employee = EmployeeProfile.objects.get(user=user)
+        employee.company = company
+        employee.status = "active"
+        employee.save(update_fields=["company", "status"])
+        Allowance.objects.create(
+            employee=employee,
+            allowance_type="transport",
+            amount=Decimal("10000"),
+        )
+
+        company.delete()  # must not raise
+        self.assertFalse(EmployeeProfile.objects.filter(pk=employee.pk).exists())
+
+    def test_employee_delete_path_is_soft_and_does_not_crash(self):
+        # The delete_employee view deletes the profile directly; EmployeeProfile
+        # is a soft-delete model, so no post_delete fires - it must simply not
+        # crash and mark the row deleted.
+        self.employee.delete()  # must not raise
+        self.assertIsNotNone(
+            EmployeeProfile.all_objects.filter(pk=self.employee.pk)
+            .values_list("deleted_at", flat=True)
+            .first()
+        )

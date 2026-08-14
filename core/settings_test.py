@@ -44,6 +44,7 @@ SESSION_COOKIE_SECURE = False
 CSRF_COOKIE_SECURE = False
 ACCOUNTING_SUPERUSER_ONLY_UNTIL_TENANT_SCOPED = False
 ALLOW_DEFAULT_COMPANY_FALLBACK = True
+TENANT_SCOPING_ENFORCED = False
 ALLOWED_HOSTS = ["testserver", "localhost", "127.0.0.1"]
 
 # Keep tests deterministic and quiet by disabling notification side effects.

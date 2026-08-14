@@ -1,0 +1,9 @@
+{% if value == "yes" %}
+<span class="inline-flex items-center gap-1 text-green-700" title="Yes"><i data-lucide="check" class="h-3.5 w-3.5"></i></span>
+{% elif value == "partial" %}
+<span class="inline-flex items-center gap-1 text-amber-600" title="Partial"><i data-lucide="minus" class="h-3.5 w-3.5"></i></span>
+{% elif value == "no" %}
+<span class="inline-flex items-center gap-1 text-red-600" title="No"><i data-lucide="x" class="h-3.5 w-3.5"></i></span>
+{% else %}
+<span class="inline-flex items-center text-secondary-300" title="Unknown">•</span>
+{% endif %}

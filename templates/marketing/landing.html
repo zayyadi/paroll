@@ -1,18 +1,89 @@
 {% extends "marketing/base.html" %}
-{% block title %}Payroll SaaS for Growing Teams | PayNest{% endblock %}
-{% block meta_description %}Run compliant payroll, automate statutory deductions, and onboard employees faster with PayNest.{% endblock %}
+{% block title %}From Calculation to Remittance | PayNest{% endblock %}
+{% block meta_description %}PayNest takes Nigerian payroll from calculation to remittance: statutory PAYE, pension, NHF and NHIA schedules, reform-ready rates, and governance controls that protect your compliance record.{% endblock %}
+{% block page_intro %}{% endblock %}
 {% block content %}
-<section class="hero">
-    <h1>Run compliant payroll in minutes, not days.</h1>
-    <p>PayNest helps African businesses automate payroll, taxes, and employee workflows from one platform.</p>
-    <p>
-        <a class="button primary" href="{% url 'users:register' %}">Start free trial</a>
-        <a class="button secondary" href="{% url 'marketing:contact' %}">Book demo</a>
-    </p>
+<section class="grid items-center gap-10 lg:grid-cols-2 lg:gap-16">
+    <div class="py-4 lg:py-10">
+        <span class="inline-flex rounded-md bg-tertiary-fixed px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-tertiary">Statutory Payroll Command</span>
+        <h1 class="mt-5 max-w-2xl font-headline text-5xl font-extrabold leading-[1.04] tracking-tight text-primary lg:text-7xl">From calculation to remittance.</h1>
+        <p class="mt-6 max-w-xl text-base leading-7 text-on-surface-variant">Most payroll software stops when the numbers are right. PayNest carries every cycle the rest of the way — monthly PAYE schedules, pension and NHF/NHIA remittances, the 31 January return, and bank-ready payment files — so the spreadsheets never come back.</p>
+        <div class="mt-8 flex flex-wrap gap-3">
+            <a class="button primary" href="{% url 'marketing:contact' %}">Request executive demo <span aria-hidden="true">→</span></a>
+            <a class="button secondary" href="{% url 'users:register' %}">View platform tour</a>
+        </div>
+    </div>
+    <div class="relative min-h-[420px] overflow-hidden rounded-[2rem] bg-primary p-8 text-white lg:rotate-2">
+        <div class="absolute -right-14 -top-14 h-56 w-56 rounded-full border border-white/10"></div>
+        <div class="absolute -bottom-24 -left-16 h-72 w-72 rounded-full border border-white/10"></div>
+        <div class="relative flex h-full flex-col justify-between">
+            <div class="flex items-start justify-between">
+                <div><p class="text-xs font-bold uppercase tracking-[0.22em] text-primary-100">Statutory remittance calendar</p><p class="mt-2 font-headline text-3xl font-extrabold">Every deadline, computed for you</p></div>
+                <span class="rounded-full bg-white/10 px-3 py-1 text-xs">Live</span>
+            </div>
+            <div class="space-y-3">
+                <div class="flex items-center justify-between rounded-2xl bg-white/10 p-4"><div><p class="text-sm font-bold">PAYE remittance</p><p class="text-xs text-primary-100">Due 10th of the month following salary payment</p></div><span class="rounded-full bg-white/15 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider">Scheduled</span></div>
+                <div class="flex items-center justify-between rounded-2xl bg-white/10 p-4"><div><p class="text-sm font-bold">Pension (PenCom)</p><p class="text-xs text-primary-100">Within 7 working days of salary payment</p></div><span class="rounded-full bg-white/15 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider">Scheduled</span></div>
+                <div class="flex items-center justify-between rounded-2xl bg-white/10 p-4"><div><p class="text-sm font-bold">NHF &amp; NHIA</p><p class="text-xs text-primary-100">Monthly contribution schedules, per employee</p></div><span class="rounded-full bg-white/15 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider">Ready</span></div>
+                <div class="flex items-center justify-between rounded-2xl bg-white p-4 text-primary"><div><p class="text-sm font-bold">Annual emoluments return</p><p class="text-xs text-on-surface-variant">Filed by 31 January each year</p></div><span class="rounded-full bg-tertiary-fixed px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-tertiary">On track</span></div>
+            </div>
+        </div>
+    </div>
 </section>
-<section class="grid">
-    <div class="card"><h3>Fast onboarding</h3><p>Set up your company and import employees quickly.</p></div>
-    <div class="card"><h3>Payroll accuracy</h3><p>Automated statutory deductions and auditable workflows.</p></div>
-    <div class="card"><h3>Support that responds</h3><p>Dedicated team with clear escalation process.</p></div>
+
+<section class="mt-16">
+    <div class="mb-8 flex items-end justify-between gap-6">
+        <div>
+            <p class="text-xs font-bold uppercase tracking-[0.18em] text-primary">Statutory completeness</p>
+            <h2 class="mt-2 font-headline text-3xl font-extrabold text-primary">Payroll that finishes the job.</h2>
+            <p class="mt-4 max-w-2xl text-on-surface-variant">The real test of a payroll platform is whether the team still reaches for spreadsheets after the calculation. PayNest is built to end that cycle: every statutory output a Nigerian employer owes, generated from the same run.</p>
+        </div>
+    </div>
+    <div class="grid gap-6 md:grid-cols-4">
+        <article class="card"><span class="inline-flex rounded-xl bg-primary px-3 py-3 text-white"><i data-lucide="calculator" class="h-5 w-5"></i></span><h3 class="mt-5">Compute</h3><p>PAYE on the current tax bands with rent relief, pension, NHF and NHIA splits computed per employee — including minimum-wage exemptions.</p></article>
+        <article class="card"><span class="inline-flex rounded-xl bg-tertiary-fixed px-3 py-3 text-tertiary"><i data-lucide="file-text" class="h-5 w-5"></i></span><h3 class="mt-5">Schedule</h3><p>Monthly PAYE schedules, pension remittance lists, NHF and NHIA contribution schedules — the documents your remittance portals expect.</p></article>
+        <article class="card"><span class="inline-flex rounded-xl bg-secondary-container px-3 py-3 text-primary"><i data-lucide="calendar-check" class="h-5 w-5"></i></span><h3 class="mt-5">File</h3><p>A statutory compliance calendar computes every due date, flags overdue remittances, and tracks the annual emoluments return.</p></article>
+        <article class="card"><span class="inline-flex rounded-xl bg-secondary-container px-3 py-3 text-primary"><i data-lucide="send" class="h-5 w-5"></i></span><h3 class="mt-5">Pay</h3><p>Bank-ready payment files generated straight from the approved run, so salaries move on time and records stay in one place.</p></article>
+    </div>
+</section>
+
+<section class="mt-16 overflow-hidden rounded-[2rem] bg-primary px-6 py-12 text-white lg:px-12">
+    <div class="grid items-center gap-10 lg:grid-cols-2 lg:gap-16">
+        <div>
+            <p class="text-xs font-bold uppercase tracking-[.18em] text-primary-100">Reform-ready</p>
+            <h2 class="mt-3 font-headline text-4xl font-extrabold">Already on the 2026 tax reform.</h2>
+            <p class="mt-5 text-primary-100">The Nigeria Tax Act 2025 rewrote PAYE from 1 January 2026: new 0%–25% bands, a ₦800,000 tax-free threshold, rent relief replacing the old consolidated allowance, and fully exempt minimum-wage earners. While global vendors scrambled to update, PayNest ships the new regime as the default — with the pre-reform PITA bands kept as data for retrospective runs.</p>
+        </div>
+        <div class="grid gap-4 sm:grid-cols-2">
+            <div class="rounded-2xl bg-white/10 p-5"><p class="text-4xl font-extrabold">0–25%</p><p class="mt-2 text-sm text-primary-100">Progressive bands under the Nigeria Tax Act 2025</p></div>
+            <div class="rounded-2xl bg-white/10 p-5"><p class="text-4xl font-extrabold">₦800k</p><p class="mt-2 text-sm text-primary-100">Annual tax-free threshold</p></div>
+            <div class="rounded-2xl bg-white/10 p-5"><p class="text-4xl font-extrabold">₦500k</p><p class="mt-2 text-sm text-primary-100">Rent relief cap (20% of annual rent)</p></div>
+            <div class="rounded-2xl bg-white/10 p-5"><p class="text-4xl font-extrabold">Pre-NTA</p><p class="mt-2 text-sm text-primary-100">PITA bands retained for retrospective runs</p></div>
+        </div>
+    </div>
+</section>
+
+<section class="mt-16">
+    <div class="mb-8 flex items-end justify-between gap-6">
+        <div>
+            <p class="text-xs font-bold uppercase tracking-[0.18em] text-primary">Governance as a feature</p>
+            <h2 class="mt-2 font-headline text-3xl font-extrabold text-primary">Statutory remittance is where trust breaks. PayNest makes it the product.</h2>
+            <p class="mt-4 max-w-2xl text-on-surface-variant">Set-and-forget payroll has a cost: when tax and pension remittances quietly fail, the employer — not the software — answers to the state. PayNest treats segregation of duties, audit trails, and remittance oversight as first-class payroll controls.</p>
+        </div>
+    </div>
+    <div class="grid gap-6 md:grid-cols-3">
+        <article class="card"><span class="inline-flex rounded-xl bg-primary px-3 py-3 text-white"><i data-lucide="shield-check" class="h-5 w-5"></i></span><h3 class="mt-5">Segregation of duties</h3><p>Payroll processors run operations; finance and HR see what their role requires — view-only where it should be — so no single actor controls calculation, approval, and remittance.</p></article>
+        <article class="card"><span class="inline-flex rounded-xl bg-tertiary-fixed px-3 py-3 text-tertiary"><i data-lucide="scroll-text" class="h-5 w-5"></i></span><h3 class="mt-5">Audit trails</h3><p>Sensitive access to payslips, bank details, and pension data is logged with who, when, and why — a reviewable record for internal and statutory scrutiny.</p></article>
+        <article class="card"><span class="inline-flex rounded-xl bg-secondary-container px-3 py-3 text-primary"><i data-lucide="badge-check" class="h-5 w-5"></i></span><h3 class="mt-5">Remittance oversight</h3><p>Every obligation is tracked to its due date, with overdue remittances flagged and pension penalty exposure (2% per month) surfaced before it compounds.</p></article>
+    </div>
+</section>
+
+<section class="mt-16 rounded-[2rem] bg-primary px-6 py-12 text-center text-white lg:px-16">
+    <h2 class="font-headline text-4xl font-extrabold">Run every cycle to remittance.</h2>
+    <p class="mx-auto mt-4 max-w-2xl text-primary-100">Compliance-complete payroll, already on the 2026 reform, with governance controls your auditors will thank you for.</p>
+    <div class="mt-8 flex flex-wrap justify-center gap-3">
+        <a href="{% url 'users:register' %}" class="button secondary">Get started immediately</a>
+        <a href="{% url 'marketing:contact' %}" class="button border border-white/30 text-white">Speak to a specialist</a>
+    </div>
 </section>
 {% endblock %}

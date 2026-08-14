@@ -123,10 +123,12 @@ from .decorators import (
     auditor_required,
     accounting_role_required,
     auditor_or_accountant_required,
+    auditor_or_finance_read_required,
     discipline_access_required,
 )
 from .mixins import (
     AuditorRequiredMixin,
+    AuditorOrFinanceReadMixin,
     AccountantRequiredMixin,
     AccountingRoleRequiredMixin,
     AuditorOrAccountantRequiredMixin,
@@ -1310,9 +1312,9 @@ class AccountingPeriodCloseView(LoginRequiredMixin, PeriodClosingMixin, FormView
             return redirect("accounting:period_close", pk=period.pk)
 
 
-class AuditTrailListView(LoginRequiredMixin, AuditorRequiredMixin, ListView):
+class AuditTrailListView(LoginRequiredMixin, AuditorOrFinanceReadMixin, ListView):
     """
-    List all audit trail entries (auditors only)
+    List all audit trail entries (auditors, or finance users read-only)
     """
 
     model = AccountingAuditTrail
@@ -1347,9 +1349,9 @@ class AuditTrailListView(LoginRequiredMixin, AuditorRequiredMixin, ListView):
         return context
 
 
-class AuditTrailDetailView(LoginRequiredMixin, AuditorRequiredMixin, DetailView):
+class AuditTrailDetailView(LoginRequiredMixin, AuditorOrFinanceReadMixin, DetailView):
     """
-    View audit trail entry details (auditors only)
+    View audit trail entry details (auditors, or finance users read-only)
     """
 
     model = AccountingAuditTrail
@@ -1425,6 +1427,32 @@ class DisciplinaryCaseListView(
         context["is_accountant"] = is_accountant(self.request.user)
         context["is_payroll_processor"] = is_payroll_processor(self.request.user)
         context["is_hr_staff"] = is_hr_staff(self.request.user)
+
+        # Real case-board aggregates (company-wide, not just the current page)
+        case_qs = _disciplinary_case_queryset_for_user(self.request.user)
+        total_cases = case_qs.count()
+        active_statuses = [
+            DisciplinaryCase.Status.INTAKE,
+            DisciplinaryCase.Status.UNDER_INVESTIGATION,
+            DisciplinaryCase.Status.PANEL_REVIEW,
+        ]
+        resolved_statuses = [
+            DisciplinaryCase.Status.DECIDED,
+            DisciplinaryCase.Status.APPEALED,
+            DisciplinaryCase.Status.CLOSED,
+            DisciplinaryCase.Status.DISMISSED,
+        ]
+        documented_findings = (
+            case_qs.exclude(finding__isnull=True).exclude(finding="").count()
+        )
+        context["active_cases_count"] = case_qs.filter(status__in=active_statuses).count()
+        context["resolved_cases_count"] = case_qs.filter(
+            status__in=resolved_statuses
+        ).count()
+        context["documented_findings_count"] = documented_findings
+        context["documentation_rate"] = (
+            round(documented_findings / total_cases * 100) if total_cases else 0
+        )
         return context
 
 
@@ -2204,10 +2232,10 @@ def account_activity_report_for_account(request, pk):
 
 
 @login_required
-@auditor_required
+@auditor_or_finance_read_required
 def reports_index(request):
     """
-    Index page for accounting reports (auditors only)
+    Index page for accounting reports (auditors, or finance users read-only)
     """
 
     company = get_user_company(request.user)

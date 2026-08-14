@@ -7,75 +7,75 @@
 {% block page_header %}Payslip for {{ dates }}{% endblock %}
 
 {% block content %}
-<div class="container mx-auto my-8 max-w-6xl px-4">
-    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-        <div class="px-8 py-6 border-b border-slate-200 bg-slate-50">
+<div class="container mx-auto max-w-6xl">
+    <div class="overflow-hidden rounded-2xl bg-surface-container-lowest border border-outline-variant shadow-card">
+        <div class="px-8 py-6 border-b border-outline-variant bg-surface-container-low">
             <div class="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
                 <div>
-                    <p class="text-xs uppercase tracking-[0.14em] text-slate-500">Payroll Statement</p>
-                    <h2 class="text-2xl font-bold text-slate-900">Payslip</h2>
-                    <p class="text-sm text-slate-600 mt-1">For period: {{ dates }}</p>
+                    <p class="text-xs font-bold uppercase tracking-[0.24em] text-secondary-500">Payroll Statement</p>
+                    <h2 class="mt-1 font-headline text-2xl font-extrabold text-primary-800">Payslip</h2>
+                    <p class="text-sm text-on-surface-variant mt-1">For period: {{ dates }}</p>
                 </div>
-                <div class="text-sm text-slate-600">
-                    <div><span class="font-semibold text-slate-800">Reference:</span> PSL-{{ pay.id }}</div>
-                    <div><span class="font-semibold text-slate-800">Generated:</span> {{ pay.payroll_run.paydays|date:"M d, Y" }}</div>
+                <div class="text-sm text-on-surface-variant">
+                    <div><span class="font-semibold text-on-surface">Reference:</span> PSL-{{ pay.id }}</div>
+                    <div><span class="font-semibold text-on-surface">Generated:</span> {{ pay.payroll_run.paydays|date:"M d, Y" }}</div>
                 </div>
             </div>
         </div>
 
         <div class="px-8 py-6">
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-                <div class="rounded-xl border border-slate-200 overflow-hidden">
-                    <div class="px-4 py-3 bg-slate-100 text-sm font-semibold text-slate-800">Employee Information</div>
+                <div class="rounded-xl border border-outline-variant overflow-hidden">
+                    <div class="px-4 py-3 bg-surface-container-low text-sm font-bold text-primary-800">Employee Information</div>
                     <table class="w-full text-sm">
-                        <tbody class="divide-y divide-slate-200">
+                        <tbody class="divide-y divide-outline-variant/30">
                             <tr>
-                                <td class="px-4 py-2 text-slate-500">Employee ID</td>
-                                <td class="px-4 py-2 text-right font-medium text-slate-800">{{ pay.payroll_entry.pays.emp_id|default:"N/A" }}</td>
+                                <td class="px-4 py-2 text-secondary-500">Employee ID</td>
+                                <td class="px-4 py-2 text-right font-medium text-on-surface tabular-nums">{{ pay.payroll_entry.pays.emp_id|default:"N/A" }}</td>
                             </tr>
                             <tr>
-                                <td class="px-4 py-2 text-slate-500">Employee Name</td>
-                                <td class="px-4 py-2 text-right font-medium text-slate-800">{{ pay.payroll_entry.pays.first_name }} {{ pay.payroll_entry.pays.last_name }}</td>
+                                <td class="px-4 py-2 text-secondary-500">Employee Name</td>
+                                <td class="px-4 py-2 text-right font-medium text-on-surface">{{ pay.payroll_entry.pays.first_name }} {{ pay.payroll_entry.pays.last_name }}</td>
                             </tr>
                             <tr>
-                                <td class="px-4 py-2 text-slate-500">Department</td>
-                                <td class="px-4 py-2 text-right font-medium text-slate-800">{{ pay.payroll_entry.pays.department.name|default:"N/A" }}</td>
+                                <td class="px-4 py-2 text-secondary-500">Department</td>
+                                <td class="px-4 py-2 text-right font-medium text-on-surface">{{ pay.payroll_entry.pays.department.name|default:"N/A" }}</td>
                             </tr>
                             <tr>
-                                <td class="px-4 py-2 text-slate-500">Designation</td>
-                                <td class="px-4 py-2 text-right font-medium text-slate-800">{{ pay.payroll_entry.pays.get_job_title_display|default:"N/A" }}</td>
+                                <td class="px-4 py-2 text-secondary-500">Designation</td>
+                                <td class="px-4 py-2 text-right font-medium text-on-surface">{{ pay.payroll_entry.pays.get_job_title_display|default:"N/A" }}</td>
                             </tr>
                             <tr>
-                                <td class="px-4 py-2 text-slate-500">Tax ID (TIN)</td>
-                                <td class="px-4 py-2 text-right font-medium text-slate-800">{{ pay.payroll_entry.pays.tin_no|default:"N/A" }}</td>
+                                <td class="px-4 py-2 text-secondary-500">Tax ID (TIN)</td>
+                                <td class="px-4 py-2 text-right font-medium text-on-surface tabular-nums">{{ pay.payroll_entry.pays.tin_no|default:"N/A" }}</td>
                             </tr>
                         </tbody>
                     </table>
                 </div>
 
-                <div class="rounded-xl border border-slate-200 overflow-hidden">
-                    <div class="px-4 py-3 bg-slate-100 text-sm font-semibold text-slate-800">Payment Information</div>
+                <div class="rounded-xl border border-outline-variant overflow-hidden">
+                    <div class="px-4 py-3 bg-surface-container-low text-sm font-bold text-primary-800">Payment Information</div>
                     <table class="w-full text-sm">
-                        <tbody class="divide-y divide-slate-200">
+                        <tbody class="divide-y divide-outline-variant/30">
                             <tr>
-                                <td class="px-4 py-2 text-slate-500">Pay Period</td>
-                                <td class="px-4 py-2 text-right font-medium text-slate-800">{{ dates }}</td>
+                                <td class="px-4 py-2 text-secondary-500">Pay Period</td>
+                                <td class="px-4 py-2 text-right font-medium text-on-surface">{{ dates }}</td>
                             </tr>
                             <tr>
-                                <td class="px-4 py-2 text-slate-500">Payment Method</td>
-                                <td class="px-4 py-2 text-right font-medium text-slate-800">Bank Transfer</td>
+                                <td class="px-4 py-2 text-secondary-500">Payment Method</td>
+                                <td class="px-4 py-2 text-right font-medium text-on-surface">Bank Transfer</td>
                             </tr>
                             <tr>
-                                <td class="px-4 py-2 text-slate-500">Bank</td>
-                                <td class="px-4 py-2 text-right font-medium text-slate-800">{{ pay.payroll_entry.pays.get_bank_display|default:"N/A" }}</td>
+                                <td class="px-4 py-2 text-secondary-500">Bank</td>
+                                <td class="px-4 py-2 text-right font-medium text-on-surface">{{ pay.payroll_entry.pays.get_bank_display|default:"N/A" }}</td>
                             </tr>
                             <tr>
-                                <td class="px-4 py-2 text-slate-500">Account Number</td>
-                                <td class="px-4 py-2 text-right font-medium text-slate-800">{{ pay.payroll_entry.pays.bank_account_number|mask_account_number|default:"N/A" }}</td>
+                                <td class="px-4 py-2 text-secondary-500">Account Number</td>
+                                <td class="px-4 py-2 text-right font-medium text-on-surface tabular-nums">{{ pay.payroll_entry.pays.bank_account_number|mask_account_number|default:"N/A" }}</td>
                             </tr>
                             <tr>
-                                <td class="px-4 py-2 text-slate-500">Currency</td>
-                                <td class="px-4 py-2 text-right font-medium text-slate-800">NGN (₦)</td>
+                                <td class="px-4 py-2 text-secondary-500">Currency</td>
+                                <td class="px-4 py-2 text-right font-medium text-on-surface">NGN (₦)</td>
                             </tr>
                         </tbody>
                     </table>
@@ -83,81 +83,81 @@
             </div>
 
             <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
-                <div class="rounded-xl border border-emerald-200 overflow-hidden">
-                    <div class="px-4 py-3 bg-emerald-50 text-sm font-semibold text-emerald-900">Earnings</div>
+                <div class="rounded-xl border border-success-200 overflow-hidden">
+                    <div class="px-4 py-3 bg-success-50 text-sm font-bold text-success-800">Earnings</div>
                     <table class="w-full text-sm">
-                        <thead class="bg-white">
-                            <tr class="text-slate-500 border-b border-slate-200">
+                        <thead class="bg-surface-container-lowest">
+                            <tr class="text-secondary-500 border-b border-outline-variant">
                                 <th class="px-4 py-2 text-left font-medium">Description</th>
                                 <th class="px-4 py-2 text-right font-medium">Amount (₦)</th>
                             </tr>
                         </thead>
-                        <tbody class="divide-y divide-slate-200">
+                        <tbody class="divide-y divide-outline-variant/30">
                             <tr>
-                                <td class="px-4 py-2 text-slate-700">Basic Salary</td>
-                                <td class="px-4 py-2 text-right font-medium text-slate-900">{{ basic|div:12|floatformat:2|intcomma }}</td>
+                                <td class="px-4 py-2 text-on-surface-variant">Basic Salary</td>
+                                <td class="px-4 py-2 text-right font-medium text-on-surface tabular-nums">{{ basic|div:12|floatformat:2|intcomma }}</td>
                             </tr>
                             <tr>
-                                <td class="px-4 py-2 text-slate-700">Transport</td>
-                                <td class="px-4 py-2 text-right font-medium text-slate-900">{{ pay_id_transport|floatformat:2|intcomma }}</td>
+                                <td class="px-4 py-2 text-on-surface-variant">Transport</td>
+                                <td class="px-4 py-2 text-right font-medium text-on-surface tabular-nums">{{ pay_id_transport|floatformat:2|intcomma }}</td>
                             </tr>
                             <tr>
-                                <td class="px-4 py-2 text-slate-700">Housing</td>
-                                <td class="px-4 py-2 text-right font-medium text-slate-900">{{ pay_id_housing|floatformat:2|intcomma }}</td>
+                                <td class="px-4 py-2 text-on-surface-variant">Housing</td>
+                                <td class="px-4 py-2 text-right font-medium text-on-surface tabular-nums">{{ pay_id_housing|floatformat:2|intcomma }}</td>
                             </tr>
                             <tr>
-                                <td class="px-4 py-2 text-slate-700">Other Allowances</td>
-                                <td class="px-4 py-2 text-right font-medium text-slate-900">{{ pay.payroll_entry.calc_allowance|floatformat:2|intcomma }}</td>
+                                <td class="px-4 py-2 text-on-surface-variant">Other Allowances</td>
+                                <td class="px-4 py-2 text-right font-medium text-on-surface tabular-nums">{{ pay.payroll_entry.calc_allowance|floatformat:2|intcomma }}</td>
                             </tr>
-                            <tr class="bg-emerald-50">
-                                <td class="px-4 py-2 font-semibold text-emerald-900">Gross for Period</td>
-                                <td class="px-4 py-2 text-right font-semibold text-emerald-900">{{ pay_id_gross|floatformat:2|intcomma }}</td>
+                            <tr class="bg-success-50">
+                                <td class="px-4 py-2 font-semibold text-success-800">Gross for Period</td>
+                                <td class="px-4 py-2 text-right font-semibold text-success-800 tabular-nums">{{ pay_id_gross|floatformat:2|intcomma }}</td>
                             </tr>
                         </tbody>
                     </table>
                 </div>
 
-                <div class="rounded-xl border border-rose-200 overflow-hidden">
-                    <div class="px-4 py-3 bg-rose-50 text-sm font-semibold text-rose-900">Deductions</div>
+                <div class="rounded-xl border border-danger-200 overflow-hidden">
+                    <div class="px-4 py-3 bg-danger-50 text-sm font-bold text-danger-700">Deductions</div>
                     <table class="w-full text-sm">
-                        <thead class="bg-white">
-                            <tr class="text-slate-500 border-b border-slate-200">
+                        <thead class="bg-surface-container-lowest">
+                            <tr class="text-secondary-500 border-b border-outline-variant">
                                 <th class="px-4 py-2 text-left font-medium">Description</th>
                                 <th class="px-4 py-2 text-right font-medium">Amount (₦)</th>
                             </tr>
                         </thead>
-                        <tbody class="divide-y divide-slate-200">
+                        <tbody class="divide-y divide-outline-variant/30">
                             <tr>
-                                <td class="px-4 py-2 text-slate-700">Employee Pension</td>
-                                <td class="px-4 py-2 text-right font-medium text-slate-900">{{ pay_id_pension|floatformat:2|intcomma }}</td>
+                                <td class="px-4 py-2 text-on-surface-variant">Employee Pension</td>
+                                <td class="px-4 py-2 text-right font-medium text-on-surface tabular-nums">{{ pay_id_pension|floatformat:2|intcomma }}</td>
                             </tr>
                             <tr>
-                                <td class="px-4 py-2 text-slate-700">NHF</td>
-                                <td class="px-4 py-2 text-right font-medium text-slate-900">{{ pay_id_nhf|div:12|floatformat:2|intcomma }}</td>
+                                <td class="px-4 py-2 text-on-surface-variant">NHF</td>
+                                <td class="px-4 py-2 text-right font-medium text-on-surface tabular-nums">{{ pay_id_nhf|div:12|floatformat:2|intcomma }}</td>
                             </tr>
                             <tr>
-                                <td class="px-4 py-2 text-slate-700">Health Insurance</td>
-                                <td class="px-4 py-2 text-right font-medium text-slate-900">{{ pay_id_nhif|div:12|floatformat:2|intcomma }}</td>
+                                <td class="px-4 py-2 text-on-surface-variant">Health Insurance</td>
+                                <td class="px-4 py-2 text-right font-medium text-on-surface tabular-nums">{{ pay_id_nhif|div:12|floatformat:2|intcomma }}</td>
                             </tr>
                             <tr>
-                                <td class="px-4 py-2 text-slate-700">PAYE Tax</td>
-                                <td class="px-4 py-2 text-right font-medium text-slate-900">{{ pay_id_payee|floatformat:2|intcomma }}</td>
+                                <td class="px-4 py-2 text-on-surface-variant">PAYE Tax</td>
+                                <td class="px-4 py-2 text-right font-medium text-on-surface tabular-nums">{{ pay_id_payee|floatformat:2|intcomma }}</td>
                             </tr>
                             <tr>
-                                <td class="px-4 py-2 text-slate-700">Water Rate</td>
-                                <td class="px-4 py-2 text-right font-medium text-slate-900">{{ pay_id_water_rate|floatformat:2|intcomma }}</td>
+                                <td class="px-4 py-2 text-on-surface-variant">Water Rate</td>
+                                <td class="px-4 py-2 text-right font-medium text-on-surface tabular-nums">{{ pay_id_water_rate|floatformat:2|intcomma }}</td>
                             </tr>
                             <tr>
-                                <td class="px-4 py-2 text-slate-700">IOU Deductions</td>
-                                <td class="px-4 py-2 text-right font-medium text-slate-900">{{ pay.payroll_entry.calc_iou_deduction|floatformat:2|intcomma }}</td>
+                                <td class="px-4 py-2 text-on-surface-variant">IOU Deductions</td>
+                                <td class="px-4 py-2 text-right font-medium text-on-surface tabular-nums">{{ pay.payroll_entry.calc_iou_deduction|floatformat:2|intcomma }}</td>
                             </tr>
                             <tr>
-                                <td class="px-4 py-2 text-slate-700">Other Deductions</td>
-                                <td class="px-4 py-2 text-right font-medium text-slate-900">{{ pay.payroll_entry.calc_standard_deduction|floatformat:2|intcomma }}</td>
+                                <td class="px-4 py-2 text-on-surface-variant">Other Deductions</td>
+                                <td class="px-4 py-2 text-right font-medium text-on-surface tabular-nums">{{ pay.payroll_entry.calc_standard_deduction|floatformat:2|intcomma }}</td>
                             </tr>
-                            <tr class="bg-rose-50">
-                                <td class="px-4 py-2 font-semibold text-rose-900">Total Deductions</td>
-                                <td class="px-4 py-2 text-right font-semibold text-rose-900">{{ pay_id_pension|add:pay_id_nhf|div:12|add:pay_id_nhif|div:12|add:pay_id_payee|add:pay_id_water_rate|add:pay.payroll_entry.calc_deduction|floatformat:2|intcomma }}</td>
+                            <tr class="bg-danger-50">
+                                <td class="px-4 py-2 font-semibold text-danger-700">Total Deductions</td>
+                                <td class="px-4 py-2 text-right font-semibold text-danger-700 tabular-nums">{{ pay_id_pension|add:pay_id_nhf|div:12|add:pay_id_nhif|div:12|add:pay_id_payee|add:pay_id_water_rate|add:pay.payroll_entry.calc_deduction|floatformat:2|intcomma }}</td>
                             </tr>
                         </tbody>
                     </table>
@@ -165,58 +165,59 @@
             </div>
 
             {% if iou_deductions %}
-            <div class="mt-6 rounded-xl border border-amber-200 bg-amber-50 p-4">
-                <p class="text-sm font-semibold text-amber-900 mb-2">IOU Repayment Breakdown</p>
-                <ul class="space-y-1 text-sm text-amber-900">
+            <div class="mt-6 rounded-xl border border-warning-200 bg-warning-50 p-4">
+                <p class="text-sm font-semibold text-warning-800 mb-2">IOU Repayment Breakdown</p>
+                <ul class="space-y-1 text-sm text-warning-800">
                     {% for repayment in iou_deductions %}
                     <li>
                         IOU #{{ repayment.iou_id }} ({{ repayment.payday.save_month_str }}):
-                        <span class="font-semibold">₦{{ repayment.amount|floatformat:2|intcomma }}</span>
+                        <span class="font-semibold tabular-nums">₦{{ repayment.amount|floatformat:2|intcomma }}</span>
                     </li>
                     {% endfor %}
                 </ul>
             </div>
             {% endif %}
 
-            <div class="mt-6 rounded-xl border border-slate-200 overflow-hidden">
+            <div class="mt-6 rounded-xl border border-outline-variant overflow-hidden">
                 <table class="w-full text-sm">
-                    <tbody class="divide-y divide-slate-200">
+                    <tbody class="divide-y divide-outline-variant/30">
                         <tr>
-                            <td class="px-4 py-3 text-slate-600">Taxable Income (Monthly)</td>
-                            <td class="px-4 py-3 text-right font-medium text-slate-800">{{ pay_id_taxable|floatformat:2|intcomma }}</td>
+                            <td class="px-4 py-3 text-secondary-600">Taxable Income (Monthly)</td>
+                            <td class="px-4 py-3 text-right font-medium text-on-surface tabular-nums">{{ pay_id_taxable|floatformat:2|intcomma }}</td>
                         </tr>
                         <tr>
-                            <td class="px-4 py-3 text-slate-600">Rent Relief (Monthly)</td>
-                            <td class="px-4 py-3 text-right font-medium text-slate-800">{{ pay.payroll_entry.pays.rent_relief_amount|div:12|floatformat:2|intcomma }}</td>
+                            <td class="px-4 py-3 text-secondary-600">Rent Relief (Monthly)</td>
+                            <td class="px-4 py-3 text-right font-medium text-on-surface tabular-nums">{{ pay.payroll_entry.pays.rent_relief_amount|div:12|floatformat:2|intcomma }}</td>
                         </tr>
-                        <tr class="bg-slate-900 text-white">
+                        <tr class="bg-primary-800 text-white">
                             <td class="px-4 py-4 text-base font-semibold">Net Pay</td>
-                            <td class="px-4 py-4 text-right text-xl font-bold">₦{{ pay.payroll_entry.netpay|floatformat:2|intcomma }}</td>
+                            <td class="px-4 py-4 text-right text-xl font-bold tabular-nums">₦{{ pay.payroll_entry.netpay|floatformat:2|intcomma }}</td>
                         </tr>
                     </tbody>
                 </table>
             </div>
 
             {% if num2words %}
-            <div class="mt-6 bg-slate-100 border border-slate-200 rounded-xl p-4 text-sm text-slate-700">
-                <span class="font-semibold text-slate-800">Amount in words:</span>
+            <div class="mt-6 bg-surface-container-low border border-outline-variant rounded-xl p-4 text-sm text-on-surface-variant">
+                <span class="font-semibold text-on-surface">Amount in words:</span>
                 {{ num2words }}.
             </div>
             {% endif %}
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-10 pt-8 border-t border-slate-200">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-10 pt-8 border-t border-outline-variant">
                 <div class="text-center md:text-left">
-                    <p class="text-sm text-slate-700 mb-1">_________________________</p>
-                    <p class="text-sm text-slate-600">Employee Signature</p>
+                    <p class="text-sm text-on-surface-variant mb-1">_________________________</p>
+                    <p class="text-sm text-secondary-600">Employee Signature</p>
                 </div>
                 <div class="text-center md:text-right">
-                    <p class="text-sm text-slate-700 mb-1">_________________________</p>
-                    <p class="text-sm text-slate-600">Authorized Signatory</p>
+                    <p class="text-sm text-on-surface-variant mb-1">_________________________</p>
+                    <p class="text-sm text-secondary-600">Authorized Signatory</p>
                 </div>
             </div>
 
             <div class="text-center mt-8">
-                <a href="{% url 'payroll:payslip_pdf' pays %}" class="inline-flex items-center px-5 py-2.5 rounded-lg bg-slate-900 text-white text-sm font-medium hover:bg-slate-800 transition">
+                <a href="{% url 'payroll:payslip_pdf' pays %}" class="btn-primary editorial-action inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-white text-sm font-medium">
+                    <i data-lucide="download" class="h-4 w-4"></i>
                     Download PDF
                 </a>
             </div>

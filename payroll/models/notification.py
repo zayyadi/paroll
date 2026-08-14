@@ -6,6 +6,7 @@ from django.core.cache import cache
 from django.utils import timezone
 import uuid
 
+from company.tenancy import tenant_cache_key
 from payroll.models.employee_profile import EmployeeProfile
 
 User = get_user_model()
@@ -323,10 +324,13 @@ class Notification(models.Model):
     def _invalidate_cache(self):
         """
         Invalidate related cache entries.
+
+        Keys must match ``NotificationCacheService`` (tenant-prefixed), or the
+        delete would miss the entry and leave a stale count behind.
         """
         cache_key_patterns = [
-            f"notifications:{self.recipient.id}:unread_count",
-            f"notifications:{self.recipient.id}:recent",
+            tenant_cache_key("notifications", self.recipient, "unread_count"),
+            tenant_cache_key("notifications", self.recipient, "recent"),
         ]
         for pattern in cache_key_patterns:
             cache.delete(pattern)

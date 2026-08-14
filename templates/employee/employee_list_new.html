@@ -5,7 +5,7 @@
 {% block content %}
 <div class="space-y-6">
     <!-- Search and Filters -->
-    <div class="bg-white rounded-xl shadow-soft p-6">
+    <div class="bg-surface-container-lowest rounded-2xl border border-outline-variant p-6 shadow-card">
         <form method="get" class="space-y-4">
             <div class="flex flex-col lg:flex-row gap-4">
                 <div class="flex-1">
@@ -15,13 +15,13 @@
                         </div>
                         <input type="text" name="q" value="{{ request.GET.q|default:'' }}"
                             placeholder="Search employees by name, email, or ID..."
-                            class="form-input w-full pl-10 pr-3 py-2.5 border border-secondary-300 rounded-xl focus:ring-primary-500 focus:border-primary-500 text-sm">
+                            class="form-input w-full pl-10 pr-3 py-2.5 border border-outline-variant rounded-xl focus:ring-primary-500 focus:border-primary-500 text-sm">
                     </div>
                 </div>
 
                 <div class="lg:w-64">
                     <select name="department"
-                        class="form-input w-full px-3 py-2.5 border border-secondary-300 rounded-xl focus:ring-primary-500 focus:border-primary-500 text-sm">
+                        class="form-input w-full px-3 py-2.5 border border-outline-variant rounded-xl focus:ring-primary-500 focus:border-primary-500 text-sm">
                         <option value="">All Departments</option>
                         {% for department in departments %}
                         <option value="{{ department.id }}" {% if request.GET.department == department.id|stringformat:"s" %}selected{% endif %}>
@@ -44,63 +44,63 @@
 
     <!-- Employee Stats -->
     <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <div class="bg-white rounded-xl shadow-soft p-6">
+        <div class="bento-card">
             <div class="flex items-center">
-                <div class="flex-shrink-0 bg-primary-100 rounded-lg p-3">
+                <div class="flex-shrink-0 bg-primary-100 rounded-xl p-3">
                     <i data-lucide="users" class="h-6 w-6 text-primary-600"></i>
                 </div>
                 <div class="ml-4">
-                    <p class="text-sm font-medium text-secondary-600">Total Employees</p>
-                    <p class="text-2xl font-semibold text-secondary-900">{{ employees|length }}</p>
+                    <p class="text-xs font-bold uppercase tracking-[0.14em] text-secondary-500">Total Employees</p>
+                    <p class="mt-1 font-headline text-2xl font-extrabold text-on-surface tabular-nums">{{ employees|length }}</p>
                 </div>
             </div>
         </div>
 
-        <div class="bg-white rounded-xl shadow-soft p-6">
+        <div class="bento-card">
             <div class="flex items-center">
-                <div class="flex-shrink-0 bg-success-100 rounded-lg p-3">
+                <div class="flex-shrink-0 bg-success-100 rounded-xl p-3">
                     <i data-lucide="user-check" class="h-6 w-6 text-success-600"></i>
                 </div>
                 <div class="ml-4">
-                    <p class="text-sm font-medium text-secondary-600">Active Employees</p>
-                    <p class="text-2xl font-semibold text-secondary-900">{{ active_employees_count|default:0 }}</p>
+                    <p class="text-xs font-bold uppercase tracking-[0.14em] text-secondary-500">Active Employees</p>
+                    <p class="mt-1 font-headline text-2xl font-extrabold text-on-surface tabular-nums">{{ active_employees_count|default:0 }}</p>
                 </div>
             </div>
         </div>
 
-        <div class="bg-white rounded-xl shadow-soft p-6">
+        <div class="bento-card">
             <div class="flex items-center">
-                <div class="flex-shrink-0 bg-warning-100 rounded-lg p-3">
+                <div class="flex-shrink-0 bg-warning-100 rounded-xl p-3">
                     <i data-lucide="user-minus" class="h-6 w-6 text-warning-700"></i>
                 </div>
                 <div class="ml-4">
-                    <p class="text-sm font-medium text-secondary-600">Suspended</p>
-                    <p class="text-2xl font-semibold text-secondary-900">{{ suspended_employees_count|default:0 }}</p>
+                    <p class="text-xs font-bold uppercase tracking-[0.14em] text-secondary-500">Suspended</p>
+                    <p class="mt-1 font-headline text-2xl font-extrabold text-on-surface tabular-nums">{{ suspended_employees_count|default:0 }}</p>
                 </div>
             </div>
         </div>
 
-        <div class="bg-white rounded-xl shadow-soft p-6">
+        <div class="bento-card">
             <div class="flex items-center">
-                <div class="flex-shrink-0 bg-danger-100 rounded-lg p-3">
+                <div class="flex-shrink-0 bg-danger-100 rounded-xl p-3">
                     <i data-lucide="user-x" class="h-6 w-6 text-danger-700"></i>
                 </div>
                 <div class="ml-4">
-                    <p class="text-sm font-medium text-secondary-600">Terminated</p>
-                    <p class="text-2xl font-semibold text-secondary-900">{{ terminated_employees_count|default:0 }}</p>
+                    <p class="text-xs font-bold uppercase tracking-[0.14em] text-secondary-500">Terminated</p>
+                    <p class="mt-1 font-headline text-2xl font-extrabold text-on-surface tabular-nums">{{ terminated_employees_count|default:0 }}</p>
                 </div>
             </div>
         </div>
     </div>
 
     <!-- Employee Table -->
-    <div class="bg-white rounded-xl shadow-soft overflow-hidden">
-        <div class="px-6 py-4 border-b border-secondary-200 flex items-center justify-between">
-            <h2 class="text-lg font-semibold text-secondary-900">Employee List</h2>
+    <div class="bg-white rounded-2xl border border-outline-variant overflow-hidden shadow-card">
+        <div class="px-6 py-4 border-b border-outline-variant flex items-center justify-between">
+            <h2 class="font-headline text-lg font-bold text-primary-800">Employee List</h2>
             {% if request.user.is_superuser or request.user.is_staff %}
             <a href="{% url 'payroll:add_employee' %}"
-                class="btn-primary py-2 px-4 text-white font-medium rounded-lg text-sm flex items-center">
-                <i data-lucide="plus" class="h-4 w-4 mr-2"></i>
+                class="btn-primary editorial-action inline-flex items-center gap-2 py-2 px-4 text-white font-medium rounded-xl text-sm">
+                <i data-lucide="plus" class="h-4 w-4"></i>
                 Add Employee
             </a>
             {% endif %}
@@ -108,54 +108,54 @@
 
         {# Employee List Table #}
 <div class="overflow-x-auto">
-    <table class="min-w-full divide-y divide-secondary-200">
-        <thead class="bg-secondary-50">
+    <table class="min-w-full divide-y divide-outline-variant/30">
+        <thead class="bg-surface-container-low">
             <tr>
-                <th class="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">
+                <th class="px-6 py-3 text-left text-xs font-bold text-secondary-500 uppercase tracking-[0.12em]">
                     Employee
                 </th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">
+                <th class="px-6 py-3 text-left text-xs font-bold text-secondary-500 uppercase tracking-[0.12em]">
                     Employee ID
                 </th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">
+                <th class="px-6 py-3 text-left text-xs font-bold text-secondary-500 uppercase tracking-[0.12em]">
                     Department
                 </th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">
+                <th class="px-6 py-3 text-left text-xs font-bold text-secondary-500 uppercase tracking-[0.12em]">
                     Job Title
                 </th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">
+                <th class="px-6 py-3 text-left text-xs font-bold text-secondary-500 uppercase tracking-[0.12em]">
                     Employment Date
                 </th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">
+                <th class="px-6 py-3 text-left text-xs font-bold text-secondary-500 uppercase tracking-[0.12em]">
                     Status
                 </th>
-                <th class="px-6 py-3 text-right text-xs font-medium text-secondary-500 uppercase tracking-wider">
+                <th class="px-6 py-3 text-right text-xs font-bold text-secondary-500 uppercase tracking-[0.12em]">
                     Actions
                 </th>
             </tr>
         </thead>
-        <tbody class="bg-white divide-y divide-secondary-200">
+        <tbody class="bg-white divide-y divide-outline-variant/30">
             {% for employee in employees %}
-                <tr class="table-row-hover">
+                <tr class="hover:bg-primary-50/50 transition-colors">
                     <td class="px-6 py-4 whitespace-nowrap">
                         <div class="flex items-center">
                             <div class="flex-shrink-0 h-10 w-10">
                                 {% if employee.photo %}
-                                    <img class="h-10 w-10 rounded-full object-cover" 
+                                    <img class="h-10 w-10 rounded-full object-cover border border-outline-variant" 
                                          src="{{ employee.photo.url }}" 
                                          alt="{{ employee.first_name }} {{ employee.last_name }}"
                                          width="40"
                                          height="40">
                                 {% else %}
-                                    <div class="h-10 w-10 rounded-full bg-primary-200 flex items-center justify-center">
-                                        <span class="text-primary-800 font-medium">
+                                    <div class="h-10 w-10 rounded-full bg-primary-100 flex items-center justify-center">
+                                        <span class="text-primary-800 font-bold">
                                             {{ employee.first_name|first|upper }}{{ employee.last_name|first|upper }}
                                         </span>
                                     </div>
                                 {% endif %}
                             </div>
                             <div class="ml-4">
-                                <div class="text-sm font-medium text-secondary-900">
+                                <div class="text-sm font-semibold text-on-surface">
                                     {{ employee.first_name }} {{ employee.last_name }}
                                 </div>
                                 <div class="text-sm text-secondary-500">
@@ -164,37 +164,37 @@
                             </div>
                         </div>
                     </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-secondary-900">
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-on-surface tabular-nums">
                         {{ employee.emp_id|default:"N/A" }}
                     </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-secondary-900">
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-on-surface">
                         {{ employee.department.name|default:"N/A" }}
                     </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-secondary-900">
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-on-surface">
                         {{ employee.get_job_title_display|default:"N/A" }}
                     </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-secondary-900">
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-on-surface tabular-nums">
                         {{ employee.date_of_employment|date:"d M Y"|default:"N/A" }}
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap">
                         {% if employee.status == "terminated" %}
-                            <span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-danger-100 text-danger-800">
+                            <span class="chip chip-danger">
                                 Terminated
                             </span>
                         {% elif employee.user and not employee.user.is_active %}
-                            <span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-danger-100 text-danger-800">
+                            <span class="chip chip-danger">
                                 Terminated
                             </span>
                         {% elif employee.status == "suspended" %}
-                            <span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-warning-100 text-warning-800">
+                            <span class="chip chip-warning">
                                 Suspended
                             </span>
                         {% elif employee.status == "active" %}
-                            <span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-success-100 text-success-800">
+                            <span class="chip chip-success">
                                 Active
                             </span>
                         {% else %}
-                            <span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-secondary-100 text-secondary-700">
+                            <span class="chip chip-info">
                                 {{ employee.status|default:"pending"|title }}
                             </span>
                         {% endif %}

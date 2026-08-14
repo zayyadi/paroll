@@ -8,6 +8,7 @@ from .permissions import (
     is_auditor,
     is_accountant,
     is_payroll_processor,
+    is_finance_user,
     can_access_disciplinary,
     can_manage_disciplinary_case,
     can_approve_journal,
@@ -24,6 +25,7 @@ def _is_accounting_lockdown_enabled(user):
         and "test" not in sys.argv
         and user.is_authenticated
         and not user.is_superuser
+        and not is_finance_user(user)
     )
 
 
@@ -85,6 +87,32 @@ class AuditorRequiredMixin(AccessMixin):
             )
 
         if not is_auditor(request.user):
+            return self.handle_no_permission()
+
+        return super().dispatch(request, *args, **kwargs)
+
+    def handle_no_permission(self):
+        if self.request.user.is_authenticated:
+            return HttpResponseForbidden()
+        return super().handle_no_permission()
+
+
+class AuditorOrFinanceReadMixin(AccessMixin):
+    """
+    Mixin to ensure user has auditor role or is a read-only finance user.
+    Used for audit-trail views that finance users can read.
+    """
+
+    def dispatch(self, request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return self.handle_no_permission()
+
+        if _is_accounting_lockdown_enabled(request.user):
+            return HttpResponseForbidden(
+                "Accounting access is temporarily restricted to superusers until tenant scoping is complete."
+            )
+
+        if not (is_auditor(request.user) or is_finance_user(request.user)):
             return self.handle_no_permission()
 
         return super().dispatch(request, *args, **kwargs)
@@ -163,6 +191,7 @@ class AccountingRoleRequiredMixin(AccessMixin):
             is_auditor(request.user)
             or is_accountant(request.user)
             or is_payroll_processor(request.user)
+            or is_finance_user(request.user)
         ):
             return self.handle_no_permission()
 
@@ -183,7 +212,9 @@ class AuditorOrAccountantRequiredMixin(AccessMixin):
                 "Accounting access is temporarily restricted to superusers until tenant scoping is complete."
             )
 
-        if not (is_auditor(request.user) or is_accountant(request.user)):
+        if not (
+            is_auditor(request.user) or is_accountant(request.user) or is_finance_user(request.user)
+        ):
             return self.handle_no_permission()
 
         return super().dispatch(request, *args, **kwargs)

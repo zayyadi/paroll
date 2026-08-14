@@ -16,6 +16,8 @@ from .employee_profile import (
 )
 from .payroll import (
     Payroll,
+    StatutoryRateVersion,
+    RemittanceRecord,
     CompanyPayrollSetting,
     CompanyHealthInsuranceTier,
     SalaryHistory,
@@ -32,6 +34,7 @@ from .payroll import (
     PayrollEntry,
     PayslipEmailJob,
     LeavePolicy,
+    PublicHoliday,
     Deduction,
     IOU,
     IOUDeduction,

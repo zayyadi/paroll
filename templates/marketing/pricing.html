@@ -1,11 +1,112 @@
 {% extends "marketing/base.html" %}
 {% block title %}Pricing | PayNest{% endblock %}
-{% block content %}
-<h1>Pricing</h1>
-<div class="grid">
-    <div class="card"><h3>Starter</h3><p>For small teams getting started.</p></div>
-    <div class="card"><h3>Growth</h3><p>For scaling companies with approvals and reports.</p></div>
-    <div class="card"><h3>Enterprise</h3><p>Advanced controls, onboarding support, and priority response.</p></div>
+{% block meta_description %}PayNest pricing: published naira per-employee tiers from ₦499, with a free plan, annual billing savings, and statutory payroll, compliance and governance in every tier.{% endblock %}
+
+{% block page_intro %}
+<div class="flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
+    <div class="max-w-3xl">
+        <span class="inline-flex rounded-full bg-tertiary-fixed px-3 py-1 text-[10px] font-bold uppercase tracking-[0.28em] text-tertiary">Published in naira</span>
+        <h1 class="mt-4 font-headline text-4xl font-extrabold tracking-tight text-primary lg:text-6xl">Statutory payroll, priced in naira.</h1>
+        <p class="mt-4 max-w-2xl text-base leading-7 text-on-surface-variant">Per-employee pricing from ₦499 with a free plan for small teams — no setup fees, no hidden per-payroll charges. Annual billing saves 10%.</p>
+    </div>
+    <div class="flex items-center gap-1 self-start rounded-2xl bg-surface-container p-1.5 lg:self-auto" role="group" aria-label="Billing period">
+        <button type="button" data-billing="monthly" class="billing-toggle rounded-xl px-5 py-2.5 text-sm font-bold text-primary">Monthly</button>
+        <button type="button" data-billing="annual" class="billing-toggle rounded-xl px-5 py-2.5 text-sm font-bold text-secondary">Annual <span class="ml-1 rounded-full bg-tertiary-fixed px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-tertiary">Save 10%</span></button>
+    </div>
 </div>
-<p><a class="button primary" href="{% url 'marketing:contact' %}">Talk to sales</a></p>
+{% endblock %}
+
+{% block content %}
+<div class="grid items-stretch gap-6 lg:grid-cols-4">
+    {% for plan in plans %}
+    <article class="relative flex flex-col rounded-[1.5rem] p-7 {% if plan.highlight %}bg-primary text-white shadow-xl{% else %}card{% endif %}">
+        {% if plan.highlight %}
+        <span class="absolute -top-3 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-tertiary-fixed px-3 py-1 text-[10px] font-bold uppercase tracking-wide text-tertiary">Most popular</span>
+        {% endif %}
+        <h3 class="font-headline text-xl font-extrabold {% if plan.highlight %}text-white{% else %}text-primary{% endif %}">{{ plan.name }}</h3>
+        <p class="mt-2 text-sm leading-6 {% if plan.highlight %}text-primary-100{% else %}text-on-surface-variant{% endif %}">{{ plan.tagline }}</p>
+
+        <div class="mt-6 flex flex-wrap items-baseline gap-x-2">
+            {% if plan.is_custom %}
+            <strong class="font-headline text-4xl font-extrabold">Custom</strong>
+            {% else %}
+            <strong class="js-price font-headline text-4xl font-extrabold tabular-nums" data-monthly="{{ plan.monthly_price|floatformat:0 }}" data-annual="{{ plan.annual_monthly_price|floatformat:0 }}">₦{{ plan.monthly_price|floatformat:0 }}</strong>
+            {% endif %}
+            <span class="text-sm {% if plan.highlight %}text-primary-100{% else %}text-secondary{% endif %}">{{ plan.billing_note }}</span>
+        </div>
+        <p class="js-billing-note mt-1 text-xs {% if plan.highlight %}text-primary-100{% else %}text-secondary{% endif %}" data-monthly-note="{% if plan.is_custom or plan.monthly_price == plan.annual_monthly_price %}{{ plan.billing_note }}{% else %}billed monthly{% endif %}" data-annual-note="{% if plan.is_custom or plan.monthly_price == plan.annual_monthly_price %}{{ plan.billing_note }}{% else %}billed annually · save 10%{% endif %}">{% if plan.is_custom or plan.monthly_price == plan.annual_monthly_price %}{{ plan.billing_note }}{% else %}billed monthly{% endif %}</p>
+
+        <ul class="mt-6 flex-1 space-y-3 text-sm leading-6">
+            {% for feature in plan.features %}
+            <li class="flex gap-2.5">
+                <i data-lucide="check" class="mt-1 h-4 w-4 shrink-0 {% if plan.highlight %}text-tertiary-fixed{% else %}text-primary{% endif %}"></i>
+                <span class="{% if plan.highlight %}text-primary-100{% else %}text-on-surface-variant{% endif %}">{{ feature }}</span>
+            </li>
+            {% endfor %}
+        </ul>
+
+        {% if plan.is_custom %}
+        <a href="{% url 'marketing:contact' %}" class="button primary mt-8">Talk to sales</a>
+        {% elif plan.highlight %}
+        <a href="{% url 'users:register' %}" class="button secondary mt-8">Start free trial</a>
+        {% else %}
+        <a href="{% url 'users:register' %}" class="button primary mt-8">Start free trial</a>
+        {% endif %}
+    </article>
+    {% endfor %}
+</div>
+
+<div class="mt-10 rounded-[2rem] bg-surface-container-low px-8 py-8">
+    <div class="grid gap-8 md:grid-cols-3">
+        <div>
+            <p class="text-xs font-bold uppercase tracking-[0.18em] text-primary">Per employee, per month</p>
+            <p class="mt-3 text-sm leading-6 text-on-surface-variant">You pay for the people you run — nothing for the accounts you close. Prices above are per employee per month, so a 10-person payroll is exactly ten times the seat price.</p>
+        </div>
+        <div>
+            <p class="text-xs font-bold uppercase tracking-[0.18em] text-primary">No hidden per-payroll fees</p>
+            <p class="mt-3 text-sm leading-6 text-on-surface-variant">Statutory schedules, compliance calendar, audit trails and report exports are included in the tier, not line-itemed back to you after every run.</p>
+        </div>
+        <div>
+            <p class="text-xs font-bold uppercase tracking-[0.18em] text-primary">Built for the Nigerian payroll</p>
+            <p class="mt-3 text-sm leading-6 text-on-surface-variant">PAYE on the current tax bands, pension, NHF and NHIA engines, and reform-ready rates — the compliance depth that quote-based suites charge enterprise prices for.</p>
+        </div>
+    </div>
+</div>
+
+<p class="mt-8 text-center text-sm text-on-surface-variant">
+    Need help choosing a tier or moving from another payroll? <a href="{% url 'marketing:contact' %}" class="font-bold text-primary hover:underline">Talk to our team</a>.
+</p>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const toggles = document.querySelectorAll('.billing-toggle');
+        const prices = document.querySelectorAll('.js-price');
+        const notes = document.querySelectorAll('.js-billing-note');
+        let billing = 'monthly';
+
+        function apply() {
+            toggles.forEach(function (toggle) {
+                const active = toggle.dataset.billing === billing;
+                toggle.classList.toggle('bg-white', active);
+                toggle.classList.toggle('text-primary', active);
+                toggle.classList.toggle('shadow', active);
+                toggle.classList.toggle('text-secondary', !active);
+            });
+            prices.forEach(function (price) {
+                price.textContent = '\u20a6' + price.dataset[billing];
+            });
+            notes.forEach(function (note) {
+                note.textContent = note.dataset[billing + 'Note'];
+            });
+        }
+
+        toggles.forEach(function (toggle) {
+            toggle.addEventListener('click', function () {
+                billing = toggle.dataset.billing;
+                apply();
+            });
+        });
+        apply();
+    });
+</script>
 {% endblock %}

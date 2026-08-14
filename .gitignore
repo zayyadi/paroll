@@ -70,3 +70,5 @@ docs/
 doc/
 *.sqlite3
 settings.json
+.freebuff/
+design/

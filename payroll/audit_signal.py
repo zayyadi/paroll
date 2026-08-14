@@ -19,6 +19,27 @@ from .models import (
 from .models.utils import AuditTrail
 
 
+def _safe_audit_user(instance, *attrs):
+    """
+    Resolve ``instance`` followed by ``attrs`` for audit logging without
+    crashing when a related row is already gone.
+
+    Cascade deletes (deleting a User or Company) tear down children whose
+    parent rows may be removed before their ``post_delete`` signal fires;
+    accessing those relations raises ``DoesNotExist`` (not ``AttributeError``),
+    which ``getattr(instance, attr, None)`` does not catch and would break the
+    very delete that triggered the audit. Returns ``None`` on any failure so
+    employee/user/company teardown never crashes the audit trail.
+    """
+    value = instance
+    try:
+        for attr in attrs:
+            value = getattr(value, attr)
+    except Exception:
+        return None
+    return value
+
+
 def log_audit(user, action, instance, changes=None, reason=None):
     """
     Log audit trail using both the old AuditTrail and new AccountingAuditTrail models.
@@ -86,7 +107,9 @@ def log_employee_save(sender, instance, created, **kwargs):
 
 @receiver(post_delete, sender=EmployeeProfile)
 def log_employee_delete(sender, instance, **kwargs):
-    user = getattr(instance, "user", None)
+    # Cascade-safe: when teardown starts from the owning User (or Company), the
+    # user row may already be deleted when this fires.
+    user = _safe_audit_user(instance, "user")
     log_audit(user, "Deleted EmployeeProfile", instance)
 
 
@@ -251,7 +274,7 @@ def log_iou_save(sender, instance, created, **kwargs):
 
 @receiver(post_delete, sender=IOU)
 def log_iou_delete(sender, instance, **kwargs):
-    user = getattr(instance.employee_id, "user", None)
+    user = _safe_audit_user(instance, "employee_id", "user")
     log_audit(user, "Deleted IOU", instance)
 
 
@@ -269,7 +292,7 @@ def log_allowance_save(sender, instance, created, **kwargs):
 
 @receiver(post_delete, sender=Allowance)
 def log_allowance_delete(sender, instance, **kwargs):
-    user = getattr(instance.employee, "user", None)
+    user = _safe_audit_user(instance, "employee", "user")
     log_audit(user, "Deleted Allowance", instance)
 
 
@@ -288,7 +311,7 @@ def log_deduction_save(sender, instance, created, **kwargs):
 
 @receiver(post_delete, sender=Deduction)
 def log_deduction_delete(sender, instance, **kwargs):
-    user = getattr(instance.employee, "user", None)
+    user = _safe_audit_user(instance, "employee", "user")
     log_audit(user, "Deleted Deduction", instance)
 
 
@@ -327,5 +350,5 @@ def log_leave_save(sender, instance, created, **kwargs):
 
 @receiver(post_delete, sender=LeaveRequest)
 def log_leave_delete(sender, instance, **kwargs):
-    user = getattr(instance.employee, "user", None)
+    user = _safe_audit_user(instance, "employee", "user")
     log_audit(user, "Deleted LeaveRequest", instance)

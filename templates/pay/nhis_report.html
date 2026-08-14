@@ -51,6 +51,21 @@
 
         <div class="bg-white rounded-xl shadow-soft p-6">
             <div class="flex items-center">
+                <div class="flex-shrink-0 bg-primary-100 rounded-lg p-3">
+                    <i data-lucide="scale" class="h-6 w-6 text-primary-600"></i>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-secondary-600">Employee / Employer Split</p>
+                    <p class="text-sm font-semibold text-secondary-900">
+                        ₦{{ employee_total|default:0|intcomma }} / ₦{{ employer_total|default:0|intcomma }}
+                    </p>
+                    <p class="text-xs text-secondary-500 mt-1">{{ mode }}</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-soft p-6">
+            <div class="flex items-center">
                 <div class="flex-shrink-0 bg-warning-100 rounded-lg p-3">
                     <i data-lucide="calendar" class="h-6 w-6 text-warning-600"></i>
                 </div>

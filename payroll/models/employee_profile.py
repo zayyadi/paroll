@@ -1,3 +1,5 @@
+import hashlib
+
 from django.db import models
 from decimal import Decimal
 from datetime import timedelta
@@ -20,6 +22,13 @@ from core import settings
 from payroll.generator import emp_id, nin_no, tin_no
 from payroll import utils
 from payroll import choices
+
+
+def _digest(value):
+    """Deterministic SHA-256 fingerprint of an identifier plaintext."""
+    if not value:
+        return None
+    return hashlib.sha256(str(value).encode("utf-8")).hexdigest()
 
 from monthyear.models import MonthField
 from users.models import CustomUser
@@ -78,7 +87,6 @@ class EmployeeProfile(SoftDeleteModel):
     )
     emp_id = models.CharField(
         default=emp_id,
-        unique=True,
         max_length=255,
         editable=False,
         db_index=True,
@@ -149,13 +157,17 @@ class EmployeeProfile(SoftDeleteModel):
     )
     nin = EncryptedCharField(
         default=nin_no,
-        unique=True,
         max_length=255,
         editable=False,
     )
+    # Deterministic fingerprints of the plaintext NIN/TIN. Fernet is
+    # non-deterministic (random IV per encryption), so uniqueness can never be
+    # enforced on the ciphertext itself — these digests are what the
+    # company-scoped unique constraints key on.
+    nin_digest = models.CharField(max_length=64, null=True, blank=True, editable=False)
+    tin_no_digest = models.CharField(max_length=64, null=True, blank=True, editable=False)
     tin_no = EncryptedCharField(
         default=tin_no,
-        unique=True,
         max_length=255,
         editable=True,
     )
@@ -382,6 +394,8 @@ class EmployeeProfile(SoftDeleteModel):
     def save(self, *args, **kwargs):
         self.net_pay = utils.get_net_pay(self)  # noqa: F405
         self.email = self.get_email()
+        self.nin_digest = _digest(self.nin)
+        self.tin_no_digest = _digest(self.tin_no)
 
         # if not self.pension_rsa.startswith("RSA-"):
         #     self.pension_rsa = f"RSA-{self.pension_rsa}"
@@ -416,6 +430,24 @@ class EmployeeProfile(SoftDeleteModel):
                 defaults={"changed_by": kwargs.get("user")},
             )
             self.__original_employee_pay_id = self.employee_pay_id
+
+    class Meta:
+        constraints = [
+            # Natural keys are unique per company so two tenants can number
+            # employees and hold tax IDs independently ("A-001" in both).
+            models.UniqueConstraint(
+                fields=["company", "emp_id"],
+                name="uniq_employee_company_emp_id",
+            ),
+            models.UniqueConstraint(
+                fields=["company", "nin_digest"],
+                name="uniq_employee_company_nin",
+            ),
+            models.UniqueConstraint(
+                fields=["company", "tin_no_digest"],
+                name="uniq_employee_company_tin_no",
+            ),
+        ]
 
 
 SENSITIVE_EMPLOYEE_FIELDS = frozenset(

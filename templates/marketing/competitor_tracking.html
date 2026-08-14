@@ -1,0 +1,144 @@
+{% extends "base_new.html" %}
+{% load static %}
+{% load custom_tags %}
+
+{% block page_header %}Competitor Tracking{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto space-y-6">
+    <div class="bg-gradient-to-r from-primary-500 to-primary-600 rounded-2xl p-6 text-white shadow-medium">
+        <div>
+            <h1 class="text-2xl font-bold mb-1">Competitor Tracking</h1>
+            <p class="text-primary-100">
+                Pricing, capability status, and notes per vendor — kept current in the Django admin so
+                positioning never depends on a quarterly re-research. Records not verified in 90 days are flagged stale.
+            </p>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <div class="bg-white rounded-xl shadow-soft p-6">
+            <p class="text-sm font-medium text-secondary-600">Vendors Tracked</p>
+            <p class="text-2xl font-semibold text-secondary-900">{{ competitors|length }}</p>
+        </div>
+        <div class="bg-white rounded-xl shadow-soft p-6">
+            <p class="text-sm font-medium text-secondary-600">Stale Records (&gt;90 days)</p>
+            <p class="text-2xl font-semibold {% if stale_count %}text-amber-600{% else %}text-secondary-900{% endif %}">{{ stale_count }}</p>
+        </div>
+        <div class="bg-white rounded-xl shadow-soft p-6">
+            <p class="text-sm font-medium text-secondary-600">With Published ₦/Public Pricing</p>
+            <p class="text-2xl font-semibold text-secondary-900">{{ published_pricing_count }}</p>
+        </div>
+        <div class="bg-white rounded-xl shadow-soft p-6">
+            <p class="text-sm font-medium text-secondary-600">Defunct / Collapsed</p>
+            <p class="text-2xl font-semibold text-secondary-900">{{ defunct_count }}</p>
+        </div>
+    </div>
+
+    <div class="bg-white rounded-xl shadow-soft overflow-hidden">
+        <div class="px-6 py-4 border-b border-secondary-200 flex items-center justify-between">
+            <h2 class="text-lg font-semibold text-secondary-900 flex items-center">
+                <i data-lucide="grid-3x3" class="h-5 w-5 mr-2 text-primary-600"></i>
+                Capability Gap Matrix
+            </h2>
+            <span class="text-xs text-secondary-500">as of {{ as_of|date:"d M Y" }}</span>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-secondary-200 text-sm">
+                <thead class="bg-secondary-50">
+                    <tr>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">Capability</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">PayNest</th>
+                        {% for competitor in competitors %}
+                        <th class="px-4 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">
+                            {{ competitor.name }}
+                            {% if competitor.status == "defunct" %}<span class="ml-1 text-red-600">†</span>{% endif %}
+                        </th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-secondary-200">
+                    {% for row in matrix %}
+                    <tr class="hover:bg-secondary-50">
+                        <td class="px-4 py-2.5 font-medium text-secondary-900">{{ row.label }}</td>
+                        <td class="px-4 py-2.5">{% include "marketing/_feature_badge.html" with value=row.paynest %}</td>
+                        {% for competitor in competitors %}
+                        <td class="px-4 py-2.5">{% include "marketing/_feature_badge.html" with value=row.cells|index:forloop.counter0 %}</td>
+                        {% endfor %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="bg-white rounded-xl shadow-soft overflow-hidden">
+        <div class="px-6 py-4 border-b border-secondary-200">
+            <h2 class="text-lg font-semibold text-secondary-900 flex items-center">
+                <i data-lucide="building-2" class="h-5 w-5 mr-2 text-primary-600"></i>
+                Vendor Records
+            </h2>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-secondary-200 text-sm">
+                <thead class="bg-secondary-50">
+                    <tr>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">Vendor</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">Segment</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">Status</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">Pricing (as of)</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">Positioning Notes</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">Verified</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-secondary-200">
+                    {% for competitor in competitors %}
+                    <tr class="hover:bg-secondary-50">
+                        <td class="px-4 py-3 font-medium text-secondary-900">
+                            {{ competitor.name }}
+                            {% if competitor.website %}<a href="{{ competitor.website }}" target="_blank" rel="noopener" class="ml-1 text-primary-600 hover:underline">↗</a>{% endif %}
+                            <div class="mt-1 flex gap-2 text-[11px]">
+                                <span class="inline-flex items-center gap-0.5 text-green-700"><i data-lucide="trending-up" class="h-3 w-3"></i>ours {{ competitor.our_lead }}</span>
+                                <span class="inline-flex items-center gap-0.5 text-red-700"><i data-lucide="trending-down" class="h-3 w-3"></i>theirs {{ competitor.their_lead }}</span>
+                            </div>
+                        </td>
+                        <td class="px-4 py-3 text-secondary-700">{{ competitor.get_segment_display }}</td>
+                        <td class="px-4 py-3">
+                            {% if competitor.status == "active" %}
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">Active</span>
+                            {% elif competitor.status == "defunct" %}
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">Defunct</span>
+                            {% else %}
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">Watch</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-3 text-secondary-700 max-w-xs">
+                            <p class="whitespace-pre-line">{{ competitor.pricing_summary }}</p>
+                            {% if competitor.pricing_as_of %}<p class="mt-1 text-xs text-secondary-500">as of {{ competitor.pricing_as_of|date:"M Y" }}</p>{% endif %}
+                        </td>
+                        <td class="px-4 py-3 text-secondary-700 max-w-sm">
+                            {{ competitor.positioning_notes }}
+                            {% if competitor.source_url %}<p class="mt-1"><a href="{{ competitor.source_url }}" target="_blank" rel="noopener" class="text-xs text-primary-600 hover:underline">source ↗</a></p>{% endif %}
+                        </td>
+                        <td class="px-4 py-3">
+                            {% if competitor.last_verified %}{{ competitor.last_verified|date:"d M Y" }}{% else %}—{% endif %}
+                            {% if competitor.is_stale_flag %}<span class="ml-1 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-amber-100 text-amber-800">stale</span>{% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="bg-white rounded-xl shadow-soft p-6">
+        <h3 class="text-sm font-semibold text-secondary-900 mb-2">How to keep this current</h3>
+        <ul class="text-xs text-secondary-600 space-y-1 list-disc list-inside">
+            <li>Edit vendor rows in Django admin → Marketing → Competitors: update pricing, flip feature values, and set <code>last_verified</code> to today.</li>
+            <li>Records with <code>last_verified</code> older than 90 days (or missing) are flagged stale here.</li>
+            <li>Add capabilities to <code>FEATURE_CATALOG</code> in <code>marketing/models.py</code>; new rows appear in the matrix automatically.</li>
+            <li>Capability values: yes / no / partial / unknown. Use <em>unknown</em> rather than guessing; the matrix treats it as unverified.</li>
+        </ul>
+    </div>
+</div>
+{% endblock %}
