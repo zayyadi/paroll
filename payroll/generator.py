@@ -1,5 +1,6 @@
 from datetime import datetime
 import random
+import threading
 
 time = datetime.today().strftime("%Y")
 
@@ -8,17 +9,34 @@ _used_emp_numbers = set()
 _used_nin_numbers = set()
 _used_tin_numbers = set()
 
+# Serialize check-and-add: without a lock, two companies creating employees
+# concurrently can both pass the ``not in`` check before either adds, and the
+# shared generator hands both the same emp_id (a per-company-unique key).
+_emp_id_lock = threading.Lock()
+
 
 def emp_id():
     max_attempts = 1000
-    for _ in range(max_attempts):
-        number = random.randint(0, 9999)
-        emp_id_value = f"EMP-{number}-{time}"
-        if emp_id_value not in _used_emp_numbers:
-            _used_emp_numbers.add(emp_id_value)
-            return emp_id_value
+    with _emp_id_lock:
+        for _ in range(max_attempts):
+            number = random.randint(0, 9999)
+            emp_id_value = f"EMP-{number}-{time}"
+            if emp_id_value not in _used_emp_numbers:
+                _used_emp_numbers.add(emp_id_value)
+                return emp_id_value
 
-    return f"EMP-{len(_used_emp_numbers)}-{time}"
+        # Exhaustive ordered scan: the length-based fallback was not unique
+        # (multiple concurrent fallbacks can read the same length), and a
+        # ``len`` value can also collide with an already-used random number.
+        # Scanning 0..9999 in order is guaranteed to find an unused value and
+        # stays unique under the lock.
+        for number in range(10000):
+            emp_id_value = f"EMP-{number}-{time}"
+            if emp_id_value not in _used_emp_numbers:
+                _used_emp_numbers.add(emp_id_value)
+                return emp_id_value
+
+        raise RuntimeError("emp_id space exhausted (all 10000 values in use)")
 
 
 def nin_no():

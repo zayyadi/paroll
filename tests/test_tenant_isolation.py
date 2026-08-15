@@ -19,6 +19,8 @@ The companion matrix document is ``plans/TENANT_ISOLATION_ACCEPTANCE_MATRIX.md``
 
 from datetime import date
 from decimal import Decimal
+import threading
+import time
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
@@ -230,6 +232,61 @@ class NaturalKeyIsolationTests(TenantIsolationBase):
             dup.company = self.company_a
             dup.emp_id = self.emp_a.emp_id
             dup.save(update_fields=["company", "emp_id"])
+
+    def test_emp_id_generator_never_collides_across_concurrent_companies(self):
+        """
+        Two companies creating employees concurrently must never receive the
+        same generated ``emp_id``. The generator's dedupe set is a
+        check-then-act race: ``random.randint`` is pinned to one candidate and
+        the set ``add`` is slowed so every thread passes the ``not in`` check
+        before the first add lands - without the lock this deterministically
+        emits duplicates, which would violate the per-company uniqueness
+        constraint inside either tenant.
+        """
+        from payroll import generator as emp_generator
+
+        class SlowAddSet:
+            """Set stand-in that pauses before each add, widening the
+            check-then-act window so the race fires deterministically."""
+
+            def __init__(self, inner):
+                self.inner = inner
+
+            def __contains__(self, value):
+                return value in self.inner
+
+            def __len__(self):
+                return len(self.inner)
+
+            def add(self, value):
+                time.sleep(0.01)
+                self.inner.add(value)
+
+        results = []
+        errors = []
+
+        def generate():
+            try:
+                results.append(emp_generator.emp_id())
+            except Exception as exc:  # pragma: no cover
+                errors.append(exc)
+
+        with patch(
+            "payroll.generator.random.randint", return_value=1234
+        ), patch.object(
+            emp_generator, "_used_emp_numbers", SlowAddSet(emp_generator._used_emp_numbers)
+        ):
+            threads = [threading.Thread(target=generate) for _ in range(50)]
+            for t in threads:
+                t.start()
+            for t in threads:
+                t.join()
+
+        self.assertEqual(errors, [])
+        self.assertEqual(len(results), 50)
+        # One thread wins the pinned candidate; the rest fall back to unique
+        # sequential values. Any duplicate means a cross-company collision.
+        self.assertEqual(len(set(results)), len(results))
 
     def test_same_tax_ids_reusable_across_companies(self):
         # NIN/TIN are unique per company (via deterministic digests, since the
