@@ -11,6 +11,7 @@
             <div>
                 <h1 class="text-2xl font-bold mb-1">Cost of Employment</h1>
                 <p class="text-primary-100">Employer-vs-employee cost split for {{ dates }}. Employer cost includes gross pay plus employer-funded pension, NHIA, NSITF, and ITF levies.</p>
+                <p class="text-primary-100 text-sm mt-2">Remittance deadlines for these levies (PAYE 10th, pension 7 working days from salary payment, NHF/NHIA monthly) are tracked in the <a href="{% url 'payroll:compliance_calendar' %}" class="underline font-semibold hover:text-white">compliance calendar</a>.</p>
             </div>
             <div class="mt-4 md:mt-0">
                 <a href="download/"

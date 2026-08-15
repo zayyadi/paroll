@@ -83,6 +83,20 @@ def request_iou(request, kind="iou"):
     if request.method == "POST":
         if is_ewa:
             if not ew_limits["eligible"]:
+                # Surface an over-cap amount explicitly before the eligibility
+                # reasons: if the user asked for more than the maximum, hiding
+                # that behind a timing reason ("next advance from ...") makes
+                # them retry the same amount and fail again.
+                try:
+                    requested = Decimal(request.POST.get("amount") or "0")
+                except (ArithmeticError, ValueError, TypeError):
+                    requested = Decimal("0")
+                if max_amount and requested > max_amount:
+                    messages.error(
+                        request,
+                        f"Your requested amount of ₦{requested:,.0f} exceeds the "
+                        f"maximum available (₦{max_amount:,.0f}).",
+                    )
                 for reason in ew_limits["reasons"]:
                     messages.error(request, reason)
                 return redirect("payroll:request_ewa")

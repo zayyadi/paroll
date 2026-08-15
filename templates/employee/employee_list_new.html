@@ -94,8 +94,8 @@
     </div>
 
     <!-- Employee Table -->
-    <div class="bg-white rounded-2xl border border-outline-variant overflow-hidden shadow-card">
-        <div class="px-6 py-4 border-b border-outline-variant flex items-center justify-between">
+    <section class="table-shell">
+        <div class="flex items-center justify-between px-7 py-6">
             <h2 class="font-headline text-lg font-bold text-primary-800">Employee List</h2>
             {% if request.user.is_superuser or request.user.is_staff %}
             <a href="{% url 'payroll:add_employee' %}"
@@ -108,36 +108,22 @@
 
         {# Employee List Table #}
 <div class="overflow-x-auto">
-    <table class="min-w-full divide-y divide-outline-variant/30">
-        <thead class="bg-surface-container-low">
+    <table class="min-w-full text-sm">
+        <thead>
             <tr>
-                <th class="px-6 py-3 text-left text-xs font-bold text-secondary-500 uppercase tracking-[0.12em]">
-                    Employee
-                </th>
-                <th class="px-6 py-3 text-left text-xs font-bold text-secondary-500 uppercase tracking-[0.12em]">
-                    Employee ID
-                </th>
-                <th class="px-6 py-3 text-left text-xs font-bold text-secondary-500 uppercase tracking-[0.12em]">
-                    Department
-                </th>
-                <th class="px-6 py-3 text-left text-xs font-bold text-secondary-500 uppercase tracking-[0.12em]">
-                    Job Title
-                </th>
-                <th class="px-6 py-3 text-left text-xs font-bold text-secondary-500 uppercase tracking-[0.12em]">
-                    Employment Date
-                </th>
-                <th class="px-6 py-3 text-left text-xs font-bold text-secondary-500 uppercase tracking-[0.12em]">
-                    Status
-                </th>
-                <th class="px-6 py-3 text-right text-xs font-bold text-secondary-500 uppercase tracking-[0.12em]">
-                    Actions
-                </th>
+                <th class="text-left">Employee</th>
+                <th class="text-left">Employee ID</th>
+                <th class="text-left">Department</th>
+                <th class="text-left">Job Title</th>
+                <th class="text-left">Employment Date</th>
+                <th class="text-left">Status</th>
+                <th class="text-right">Actions</th>
             </tr>
         </thead>
-        <tbody class="bg-white divide-y divide-outline-variant/30">
+        <tbody>
             {% for employee in employees %}
-                <tr class="hover:bg-primary-50/50 transition-colors">
-                    <td class="px-6 py-4 whitespace-nowrap">
+                <tr>
+                    <td class="whitespace-nowrap">
                         <div class="flex items-center">
                             <div class="flex-shrink-0 h-10 w-10">
                                 {% if employee.photo %}
@@ -164,42 +150,32 @@
                             </div>
                         </div>
                     </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-on-surface tabular-nums">
+                    <td class="whitespace-nowrap tabular-nums text-on-surface">
                         {{ employee.emp_id|default:"N/A" }}
                     </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-on-surface">
+                    <td class="whitespace-nowrap text-on-surface">
                         {{ employee.department.name|default:"N/A" }}
                     </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-on-surface">
+                    <td class="whitespace-nowrap text-on-surface">
                         {{ employee.get_job_title_display|default:"N/A" }}
                     </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-on-surface tabular-nums">
+                    <td class="whitespace-nowrap tabular-nums text-on-surface">
                         {{ employee.date_of_employment|date:"d M Y"|default:"N/A" }}
                     </td>
-                    <td class="px-6 py-4 whitespace-nowrap">
+                    <td class="whitespace-nowrap">
                         {% if employee.status == "terminated" %}
-                            <span class="chip chip-danger">
-                                Terminated
-                            </span>
+                            <span class="badge bg-danger">Terminated</span>
                         {% elif employee.user and not employee.user.is_active %}
-                            <span class="chip chip-danger">
-                                Terminated
-                            </span>
+                            <span class="badge bg-danger">Terminated</span>
                         {% elif employee.status == "suspended" %}
-                            <span class="chip chip-warning">
-                                Suspended
-                            </span>
+                            <span class="badge bg-warning">Suspended</span>
                         {% elif employee.status == "active" %}
-                            <span class="chip chip-success">
-                                Active
-                            </span>
+                            <span class="badge bg-success">Active</span>
                         {% else %}
-                            <span class="chip chip-info">
-                                {{ employee.status|default:"pending"|title }}
-                            </span>
+                            <span class="badge bg-info">{{ employee.status|default:"pending"|title }}</span>
                         {% endif %}
                     </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                    <td class="whitespace-nowrap text-right font-medium">
                         <a href="{% url 'payroll:profile' employee.user.id %}" 
                            class="text-primary-600 hover:text-primary-900 mr-3" 
                            aria-label="View {{ employee.first_name }} {{ employee.last_name }} profile"
@@ -230,7 +206,7 @@
                 </tr>
             {% empty %}
                 <tr>
-                    <td colspan="7" class="px-6 py-12 text-center">
+                    <td colspan="7" class="py-12 text-center">
                         <i data-lucide="users" class="h-12 w-12 mx-auto text-secondary-400 mb-3"></i>
                         <p class="text-sm text-secondary-500">No employees found matching your criteria.</p>
                     </td>
@@ -275,7 +251,7 @@
             </div>
         </div>
         {% endif %}
-    </div>
+    </section>
 </div>
 
 <script>

@@ -4,7 +4,7 @@ from django.contrib import messages
 from django.http import FileResponse
 
 from company.utils import get_user_company
-from payroll.models import EmployeeProfile
+from payroll.forms import ContractGenerateForm, ContractTemplateForm
 from payroll.models.employee_profile import ContractTemplate, EmploymentContract
 from payroll.services.contract_service import (
     create_contract,
@@ -28,19 +28,17 @@ def contract_template_list(request):
 @permission_required("payroll.add_employeeprofile", raise_exception=True)
 def contract_template_create(request):
     company = get_user_company(request.user)
+    form = ContractTemplateForm(request.POST or None)
 
-    if request.method == "POST":
-        name = request.POST.get("name")
-        template_html = request.POST.get("template_html", "")
-        ContractTemplate.objects.create(
-            company=company,
-            name=name,
-            template_html=template_html,
-        )
-        messages.success(request, f"Template '{name}' created.")
+    if request.method == "POST" and form.is_valid():
+        template = form.save(commit=False)
+        template.company = company
+        template.save()
+        messages.success(request, f"Template '{template.name}' created.")
         return redirect("payroll:contract_template_list")
 
     return render(request, "employee/contract_template_form.html", {
+        "form": form,
         "page_title": "Create Contract Template",
     })
 
@@ -62,33 +60,23 @@ def contract_list(request):
 @permission_required("payroll.add_employeeprofile", raise_exception=True)
 def contract_generate(request):
     company = get_user_company(request.user)
-    employees = EmployeeProfile.objects.filter(company=company, status="active")
-    templates = ContractTemplate.objects.filter(company=company, is_active=True)
+    form = ContractGenerateForm(request.POST or None, company=company)
 
-    if request.method == "POST":
-        employee_id = request.POST.get("employee")
-        template_id = request.POST.get("template")
-        start_date = request.POST.get("start_date")
-        end_date = request.POST.get("end_date") or None
-
-        employee = get_object_or_404(EmployeeProfile, id=employee_id, company=company)
-        template = get_object_or_404(ContractTemplate, id=template_id, company=company) if template_id else None
-
+    if request.method == "POST" and form.is_valid():
         try:
             contract = create_contract(
-                employee=employee,
-                template=template,
-                start_date=start_date,
-                end_date=end_date,
+                employee=form.cleaned_data["employee"],
+                template=form.cleaned_data["template"],
+                start_date=form.cleaned_data["start_date"],
+                end_date=form.cleaned_data["end_date"],
             )
-            messages.success(request, f"Contract generated for {employee}.")
+            messages.success(request, f"Contract generated for {contract.employee}.")
             return redirect("payroll:contract_detail", pk=contract.pk)
         except Exception as e:
             messages.error(request, f"Error generating contract: {e}")
 
     return render(request, "employee/contract_generate.html", {
-        "employees": employees,
-        "templates": templates,
+        "form": form,
         "page_title": "Generate Contract",
     })
 

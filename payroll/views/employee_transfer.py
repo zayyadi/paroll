@@ -4,7 +4,8 @@ from django.contrib import messages
 from django.utils import timezone
 
 from company.utils import get_user_company
-from payroll.models import EmployeeProfile, Department, EmployeeTransfer, Promotion
+from payroll.forms import EmployeeTransferForm, EmployeePromotionForm
+from payroll.models import EmployeeTransfer, Promotion
 from payroll.services.transfer_service import (
     execute_transfer,
     approve_transfer,
@@ -32,36 +33,27 @@ def transfer_list(request):
 @permission_required("payroll.add_employeeprofile", raise_exception=True)
 def transfer_create(request):
     company = get_user_company(request.user)
-    employees = EmployeeProfile.objects.filter(company=company, status="active")
-    departments = Department.objects.filter(company=company)
+    form = EmployeeTransferForm(request.POST or None, company=company)
 
-    if request.method == "POST":
-        employee_id = request.POST.get("employee")
-        to_dept_id = request.POST.get("to_department")
-        to_position = request.POST.get("to_position", "")
-        effective_date = request.POST.get("effective_date")
-        reason = request.POST.get("reason", "")
-
-        employee = get_object_or_404(EmployeeProfile, id=employee_id, company=company)
-        to_department = get_object_or_404(Department, id=to_dept_id, company=company) if to_dept_id else None
+    if request.method == "POST" and form.is_valid():
+        employee = form.cleaned_data["employee"]
 
         transfer = EmployeeTransfer.objects.create(
             company=company,
             employee=employee,
             from_department=employee.department,
-            to_department=to_department,
+            to_department=form.cleaned_data["to_department"],
             from_position=employee.job_title,
-            to_position=to_position,
-            effective_date=effective_date,
-            reason=reason,
+            to_position=form.cleaned_data["to_position"],
+            effective_date=form.cleaned_data["effective_date"],
+            reason=form.cleaned_data["reason"],
             requested_by=request.user,
         )
         messages.success(request, f"Transfer request created for {employee}.")
         return redirect("payroll:transfer_detail", pk=transfer.pk)
 
     return render(request, "employee/transfer_form.html", {
-        "employees": employees,
-        "departments": departments,
+        "form": form,
         "page_title": "Create Transfer",
     })
 
@@ -119,31 +111,26 @@ def promotion_list(request):
 @permission_required("payroll.add_employeeprofile", raise_exception=True)
 def promotion_create(request):
     company = get_user_company(request.user)
-    employees = EmployeeProfile.objects.filter(company=company, status="active")
+    form = EmployeePromotionForm(request.POST or None, company=company)
 
-    if request.method == "POST":
-        employee_id = request.POST.get("employee")
-        new_title = request.POST.get("new_title", "")
-        effective_date = request.POST.get("effective_date")
-        reason = request.POST.get("reason", "")
-
-        employee = get_object_or_404(EmployeeProfile, id=employee_id, company=company)
+    if request.method == "POST" and form.is_valid():
+        employee = form.cleaned_data["employee"]
 
         promotion = Promotion.objects.create(
             company=company,
             employee=employee,
             old_title=employee.job_title,
-            new_title=new_title,
+            new_title=form.cleaned_data["new_title"],
             old_salary_config=employee.employee_pay,
-            effective_date=effective_date,
-            reason=reason,
+            effective_date=form.cleaned_data["effective_date"],
+            reason=form.cleaned_data["reason"],
             requested_by=request.user,
         )
         messages.success(request, f"Promotion request created for {employee}.")
         return redirect("payroll:promotion_detail", pk=promotion.pk)
 
     return render(request, "employee/promotion_form.html", {
-        "employees": employees,
+        "form": form,
         "page_title": "Create Promotion",
     })
 

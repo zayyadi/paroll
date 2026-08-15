@@ -1,0 +1,11 @@
+{% comment %}
+Editorial section header: number chip + title + optional subtitle over a hairline.
+Usage: {% include "employee/_form_section_header.html" with number="01" title="Personal Details" subtitle="Name, contact and identity" %}
+{% endcomment %}
+<header class="flex items-start gap-3 border-b border-secondary-100 pb-4">
+    <span class="mt-0.5 inline-flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-primary-50 text-xs font-bold tabular-nums text-primary-700">{{ number }}</span>
+    <div>
+        <h3 class="font-headline text-base font-bold text-primary-800">{{ title }}</h3>
+        {% if subtitle %}<p class="mt-0.5 text-xs text-secondary-500">{{ subtitle }}</p>{% endif %}
+    </div>
+</header>

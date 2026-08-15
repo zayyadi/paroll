@@ -1,64 +1,60 @@
 {% extends "base_new.html" %}
+{% load static %}
 {% load humanize %}
-{% load custom_tags %}
+{% load l10n %}
 
 {% block page_header %}Request an Advance (EWA){% endblock %}
 
 {% block content %}
-<div class="space-y-6">
-    <!-- Header Section -->
-    <div class="bg-gradient-to-r from-primary-500 to-primary-600 rounded-2xl p-6 text-white shadow-medium">
-        <div class="flex flex-col md:flex-row md:items-center md:justify-between">
-            <div>
-                <h1 class="text-2xl font-bold mb-2">Earned Wage Access</h1>
-                <p class="text-primary-100">Access pay you have already earned, repaid from your next pay cycle</p>
-            </div>
-            <div class="mt-4 md:mt-0">
-                <a href="{% url 'payroll:iou_history' %}" class="bg-white bg-opacity-20 hover:bg-opacity-30 text-white font-medium py-2 px-4 rounded-lg transition-all inline-flex items-center">
-                    <i data-lucide="arrow-left" class="h-4 w-4 mr-2"></i>
-                    Back to Advance History
-                </a>
-            </div>
+<div class="mx-auto max-w-5xl space-y-6">
+    <!-- Page header -->
+    <div class="editorial-panel p-7 border-l-4 border-primary-700">
+        <p class="text-xs font-bold uppercase tracking-[.22em] text-tertiary">Earned wage access</p>
+        <h2 class="mt-1 font-headline text-2xl font-bold text-primary-800">Earned Wage Access</h2>
+        <p class="mt-1 text-sm text-secondary-600">
+            Access pay you have already earned, repaid from your next pay cycle. Fields marked
+            <span class="text-danger-600">*</span> are required.
+        </p>
+        <div class="mt-4 flex flex-wrap gap-2">
+            <span class="rounded-full bg-primary-50 px-3 py-1 text-[11px] font-semibold text-primary-700">01 Advance Details</span>
         </div>
     </div>
 
     {% if ew_limits %}
-    <!-- EWA Limits -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div class="bg-white rounded-xl shadow-soft p-6">
+    <!-- EWA limits -->
+    <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
+        <div class="bento-card p-6">
             <div class="flex items-center">
-                <div class="flex-shrink-0 bg-success-100 rounded-lg p-3">
+                <div class="flex-shrink-0 rounded-lg bg-success-100 p-3">
                     <i data-lucide="wallet" class="h-6 w-6 text-success-600"></i>
                 </div>
                 <div class="ml-4">
                     <p class="text-sm font-medium text-secondary-600">Earned this cycle</p>
-                    <p class="text-2xl font-semibold text-secondary-900">₦{{ ew_limits.earned_net|floatformat:0|intcomma }}</p>
+                    <p class="text-2xl font-semibold tabular-nums text-secondary-900">₦{{ ew_limits.earned_net|floatformat:0|intcomma }}</p>
                 </div>
             </div>
         </div>
-
-        <div class="bg-white rounded-xl shadow-soft p-6">
+        <div class="bento-card p-6">
             <div class="flex items-center">
-                <div class="flex-shrink-0 bg-primary-100 rounded-lg p-3">
+                <div class="flex-shrink-0 rounded-lg bg-primary-100 p-3">
                     <i data-lucide="gauge" class="h-6 w-6 text-primary-600"></i>
                 </div>
                 <div class="ml-4">
                     <p class="text-sm font-medium text-secondary-600">Maximum advance</p>
-                    <p class="text-2xl font-semibold text-secondary-900">₦{{ max_iou_amount|floatformat:0|intcomma }}</p>
-                    <p class="text-xs text-secondary-500 mt-1">{{ ew_limits.advances_this_cycle }} of {{ ew_limits.max_per_cycle }} used this cycle</p>
+                    <p class="text-2xl font-semibold tabular-nums text-secondary-900">₦{{ max_iou_amount|floatformat:0|intcomma }}</p>
+                    <p class="mt-1 text-xs text-secondary-500">{{ ew_limits.advances_this_cycle }} of {{ ew_limits.max_per_cycle }} used this cycle</p>
                 </div>
             </div>
         </div>
-
-        <div class="bg-white rounded-xl shadow-soft p-6">
+        <div class="bento-card p-6">
             <div class="flex items-center">
-                <div class="flex-shrink-0 bg-warning-100 rounded-lg p-3">
+                <div class="flex-shrink-0 rounded-lg bg-warning-100 p-3">
                     <i data-lucide="credit-card" class="h-6 w-6 text-warning-600"></i>
                 </div>
                 <div class="ml-4">
                     <p class="text-sm font-medium text-secondary-600">Outstanding advances</p>
-                    <p class="text-2xl font-semibold text-secondary-900">₦{{ ew_limits.outstanding_total|floatformat:0|intcomma }}</p>
-                    <p class="text-xs text-secondary-500 mt-1">Take-home floor: ₦{{ ew_limits.take_home_floor|floatformat:0|intcomma }}</p>
+                    <p class="text-2xl font-semibold tabular-nums text-secondary-900">₦{{ ew_limits.outstanding_total|floatformat:0|intcomma }}</p>
+                    <p class="mt-1 text-xs text-secondary-500">Take-home floor: ₦{{ ew_limits.take_home_floor|floatformat:0|intcomma }}</p>
                 </div>
             </div>
         </div>
@@ -66,14 +62,14 @@
     {% endif %}
 
     {% if ew_limits and ew_limits.reasons %}
-    <div class="bg-amber-50 border border-amber-200 rounded-xl p-4">
+    <div class="rounded-2xl border border-warning-200 bg-warning-50 p-5">
         <div class="flex">
             <div class="flex-shrink-0">
-                <i data-lucide="alert-triangle" class="h-5 w-5 text-amber-400"></i>
+                <i data-lucide="alert-triangle" class="h-5 w-5 text-warning-400"></i>
             </div>
             <div class="ml-3">
-                <h3 class="text-sm font-medium text-amber-800">Advance availability</h3>
-                <ul class="mt-2 space-y-1 text-sm text-amber-700 list-disc list-inside">
+                <h3 class="text-sm font-medium text-warning-800">Advance availability</h3>
+                <ul class="mt-2 list-inside list-disc space-y-1 text-sm text-warning-700">
                     {% for reason in ew_limits.reasons %}
                     <li>{{ reason }}</li>
                     {% endfor %}
@@ -83,95 +79,72 @@
     </div>
     {% endif %}
 
-    <!-- EWA Request Form -->
-    <div class="bg-white rounded-xl shadow-soft p-6">
-        <h2 class="text-lg font-semibold text-secondary-900 mb-6 flex items-center">
-            <i data-lucide="file-text" class="h-5 w-5 mr-2 text-primary-600"></i>
-            Advance Request
-        </h2>
+    <form method="post" class="space-y-6">
+        {% csrf_token %}
 
-        <form method="post" class="space-y-6">
-            {% csrf_token %}
-
-            {% if form.non_field_errors %}
-            <div class="p-4 rounded-lg bg-danger-50 text-danger-800 border border-danger-200 text-sm">
-                {% for error in form.non_field_errors %}
-                <p>{{ error }}</p>
-                {% endfor %}
+        {% if form.non_field_errors %}
+            <div class="rounded-2xl border border-danger-200 bg-danger-50 p-4 text-sm text-danger-800">
+                {{ form.non_field_errors }}
             </div>
-            {% endif %}
+        {% endif %}
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <!-- 01 · Advance Details -->
+        <section class="bento-card p-6 sm:p-7">
+            {% include "employee/_form_section_header.html" with number="01" title="Advance Details" subtitle="How much you need and why" %}
+            <div class="mt-6 grid grid-cols-1 gap-x-6 gap-y-5 md:grid-cols-2">
+                <!-- Amount (kept custom for the naira prefix) -->
                 <div>
-                    <label for="{{ form.amount.id_for_label }}" class="block text-sm font-medium text-secondary-700 mb-2">
-                        Requested Amount (₦) <span class="text-danger-500">*</span>
+                    <label for="{{ form.amount.id_for_label }}" class="mb-1.5 block text-sm font-semibold text-secondary-800">
+                        Requested Amount (₦)
+                        <span class="text-danger-600" aria-hidden="true">*</span>
                     </label>
                     <div class="relative">
-                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            <span class="text-secondary-500 text-sm">₦</span>
+                        <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                            <span class="text-sm text-secondary-500">₦</span>
                         </div>
-                        <input type="number" name="{{ form.amount.html_name }}" id="{{ form.amount.id_for_label }}"
-                            value="{{ form.amount.value|default:'' }}" min="100" step="100" {% if max_iou_amount and max_iou_amount > 0 %}max="{{ max_iou_amount }}"{% endif %} required
-                            class="form-input w-full pl-8 pr-3 py-2.5 border border-secondary-300 rounded-xl focus:ring-primary-500 focus:border-primary-500 text-sm {% if form.amount.errors %}border-danger-500{% endif %}">
-                        {% if form.amount.errors %}
-                        {% for error in form.amount.errors %}
-                        <p class="mt-1 text-xs text-danger-500">{{ error }}</p>
-                        {% endfor %}
-                        {% endif %}
-                        <p class="mt-1 text-xs text-secondary-500">Maximum available: ₦{{ max_iou_amount|floatformat:0|intcomma }}</p>
+                        {{ form.amount }}
                     </div>
+                    {{ form.amount.errors }}
+                    <p class="mt-1 text-xs text-secondary-500">Maximum available: ₦{{ max_iou_amount|floatformat:0|intcomma }}</p>
                 </div>
 
+                <!-- Repayment -->
                 <div>
-                    <p class="text-sm font-medium text-secondary-700 mb-2">Repayment</p>
-                    <div class="bg-surface-container-low rounded-xl p-4 text-sm text-secondary-600">
-                        <p><i data-lucide="calendar-clock" class="h-4 w-4 inline text-primary-600"></i> Repaid automatically from your <strong>next pay cycle</strong> (1 month tenor).</p>
+                    <p class="mb-1.5 block text-sm font-semibold text-secondary-800">Repayment</p>
+                    <div class="rounded-xl bg-secondary-50 p-4 text-sm text-secondary-600">
+                        <p><i data-lucide="calendar-clock" class="inline h-4 w-4 text-primary-600"></i> Repaid automatically from your <strong>next pay cycle</strong> (1 month tenor).</p>
                         <p class="mt-2 text-xs">The company sets the deduction percentage when approving.</p>
                     </div>
                 </div>
-            </div>
 
-            <div>
-                <label for="{{ form.reason.id_for_label }}" class="block text-sm font-medium text-secondary-700 mb-2">
-                    Reason <span class="text-danger-500">*</span>
-                </label>
-                <textarea name="{{ form.reason.html_name }}" id="{{ form.reason.id_for_label }}" rows="3" required
-                    class="form-input w-full px-3 py-2.5 border border-secondary-300 rounded-xl focus:ring-primary-500 focus:border-primary-500 text-sm {% if form.reason.errors %}border-danger-500{% endif %}"
-                    placeholder="Brief reason for this advance...">{{ form.reason.value|default:'' }}</textarea>
-                {% if form.reason.errors %}
-                {% for error in form.reason.errors %}
-                <p class="mt-1 text-xs text-danger-500">{{ error }}</p>
-                {% endfor %}
-                {% endif %}
-            </div>
-
-            <div class="bg-surface-container-low rounded-xl p-4">
-                <p class="text-sm text-secondary-600">
-                    <i data-lucide="shield-check" class="h-4 w-4 inline text-primary-600"></i>
-                    Guardrails: advances are capped at {{ ew_limits.cap_percent|default:50 }}% of earned pay, limited to {{ ew_limits.max_per_cycle|default:2 }} per cycle, and your take-home after repayment stays above {{ ew_limits.min_take_home_percent|default:50 }}% of net pay.
-                </p>
-            </div>
-
-            <div class="flex items-center justify-between">
-                <div class="text-sm text-secondary-500">
-                    <p>Requests are subject to approval before disbursement.</p>
-                </div>
-                <div class="flex space-x-3">
-                    <a href="{% url 'payroll:iou_history' %}" class="px-4 py-2.5 border border-secondary-300 rounded-lg text-sm font-medium text-secondary-700 hover:bg-secondary-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
-                        Cancel
-                    </a>
-                    <button type="submit" class="btn-primary py-2.5 px-4 text-white font-medium rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
-                        Submit Request
-                    </button>
+                <div class="md:col-span-2">
+                    {% include "employee/_form_field.html" with field=form.reason %}
                 </div>
             </div>
-        </form>
-    </div>
+        </section>
+
+        <!-- Guardrails -->
+        <div class="rounded-2xl border border-secondary-100 bg-secondary-50 p-5">
+            <p class="text-sm text-secondary-600">
+                <i data-lucide="shield-check" class="inline h-4 w-4 text-primary-600"></i>
+                Guardrails: advances are capped at {{ ew_limits.cap_percent|default:50 }}% of earned pay, limited to {{ ew_limits.max_per_cycle|default:2 }} per cycle, and your take-home after repayment stays above {{ ew_limits.min_take_home_percent|default:50 }}% of net pay.
+            </p>
+        </div>
+
+        <!-- Actions -->
+        <div class="flex flex-col-reverse items-stretch justify-between gap-3 border-t border-secondary-100 pt-6 sm:flex-row sm:items-center">
+            <p class="text-xs text-secondary-500">Requests are subject to approval before disbursement.</p>
+            <div class="flex flex-col-reverse items-stretch gap-3 sm:flex-row sm:items-center">
+                <a href="{% url 'payroll:iou_history' %}"
+                   class="editorial-secondary editorial-action px-5 py-2.5 text-center text-sm font-medium">
+                    Cancel
+                </a>
+                <button type="submit"
+                    class="btn-primary editorial-action px-6 py-2.5 text-white font-medium rounded-xl">
+                    Submit Request
+                </button>
+            </div>
+        </div>
+    </form>
 </div>
-
-<script>
-    document.addEventListener('DOMContentLoaded', function() {
-        lucide.createIcons();
-    });
-</script>
 {% endblock %}

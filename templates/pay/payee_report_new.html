@@ -63,18 +63,18 @@
     </div>
 
     <!-- PAYE Details Table -->
-    <div class="bg-white rounded-xl shadow-soft overflow-hidden">
-        <div class="px-6 py-4 border-b border-secondary-200 flex items-center justify-between">
-            <h2 class="text-lg font-semibold text-secondary-900 flex items-center">
+    <section class="table-shell">
+        <div class="flex items-center justify-between px-7 py-6">
+            <h2 class="font-headline text-lg font-bold text-primary-800 flex items-center">
                 <i data-lucide="file-text" class="h-5 w-5 mr-2 text-primary-600"></i>
                 PAYE Details
             </h2>
             <div class="flex items-center space-x-2">
-                <button class="p-2 text-secondary-500 hover:text-secondary-700 rounded-lg hover:bg-secondary-100"
+                <button class="p-2 text-secondary-500 hover:text-secondary-700 rounded-lg hover:bg-surface-container-low"
                         title="Print">
                     <i data-lucide="printer" class="h-5 w-5"></i>
                 </button>
-                <button class="p-2 text-secondary-500 hover:text-secondary-700 rounded-lg hover:bg-secondary-100"
+                <button class="p-2 text-secondary-500 hover:text-secondary-700 rounded-lg hover:bg-surface-container-low"
                         title="Export">
                     <i data-lucide="file-text" class="h-5 w-5"></i>
                 </button>
@@ -83,51 +83,41 @@
 
         {% if payroll %}
             <div class="overflow-x-auto">
-                <table class="min-w-full divide-y divide-secondary-200">
-                    <thead class="bg-secondary-50">
+                <table class="min-w-full text-sm">
+                    <thead>
                         <tr>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">
-                                EmpNo
-                            </th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">
-                                Employee Name
-                            </th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">
-                                Tax Number
-                            </th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">
-                                Basic Salary
-                            </th>
-                            <th class="px-6 py-3 text-right text-xs font-medium text-secondary-500 uppercase tracking-wider">
-                                PAYE Amount
-                            </th>
+                            <th class="text-left">EmpNo</th>
+                            <th class="text-left">Employee Name</th>
+                            <th class="text-left">Tax Number</th>
+                            <th class="text-left">Basic Salary</th>
+                            <th class="text-right">PAYE Amount</th>
                         </tr>
                     </thead>
-                    <tbody class="bg-white divide-y divide-secondary-200">
+                    <tbody>
                         {% for payrol in payroll %}
-                            <tr class="hover:bg-secondary-50">
-                                <td class="px-6 py-4 text-sm text-secondary-900">
+                            <tr>
+                                <td class="text-secondary-900">
                                     {{ payrol.payroll_entry.pays.emp_id }}
                                 </td>
-                                <td class="px-6 py-4 text-sm text-secondary-900">
+                                <td class="text-secondary-900">
                                     {{ payrol.payroll_entry.pays.first_name }} {{ payrol.payroll_entry.pays.last_name }}
                                 </td>
-                                <td class="px-6 py-4 text-sm text-secondary-900">
+                                <td class="tabular-nums text-secondary-900">
                                     {{ payrol.payroll_entry.pays.tin_no|default:"N/A" }}
                                 </td>
-                                <td class="px-6 py-4 text-sm text-secondary-900">
+                                <td class="tabular-nums text-secondary-900">
                                     ₦{{ payrol.payroll_entry.pays.employee_pay.basic_salary|intcomma }}
                                 </td>
-                                <td class="px-6 py-4 text-sm text-secondary-900 text-right font-medium">
+                                <td class="text-right font-medium tabular-nums text-secondary-900">
                                     ₦{{ payrol.payroll_entry.pays.employee_pay.payee|intcomma }}
                                 </td>
                             </tr>
                         {% endfor %}
-                        <tr class="bg-secondary-100 font-semibold">
-                            <td colspan="4" class="px-6 py-4 text-right text-sm text-secondary-900">
+                        <tr class="bg-surface-container-low font-semibold">
+                            <td colspan="4" class="text-right text-secondary-900">
                                 Total PAYE
                             </td>
-                            <td class="px-6 py-4 text-sm text-secondary-900 text-right">
+                            <td class="text-right tabular-nums text-secondary-900">
                                 ₦{{ total|intcomma }}
                             </td>
                         </tr>
@@ -143,7 +133,7 @@
                 </p>
             </div>
         {% endif %}
-    </div>
+    </section>
 
     <!-- Tax Information -->
     {% if payroll %}
@@ -153,8 +143,8 @@
                 PAYE Tax Information
             </h2>
             <div class="space-y-4">
-                <div class="p-4 bg-blue-50 rounded-lg">
-                    <p class="text-sm text-blue-800">
+                <div class="p-4 bg-primary-50 rounded-lg">
+                    <p class="text-sm text-primary-800">
                         <strong>Important:</strong> This PAYE report should be filed with the appropriate tax authority according to statutory requirements. Please verify all employee tax information before submission.
                     </p>
                 </div>

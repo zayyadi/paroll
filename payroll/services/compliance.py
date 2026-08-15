@@ -65,6 +65,17 @@ OBLIGATION_LABELS: dict = dict(OBLIGATION_CHOICES)
 # Obligations that carry a money amount (the annual return is a filing).
 MONETARY_OBLIGATIONS = {"paye", "pension", "nhf", "nhia", "itf", "nsitf"}
 
+# Statutory schemes for the per-scheme overdue breakdown, in canonical order.
+# The annual PAYE return belongs to the PAYE scheme.
+SCHEME_GROUPS = [
+    ("paye", "PAYE", {"paye", "paye_annual"}),
+    ("pension", "Pension", {"pension"}),
+    ("nhf", "NHF", {"nhf"}),
+    ("nhia", "NHIA", {"nhia"}),
+    ("nsitf", "NSITF", {"nsitf"}),
+    ("itf", "ITF", {"itf"}),
+]
+
 PENSION_PENALTY_PERCENT_PER_MONTH = Decimal("2")
 
 
@@ -320,6 +331,13 @@ def compliance_obligations(company: Any, as_of: Optional[date] = None) -> list:
         years.add(period.year)
         amounts = period_remittance_amounts(company, run)
 
+        # Pension's 7-working-day clock runs from the run's actual salary
+        # payment date; when that wasn't recorded it falls back to the period
+        # start. The anchor is surfaced on the calendar so the deadline math
+        # can be audited.
+        pension_anchor = run.payment_date or period
+        pension_anchor_fallback = run.payment_date is None
+
         specs = [
             (
                 "paye",
@@ -327,13 +345,17 @@ def compliance_obligations(company: Any, as_of: Optional[date] = None) -> list:
                 paye_due_date(period),
                 True,
                 "Mark remitted",
+                None,
+                False,
             ),
             (
                 "pension",
                 amounts["pension"],
-                pension_due_date(run.payment_date or period, holidays),
+                pension_due_date(pension_anchor, holidays),
                 True,
                 "Mark remitted",
+                pension_anchor,
+                pension_anchor_fallback,
             ),
             (
                 "nhf",
@@ -341,6 +363,8 @@ def compliance_obligations(company: Any, as_of: Optional[date] = None) -> list:
                 nhf_due_date(period),
                 amounts["nhf"] > 0,
                 "Mark remitted",
+                None,
+                False,
             ),
             (
                 "nhia",
@@ -348,6 +372,8 @@ def compliance_obligations(company: Any, as_of: Optional[date] = None) -> list:
                 nhia_due_date(period),
                 bool(setting and setting.nhia_applicable) or amounts["nhia"] > 0,
                 "Mark remitted",
+                None,
+                False,
             ),
             (
                 "nsitf",
@@ -355,9 +381,11 @@ def compliance_obligations(company: Any, as_of: Optional[date] = None) -> list:
                 nsitf_due_date(period),
                 nsitf_applicable and amounts["nsitf"] > 0,
                 "Mark remitted",
+                None,
+                False,
             ),
         ]
-        for key, amount, due_date, include, action_label in specs:
+        for key, amount, due_date, include, action_label, anchor, anchor_fallback in specs:
             if not include:
                 continue
             obligations.append(
@@ -370,6 +398,8 @@ def compliance_obligations(company: Any, as_of: Optional[date] = None) -> list:
                     as_of,
                     action_label,
                     paid_on=run.payment_date,
+                    anchor=anchor,
+                    anchor_fallback=anchor_fallback,
                 )
             )
 
@@ -433,7 +463,52 @@ def compliance_summary(company: Any, as_of: Optional[date] = None) -> dict:
         "next_due": min((o["due_date"] for o in open_obligations), default=None),
         "total_count": len(obligations),
         "done_count": len(obligations) - len(open_obligations),
+        "scheme_breakdown": _scheme_breakdown(overdue),
     }
+
+
+def _scheme_breakdown(overdue: list) -> list:
+    """
+    Group overdue obligations by statutory scheme, with the overdue count,
+    the outstanding amount, and the computed penalty exposure per scheme.
+
+    Only schemes with overdue obligations are included, sorted by penalty
+    exposure (then count) descending so the most exposed scheme leads.
+    """
+    rows = []
+    for key, label, obligation_keys in SCHEME_GROUPS:
+        scheme_obligations = [o for o in overdue if o["key"] in obligation_keys]
+        if not scheme_obligations:
+            continue
+        rows.append(
+            {
+                "key": key,
+                "label": label,
+                "count": len(scheme_obligations),
+                "amount": sum(
+                    (o["amount"] or 0 for o in scheme_obligations),
+                    Decimal("0.00"),
+                ),
+                "penalty": sum(
+                    (
+                        o["penalty"]["amount"] or 0
+                        for o in scheme_obligations
+                        if o.get("penalty") and o["penalty"].get("amount")
+                    ),
+                    Decimal("0.00"),
+                ),
+                "penalty_rate": next(
+                    (
+                        o["penalty"]["rate"]
+                        for o in scheme_obligations
+                        if o.get("penalty") and o["penalty"].get("rate")
+                    ),
+                    None,
+                ),
+            }
+        )
+    rows.sort(key=lambda r: (r["penalty"], r["count"]), reverse=True)
+    return rows
 
 
 def _build_obligation(
@@ -445,6 +520,8 @@ def _build_obligation(
     as_of: date,
     action_label: str,
     paid_on: Optional[date] = None,
+    anchor: Optional[date] = None,
+    anchor_fallback: bool = False,
 ) -> dict:
     record = records.get((key, period))
     if record and record.remitted_on:
@@ -466,6 +543,8 @@ def _build_obligation(
         "record": record,
         "action_label": action_label,
         "paid_on": paid_on,
+        "anchor": anchor,
+        "anchor_fallback": anchor_fallback,
         "penalty": (
             penalty_exposure(key, amount, due_date, as_of)
             if status == "overdue"

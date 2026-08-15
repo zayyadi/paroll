@@ -62,18 +62,18 @@
     </div>
 
     <!-- Bank Details Table -->
-    <div class="bg-white rounded-xl shadow-soft overflow-hidden">
-        <div class="px-6 py-4 border-b border-secondary-200 flex items-center justify-between">
-            <h2 class="text-lg font-semibold text-secondary-900 flex items-center">
+    <section class="table-shell">
+        <div class="flex items-center justify-between px-7 py-6">
+            <h2 class="font-headline text-lg font-bold text-primary-800 flex items-center">
                 <i data-lucide="credit-card" class="h-5 w-5 mr-2 text-primary-600"></i>
                 Payroll Details
             </h2>
             <div class="flex items-center space-x-2">
-                <button class="p-2 text-secondary-500 hover:text-secondary-700 rounded-lg hover:bg-secondary-100"
+                <button class="p-2 text-secondary-500 hover:text-secondary-700 rounded-lg hover:bg-surface-container-low"
                     title="Print">
                     <i data-lucide="printer" class="h-5 w-5"></i>
                 </button>
-                <button class="p-2 text-secondary-500 hover:text-secondary-700 rounded-lg hover:bg-secondary-100"
+                <button class="p-2 text-secondary-500 hover:text-secondary-700 rounded-lg hover:bg-surface-container-low"
                     title="Export">
                     <i data-lucide="file-text" class="h-5 w-5"></i>
                 </button>
@@ -82,40 +82,31 @@
 
         {% if payroll %}
         <div class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-secondary-200">
-                <thead class="bg-secondary-50">
+            <table class="min-w-full text-sm">
+                <thead>
                     <tr>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">
-                            EmpNo</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">
-                            EmpName</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">
-                            Bank Name</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">
-                            Account Name</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">
-                            Account No.</th>
-                        <th
-                            class="px-6 py-3 text-right text-xs font-medium text-secondary-500 uppercase tracking-wider">
-                            Net Pay</th>
+                        <th class="text-left">EmpNo</th>
+                        <th class="text-left">EmpName</th>
+                        <th class="text-left">Bank Name</th>
+                        <th class="text-left">Account Name</th>
+                        <th class="text-left">Account No.</th>
+                        <th class="text-right">Net Pay</th>
                     </tr>
                 </thead>
-                <tbody class="bg-white divide-y divide-secondary-200">
+                <tbody>
                     {% for payrol in payroll %}
-                    <tr class="hover:bg-secondary-50">
-                        <td class="px-6 py-4 text-sm text-secondary-900">{{ payrol.payroll_entry.pays.emp_id }}</td>
-                        <td class="px-6 py-4 text-sm text-secondary-900">{{ payrol.payroll_entry.pays.first_name }} {{ payrol.payroll_entry.pays.last_name }}</td>
-                        <td class="px-6 py-4 text-sm text-secondary-900">{{ payrol.payroll_entry.pays.get_bank_display }}
-                        </td>
-                        <td class="px-6 py-4 text-sm text-secondary-900">{{ payrol.payroll_entry.pays.bank_account_name }}
-                        </td>
-                        <td class="px-6 py-4 text-sm text-secondary-900">{{ payrol.payroll_entry.pays.bank_account_number }}</td>
-                        <td class="px-6 py-4 text-sm text-secondary-900 text-right font-medium">₦{{ payrol.payroll_entry.netpay|intcomma }}</td>
+                    <tr>
+                        <td class="text-secondary-900">{{ payrol.payroll_entry.pays.emp_id }}</td>
+                        <td class="text-secondary-900">{{ payrol.payroll_entry.pays.first_name }} {{ payrol.payroll_entry.pays.last_name }}</td>
+                        <td class="text-secondary-900">{{ payrol.payroll_entry.pays.get_bank_display }}</td>
+                        <td class="text-secondary-900">{{ payrol.payroll_entry.pays.bank_account_name }}</td>
+                        <td class="tabular-nums text-secondary-900">{{ payrol.payroll_entry.pays.bank_account_number }}</td>
+                        <td class="text-right font-medium tabular-nums text-secondary-900">₦{{ payrol.payroll_entry.netpay|intcomma }}</td>
                     </tr>
                     {% endfor %}
-                    <tr class="bg-secondary-100 font-semibold">
-                        <td colspan="5" class="px-6 py-4 text-right text-sm text-secondary-900">Total Net Pay</td>
-                        <td class="px-6 py-4 text-sm text-secondary-900 text-right">₦ {{ total_netpay|intcomma }}</td>
+                    <tr class="bg-surface-container-low font-semibold">
+                        <td colspan="5" class="text-right text-secondary-900">Total Net Pay</td>
+                        <td class="text-right tabular-nums text-secondary-900">₦ {{ total_netpay|intcomma }}</td>
                     </tr>
                 </tbody>
             </table>
@@ -128,7 +119,7 @@
                 assigned payroll.</p>
         </div>
         {% endif %}
-    </div>
+    </section>
 
     <!-- Bank Transfer Instructions -->
     {% if payroll %}
@@ -138,8 +129,8 @@
             Bank Transfer Instructions
         </h2>
         <div class="space-y-4">
-            <div class="p-4 bg-blue-50 rounded-lg">
-                <p class="text-sm text-blue-800">
+            <div class="p-4 bg-primary-50 rounded-lg">
+                <p class="text-sm text-primary-800">
                     <strong>Important:</strong> Please ensure all bank details are verified before processing transfers.
                     Any discrepancies should be reported to HR immediately.
                 </p>

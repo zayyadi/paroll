@@ -379,7 +379,7 @@ class CostOfEmploymentReportTests(TestCase):
     def test_cost_of_employment_reports_list_renders(self):
         response = self.client.get(reverse("payroll:cost_of_employment"))
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "COST OF EMPLOYMENT REPORTS")
+        self.assertContains(response, "Cost of Employment Reports")
 
     def test_cost_of_employment_report_download_exports_excel(self):
         response = self.client.get(
@@ -626,9 +626,24 @@ class ComplianceCalendarTests(TestCase):
         pension = next(o for o in obligations if o["key"] == "pension")
         self.assertEqual(pension["due_date"], date(2026, 6, 24))
         self.assertEqual(pension["paid_on"], date(2026, 6, 15))
+        # The anchor the clock ran from is surfaced for audit, with no
+        # fallback flag when the payment date was recorded.
+        self.assertEqual(pension["anchor"], date(2026, 6, 15))
+        self.assertFalse(pension["anchor_fallback"])
         # The period-based obligations keep their existing due dates.
         paye = next(o for o in obligations if o["key"] == "paye")
         self.assertEqual(paye["due_date"], date(2026, 7, 10))
+
+    def test_pension_anchor_falls_back_to_period_start(self):
+        # No stored payment date -> the clock runs from the period start and
+        # the fallback is flagged so the calendar can say so.
+        obligations = compliance.compliance_obligations(
+            self.company, as_of=date(2026, 6, 5)
+        )
+        pension = next(o for o in obligations if o["key"] == "pension")
+        self.assertEqual(pension["anchor"], date(2026, 6, 1))
+        self.assertTrue(pension["anchor_fallback"])
+        self.assertIsNone(pension["paid_on"])
 
     def test_months_overdue_and_pension_penalty(self):
         due = date(2026, 6, 10)
@@ -788,7 +803,35 @@ class ComplianceCalendarTests(TestCase):
         self.payroll_run.save(update_fields=["payment_date"])
         response = self.client.get(reverse("payroll:compliance_calendar"))
         self.assertEqual(response.status_code, 200)
+        # PAYE keeps the "Paid" line; the pension row shows the anchor
+        # instead of a duplicate Paid line.
         self.assertContains(response, "Paid 15 Jun 2026")
+        self.assertContains(response, "7 working days from 15 Jun 2026")
+        self.assertNotContains(response, "period start — payment date not recorded")
+
+    def test_calendar_page_flags_period_start_fallback_anchor(self):
+        response = self.client.get(reverse("payroll:compliance_calendar"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "7 working days from 01 Jun 2026")
+        self.assertContains(
+            response, "period start — payment date not recorded"
+        )
+
+    def test_calendar_rule_basis_describes_payment_date_anchoring(self):
+        # The rule-basis copy must keep describing the payment-date anchor
+        # so the UI text can't silently regress to the old "period start,
+        # adjust manually" wording that contradicted the code.
+        response = self.client.get(reverse("payroll:compliance_calendar"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(
+            response, "runs from the run's stored salary payment date"
+        )
+        self.assertContains(response, "falls back to the period start")
+        # The stale pre-anchoring phrasing must never return.
+        self.assertNotContains(response, "is the pay period start")
+        self.assertNotContains(
+            response, "so adjust to the actual salary payment date"
+        )
 
     def test_mark_remittance_view_records_remittance(self):
         response = self.client.post(
@@ -852,6 +895,82 @@ class ComplianceCalendarTests(TestCase):
                 remitted_on__isnull=False,
             ).exists()
         )
+
+    # --- per-scheme overdue breakdown --------------------------------------
+
+    def _enable_all_schemes(self):
+        """Turn on NHF and NHIA amounts so all five schemes produce rows."""
+        config = self.employee.employee_pay
+        config.nhf_scheme = "voluntary"
+        config.is_nhif = True
+        config.save()
+
+    def test_scheme_breakdown_groups_overdue_by_scheme(self):
+        self._enable_all_schemes()
+        response = self.client.get(reverse("payroll:compliance_calendar"))
+        self.assertEqual(response.status_code, 200)
+        breakdown = response.context["scheme_breakdown"]
+        # Every June obligation (paye/pension/nhf/nhia/nsitf) is overdue by
+        # now, so each scheme appears once; the annual return is not yet due.
+        self.assertEqual(len(breakdown), 5)
+        labels = {row["label"] for row in breakdown}
+        self.assertEqual(labels, {"PAYE", "Pension", "NHF", "NHIA", "NSITF"})
+        # Counts and amounts roll up to the total overdue stats.
+        self.assertEqual(
+            sum(row["count"] for row in breakdown),
+            response.context["overdue_count"],
+        )
+        self.assertEqual(
+            sum(row["amount"] for row in breakdown),
+            response.context["overdue_amount"],
+        )
+
+    def test_scheme_breakdown_pension_leads_with_penalty_exposure(self):
+        self._enable_all_schemes()
+        response = self.client.get(reverse("payroll:compliance_calendar"))
+        breakdown = response.context["scheme_breakdown"]
+        # Pension is the only scheme with a verified penalty rate, so it must
+        # lead the sorted breakdown and carry the exposure amount.
+        self.assertEqual(breakdown[0]["key"], "pension")
+        pension = breakdown[0]
+        self.assertGreater(pension["penalty"], 0)
+        self.assertEqual(pension["penalty_rate"], "2% per month")
+        self.assertTrue(
+            all(row["penalty"] == 0 for row in breakdown[1:]),
+            "only pension carries a computed penalty amount",
+        )
+
+    def test_scheme_breakdown_paye_includes_annual_return(self):
+        # With as_of after the annual-return deadline, PAYE counts both the
+        # monthly obligation and the filing under one scheme row.
+        summary = compliance.compliance_summary(
+            self.company, as_of=date(2027, 3, 1)
+        )
+        paye = next(
+            row for row in summary["scheme_breakdown"] if row["key"] == "paye"
+        )
+        self.assertEqual(paye["count"], 2)
+
+    def test_scheme_breakdown_clears_when_remitted(self):
+        for key in ("paye", "pension", "nhf", "nhia", "nsitf"):
+            RemittanceRecord.objects.create(
+                company=self.company,
+                obligation=key,
+                period=date(2026, 6, 1),
+                remitted_on=date(2026, 6, 20),
+            )
+        response = self.client.get(reverse("payroll:compliance_calendar"))
+        self.assertEqual(response.context["scheme_breakdown"], [])
+        self.assertEqual(response.context["overdue_count"], 0)
+        self.assertNotContains(response, "Exposure by scheme")
+
+    def test_calendar_page_renders_scheme_breakdown(self):
+        self._enable_all_schemes()
+        response = self.client.get(reverse("payroll:compliance_calendar"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Exposure by scheme")
+        self.assertContains(response, "Pension")
+        self.assertContains(response, "2% per month")
 
 
 class PayrollRecomputeStatutoryTests(TestCase):

@@ -1,43 +1,67 @@
 {% extends "base_new.html" %}
+{% load static %}
+
+{% block page_header %}Create Transfer{% endblock %}
+
 {% block content %}
-<div class="max-w-3xl mx-auto px-4 py-8">
-  <h1 class="text-2xl font-bold mb-6">{{ page_title }}</h1>
-  <form method="post" class="bg-white shadow rounded-lg p-6 space-y-4">
-    {% csrf_token %}
-    <div>
-      <label class="block text-sm font-medium text-gray-700 mb-1">Employee</label>
-      <select name="employee" required class="w-full border rounded px-3 py-2">
-        <option value="">Select employee</option>
-        {% for emp in employees %}
-        <option value="{{ emp.id|stringformat:"d" }}">{{ emp.first_name }} {{ emp.last_name }} ({{ emp.department }})</option>
-        {% endfor %}
-      </select>
+<div class="mx-auto max-w-5xl space-y-6">
+    <!-- Page header -->
+    <div class="editorial-panel p-7 border-l-4 border-primary-700">
+        <p class="text-xs font-bold uppercase tracking-[.22em] text-tertiary">Employee movement</p>
+        <h2 class="mt-1 font-headline text-2xl font-bold text-primary-800">Create Transfer Request</h2>
+        <p class="mt-1 text-sm text-secondary-600">
+            Move an employee to a new department or position. Fields marked
+            <span class="text-danger-600">*</span> are required.
+        </p>
+        <div class="mt-4 flex flex-wrap gap-2">
+            <span class="rounded-full bg-primary-50 px-3 py-1 text-[11px] font-semibold text-primary-700">01 Employee &amp; Movement</span>
+            <span class="rounded-full bg-primary-50 px-3 py-1 text-[11px] font-semibold text-primary-700">02 Effective Date &amp; Reason</span>
+        </div>
     </div>
-    <div>
-      <label class="block text-sm font-medium text-gray-700 mb-1">To Department</label>
-      <select name="to_department" class="w-full border rounded px-3 py-2">
-        <option value="">No change</option>
-        {% for dept in departments %}
-        <option value="{{ dept.pk }}">{{ dept.name }}</option>
-        {% endfor %}
-      </select>
-    </div>
-    <div>
-      <label class="block text-sm font-medium text-gray-700 mb-1">To Position</label>
-      <input type="text" name="to_position" class="w-full border rounded px-3 py-2" placeholder="Leave blank if no change">
-    </div>
-    <div>
-      <label class="block text-sm font-medium text-gray-700 mb-1">Effective Date</label>
-      <input type="date" name="effective_date" required class="w-full border rounded px-3 py-2">
-    </div>
-    <div>
-      <label class="block text-sm font-medium text-gray-700 mb-1">Reason</label>
-      <textarea name="reason" rows="3" class="w-full border rounded px-3 py-2"></textarea>
-    </div>
-    <div class="flex justify-end space-x-3">
-      <a href="{% url 'payroll:transfer_list' %}" class="px-4 py-2 border rounded text-gray-700 hover:bg-gray-50">Cancel</a>
-      <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Create Transfer</button>
-    </div>
-  </form>
+
+    <form method="post" class="space-y-6">
+        {% csrf_token %}
+
+        {% if form.non_field_errors %}
+            <div class="rounded-2xl border border-danger-200 bg-danger-50 p-4 text-sm text-danger-800">
+                {{ form.non_field_errors }}
+            </div>
+        {% endif %}
+
+        <!-- 01 · Employee & Movement -->
+        <section class="bento-card p-6 sm:p-7">
+            {% include "employee/_form_section_header.html" with number="01" title="Employee & Movement" subtitle="Who is moving and where they are headed" %}
+            <div class="mt-6 grid grid-cols-1 gap-x-6 gap-y-5 md:grid-cols-2">
+                <div class="md:col-span-2">
+                    {% include "employee/_form_field.html" with field=form.employee %}
+                </div>
+                {% include "employee/_form_field.html" with field=form.to_department %}
+                {% include "employee/_form_field.html" with field=form.to_position %}
+            </div>
+        </section>
+
+        <!-- 02 · Effective Date & Reason -->
+        <section class="bento-card p-6 sm:p-7">
+            {% include "employee/_form_section_header.html" with number="02" title="Effective Date & Reason" subtitle="When the move takes effect and why" %}
+            <div class="mt-6 grid grid-cols-1 gap-x-6 gap-y-5 md:grid-cols-2">
+                {% include "employee/_form_field.html" with field=form.effective_date %}
+                <div class="md:col-span-2">
+                    {% include "employee/_form_field.html" with field=form.reason %}
+                </div>
+            </div>
+        </section>
+
+        <!-- Actions -->
+        <div class="flex flex-col-reverse items-stretch justify-between gap-3 border-t border-secondary-100 pt-6 sm:flex-row sm:items-center">
+            <a href="{% url 'payroll:transfer_list' %}"
+               class="editorial-secondary editorial-action px-5 py-2.5 text-center text-sm font-medium">
+                Cancel
+            </a>
+            <button type="submit"
+                class="btn-primary editorial-action px-6 py-2.5 text-white font-medium rounded-xl">
+                Create Transfer
+            </button>
+        </div>
+    </form>
 </div>
 {% endblock %}

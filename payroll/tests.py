@@ -60,6 +60,11 @@ from payroll.models import (
     record_candidate_scorecard,
     create_job_offer,
     accept_job_offer,
+    Department,
+    EmployeeTransfer,
+    Promotion,
+    ContractTemplate,
+    EmploymentContract,
 )
 from payroll.views.payroll_payslips import (
     _queue_payslip_emails_for_payroll_run,
@@ -1378,6 +1383,9 @@ class EmployeeLeaveIOUUrlWalkSmokeTests(TestCase):
             ("payroll:hr_dashboard", {}),
             ("payroll:employee_list", {}),
             ("payroll:add_employee", {}),
+            ("payroll:transfer_create", {}),
+            ("payroll:promotion_create", {}),
+            ("payroll:contract_generate", {}),
             ("payroll:profile", {"user_id": self.employee.user_id}),
             ("payroll:update_employee", {"id": self.employee.id}),
             ("payroll:apply_leave", {}),
@@ -1420,6 +1428,174 @@ class EmployeeLeaveIOUUrlWalkSmokeTests(TestCase):
                     500,
                     f"{route_name} returned server error {response.status_code}",
                 )
+
+
+class TransferPromotionContractFormTests(TestCase):
+    """POST-level form tests for the sectioned transfer / promotion / contract create forms.
+
+    Valid payloads must create a company-scoped record and redirect to its detail
+    page; invalid payloads must create nothing and re-render the form with the
+    field errors rendered inline (errorlist next to the offending control).
+    """
+
+    def setUp(self):
+        self.company = Company.objects.create(name="Movement Co")
+        self.user = User.objects.create_user(
+            email="movement-admin@example.com",
+            password="testpass123",
+            first_name="Movement",
+            last_name="Admin",
+            company=self.company,
+            active_company=self.company,
+            is_staff=True,
+            is_superuser=True,
+        )
+        self.employee = EmployeeProfile.objects.get(user=self.user)
+        self.employee.company = self.company
+        self.employee.status = "active"
+        self.employee.first_name = "Ada"
+        self.employee.last_name = "Lovelace"
+        self.employee.job_title = "Engineer"
+        self.employee.save()
+
+        self.target_user = User.objects.create_user(
+            email="movement-target@example.com",
+            password="testpass123",
+            first_name="Grace",
+            last_name="Hopper",
+            company=self.company,
+            active_company=self.company,
+        )
+        self.target_employee = EmployeeProfile.objects.get(user=self.target_user)
+        self.target_employee.company = self.company
+        self.target_employee.status = "active"
+        self.target_employee.job_title = "Junior Engineer"
+        self.target_employee.save()
+
+        self.department = Department.objects.create(
+            company=self.company, name="Engineering"
+        )
+        self.template = ContractTemplate.objects.create(
+            company=self.company,
+            name="Full-Time",
+            template_html="<h1>{{ employee.first_name }}</h1>",
+        )
+        self.client.login(email=self.user.email, password="testpass123")
+
+    # --- transfer ---
+
+    def test_transfer_create_valid_post_creates_record(self):
+        count = EmployeeTransfer.objects.count()
+        response = self.client.post(
+            reverse("payroll:transfer_create"),
+            {
+                "employee": self.target_employee.id,
+                "to_department": self.department.id,
+                "to_position": "Senior Engineer",
+                "effective_date": "2026-09-01",
+                "reason": "Senior progression",
+            },
+        )
+        self.assertEqual(EmployeeTransfer.objects.count(), count + 1)
+        transfer = EmployeeTransfer.objects.get(employee=self.target_employee)
+        self.assertEqual(transfer.company, self.company)
+        self.assertEqual(transfer.to_department, self.department)
+        self.assertEqual(transfer.to_position, "Senior Engineer")
+        self.assertEqual(transfer.effective_date, date(2026, 9, 1))
+        self.assertEqual(transfer.from_department, self.target_employee.department)
+        self.assertEqual(transfer.requested_by, self.user)
+        self.assertRedirects(
+            response, reverse("payroll:transfer_detail", kwargs={"pk": transfer.pk})
+        )
+
+    def test_transfer_create_invalid_post_no_record_and_inline_errors(self):
+        count = EmployeeTransfer.objects.count()
+        response = self.client.post(
+            reverse("payroll:transfer_create"),
+            {"to_department": self.department.id},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(EmployeeTransfer.objects.count(), count)
+        # Inline field errors render (not just a page-level message).
+        self.assertContains(response, "errorlist")
+        self.assertContains(response, "This field is required.")
+        self.assertContains(response, 'name="employee"')
+        self.assertContains(response, 'name="effective_date"')
+
+    # --- promotion ---
+
+    def test_promotion_create_valid_post_creates_record(self):
+        count = Promotion.objects.count()
+        response = self.client.post(
+            reverse("payroll:promotion_create"),
+            {
+                "employee": self.target_employee.id,
+                "new_title": "Senior Engineer",
+                "effective_date": "2026-09-01",
+                "reason": "Promotion",
+            },
+        )
+        self.assertEqual(Promotion.objects.count(), count + 1)
+        promotion = Promotion.objects.get(employee=self.target_employee)
+        self.assertEqual(promotion.company, self.company)
+        self.assertEqual(promotion.new_title, "Senior Engineer")
+        self.assertEqual(promotion.old_title, "Junior Engineer")
+        self.assertEqual(promotion.effective_date, date(2026, 9, 1))
+        self.assertEqual(promotion.requested_by, self.user)
+        self.assertRedirects(
+            response, reverse("payroll:promotion_detail", kwargs={"pk": promotion.pk})
+        )
+
+    def test_promotion_create_invalid_post_no_record_and_inline_errors(self):
+        count = Promotion.objects.count()
+        response = self.client.post(
+            reverse("payroll:promotion_create"),
+            {"employee": self.target_employee.id},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(Promotion.objects.count(), count)
+        self.assertContains(response, "errorlist")
+        self.assertContains(response, "This field is required.")
+        self.assertContains(response, 'name="new_title"')
+        self.assertContains(response, 'name="effective_date"')
+
+    # --- contract ---
+
+    def test_contract_generate_valid_post_creates_record(self):
+        count = EmploymentContract.objects.count()
+        response = self.client.post(
+            reverse("payroll:contract_generate"),
+            {
+                "employee": self.target_employee.id,
+                "template": self.template.id,
+                "start_date": "2026-09-01",
+                "end_date": "2027-08-31",
+            },
+        )
+        self.assertEqual(EmploymentContract.objects.count(), count + 1)
+        contract = EmploymentContract.objects.get(employee=self.target_employee)
+        self.assertEqual(contract.company, self.company)
+        self.assertEqual(contract.template, self.template)
+        self.assertEqual(contract.version, 1)
+        self.assertEqual(contract.status, "DRAFT")
+        self.assertEqual(contract.start_date, date(2026, 9, 1))
+        self.assertEqual(contract.end_date, date(2027, 8, 31))
+        self.assertRedirects(
+            response, reverse("payroll:contract_detail", kwargs={"pk": contract.pk})
+        )
+
+    def test_contract_generate_invalid_post_no_record_and_inline_errors(self):
+        count = EmploymentContract.objects.count()
+        response = self.client.post(
+            reverse("payroll:contract_generate"),
+            {"template": self.template.id},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(EmploymentContract.objects.count(), count)
+        self.assertContains(response, "errorlist")
+        self.assertContains(response, "This field is required.")
+        self.assertContains(response, 'name="employee"')
+        self.assertContains(response, 'name="start_date"')
 
 
 class PayrollReportSmokeTests(TestCase):
@@ -2014,6 +2190,34 @@ class EWASelfServiceViewTests(TestCase):
         response = self.client.get(reverse("payroll:request_ewa"))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "not enabled for your company")
+
+    def test_request_ewa_max_attribute_is_parseable(self):
+        # The max attribute must render without the localized comma (e.g.
+        # "8,387.10"): browsers treat a comma'd value as unparseable, silently
+        # disabling client-side over-cap blocking.
+        response = self.client.get(reverse("payroll:request_ewa"))
+        self.assertEqual(response.status_code, 200)
+        html = response.content.decode()
+        self.assertRegex(html, r'max="\d+(\.\d+)?"')
+
+    def test_request_ewa_surfaces_amount_error_before_timing_reason(self):
+        # With an advance already this cycle the min-days rule blocks, but an
+        # over-cap amount must be reported as an amount problem - not hidden
+        # behind the timing reason, which would make the user retry the same
+        # amount after the window and fail again.
+        self.client.post(
+            reverse("payroll:request_ewa"),
+            data={"amount": "2000", "tenor": "5", "reason": "First advance"},
+        )
+        response = self.client.post(
+            reverse("payroll:request_ewa"),
+            data={"amount": "200000", "tenor": "1", "reason": "Over the cap"},
+            follow=True,
+        )
+        self.assertContains(response, "exceeds the maximum available")
+        self.assertContains(response, "next advance")
+        # No duplicate was created by the rejected POST.
+        self.assertEqual(IOU.objects.filter(employee_id=self.employee).count(), 1)
 
 
 class AuditSignalCascadeDeleteTests(TestCase):

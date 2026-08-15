@@ -32,9 +32,10 @@
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <!-- Left Panel: Employee Selection -->
             <div class="lg:col-span-2 space-y-6">
-                <!-- Search and Filter Bar -->
-                <div class="bento-card">
-                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <!-- 01 · Employee Selection -->
+                <div class="bento-card p-6">
+                    {% include "employee/_form_section_header.html" with number="01" title="Employee Selection" subtitle="Search, filter and select employees for this pay period" %}
+                    <div class="mt-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                         <!-- Search -->
                         <div class="md:col-span-2 lg:col-span-2">
                             <label class="block text-sm font-medium text-secondary-700 mb-2">
@@ -45,7 +46,7 @@
                                 type="text" 
                                 id="searchInput"
                                 placeholder="Search by name, email, or employee ID..."
-                                class="form-input w-full px-4 py-2.5 border border-secondary-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm"
+                                class="w-full px-4 py-2.5 border border-secondary-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm bg-white"
                                 x-model="searchQuery"
                                 @input="filterEmployees()"
                             >
@@ -59,7 +60,7 @@
                             </label>
                             <select 
                                 id="departmentFilter"
-                                class="form-input w-full px-4 py-2.5 border border-secondary-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm bg-white"
+                                class="w-full px-4 py-2.5 border border-secondary-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm bg-white"
                                 x-model="selectedDepartment"
                                 @change="filterEmployees()"
                             >
@@ -78,7 +79,7 @@
                             </label>
                             <select 
                                 id="jobTitleFilter"
-                                class="form-input w-full px-4 py-2.5 border border-secondary-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm bg-white"
+                                class="w-full px-4 py-2.5 border border-secondary-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm bg-white"
                                 x-model="selectedJobTitle"
                                 @change="filterEmployees()"
                             >
@@ -117,7 +118,7 @@
                 </div>
 
                 <!-- Employee List -->
-                <div class="bg-surface-container-lowest rounded-2xl border border-outline-variant overflow-hidden shadow-card">
+                <div class="bento-card overflow-hidden">
                     <!-- List Header -->
                     <div class="bg-secondary-50 px-6 py-3 border-b border-secondary-200">
                         <div class="flex items-center justify-between">
@@ -205,70 +206,20 @@
 
             <!-- Right Panel: Pay Period Details -->
             <div class="space-y-6">
-                <!-- Pay Period Info -->
-                <div class="bento-card">
-                    <h2 class="text-lg font-semibold text-secondary-900 mb-4 flex items-center">
-                        <i data-lucide="calendar" class="h-5 w-5 mr-2 text-primary-600"></i>
-                        Pay Period Details
-                    </h2>
-                    
-                    <div class="space-y-4">
-                        <!-- Name -->
-                        <div>
-                            <label for="{{ form.name.id_for_label }}" class="block text-sm font-medium text-secondary-700 mb-2">
-                                Pay Period Name <span class="text-danger-500">*</span>
-                            </label>
-                            {{ form.name }}
-                            {% if form.name.errors %}
-                            <p class="mt-1 text-sm text-danger-600">{{ form.name.errors }}</p>
-                            {% endif %}
-                        </div>
-
-                        <!-- Month -->
-                        <div>
-                            <label for="{{ form.paydays.id_for_label }}" class="block text-sm font-medium text-secondary-700 mb-2">
-                                Month <span class="text-danger-500">*</span>
-                            </label>
-                            {{ form.paydays }}
-                            {% if form.paydays.errors %}
-                            <p class="mt-1 text-sm text-danger-600">{{ form.paydays.errors }}</p>
-                            {% endif %}
-                        </div>
-
-                        <!-- Is Active -->
-                        <div class="flex items-center">
-                            <input 
-                                type="checkbox" 
-                                id="{{ form.is_active.id_for_label }}"
-                                name="{{ form.is_active.name }}"
-                                class="h-4 w-4 text-primary-600 border-secondary-300 rounded focus:ring-primary-500"
-                                {% if form.is_active.value %}checked{% endif %}
-                            >
-                            <label for="{{ form.is_active.id_for_label }}" class="ml-2 text-sm text-secondary-700">
-                                Mark as Active
-                            </label>
-                        </div>
-                        {% if form.is_active.errors %}
-                        <p class="mt-1 text-sm text-danger-600">{{ form.is_active.errors|striptags }}</p>
-                        {% endif %}
-
-                        <!-- Closed -->
-                        <div class="flex items-center">
-                            <input 
-                                type="checkbox" 
-                                id="{{ form.closed.id_for_label }}"
-                                name="{{ form.closed.name }}"
-                                class="h-4 w-4 text-primary-600 border-secondary-300 rounded focus:ring-primary-500"
-                            >
-                            <label for="{{ form.closed.id_for_label }}" class="ml-2 text-sm text-secondary-700">
-                                Close for Editing
-                            </label>
-                        </div>
+                <!-- 02 · Pay Period Details -->
+                <div class="bento-card p-6 sm:p-7">
+                    {% include "employee/_form_section_header.html" with number="02" title="Pay Period Details" subtitle="Name the period and set its dates" %}
+                    <div class="mt-6 space-y-5">
+                        {% include "employee/_form_field.html" with field=form.name %}
+                        {% include "employee/_form_field.html" with field=form.paydays %}
+                        {% include "employee/_form_field.html" with field=form.payment_date %}
+                        {% include "employee/_form_field.html" with field=form.is_active %}
+                        {% include "employee/_form_field.html" with field=form.closed %}
                     </div>
                 </div>
 
                 <!-- Selection Summary -->
-                <div class="bento-card">
+                <div class="bento-card p-6 sm:p-7">
                     <h2 class="text-lg font-semibold text-secondary-900 mb-4 flex items-center">
                         <i data-lucide="bar-chart-2" class="h-5 w-5 mr-2 text-primary-600"></i>
                         Selection Summary
@@ -295,7 +246,7 @@
                 </div>
 
                 <!-- Submit Actions -->
-                <div class="bento-card">
+                <div class="bento-card p-6 sm:p-7">
                     <div class="space-y-3">
                         <button 
                             type="submit"
@@ -454,46 +405,13 @@ function paydayForm() {
         },
         
         updateForm() {
-            // Update the hidden payroll_payday field
+            // Update hidden payroll_payday field
             const hiddenInput = document.querySelector('input[name="payroll_payday"]');
             if (hiddenInput) {
                 hiddenInput.value = Array.from(this.selectedIds).join(',');
             }
         }
-    }
+    };
 }
 </script>
-
-<style>
-.employee-item {
-    transition: background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
-}
-
-.employee-item:hover {
-    background-color: rgba(248, 250, 252, 0.8);
-}
-
-.employee-item.bg-primary-50 {
-    background-color: rgba(239, 246, 255, 0.5);
-}
-
-/* Custom scrollbar for employee list */
-#employeeList::-webkit-scrollbar {
-    width: 8px;
-}
-
-#employeeList::-webkit-scrollbar-track {
-    background: #f1f5f9;
-    border-radius: 4px;
-}
-
-#employeeList::-webkit-scrollbar-thumb {
-    background: #cbd5e1;
-    border-radius: 4px;
-}
-
-#employeeList::-webkit-scrollbar-thumb:hover {
-    background: #94a3b8;
-}
-</style>
 {% endblock %}

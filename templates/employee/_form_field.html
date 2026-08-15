@@ -1,0 +1,13 @@
+{% comment %}
+Editorial form field: label (with required marker), control, help, and errors.
+Usage: {% include "employee/_form_field.html" with field=form.first_name %}
+{% endcomment %}
+<div>
+    <label for="{{ field.id_for_label }}" class="mb-1.5 block text-sm font-semibold text-secondary-800">
+        {{ field.label }}
+        {% if field.field.required %}<span class="text-danger-600" aria-hidden="true">*</span>{% endif %}
+    </label>
+    {{ field }}
+    {% if field.help_text %}<p class="mt-1 text-xs text-secondary-500">{{ field.help_text }}</p>{% endif %}
+    {{ field.errors }}
+</div>
