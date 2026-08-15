@@ -1,38 +1,74 @@
-{% extends "base.html" %}
+{% extends "base_new.html" %}
 {% load static %}
-{% load tailwind_filters %}
 {% load custom_tags %}
-
-{% block title %}
-  COST OF EMPLOYMENT REPORTS
-{% endblock title %}
+{% block page_header %}Cost of Employment Reports{% endblock %}
 
 {% block content %}
-<div class="container mx-auto px-4 py-8">
-    <div class="flex items-center justify-between mb-4">
-        <h1 class="text-2xl font-semibold text-gray-800">COST OF EMPLOYMENT REPORTS</h1>
+<div class="space-y-6">
+    <!-- Header Section -->
+    <div class="bg-gradient-to-r from-primary-500 to-primary-600 rounded-2xl p-6 text-white shadow-medium">
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between">
+            <div>
+                <h1 class="text-2xl font-bold mb-2">Cost of Employment Reports</h1>
+                <p class="text-primary-100">Generate and download the employer-vs-employee cost split for each payroll period</p>
+            </div>
+            <div class="mt-4 md:mt-0">
+                <span class="bg-white bg-opacity-20 text-white text-sm font-medium px-4 py-2 rounded-full">
+                    {% now "F j, Y" %}
+                </span>
+            </div>
+        </div>
     </div>
-    <div class="overflow-x-auto">
-        <table class="min-w-full bg-white shadow-md rounded-lg">
-            <thead class="bg-gray-200">
-                <tr>
-                    <th class="px-4 py-2 border-b">#</th>
-                    <th class="px-4 py-2 border-b">Year-Month</th>
-                    <th class="px-4 py-2 border-b">Report</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for payrol in payroll %}
-                <tr class="bg-white even:bg-gray-50">
-                    <td class="px-4 py-2 border-b text-center">{{ forloop.counter }}</td>
-                    <td class="px-4 py-2 border-b text-center">{{ dates|index:forloop.counter0 }}</td>
-                    <td class="px-4 py-2 border-b text-center">
-                        <a href="{% url 'payroll:cost_of_employment_report' payrol.id %}" class="inline-block bg-blue-500 text-white py-1 px-3 rounded hover:bg-blue-600">View Report</a>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+
+    <!-- Pay Period Selection -->
+    <section class="table-shell">
+        <div class="flex items-center justify-between px-7 py-6">
+            <h2 class="font-headline text-lg font-bold text-primary-800 flex items-center">
+                <i data-lucide="calendar" class="h-5 w-5 mr-2 text-primary-600"></i>
+                Select Pay Period
+            </h2>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="min-w-full text-sm">
+                <thead>
+                    <tr>
+                        <th class="text-left">#</th>
+                        <th class="text-left">Year-Month</th>
+                        <th class="text-right">Report</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for payrol in payroll %}
+                    <tr>
+                        <td class="text-secondary-900">{{ forloop.counter }}</td>
+                        <td class="text-secondary-900">{{ dates|index:forloop.counter0 }}</td>
+                        <td class="text-right">
+                            <a href="{% url 'payroll:cost_of_employment_report' payrol.id %}"
+                                class="btn-primary editorial-action px-4 py-2 text-xs">View Report</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <!-- Information -->
+    <div class="bg-white rounded-xl shadow-soft p-6">
+        <h2 class="text-lg font-semibold text-secondary-900 mb-4 flex items-center">
+            <i data-lucide="info" class="h-5 w-5 mr-2 text-primary-600"></i>
+            Cost of Employment Information
+        </h2>
+        <div class="space-y-4">
+            <div class="p-4 bg-primary-50 rounded-lg">
+                <p class="text-sm text-primary-800">
+                    <strong>Important:</strong> Each report shows total employer cost versus total net pay, with the
+                    employer-funded levies (pension, NHIA, NSITF, ITF) split out. Remittance deadlines for these levies
+                    (PAYE 10th, pension 7 working days from salary payment, NHF/NHIA monthly) are tracked in the
+                    <a href="{% url 'payroll:compliance_calendar' %}" class="font-semibold text-primary-700 hover:text-primary-900">compliance calendar</a>.
+                </p>
+            </div>
+        </div>
     </div>
 </div>
 {% endblock %}

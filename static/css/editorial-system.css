@@ -111,11 +111,39 @@ img, svg { max-width: 100%; }
 
 :where(input:not([type="checkbox"]):not([type="radio"]):not([type="file"]), select, textarea, .form-control, .form-select) {
   min-height: 46px;
-  border: 1px solid transparent !important;
+  border: 1px solid var(--pn-border) !important;
   border-radius: var(--pn-radius-control) !important;
-  background: var(--pn-surface-low) !important;
+  background: #fff !important;
   color: var(--pn-text) !important;
   box-shadow: none !important;
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+
+/* Selects: swap the native arrow for a branded chevron. */
+:where(select:not([multiple]):not([size]), .form-select:not([multiple]):not([size])) {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 2.75rem !important;
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2370787d' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") !important;
+  background-repeat: no-repeat !important;
+  background-position: right .9rem center !important;
+  background-size: 1em !important;
+}
+
+/* Checkboxes & radios: teal accent, comfortable hit target. */
+:where(input[type="checkbox"], input[type="radio"]) {
+  accent-color: var(--pn-primary);
+  width: 1.125rem;
+  height: 1.125rem;
+  vertical-align: -0.25em;
+  flex-shrink: 0;
+}
+
+/* Form labels: readable 14px body-labels with a firm ink. */
+:where(label, legend) {
+  color: #40484c;
+  font-weight: 650;
+  font-size: .875rem;
 }
 
 :where(input, select, textarea, .form-control, .form-select):focus {
@@ -126,6 +154,40 @@ img, svg { max-width: 100%; }
 
 textarea { min-height: 120px; }
 ::placeholder { color: #70787d !important; opacity: 1; }
+
+/* Validation: Django errorlist + Bootstrap-style invalid classes. */
+:where(.errorlist, .field-error) {
+  margin: .375rem 0 0 !important;
+  padding: 0 !important;
+  list-style: none;
+  color: var(--pn-danger) !important;
+  font-size: .8125rem;
+  font-weight: 600;
+}
+:where(.errorlist li) { margin: .125rem 0; }
+
+:where(input.is-invalid, select.is-invalid, textarea.is-invalid, .form-control.is-invalid,
+       .has-error input, .has-error select, .has-error textarea) {
+  border-color: rgba(186, 26, 26, .5) !important;
+  box-shadow: 0 0 0 3px rgba(186, 26, 26, .12) !important;
+}
+
+/* Field wrappers that carry a Django errorlist: mark the control itself. */
+:where(div:has(> .errorlist) input, div:has(> .errorlist) select, div:has(> .errorlist) textarea) {
+  border-color: rgba(186, 26, 26, .5) !important;
+  box-shadow: 0 0 0 3px rgba(186, 26, 26, .12) !important;
+}
+
+/* Disabled & read-only fields drop to 58% opacity on a muted well. */
+:where(input:disabled, select:disabled, textarea:disabled, .form-control:disabled, .form-select:disabled) {
+  opacity: .58 !important;
+  cursor: not-allowed !important;
+  background: var(--pn-surface-low) !important;
+}
+:where(input[readonly], textarea[readonly]) {
+  background: var(--pn-surface-low) !important;
+  cursor: default;
+}
 
 :where(.table-responsive) {
   overflow-x: auto;

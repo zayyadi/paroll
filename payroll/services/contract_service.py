@@ -33,10 +33,10 @@ def generate_contract_pdf(*, contract: Any) -> str:
     }
 
     if contract.template and contract.template.template_html:
-        from django.template import Template
+        from django.template import Context, Template
 
         tpl = Template(contract.template.template_html)
-        html_string = tpl.render(context)
+        html_string = tpl.render(Context(context))
     else:
         html_string = render_to_string("contracts/contract_base.html", context)
 

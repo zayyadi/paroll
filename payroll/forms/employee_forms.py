@@ -34,6 +34,23 @@ class EmployeeProfileForm(forms.ModelForm):
             self.fields["employee_pay"].queryset = models.Payroll.objects.filter(
                 company=company
             )
+        # Date of Employment: a single native date input instead of the
+        # month/year split widget. The model stores the 1st of the month, so
+        # day-level precision is normalized on save, matching the field's
+        # month-granular semantics.
+        doe = self.instance.date_of_employment if self.instance and self.instance.pk else None
+        self.fields["date_of_employment"] = forms.DateField(
+            required=False,
+            label="Date of Employment",
+            help_text="",
+            widget=forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
+        )
+        # MonthField returns a `Month` object, which is not a datetime.date
+        # subclass and would render as "YYYY-MM"; convert to a real date so
+        # the native input gets "YYYY-MM-DD".
+        if doe:
+            self.initial["date_of_employment"] = doe.first_day()
+
         input_class = (
             "w-full px-4 py-2.5 border border-secondary-300 rounded-xl "
             "focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm bg-white"
@@ -163,6 +180,145 @@ class EmployeeProfileForm(forms.ModelForm):
         }
         # exclude = ["created",]
 
+
+
+class EmployeeTransferForm(forms.Form):
+    """Create an employee transfer request (department / position change)."""
+
+    employee = forms.ModelChoiceField(
+        queryset=models.EmployeeProfile.objects.none(),
+        label="Employee",
+        empty_label="Select employee",
+    )
+    to_department = forms.ModelChoiceField(
+        queryset=models.Department.objects.none(),
+        required=False,
+        label="To Department",
+        empty_label="No change",
+    )
+    to_position = forms.CharField(
+        required=False,
+        label="To Position",
+        help_text="Leave blank if the position is unchanged.",
+    )
+    effective_date = forms.DateField(
+        label="Effective Date",
+        widget=forms.DateInput(attrs={"type": "date"}),
+    )
+    reason = forms.CharField(
+        required=False,
+        label="Reason",
+        widget=forms.Textarea(attrs={"rows": 3}),
+    )
+
+    def __init__(self, *args, company=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        if company:
+            self.fields["employee"].queryset = models.EmployeeProfile.objects.filter(
+                company=company, status="active"
+            )
+            self.fields["to_department"].queryset = models.Department.objects.filter(
+                company=company
+            )
+        _apply_standard_widget_classes(self.fields)
+
+
+class EmployeePromotionForm(forms.Form):
+    """Create an employee promotion request (title change)."""
+
+    employee = forms.ModelChoiceField(
+        queryset=models.EmployeeProfile.objects.none(),
+        label="Employee",
+        empty_label="Select employee",
+    )
+    new_title = forms.CharField(label="New Title")
+    effective_date = forms.DateField(
+        label="Effective Date",
+        widget=forms.DateInput(attrs={"type": "date"}),
+    )
+    reason = forms.CharField(
+        required=False,
+        label="Reason",
+        widget=forms.Textarea(attrs={"rows": 3}),
+    )
+
+    def __init__(self, *args, company=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        if company:
+            self.fields["employee"].queryset = models.EmployeeProfile.objects.filter(
+                company=company, status="active"
+            )
+        _apply_standard_widget_classes(self.fields)
+
+
+class ContractGenerateForm(forms.Form):
+    """Generate an employment contract from a template for one employee."""
+
+    employee = forms.ModelChoiceField(
+        queryset=models.EmployeeProfile.objects.none(),
+        label="Employee",
+        empty_label="Select employee",
+    )
+    template = forms.ModelChoiceField(
+        queryset=models.ContractTemplate.objects.none(),
+        required=False,
+        label="Template",
+        empty_label="Default template",
+    )
+    start_date = forms.DateField(
+        label="Start Date",
+        widget=forms.DateInput(attrs={"type": "date"}),
+    )
+    end_date = forms.DateField(
+        required=False,
+        label="End Date (optional)",
+        widget=forms.DateInput(attrs={"type": "date"}),
+    )
+
+    def __init__(self, *args, company=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        if company:
+            self.fields["employee"].queryset = models.EmployeeProfile.objects.filter(
+                company=company, status="active"
+            )
+            self.fields["template"].queryset = models.ContractTemplate.objects.filter(
+                company=company, is_active=True
+            )
+        _apply_standard_widget_classes(self.fields)
+
+
+class ContractTemplateForm(forms.ModelForm):
+    """Create a reusable employment contract template."""
+
+    class Meta:
+        model = models.ContractTemplate
+        fields = ["name", "template_html"]
+        widgets = {
+            "name": forms.TextInput(
+                attrs={
+                    "class": (
+                        "w-full px-4 py-2.5 border border-secondary-300 rounded-xl "
+                        "focus:ring-2 focus:ring-primary-500 focus:border-primary-500 "
+                        "text-sm bg-white"
+                    ),
+                    "placeholder": "e.g., Full-Time Contract",
+                }
+            ),
+            "template_html": forms.Textarea(
+                attrs={
+                    "rows": 15,
+                    "class": (
+                        "w-full px-4 py-2.5 border border-secondary-300 rounded-xl "
+                        "focus:ring-2 focus:ring-primary-500 focus:border-primary-500 "
+                        "text-sm bg-white font-mono"
+                    ),
+                    "placeholder": (
+                        "Django template syntax: {{ employee.first_name }}, "
+                        "{{ salary.basic }}, {{ company.name }}..."
+                    ),
+                }
+            ),
+        }
 
 
 class EmployeeProfileUpdateForm(forms.ModelForm):

@@ -65,7 +65,20 @@ def apply_leave(request):
             return redirect("payroll:leave_requests")
     else:
         form = LeaveRequestForm()
-    return render(request, "employee/apply_leave_new.html", {"form": form})
+
+    leave_balance = get_leave_balance(employee_profile)
+    leave_balances = {
+        "annual": leave_balance.annual_leave,
+        "sick": leave_balance.sick_leave,
+        "casual": leave_balance.casual_leave,
+        "maternity": leave_balance.maternity_leave,
+        "paternity": leave_balance.paternity_leave,
+    }
+    return render(
+        request,
+        "employee/apply_leave_new.html",
+        {"form": form, "leave_balances": leave_balances},
+    )
 
 
 # def calculate_days(start_date: date, end_date: date) -> int:

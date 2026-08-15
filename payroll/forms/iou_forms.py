@@ -61,6 +61,13 @@ class IOURequestForm(forms.ModelForm):
             else:
                 field.widget.attrs["class"] = input_class
         self.fields["due_date"].required = False
+        # due_date is always auto-calculated from the tenor, so present it as a
+        # read-only native date input (matches the editorial form layer).
+        self.fields["due_date"].widget.attrs.update({"type": "date", "readonly": True})
+        # Enforce the caller's advance cap on the number input itself so the
+        # rendered control carries a parseable max attribute.
+        if self.max_iou_amount and self.max_iou_amount > 0:
+            self.fields["amount"].widget.attrs["max"] = self.max_iou_amount
 
     def clean_amount(self):
         amount = self.cleaned_data.get("amount")

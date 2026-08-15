@@ -1,55 +1,79 @@
 {% extends "base_new.html" %}
+{% load static %}
 
 {% block page_header %}Apply for Leave{% endblock %}
 
 {% block content %}
-<div class="max-w-4xl mx-auto space-y-6">
-    <div class="editorial-panel p-6 border-l-4 border-tertiary-fixed">
-        <h2 class="font-headline text-xl font-bold text-primary-800">New Leave Request</h2>
-        <p class="mt-1 text-sm text-on-surface-variant">Submit leave details for review and approval.</p>
+<div class="mx-auto max-w-5xl space-y-6">
+    <!-- Page header -->
+    <div class="editorial-panel p-7 border-l-4 border-primary-700">
+        <p class="text-xs font-bold uppercase tracking-[.22em] text-tertiary">Time off</p>
+        <h2 class="mt-1 font-headline text-2xl font-bold text-primary-800">New Leave Request</h2>
+        <p class="mt-1 text-sm text-secondary-600">
+            Submit leave details for review and approval. Fields marked
+            <span class="text-danger-600">*</span> are required.
+        </p>
+        <div class="mt-4 flex flex-wrap gap-2">
+            <span class="rounded-full bg-primary-50 px-3 py-1 text-[11px] font-semibold text-primary-700">01 Leave Details</span>
+        </div>
     </div>
 
-    <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
-        <div class="bento-card text-center"><p class="text-xs font-bold uppercase tracking-[0.14em] text-secondary-500">Annual</p><p class="mt-1 font-headline text-2xl font-extrabold text-on-surface tabular-nums">{{ leave_balances.annual|default:0 }}</p></div>
-        <div class="bento-card text-center"><p class="text-xs font-bold uppercase tracking-[0.14em] text-secondary-500">Sick</p><p class="mt-1 font-headline text-2xl font-extrabold text-on-surface tabular-nums">{{ leave_balances.sick|default:0 }}</p></div>
-        <div class="bento-card text-center"><p class="text-xs font-bold uppercase tracking-[0.14em] text-secondary-500">Casual</p><p class="mt-1 font-headline text-2xl font-extrabold text-on-surface tabular-nums">{{ leave_balances.casual|default:0 }}</p></div>
-        <div class="bento-card text-center"><p class="text-xs font-bold uppercase tracking-[0.14em] text-secondary-500">Maternity</p><p class="mt-1 font-headline text-2xl font-extrabold text-on-surface tabular-nums">{{ leave_balances.maternity|default:0 }}</p></div>
-        <div class="bento-card text-center"><p class="text-xs font-bold uppercase tracking-[0.14em] text-secondary-500">Paternity</p><p class="mt-1 font-headline text-2xl font-extrabold text-on-surface tabular-nums">{{ leave_balances.paternity|default:0 }}</p></div>
+    <!-- Leave balances -->
+    <div class="grid grid-cols-2 gap-4 md:grid-cols-5">
+        <div class="bento-card p-4 text-center">
+            <p class="text-xs font-bold uppercase tracking-[0.14em] text-secondary-500">Annual</p>
+            <p class="mt-1 font-headline text-2xl font-extrabold tabular-nums text-secondary-900">{{ leave_balances.annual|default:0 }}</p>
+        </div>
+        <div class="bento-card p-4 text-center">
+            <p class="text-xs font-bold uppercase tracking-[0.14em] text-secondary-500">Sick</p>
+            <p class="mt-1 font-headline text-2xl font-extrabold tabular-nums text-secondary-900">{{ leave_balances.sick|default:0 }}</p>
+        </div>
+        <div class="bento-card p-4 text-center">
+            <p class="text-xs font-bold uppercase tracking-[0.14em] text-secondary-500">Casual</p>
+            <p class="mt-1 font-headline text-2xl font-extrabold tabular-nums text-secondary-900">{{ leave_balances.casual|default:0 }}</p>
+        </div>
+        <div class="bento-card p-4 text-center">
+            <p class="text-xs font-bold uppercase tracking-[0.14em] text-secondary-500">Maternity</p>
+            <p class="mt-1 font-headline text-2xl font-extrabold tabular-nums text-secondary-900">{{ leave_balances.maternity|default:0 }}</p>
+        </div>
+        <div class="bento-card p-4 text-center">
+            <p class="text-xs font-bold uppercase tracking-[0.14em] text-secondary-500">Paternity</p>
+            <p class="mt-1 font-headline text-2xl font-extrabold tabular-nums text-secondary-900">{{ leave_balances.paternity|default:0 }}</p>
+        </div>
     </div>
 
-    <form method="post" class="bento-card space-y-5">
+    <form method="post" class="space-y-6">
         {% csrf_token %}
+
         {% if form.non_field_errors %}
-        <div class="rounded-2xl border border-danger-200 bg-danger-50 p-4 text-sm text-danger-800">{{ form.non_field_errors }}</div>
+            <div class="rounded-2xl border border-danger-200 bg-danger-50 p-4 text-sm text-danger-800">
+                {{ form.non_field_errors }}
+            </div>
         {% endif %}
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
-            <div>
-                <label for="{{ form.leave_type.id_for_label }}" class="block text-xs font-bold uppercase tracking-[0.12em] text-on-surface-variant mb-1.5">Leave Type</label>
-                {{ form.leave_type }}
-                {% for error in form.leave_type.errors %}<p class="text-xs text-danger-600 mt-1">{{ error }}</p>{% endfor %}
+        <!-- 01 · Leave Details -->
+        <section class="bento-card p-6 sm:p-7">
+            {% include "employee/_form_section_header.html" with number="01" title="Leave Details" subtitle="Type of leave and the dates you need" %}
+            <div class="mt-6 grid grid-cols-1 gap-x-6 gap-y-5 md:grid-cols-2">
+                {% include "employee/_form_field.html" with field=form.leave_type %}
+                {% include "employee/_form_field.html" with field=form.start_date %}
+                {% include "employee/_form_field.html" with field=form.end_date %}
+                <div class="md:col-span-2">
+                    {% include "employee/_form_field.html" with field=form.reason %}
+                </div>
             </div>
-            <div></div>
-            <div>
-                <label for="{{ form.start_date.id_for_label }}" class="block text-xs font-bold uppercase tracking-[0.12em] text-on-surface-variant mb-1.5">Start Date</label>
-                {{ form.start_date }}
-                {% for error in form.start_date.errors %}<p class="text-xs text-danger-600 mt-1">{{ error }}</p>{% endfor %}
-            </div>
-            <div>
-                <label for="{{ form.end_date.id_for_label }}" class="block text-xs font-bold uppercase tracking-[0.12em] text-on-surface-variant mb-1.5">End Date</label>
-                {{ form.end_date }}
-                {% for error in form.end_date.errors %}<p class="text-xs text-danger-600 mt-1">{{ error }}</p>{% endfor %}
-            </div>
-            <div class="md:col-span-2">
-                <label for="{{ form.reason.id_for_label }}" class="block text-xs font-bold uppercase tracking-[0.12em] text-on-surface-variant mb-1.5">Reason</label>
-                {{ form.reason }}
-                {% for error in form.reason.errors %}<p class="text-xs text-danger-600 mt-1">{{ error }}</p>{% endfor %}
-            </div>
-        </div>
+        </section>
 
-        <div class="flex justify-end gap-3">
-            <a href="{% url 'payroll:leave_requests' %}" class="editorial-secondary editorial-action px-4 py-2.5 rounded-xl text-sm font-medium">Cancel</a>
-            <button type="submit" class="btn-primary editorial-action px-6 py-2.5 rounded-xl text-white text-sm font-medium">Submit Request</button>
+        <!-- Actions -->
+        <div class="flex flex-col-reverse items-stretch justify-between gap-3 border-t border-secondary-100 pt-6 sm:flex-row sm:items-center">
+            <a href="{% url 'payroll:leave_requests' %}"
+               class="editorial-secondary editorial-action px-5 py-2.5 text-center text-sm font-medium">
+                Cancel
+            </a>
+            <button type="submit"
+                class="btn-primary editorial-action px-6 py-2.5 text-white font-medium rounded-xl">
+                Submit Request
+            </button>
         </div>
     </form>
 </div>

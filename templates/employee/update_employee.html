@@ -1,15 +1,25 @@
 {% extends "base_new.html" %}
-{% load crispy_forms_tags %}
+{% load static %}
 
 {% block page_header %}Update Employee Profile{% endblock %}
 
 {% block content %}
-<div class="max-w-4xl mx-auto space-y-6">
-    <div class="editorial-panel p-6 border-l-4 border-primary-700">
-        <h2 class="font-headline text-xl font-bold text-primary-800">Edit Employee Record</h2>
-        <p class="mt-1 text-sm text-on-surface-variant">
-            Update employment, contact, and payroll-related profile data.
+<div class="mx-auto max-w-5xl space-y-6">
+    <!-- Page header -->
+    <div class="editorial-panel p-7 border-l-4 border-primary-700">
+        <p class="text-xs font-bold uppercase tracking-[.22em] text-tertiary">Edit record</p>
+        <h2 class="mt-1 font-headline text-2xl font-bold text-primary-800">Edit Employee Record</h2>
+        <p class="mt-1 text-sm text-secondary-600">
+            Update employment, contact, and payroll-related profile data. Fields marked
+            <span class="text-danger-600">*</span> are required.
         </p>
+        <div class="mt-4 flex flex-wrap gap-2">
+            <span class="rounded-full bg-primary-50 px-3 py-1 text-[11px] font-semibold text-primary-700">01 Personal</span>
+            <span class="rounded-full bg-primary-50 px-3 py-1 text-[11px] font-semibold text-primary-700">02 Employment</span>
+            <span class="rounded-full bg-primary-50 px-3 py-1 text-[11px] font-semibold text-primary-700">03 Statutory</span>
+            <span class="rounded-full bg-primary-50 px-3 py-1 text-[11px] font-semibold text-primary-700">04 Emergency</span>
+            <span class="rounded-full bg-primary-50 px-3 py-1 text-[11px] font-semibold text-primary-700">05 Bank &amp; Photo</span>
+        </div>
     </div>
 
     <form method="post" enctype="multipart/form-data" class="space-y-6">
@@ -21,17 +31,84 @@
             </div>
         {% endif %}
 
-        <section class="bento-card">
-            {{ form|crispy }}
+        <!-- 01 · Personal Details -->
+        <section class="bento-card p-6 sm:p-7">
+            {% include "employee/_form_section_header.html" with number="01" title="Personal Details" subtitle="Name, contact and identity" %}
+            <div class="mt-6 grid grid-cols-1 gap-x-6 gap-y-5 md:grid-cols-2">
+                {% include "employee/_form_field.html" with field=form.first_name %}
+                {% include "employee/_form_field.html" with field=form.last_name %}
+                {% include "employee/_form_field.html" with field=form.email %}
+                {% include "employee/_form_field.html" with field=form.date_of_birth %}
+                {% include "employee/_form_field.html" with field=form.gender %}
+                {% include "employee/_form_field.html" with field=form.phone %}
+                <div class="md:col-span-2">
+                    {% include "employee/_form_field.html" with field=form.address %}
+                </div>
+            </div>
         </section>
 
-        <div class="flex items-center justify-end gap-3">
+        <!-- 02 · Employment -->
+        <section class="bento-card p-6 sm:p-7">
+            {% include "employee/_form_section_header.html" with number="02" title="Employment" subtitle="Department, role and compensation configuration" %}
+            <div class="mt-6 grid grid-cols-1 gap-x-6 gap-y-5 md:grid-cols-2">
+                {% include "employee/_form_field.html" with field=form.department %}
+                {% include "employee/_form_field.html" with field=form.job_title %}
+                {% include "employee/_form_field.html" with field=form.contract_type %}
+                {% include "employee/_form_field.html" with field=form.date_of_employment %}
+                <div class="md:col-span-2">
+                    {% include "employee/_form_field.html" with field=form.employee_pay %}
+                </div>
+            </div>
+        </section>
+
+        <!-- 03 · Statutory & Benefits -->
+        <section class="bento-card p-6 sm:p-7">
+            {% include "employee/_form_section_header.html" with number="03" title="Statutory & Benefits" subtitle="Tax, pension, HMO and housing-related records" %}
+            <div class="mt-6 grid grid-cols-1 gap-x-6 gap-y-5 md:grid-cols-2">
+                {% include "employee/_form_field.html" with field=form.hmo_provider %}
+                {% include "employee/_form_field.html" with field=form.pension_fund_manager %}
+                {% include "employee/_form_field.html" with field=form.pension_rsa %}
+                {% include "employee/_form_field.html" with field=form.tin_no %}
+                {% include "employee/_form_field.html" with field=form.rent_paid %}
+            </div>
+        </section>
+
+        <!-- 04 · Emergency & Next of Kin -->
+        <section class="bento-card p-6 sm:p-7">
+            {% include "employee/_form_section_header.html" with number="04" title="Emergency & Next of Kin" subtitle="Who to reach and who to notify in an emergency" %}
+            <div class="mt-6 grid grid-cols-1 gap-x-6 gap-y-5 md:grid-cols-2">
+                {% include "employee/_form_field.html" with field=form.emergency_contact_name %}
+                {% include "employee/_form_field.html" with field=form.emergency_contact_phone %}
+                {% include "employee/_form_field.html" with field=form.emergency_contact_relationship %}
+                {% include "employee/_form_field.html" with field=form.next_of_kin_name %}
+                {% include "employee/_form_field.html" with field=form.next_of_kin_phone %}
+                {% include "employee/_form_field.html" with field=form.next_of_kin_relationship %}
+            </div>
+        </section>
+
+        <!-- 05 · Bank & Photo -->
+        <section class="bento-card p-6 sm:p-7">
+            {% include "employee/_form_section_header.html" with number="05" title="Bank & Photo" subtitle="Salary disbursement details and profile photo" %}
+            <div class="mt-6 grid grid-cols-1 gap-x-6 gap-y-5 md:grid-cols-2">
+                {% include "employee/_form_field.html" with field=form.bank %}
+                {% include "employee/_form_field.html" with field=form.bank_account_name %}
+                <div class="md:col-span-2">
+                    {% include "employee/_form_field.html" with field=form.bank_account_number %}
+                </div>
+                <div class="md:col-span-2">
+                    {% include "employee/_form_field.html" with field=form.photo %}
+                </div>
+            </div>
+        </section>
+
+        <!-- Actions -->
+        <div class="flex flex-col-reverse items-stretch justify-between gap-3 border-t border-secondary-100 pt-6 sm:flex-row sm:items-center">
             <a href="{% url 'payroll:employee_list' %}"
-               class="editorial-secondary editorial-action px-4 py-2.5 rounded-xl text-sm font-medium">
+               class="editorial-secondary editorial-action px-5 py-2.5 text-center text-sm font-medium">
                 Cancel
             </a>
             <button type="submit"
-                class="btn-primary editorial-action px-6 py-2.5 text-white font-medium rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+                class="btn-primary editorial-action px-6 py-2.5 text-white font-medium rounded-xl">
                 Save Changes
             </button>
         </div>

@@ -42,40 +42,37 @@
     </div>
 
     <!-- Payslips List -->
-    <div class="bg-white rounded-2xl border border-outline-variant overflow-hidden shadow-card">
-        <div class="px-6 py-4 border-b border-outline-variant">
+    <section class="table-shell">
+        <div class="flex items-center justify-between px-7 py-6">
             <h2 class="font-headline text-lg font-bold text-primary-800 flex items-center">
                 <i data-lucide="file-text" class="h-5 w-5 mr-2 text-primary-600"></i>
                 Payslip History
             </h2>
         </div>
-        
         <div class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-outline-variant/30">
-                <thead class="bg-surface-container-low">
+            <table class="min-w-full text-sm">
+                <thead>
                     <tr>
-                        <th class="px-6 py-3 text-left text-xs font-bold text-secondary-500 uppercase tracking-[0.12em]">#</th>
-                        <th class="px-6 py-3 text-left text-xs font-bold text-secondary-500 uppercase tracking-[0.12em]">Pay Period</th>
-                        <th class="px-6 py-3 text-left text-xs font-bold text-secondary-500 uppercase tracking-[0.12em]">Net Pay</th>
-                        <th class="px-6 py-3 text-right text-xs font-bold text-secondary-500 uppercase tracking-[0.12em]">Actions</th>
+                        <th class="text-left">#</th>
+                        <th class="text-left">Pay Period</th>
+                        <th class="text-left">Net Pay</th>
+                        <th class="text-right">Actions</th>
                     </tr>
                 </thead>
-                <tbody class="bg-white divide-y divide-outline-variant/30">
+                <tbody>
                     {% for payday in pay %}
-                    <tr class="hover:bg-primary-50/50 transition-colors">
-                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-on-surface tabular-nums">{{ forloop.counter }}</td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-on-surface">
+                    <tr>
+                        <td class="whitespace-nowrap font-medium tabular-nums text-on-surface">{{ forloop.counter }}</td>
+                        <td class="whitespace-nowrap text-on-surface">
                             <div class="flex items-center">
                                 <i data-lucide="calendar" class="h-4 w-4 text-secondary-400 mr-2"></i>
                                 {{ payday.payroll_run.paydays|date:"F Y"|default:"N/A" }}
                             </div>
                         </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-on-surface">
-                            <div class="flex items-center">
-                                <span class="text-success-600 font-medium tabular-nums">₦{{ payday.payroll_entry.netpay|intcomma }}</span>
-                            </div>
+                        <td class="whitespace-nowrap text-on-surface">
+                            <span class="font-medium tabular-nums text-success-600">₦{{ payday.payroll_entry.netpay|intcomma }}</span>
                         </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <td class="whitespace-nowrap text-right font-medium">
                             <a href="{% url 'payroll:payslip' payday.id %}" class="text-primary-600 hover:text-primary-900 mr-3 inline-flex items-center" aria-label="View {{ payday.payroll_run.paydays|date:'F Y' }} payslip" title="View Payslip">
                                 <i data-lucide="eye" class="h-4 w-4"></i>
                             </a>
@@ -86,7 +83,7 @@
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="4" class="px-6 py-12 text-center">
+                        <td colspan="4" class="py-12 text-center">
                             <i data-lucide="file-x" class="h-12 w-12 mx-auto text-secondary-400 mb-3"></i>
                             <p class="text-lg text-on-surface-variant mb-2">No payslips found</p>
                             <p class="text-sm text-secondary-500">You don't have any payslips available yet.</p>
@@ -96,7 +93,7 @@
                 </tbody>
             </table>
         </div>
-    </div>
+    </section>
 
     <!-- Information Card -->
     <div class="bg-white rounded-2xl border border-outline-variant p-6 shadow-card">

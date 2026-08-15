@@ -54,14 +54,14 @@ class AppraisalListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
 
         for appraisal in appraisals:
             status_label = "Pending"
-            status_css = "bg-secondary-100 text-secondary-800"
+            status_css = "bg-info"
             if appraisal.start_date <= today <= appraisal.end_date:
                 status_label = "In Progress"
-                status_css = "bg-warning-100 text-warning-800"
+                status_css = "bg-warning"
                 in_progress += 1
             elif appraisal.end_date < today:
                 status_label = "Completed"
-                status_css = "bg-success-100 text-success-800"
+                status_css = "bg-success"
                 completed += 1
 
             appraisal.status_label = status_label

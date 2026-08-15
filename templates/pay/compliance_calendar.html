@@ -5,95 +5,137 @@
 {% block page_header %}Statutory Compliance Calendar{% endblock %}
 
 {% block content %}
-<div class="max-w-7xl mx-auto space-y-6">
-    <div class="bg-gradient-to-r from-primary-500 to-primary-600 rounded-2xl p-6 text-white shadow-medium">
-        <div>
-            <h1 class="text-2xl font-bold mb-1">Statutory Compliance</h1>
-            <p class="text-primary-100">Due dates for PAYE, pension, NHF, NHIA, NSITF and ITF remittances derived from your payroll runs and company levy flags, with overdue flags and penalty exposure.</p>
-        </div>
+<div class="space-y-9">
+    <!-- Hero -->
+    <section class="page-hero px-7 py-8 sm:px-9 sm:py-10">
+        <span class="section-eyebrow">Statutory &middot; Remittances &amp; filings</span>
+        <h1 class="mt-4 font-headline text-3xl font-extrabold text-white sm:text-4xl">Statutory Compliance</h1>
+        <p class="section-subtitle mt-3 max-w-2xl">Due dates for PAYE, pension, NHF, NHIA, NSITF and ITF remittances derived from your payroll runs and company levy flags, with overdue flags and penalty exposure.</p>
+    </section>
+
+    <!-- Stat cards -->
+    <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+        <section class="bento-card">
+            <p class="text-xs font-bold uppercase tracking-[.2em] text-secondary-500">Overdue</p>
+            <strong class="mt-3 block font-headline text-3xl tabular-nums {% if overdue_count %}text-danger-600{% else %}text-primary-800{% endif %}">{{ overdue_count }}</strong>
+            <p class="mt-2 text-sm text-secondary-600">Remittances past their due date.</p>
+        </section>
+        <section class="bento-card">
+            <p class="text-xs font-bold uppercase tracking-[.2em] text-secondary-500">Overdue remittances</p>
+            <strong class="mt-3 block font-headline text-3xl tabular-nums {% if overdue_amount %}text-danger-600{% else %}text-primary-800{% endif %}">₦{{ overdue_amount|default:0|intcomma }}</strong>
+            <p class="mt-2 text-sm text-secondary-600">Value currently exposed.</p>
+        </section>
+        <section class="bento-card">
+            <p class="text-xs font-bold uppercase tracking-[.2em] text-secondary-500">Due within 7 days</p>
+            <strong class="mt-3 block font-headline text-3xl tabular-nums {% if due_soon_count %}text-warning-600{% else %}text-primary-800{% endif %}">{{ due_soon_count }}</strong>
+            <p class="mt-2 text-sm text-secondary-600">Obligations closing in.</p>
+        </section>
+        <section class="bento-card">
+            <p class="text-xs font-bold uppercase tracking-[.2em] text-secondary-500">Next deadline</p>
+            <strong class="mt-3 block font-headline text-3xl tabular-nums text-primary-800">{{ next_due|default:"—"|date:"d M Y" }}</strong>
+            <p class="mt-2 text-sm text-secondary-600">Earliest open obligation.</p>
+        </section>
     </div>
 
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <div class="bg-white rounded-xl shadow-soft p-6">
-            <p class="text-sm font-medium text-secondary-600">Overdue</p>
-            <p class="text-2xl font-semibold {% if overdue_count %}text-red-600{% else %}text-secondary-900{% endif %}">{{ overdue_count }}</p>
+    {% if scheme_breakdown %}
+    <!-- Exposure by scheme -->
+    <section>
+        <div class="flex items-center gap-3">
+            <i data-lucide="chart-column-big" class="h-5 w-5 text-primary-700"></i>
+            <h2 class="font-headline text-xl font-bold text-primary-800">Exposure by scheme</h2>
         </div>
-        <div class="bg-white rounded-xl shadow-soft p-6">
-            <p class="text-sm font-medium text-secondary-600">Overdue Remittances</p>
-            <p class="text-2xl font-semibold {% if overdue_amount %}text-red-600{% else %}text-secondary-900{% endif %}">₦{{ overdue_amount|default:0|intcomma }}</p>
+        <div class="mt-5 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {% for scheme in scheme_breakdown %}
+            <article class="bento-card">
+                <p class="text-xs font-bold uppercase tracking-[.2em] text-secondary-500">{{ scheme.label }}</p>
+                <div class="mt-3 flex items-baseline gap-3">
+                    <strong class="font-headline text-4xl tabular-nums {% if scheme.penalty %}text-danger-600{% else %}text-primary-800{% endif %}">{{ scheme.count }}</strong>
+                    <span class="text-sm text-secondary-600">overdue</span>
+                </div>
+                <p class="mt-3 flex items-baseline justify-between gap-2 text-sm">
+                    <span class="text-secondary-600">Outstanding</span>
+                    <strong class="tabular-nums text-secondary-900">₦{{ scheme.amount|intcomma }}</strong>
+                </p>
+                <p class="mt-2 flex items-baseline justify-between gap-2 text-sm">
+                    <span class="text-secondary-600">Penalty exposure{% if scheme.penalty_rate %} <span class="text-xs text-secondary-500">({{ scheme.penalty_rate }})</span>{% endif %}</span>
+                    {% if scheme.penalty %}
+                    <strong class="tabular-nums text-danger-600">₦{{ scheme.penalty|intcomma }}</strong>
+                    {% else %}
+                    <span class="text-secondary-500">—</span>
+                    {% endif %}
+                </p>
+            </article>
+            {% endfor %}
         </div>
-        <div class="bg-white rounded-xl shadow-soft p-6">
-            <p class="text-sm font-medium text-secondary-600">Due Within 7 Days</p>
-            <p class="text-2xl font-semibold {% if due_soon_count %}text-amber-600{% else %}text-secondary-900{% endif %}">{{ due_soon_count }}</p>
-        </div>
-        <div class="bg-white rounded-xl shadow-soft p-6">
-            <p class="text-sm font-medium text-secondary-600">Next Deadline</p>
-            <p class="text-2xl font-semibold text-secondary-900">{{ next_due|default:"—"|date:"d M Y" }}</p>
-        </div>
-    </div>
+    </section>
+    {% endif %}
 
-    <div class="bg-white rounded-xl shadow-soft overflow-hidden">
-        <div class="px-6 py-4 border-b border-secondary-200 flex items-center justify-between">
-            <h2 class="text-lg font-semibold text-secondary-900 flex items-center">
-                <i data-lucide="calendar-check" class="h-5 w-5 mr-2 text-primary-600"></i>
-                Obligations ({{ total_count }} · {{ done_count }} done)
-            </h2>
+    <!-- Obligations table -->
+    <section class="table-shell">
+        <div class="flex items-center justify-between px-7 py-6">
+            <h2 class="font-headline text-xl font-bold text-primary-800">Obligations <span class="font-semibold text-secondary-500">({{ total_count }} &middot; {{ done_count }} done)</span></h2>
         </div>
 
         {% if obligations %}
         <div class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-secondary-200 text-sm">
-                <thead class="bg-secondary-50">
+            <table class="min-w-full text-sm">
+                <thead>
                     <tr>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">Period</th>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">Obligation</th>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">Due Date</th>
-                        <th class="px-4 py-3 text-right text-xs font-medium text-secondary-500 uppercase tracking-wider">Amount</th>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">Status</th>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">Penalty Exposure</th>
-                        <th class="px-4 py-3 text-right text-xs font-medium text-secondary-500 uppercase tracking-wider">Action</th>
+                        <th class="text-left">Period</th>
+                        <th class="text-left">Obligation</th>
+                        <th class="text-left">Due date</th>
+                        <th class="text-right">Amount</th>
+                        <th class="text-left">Status</th>
+                        <th class="text-left">Penalty exposure</th>
+                        <th class="text-right">Action</th>
                     </tr>
                 </thead>
-                <tbody class="bg-white divide-y divide-secondary-200">
+                <tbody>
                     {% for obligation in obligations %}
-                    <tr class="hover:bg-secondary-50">
-                        <td class="px-4 py-3 text-secondary-900">{{ obligation.period|date:"F Y" }}{% if obligation.paid_on %}<div class="text-xs text-secondary-500">Paid {{ obligation.paid_on|date:"d M Y" }}</div>{% endif %}</td>
-                        <td class="px-4 py-3 font-medium text-secondary-900">{{ obligation.label }}</td>
-                        <td class="px-4 py-3 text-secondary-900">{{ obligation.due_date|date:"d M Y" }}</td>
-                        <td class="px-4 py-3 text-right tabular-nums text-secondary-900">
+                    <tr>
+                        <td>
+                            <span class="font-semibold text-secondary-900">{{ obligation.period|date:"F Y" }}</span>
+                            {% if obligation.paid_on and obligation.key != "pension" %}<div class="text-xs text-secondary-500">Paid {{ obligation.paid_on|date:"d M Y" }}</div>{% endif %}
+                        </td>
+                        <td class="font-medium text-secondary-900">{{ obligation.label }}</td>
+                        <td class="tabular-nums text-secondary-900">
+                            {{ obligation.due_date|date:"d M Y" }}
+                            {% if obligation.anchor %}<div class="text-xs font-normal text-secondary-500">7 working days from {{ obligation.anchor|date:"d M Y" }}{% if obligation.anchor_fallback %} (period start — payment date not recorded){% endif %}</div>{% endif %}
+                        </td>
+                        <td class="text-right tabular-nums text-secondary-900">
                             {% if obligation.amount is not None %}₦{{ obligation.amount|intcomma }}{% else %}—{% endif %}
                         </td>
-                        <td class="px-4 py-3">
+                        <td>
                             {% if obligation.status == "done" %}
-                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">Remitted {{ obligation.record.remitted_on|date:"d M Y" }}</span>
+                            <span class="badge bg-success">Remitted {{ obligation.record.remitted_on|date:"d M Y" }}</span>
                             {% elif obligation.status == "overdue" %}
-                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">Overdue</span>
+                            <span class="badge bg-danger">Overdue</span>
                             {% elif obligation.status == "due_soon" %}
-                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">Due Soon</span>
+                            <span class="badge bg-warning">Due soon</span>
                             {% else %}
-                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-secondary-100 text-secondary-700">Upcoming</span>
+                            <span class="badge bg-info">Upcoming</span>
                             {% endif %}
                         </td>
-                        <td class="px-4 py-3 text-secondary-700">
+                        <td class="text-secondary-700">
                             {% if obligation.penalty %}
                                 {% if obligation.penalty.amount is not None %}
-                                <span class="font-medium text-red-700">₦{{ obligation.penalty.amount|intcomma }}</span>
+                                <span class="font-semibold tabular-nums text-danger-600">₦{{ obligation.penalty.amount|intcomma }}</span>
                                 <span class="text-xs text-secondary-500">({{ obligation.penalty.rate }})</span>
                                 {% endif %}
                                 <span class="block text-xs text-secondary-500">{{ obligation.penalty.note }}</span>
                             {% else %}—{% endif %}
                         </td>
-                        <td class="px-4 py-3 text-right">
+                        <td class="text-right">
                             {% if obligation.status != "done" %}
                             <form method="post" action="{% url 'payroll:mark_remittance' obligation.key obligation.period|date:'Y-m' %}" class="inline">
                                 {% csrf_token %}
-                                <button type="submit" class="inline-block bg-blue-500 text-white py-1 px-3 rounded hover:bg-blue-600 text-xs">{{ obligation.action_label }}</button>
+                                <button type="submit" class="btn-primary editorial-action px-4 py-2 text-xs">{{ obligation.action_label }}</button>
                             </form>
                             {% elif obligation.record %}
                             <form method="post" action="{% url 'payroll:mark_remittance' obligation.key obligation.period|date:'Y-m' %}" class="inline">
                                 {% csrf_token %}
                                 <input type="hidden" name="unmark" value="1">
-                                <button type="submit" class="inline-block bg-secondary-100 text-secondary-700 py-1 px-3 rounded hover:bg-secondary-200 text-xs">Undo</button>
+                                <button type="submit" class="editorial-secondary editorial-action px-4 py-2 text-xs">Undo</button>
                             </form>
                             {% endif %}
                         </td>
@@ -103,24 +145,28 @@
             </table>
         </div>
         {% else %}
-        <div class="text-center py-12">
-            <i data-lucide="calendar-check" class="h-12 w-12 mx-auto text-secondary-400 mb-3"></i>
-            <p class="text-lg text-secondary-600 mb-2">No obligations yet</p>
-            <p class="text-sm text-secondary-500">Once payroll runs exist for this company, their statutory due dates will appear here.</p>
+        <div class="px-7 py-16 text-center">
+            <i data-lucide="calendar-check" class="mx-auto h-12 w-12 text-secondary-400"></i>
+            <p class="mt-4 font-headline text-lg font-bold text-secondary-900">No obligations yet</p>
+            <p class="mt-2 text-sm text-secondary-600">Once payroll runs exist for this company, their statutory due dates will appear here.</p>
         </div>
         {% endif %}
-    </div>
+    </section>
 
-    <div class="bg-white rounded-xl shadow-soft p-6">
-        <h3 class="text-sm font-semibold text-secondary-900 mb-2">Rule basis</h3>
-        <ul class="text-xs text-secondary-600 space-y-1 list-disc list-inside">
+    <!-- Rule basis -->
+    <section class="editorial-panel p-7">
+        <div class="flex items-center gap-3">
+            <i data-lucide="scale" class="h-5 w-5 text-primary-700"></i>
+            <h2 class="font-headline text-lg font-bold text-primary-800">Rule basis</h2>
+        </div>
+        <ul class="mt-5 list-inside list-disc space-y-2 text-xs leading-relaxed text-secondary-600">
             <li>PAYE monthly remittance: due by the 10th of the month following salary payment (Nigeria Tax Act 2025 / state IRS practice).</li>
             <li>PAYE annual emoluments return: due 31 January of the following year.</li>
-            <li>Pension: remit within 7 working days of salary payment (PenCom); late remittance attracts 2% per month of the outstanding amount. Working days skip weekends and company public holidays; the anchor is the pay period start, so adjust to the actual salary payment date.</li>
+            <li>Pension: remit within 7 working days of salary payment (PenCom); late remittance attracts 2% per month of the outstanding amount. The 7-working-day clock runs from the run's stored salary payment date; where that hasn't been recorded it falls back to the period start. Working days skip weekends and company public holidays.</li>
             <li>NHF and NHIA: no fixed remittance date in the primary acts — the 10th of the following month is the practice-based default; penalties are per the NHF Act/FMBN and the NHIA Act/plan terms respectively.</li>
             <li>NSITF (Employees' Compensation Act 2010): 1% of monthly payroll, remitted on or before the last day of the month (s.13(2) practice); shown when the company's NSITF flag is on and a levy amount exists.</li>
             <li>ITF training levy: 1% of annual payroll, remitted within one month of the close of the financial year (practice cites 1 April); shown per year when the company's ITF flag is on. Amount is computed from current payroll configs.</li>
         </ul>
-    </div>
+    </section>
 </div>
 {% endblock %}
