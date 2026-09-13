@@ -28,7 +28,7 @@
               <input type="hidden" name="bank_transaction" value="{{ tx.pk }}">
               <div class="flex-1">
                 <p class="text-sm font-medium text-primary-900">{{ tx.description }}</p>
-                <p class="text-xs text-secondary-500">{{ tx.transaction_date|date:"M d, Y" }} — {{ tx.amount|floatformat:2 }} {{ tx.transaction_type }}</p>
+                <p class="text-xs text-secondary-500">{{ tx.transaction_date|date:"d M Y" }} — {{ tx.amount|floatformat:2 }} {{ tx.transaction_type }}</p>
                 <div class="mt-2">
                   <select name="journal_entry" class="form-input block w-full rounded-md border-secondary-300 text-sm">
                     <option value="">-- Select ledger entry --</option>
@@ -62,7 +62,7 @@
         <div class="space-y-2 max-h-96 overflow-y-auto">
           {% for entry in ledger_entries %}
           <div class="py-2 border-b border-secondary-100 last:border-0">
-            <p class="text-sm font-medium text-primary-900">{{ entry.journal.date|date:"M d, Y" }} — {{ entry.journal.description|truncatechars:50 }}</p>
+            <p class="text-sm font-medium text-primary-900">{{ entry.journal.date|date:"d M Y" }} — {{ entry.journal.description|truncatechars:50 }}</p>
             <p class="text-xs text-secondary-500">{{ entry.entry_type }} {{ entry.amount|floatformat:2 }}</p>
           </div>
           {% empty %}

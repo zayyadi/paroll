@@ -41,7 +41,7 @@
                     <tbody class="divide-y divide-gray-200 bg-white">
                         {% for entry in account_data.entries %}
                         <tr>
-                            <td class="whitespace-nowrap px-6 py-4 text-sm text-secondary-900">{{ entry.journal.date|date:"M d, Y" }}</td>
+                            <td class="whitespace-nowrap px-6 py-4 text-sm text-secondary-900">{{ entry.journal.date|date:"d M Y" }}</td>
                             <td class="whitespace-nowrap px-6 py-4">
                                 <p class="text-sm font-medium text-secondary-900">{{ entry.journal.transaction_number }}</p>
                                 <p class="text-xs text-secondary-500">{{ entry.journal.description }}</p>

@@ -26,11 +26,6 @@ urlpatterns = [
         views.resend_registration_activation_view,
         name="resend_registration_activation",
     ),
-    # path(
-    #     "verify_password_reset_otp/<str:email>/",
-    #     views.verify_password_reset_otp_view,
-    #     name="verify_password_reset_otp",
-    # ),
     path(
         "password_reset/",
         views.CustomPasswordResetView.as_view(form_class=views.CustomPasswordResetForm),

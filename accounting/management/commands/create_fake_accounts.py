@@ -2,6 +2,7 @@ from django.core.management.base import BaseCommand
 from accounting.models import Account, FiscalYear, AccountingPeriod
 from company.models import Company
 from django.utils import timezone
+from payroll.management.commands.nigeria_fakes import NIGERIAN_DEMO_COMPANY
 from datetime import date
 import random
 
@@ -28,7 +29,7 @@ class Command(BaseCommand):
         )
         parser.add_argument(
             "--company-name",
-            default="Default Company",
+            default=NIGERIAN_DEMO_COMPANY,
             help="Company name to create/use when --company-id is not supplied.",
         )
 

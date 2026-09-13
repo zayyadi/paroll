@@ -35,7 +35,7 @@
                         <td class="px-4 py-4 text-sm font-semibold text-secondary-900">{{ enrollment.course.title }}</td>
                         <td class="px-4 py-4 text-sm text-secondary-700">{{ enrollment.course.get_course_type_display }}</td>
                         <td class="px-4 py-4 text-sm text-secondary-700">{{ enrollment.get_status_display }}</td>
-                        <td class="px-4 py-4 text-sm text-secondary-700">{{ enrollment.due_date|date:"M j, Y"|default:"-" }}</td>
+                        <td class="px-4 py-4 text-sm text-secondary-700">{{ enrollment.due_date|date:"d M Y"|default:"-" }}</td>
                         <td class="px-4 py-4 text-sm text-secondary-700">
                             {% if enrollment.status != "completed" %}
                             <form method="post" action="{% url 'payroll:complete_learning_course' enrollment.id %}">

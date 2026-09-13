@@ -3,6 +3,60 @@ from django import template
 register = template.Library()
 
 
+def _format_naira(value, decimals=2):
+    """Shared NG money formatter: ₦1,250,000.00 (design.md:83-85,762-776)."""
+    if value is None or value == "":
+        return "—"
+    try:
+        from decimal import Decimal, InvalidOperation
+
+        amount = Decimal(str(value))
+    except Exception:
+        return "—"
+    # Quantize to avoid float artefacts; keep sign handling explicit.
+    try:
+        quant = Decimal(1).scaleb(-decimals)
+        amount = amount.quantize(quant)
+    except Exception:
+        pass
+    formatted = f"{amount:,.{decimals}f}"
+    return f"₦{formatted}"
+
+
+@register.filter(name="ng_money")
+def ng_money(value):
+    """Statutory/slip money: always 2dp with kobo. Usage: {{ x|ng_money }}."""
+    return _format_naira(value, decimals=2)
+
+
+@register.filter(name="ng_money_whole")
+def ng_money_whole(value):
+    """Dashboard/KPI money: no kobo. Usage: {{ x|ng_money_whole }}."""
+    return _format_naira(value, decimals=0)
+
+
+@register.filter(name="ng_date")
+def ng_date(value):
+    """NG display date: 02 Aug 2026. Usage: {{ d|ng_date }}. None-safe."""
+    if not value:
+        return "—"
+    try:
+        return value.strftime("%d %b %Y")
+    except Exception:
+        return str(value)
+
+
+@register.filter(name="ng_period")
+def ng_period(value):
+    """Month/period: August 2026. Usage: {{ payday|ng_period }}."""
+    if not value:
+        return "—"
+    try:
+        return value.strftime("%B %Y")
+    except Exception:
+        return str(value)
+
+
 @register.filter
 def index(sequence, position):
     try:

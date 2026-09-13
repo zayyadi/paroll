@@ -1,8 +1,25 @@
 from django.core.management.base import BaseCommand
 from django.contrib.auth import get_user_model
 from payroll.models import EmployeeProfile, Department
+from company.models import Company
 from faker import Faker
+from payroll.management.commands.nigeria_fakes import (
+    NIGERIAN_DEMO_COMPANY,
+    nigerian_address,
+    nigerian_bank,
+    nigerian_first_name,
+    nigerian_hmo_provider,
+    nigerian_last_name,
+    nigerian_name,
+    nigerian_nin,
+    nigerian_pension_fund_manager,
+    nigerian_pension_rsa,
+    nigerian_phone_number,
+    nigerian_tin,
+)
 from datetime import datetime, timedelta
+from decimal import Decimal
+from django.utils import timezone
 import random
 
 User = get_user_model()
@@ -32,11 +49,15 @@ class Command(BaseCommand):
         self.stdout.write(f"Creating {count} fake employees...")
 
         # Create departments if requested
-        departments = []
-        if create_departments:
-            departments = self._create_departments()
-        else:
-            departments = list(Department.objects.all())
+        company, company_created = Company.objects.get_or_create(
+            name=NIGERIAN_DEMO_COMPANY,
+        )
+        if company_created:
+            self.stdout.write(
+                self.style.SUCCESS(f"Created company: {NIGERIAN_DEMO_COMPANY}")
+            )
+
+        departments = self._create_departments(company)
 
         if not departments:
             self.stdout.write(
@@ -50,7 +71,7 @@ class Command(BaseCommand):
         existing_count = 0
 
         # Get users without employee profiles
-        available_users = User.objects.filter(employee_user__isnull=True)
+        available_users = User.objects.filter(is_superuser=False, is_staff=False)
 
         if available_users.count() < count:
             self.stdout.write(
@@ -71,12 +92,15 @@ class Command(BaseCommand):
         )
 
         for user in users:
+            self._assign_company(user, company)
+
             # Generate employee data
-            first_name = user.first_name or fake.first_name()
-            last_name = user.last_name or fake.last_name()
+            first_name = user.first_name or nigerian_first_name()
+            last_name = user.last_name or nigerian_last_name()
 
             employee_data = {
                 "user": user,
+                "company": company,
                 "first_name": first_name,
                 "last_name": last_name,
                 "email": user.email,
@@ -86,19 +110,19 @@ class Command(BaseCommand):
                     start_date="-5y", end_date="today"
                 ),
                 "contract_type": random.choice(["P", "T"]),  # Permanent or Temporary
-                "phone": f"+234{random.randint(800, 899)}{random.randint(100, 999)}{random.randint(1000, 9999)}",
+                "phone": nigerian_phone_number(),
                 "gender": random.choice(["male", "female", "others"]),
-                "address": fake.address(),
-                "emergency_contact_name": fake.name(),
+                "address": nigerian_address(),
+                "emergency_contact_name": nigerian_name(),
                 "emergency_contact_relationship": random.choice(
                     ["Brother", "Sister", "Friend", "Parent", "Spouse", "Cousin"]
                 ),
-                "emergency_contact_phone": f"+234{random.randint(800, 899)}{random.randint(100, 999)}{random.randint(1000, 9999)}",
-                "next_of_kin_name": fake.name(),
+                "emergency_contact_phone": nigerian_phone_number(),
+                "next_of_kin_name": nigerian_name(),
                 "next_of_kin_relationship": random.choice(
                     ["Brother", "Sister", "Friend", "Parent", "Spouse", "Cousin"]
                 ),
-                "next_of_kin_phone": f"+234{random.randint(800, 899)}{random.randint(100, 999)}{random.randint(1000, 9999)}",
+                "next_of_kin_phone": nigerian_phone_number(),
                 "job_title": random.choice(
                     [
                         ("C", "Casual"),
@@ -109,22 +133,28 @@ class Command(BaseCommand):
                         ("COO", "C.O.O"),
                     ]
                 )[0],
-                "bank": random.choice(
-                    [
-                        ("Zenith", "Zenith BANK"),
-                        ("Access", "Access Bank"),
-                        ("GTB", "GT Bank"),
-                        ("Jaiz", "JAIZ Bank"),
-                        ("FCMB", "FCMB"),
-                        ("FBN", "First Bank"),
-                        ("Union", "Union Bank"),
-                        ("UBA", "UBA"),
-                    ]
-                )[0],
+                "bank": nigerian_bank()[0],
                 "bank_account_name": f"{first_name} {last_name}",
-                "pension_rsa": f"RSA-{random.randint(10000000000, 99999999999)}",
-                "status": random.choice(["active", "pending"]),
+                "nin": nigerian_nin(),
+                "tin_no": nigerian_tin(),
+                "pension_rsa": nigerian_pension_rsa(),
+                "hmo_provider": nigerian_hmo_provider(),
+                "pension_fund_manager": nigerian_pension_fund_manager(),
+                "rent_paid": Decimal(random.randint(0, 2500000)),
+                "probation_start_date": None,
+                "probation_end_date": None,
+                "probation_status": "confirmed",
+                "confirmed_at": timezone.now(),
+                "confirmed_by": user,
+                "status": "active",
             }
+
+            employment_date = employee_data["date_of_employment"]
+            probation_months = random.choice([3, 6])
+            employee_data["probation_start_date"] = employment_date
+            employee_data["probation_end_date"] = employment_date + timedelta(
+                days=30 * probation_months
+            )
 
             # Generate unique bank account number
             max_attempts = 100
@@ -144,6 +174,12 @@ class Command(BaseCommand):
                 user=user,
                 defaults=employee_data,
             )
+
+            if not created:
+                for field, value in employee_data.items():
+                    if field != "user":
+                        setattr(employee, field, value)
+                employee.save()
 
             if created:
                 created_count += 1
@@ -168,7 +204,7 @@ class Command(BaseCommand):
         self.stdout.write(f"  Employees already existing: {existing_count}")
         self.stdout.write("=" * 50)
 
-    def _create_departments(self):
+    def _create_departments(self, company):
         """Create common departments if they don't exist"""
         department_names = [
             ("Engineering", "Software development and IT infrastructure"),
@@ -184,8 +220,9 @@ class Command(BaseCommand):
         departments = []
         for name, description in department_names:
             dept, created = Department.objects.get_or_create(
+                company=company,
                 name=name,
-                defaults={"description": description},
+                defaults={"description": description, "company": company},
             )
             departments.append(dept)
 
@@ -193,3 +230,11 @@ class Command(BaseCommand):
                 self.stdout.write(self.style.SUCCESS(f"Created department: {name}"))
 
         return departments
+
+    def _assign_company(self, user, company):
+        if user.company_id == company.id and user.active_company_id == company.id:
+            return
+
+        user.company = company
+        user.active_company = company
+        user.save(update_fields=["company", "active_company"])

@@ -89,7 +89,7 @@
           {% for row in aging %}
           <tr class="hover:bg-secondary-50 {% if row.days_overdue > 90 %}bg-red-50{% endif %}">
             <td class="px-6 py-3 text-sm font-mono text-secondary-900">{{ row.receipt.document.reference|default:row.receipt.document_id }}</td>
-            <td class="px-6 py-3 text-sm text-secondary-600">{{ row.due_date|date:"M d, Y" }}</td>
+            <td class="px-6 py-3 text-sm text-secondary-600">{{ row.due_date|date:"d M Y" }}</td>
             <td class="px-6 py-3 text-sm text-right font-mono">{{ row.outstanding|floatformat:2 }}</td>
             <td class="px-6 py-3 text-sm text-center {% if row.days_overdue > 60 %}text-red-600 font-semibold{% endif %}">{{ row.days_overdue }}</td>
             <td class="px-6 py-3 text-center">
@@ -131,8 +131,8 @@
           {% for receipt in receipts %}
           <tr class="hover:bg-secondary-50">
             <td class="px-6 py-3 text-sm font-mono">{{ receipt.document.reference|default:"—" }}</td>
-            <td class="px-6 py-3 text-sm text-secondary-600">{{ receipt.document.document_date|date:"M d, Y" }}</td>
-            <td class="px-6 py-3 text-sm text-secondary-600">{{ receipt.due_date|date:"M d, Y"|default:"—" }}</td>
+            <td class="px-6 py-3 text-sm text-secondary-600">{{ receipt.document.document_date|date:"d M Y" }}</td>
+            <td class="px-6 py-3 text-sm text-secondary-600">{{ receipt.due_date|date:"d M Y"|default:"—" }}</td>
             <td class="px-6 py-3 text-sm text-right font-mono">{{ receipt.paid_amount|floatformat:2 }}</td>
             <td class="px-6 py-3 text-center">
               <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium
@@ -172,7 +172,7 @@
         <tbody class="bg-white divide-y divide-secondary-200">
           {% for payment in payments %}
           <tr class="hover:bg-secondary-50">
-            <td class="px-6 py-3 text-sm text-secondary-600">{{ payment.payment_date|date:"M d, Y" }}</td>
+            <td class="px-6 py-3 text-sm text-secondary-600">{{ payment.payment_date|date:"d M Y" }}</td>
             <td class="px-6 py-3 text-sm font-mono">{{ payment.reference|default:"—" }}</td>
             <td class="px-6 py-3 text-sm text-right font-mono">{{ payment.amount|floatformat:2 }}</td>
             <td class="px-6 py-3 text-sm text-right font-mono">{{ payment.unapplied_amount|floatformat:2 }}</td>
@@ -213,7 +213,7 @@
         <tbody class="bg-white divide-y divide-secondary-200">
           {% for row in ledger_rows %}
           <tr class="hover:bg-secondary-50">
-            <td class="px-6 py-3 text-sm text-secondary-600">{{ row.date|date:"M d, Y" }}</td>
+            <td class="px-6 py-3 text-sm text-secondary-600">{{ row.date|date:"d M Y" }}</td>
             <td class="px-6 py-3 text-sm font-mono">{{ row.reference|default:"—" }}</td>
             <td class="px-6 py-3 text-sm text-secondary-700">{{ row.description }}</td>
             <td class="px-6 py-3 text-sm text-right font-mono">{{ row.debit|floatformat:2 }}</td>

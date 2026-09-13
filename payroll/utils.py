@@ -538,7 +538,42 @@ def get_payee(self, as_of=None):
 
 
 def get_water_rate(self):
-    return Decimal(150) if self.basic_salary <= 75000 else Decimal(200)
+    """Monthly water-rate deduction governed by CompanyPayrollSetting.
+
+    Defaults (150 at/below ₦75,000, else 200) preserve legacy behavior when
+    no company setting exists. Configure per-tenant via water_rate_* fields.
+    """
+    low = Decimal(150)
+    high = Decimal(200)
+    threshold = Decimal(75000)
+    try:
+        from payroll.models import CompanyPayrollSetting
+
+        setting = None
+        company_id = getattr(getattr(self, "company", None), "id", None) or getattr(
+            self, "company_id", None
+        )
+        if company_id:
+            setting = CompanyPayrollSetting.objects.filter(
+                company_id=company_id
+            ).first()
+        else:
+            employee = getattr(self, "employee_pay", None)
+            if employee is not None:
+                # Payroll config rows may carry company via related profile.
+                company_id = getattr(getattr(employee, "first", lambda: None)(), "company_id", None)
+                if company_id:
+                    setting = CompanyPayrollSetting.objects.filter(
+                        company_id=company_id
+                    ).first()
+        if setting is not None:
+            low = Decimal(setting.water_rate_low or low)
+            high = Decimal(setting.water_rate_high or high)
+            threshold = Decimal(setting.water_rate_threshold or threshold)
+    except Exception:
+        pass
+    basic = Decimal(getattr(self, "basic_salary", 0) or 0)
+    return low if basic <= threshold else high
 
 
 def get_net_pay(self):
@@ -656,41 +691,3 @@ def try_parse_date(date_str):
         return datetime.strptime(date_str, "%Y-%m").date()
     except ValueError:
         return None
-
-
-# def export_lirs_form_a8(remittances, year):
-#     wb = Workbook()
-#     ws = wb.active
-#     ws.title = "LIRS FORM A8"
-
-#     headers = [
-#         "Employer TIN",
-#         "Employer Name",
-#         "Employee Name",
-#         "Employee TIN",
-#         "Annual Gross",
-#         "Annual Taxable",
-#         "Annual PAYE",
-#         "Year",
-#     ]
-#     ws.append(headers)
-
-#     for r in remittances:
-#         ws.append([
-#             r.employer_tin,
-#             r.employer_name,
-#             r.employee.full_name,
-#             r.employee_tin,
-#             float(r.gross_income),
-#             float(r.taxable_income),
-#             float(r.paye),
-#             year,
-#         ])
-
-#     response = HttpResponse(
-#         content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-#     )
-#     response["Content-Disposition"] = f"attachment; filename=LIRS_Form_A8_{year}.xlsx"
-
-#     wb.save(response)
-#     return response

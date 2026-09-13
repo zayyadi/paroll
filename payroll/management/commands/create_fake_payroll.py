@@ -188,8 +188,6 @@ class Command(BaseCommand):
             pay_var, created = PayrollEntry.objects.get_or_create(
                 pays=employee,
                 defaults={
-                    "is_housing": random.choice([True, False]),
-                    "is_nhif": random.choice([True, False]),
                     "status": "active",
                 },
             )
@@ -228,14 +226,10 @@ class Command(BaseCommand):
 
                     # Generate allowance amount based on salary
                     base_salary = employee.employee_pay.basic_salary
-                    allowance_amount = Decimal(
-                        str(
-                            random.uniform(
-                                base_salary * 0.05,  # 5% of salary
-                                base_salary * 0.15,  # 15% of salary
-                            )
-                        )
+                    allowance_ratio = Decimal(
+                        str(random.uniform(0.05, 0.15))  # 5% to 15% of salary
                     )
+                    allowance_amount = base_salary * allowance_ratio
 
                     allowance = Allowance.objects.create(
                         employee=employee,
@@ -389,24 +383,40 @@ class Command(BaseCommand):
 
         leave_types = ["CASUAL", "SICK", "ANNUAL", "MATERNITY", "PATERNITY"]
         statuses = ["PENDING", "APPROVED", "REJECTED"]
+        leave_type_maximum_days = {
+            "CASUAL": 5,
+            "SICK": 10,
+            "ANNUAL": 21,
+            "MATERNITY": 90,
+            "PATERNITY": 10,
+        }
 
         for employee in employees:
             # Randomly decide if this employee has leave requests
             if random.random() < 0.4:  # 40% chance
                 num_requests = random.randint(1, 3)
+                has_approved_leave = False
 
                 for _ in range(num_requests):
                     start_date = fake.date_between(start_date="-6y", end_date="+6y")
-                    duration = random.randint(1, 14)  # 1 to 14 days
+                    leave_type = random.choice(leave_types)
+                    status = random.choice(statuses)
+                    if status == "APPROVED" and has_approved_leave:
+                        status = random.choice(["PENDING", "REJECTED"])
+                    if status == "APPROVED":
+                        has_approved_leave = True
+
+                    maximum_days = min(14, leave_type_maximum_days[leave_type])
+                    duration = random.randint(1, maximum_days)
                     end_date = start_date + timedelta(days=duration)
 
                     leave_request = LeaveRequest.objects.create(
                         employee=employee,
-                        leave_type=random.choice(leave_types),
+                        leave_type=leave_type,
                         start_date=start_date,
                         end_date=end_date,
                         reason=f"Auto-generated leave request for {employee.first_name}",
-                        status=random.choice(statuses),
+                        status=status,
                     )
 
                     self.stdout.write(

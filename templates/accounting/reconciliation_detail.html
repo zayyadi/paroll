@@ -7,7 +7,7 @@
   <div class="flex items-center justify-between">
     <div>
       <h2 class="font-headline text-2xl font-extrabold text-primary-800">Reconciliation: {{ reconciliation.account.name }}</h2>
-      <p class="text-sm text-secondary-500">{{ reconciliation.period.name|default:"No period" }} — Created {{ reconciliation.created_at|date:"M d, Y" }}</p>
+      <p class="text-sm text-secondary-500">{{ reconciliation.period.name|default:"No period" }} — Created {{ reconciliation.created_at|date:"d M Y" }}</p>
     </div>
     <div class="flex space-x-3">
       {% if can_match %}
@@ -45,7 +45,7 @@
         <div class="flex justify-between items-center py-2 border-b border-secondary-100 last:border-0">
           <div>
             <p class="text-sm font-medium text-primary-900">{{ tx.description }}</p>
-            <p class="text-xs text-secondary-500">{{ tx.transaction_date|date:"M d, Y" }} — {{ tx.reference }}</p>
+            <p class="text-xs text-secondary-500">{{ tx.transaction_date|date:"d M Y" }} — {{ tx.reference }}</p>
           </div>
           <div class="text-right">
             <span class="text-sm font-mono {% if tx.transaction_type == 'CREDIT' %}text-green-600{% else %}text-red-600{% endif %}">

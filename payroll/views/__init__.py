@@ -40,6 +40,3 @@ from .report_view import *
 
 # Notification views
 from .notification_view import *
-
-# Chat views
-from .chat_view import *

@@ -190,6 +190,72 @@ class PayrollInline(admin.StackedInline):
     raw_id_fields = ("payroll_entry",)
 
 
+# ---------------------------------------------------------------------------
+# Company-scoped TabularInlines (mounted on CompanyAdmin for inline editing
+# of a company's core payroll records from the Company page).
+# Allowance/Deduction have no direct company FK, so they inline on the
+# employee admin instead (see AllowanceInline/DeductionInline below).
+# ---------------------------------------------------------------------------
+
+
+class DepartmentInline(admin.TabularInline):
+    model = Department
+    fk_name = "company"
+    fields = ("name", "description")
+    extra = 0
+    show_change_link = True
+
+
+class EmployeeProfileInline(admin.TabularInline):
+    model = EmployeeProfile
+    fk_name = "company"
+    fields = ("first_name", "last_name", "email", "department", "status")
+    extra = 0
+    show_change_link = True
+
+
+class PayrollStructureInline(admin.TabularInline):
+    model = Payroll
+    fk_name = "company"
+    fields = ("basic_salary", "status")
+    extra = 0
+    show_change_link = True
+
+
+class PayrollRunInline(admin.TabularInline):
+    model = PayrollRun
+    fk_name = "company"
+    fields = ("name", "paydays", "status", "is_active")
+    extra = 0
+    show_change_link = True
+
+
+class PayrollEntryInline(admin.TabularInline):
+    model = PayrollEntry
+    fk_name = "company"
+    fields = ("pays", "status", "netpay")
+    readonly_fields = ("netpay",)
+    autocomplete_fields = ("pays",)
+    extra = 0
+    show_change_link = True
+
+
+class AllowanceInline(admin.TabularInline):
+    model = Allowance
+    fk_name = "employee"
+    fields = ("allowance_type", "amount")
+    extra = 0
+    show_change_link = True
+
+
+class DeductionInline(admin.TabularInline):
+    model = Deduction
+    fk_name = "employee"
+    fields = ("deduction_type", "amount", "reason")
+    extra = 0
+    show_change_link = True
+
+
 class CompanyHealthInsuranceTierInline(admin.TabularInline):
     model = CompanyHealthInsuranceTier
     extra = 1
@@ -199,10 +265,16 @@ class CompanyHealthInsuranceTierInline(admin.TabularInline):
 class PayrollRunAdmin(ImportExportModelAdmin):
     resource_class = PayrollRunResource
     inlines = (PayrollInline,)
-    list_display = ["name", "company", "paydays", "is_active", "closed"]
-    list_filter = ["company", "is_active", "closed", "paydays"]
+    list_display = ["name", "company", "paydays", "status", "is_active", "closed"]
+    list_display_links = ["name"]
+    list_editable = ["status", "is_active"]
+    list_filter = ["company", "status", "is_active", "closed", "paydays"]
     search_fields = ["name"]
     date_hierarchy = "paydays"
+
+    def get_queryset(self, request):
+        # Default manager only returns active runs; admin should see all.
+        return self.model.all_objects.select_related("company")
 
 
 admin.site.unregister(Group)
@@ -255,12 +327,14 @@ class EmployeeProfileAdmin(ImportExportModelAdmin):
         "status",  # Use custom method
     )
     list_filter = (
+        "company",
         "department",
         "job_title",
         "contract_type",
         "gender",
         # Removed "is_active" from list_filter to avoid E116 error
     )
+    list_editable = ("company", "status")
     search_fields = ("first_name", "last_name", "email", "emp_id")
     date_hierarchy = "date_of_employment"
     fieldsets = (
@@ -323,6 +397,7 @@ class EmployeeProfileAdmin(ImportExportModelAdmin):
         ),
     )
     readonly_fields = ("emp_id",)
+    inlines = (AllowanceInline, DeductionInline)
 
     sensitive_admin_fields = (
         "pension_rsa",
@@ -347,11 +422,17 @@ class EmployeeProfileAdmin(ImportExportModelAdmin):
 @admin.register(Payroll)
 class PayrollAdmin(ImportExportModelAdmin):
     resource_class = PayrollResource
-    list_display = ("company", "basic_salary", "payee", "timestamp", "updated")
+    list_display = ("id", "company", "basic_salary", "payee", "timestamp", "updated")
+    list_display_links = ("id",)
+    list_editable = ("company", "basic_salary")
     list_filter = ("company", "timestamp")
     search_fields = ("basic_salary",)
     readonly_fields = ("timestamp", "updated")
     date_hierarchy = "timestamp"
+
+    def get_queryset(self, request):
+        # Default manager only returns active rows; admin should see all.
+        return self.model.all_objects.select_related("company")
 
 
 @admin.register(CompanyPayrollSetting)
@@ -414,8 +495,10 @@ class IOUAdmin(ImportExportModelAdmin):
 @admin.register(Allowance)
 class AllowanceAdmin(ImportExportModelAdmin):
     resource_class = AllowanceResources
-    list_display = ("employee", "allowance_type", "amount", "created_at")
-    list_filter = ("allowance_type", "created_at")
+    list_display = ("id", "employee", "allowance_type", "amount", "created_at")
+    list_display_links = ("id",)
+    list_editable = ("allowance_type", "amount")
+    list_filter = ("allowance_type", "created_at", "employee__company")
     search_fields = ("employee__first_name", "employee__last_name", "allowance_type")
     date_hierarchy = "created_at"
 
@@ -423,8 +506,10 @@ class AllowanceAdmin(ImportExportModelAdmin):
 @admin.register(Deduction)
 class DeductionAdmin(ImportExportModelAdmin):
     resource_class = DeductionResources
-    list_display = ("employee", "deduction_type", "amount", "reason", "created_at")
-    list_filter = ("deduction_type", "created_at")
+    list_display = ("id", "employee", "deduction_type", "amount", "reason", "created_at")
+    list_display_links = ("id",)
+    list_editable = ("deduction_type", "amount")
+    list_filter = ("deduction_type", "created_at", "employee__company")
     search_fields = (
         "employee__first_name",
         "employee__last_name",
@@ -437,7 +522,9 @@ class DeductionAdmin(ImportExportModelAdmin):
 @admin.register(Department)
 class DepartmentAdmin(ImportExportModelAdmin):
     resource_class = DepartmentResource
-    list_display = ("name", "company")
+    list_display = ("name", "company", "description")
+    list_display_links = ("name",)
+    list_editable = ("description",)
     list_filter = ("company",)
     search_fields = ("name",)
 
@@ -638,8 +725,15 @@ class LeaveAllowanceEmailJobAdmin(ImportExportModelAdmin):
 @admin.register(PayrollEntry)
 class PayrollEntryAdmin(ImportExportModelAdmin):
     resource_class = PayrollEntryResource
-    list_display = ("pays", "company", "status", "netpay")
+    list_display = ("id", "pays", "company", "status", "netpay")
+    list_display_links = ("id",)
+    list_editable = ("status",)
     list_filter = ("company", "status")
+    readonly_fields = ("netpay",)
+
+    def get_queryset(self, request):
+        # Default manager only returns active rows; admin should see all.
+        return self.model.all_objects.select_related("company", "pays")
 
 
 class RatingInline(admin.TabularInline):

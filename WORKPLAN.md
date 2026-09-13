@@ -173,19 +173,13 @@
 ## Quick Wins (Can Start Immediately)
 **Low effort, high value:**
 
-1. **Remove Chat Module** (1 day)
-   - Archive `payroll/consumers/` 
-   - Remove WebSocket routes
-   - Document external chat integration plan
-   - PR: `cleanup/archive-chat-module`
-
-2. **Add Salary History Model** (2 days)
+1. **Add Salary History Model** (2 days)
    - Create `SalaryHistory` model
    - Add migration
    - Add service to track changes
    - PR: `feature/salary-history-tracking`
 
-3. **Standardize Permissions** (3 days)
+2. **Standardize Permissions** (3 days)
    - Document permission matrix
    - Add @permission_required to all views
    - Create permission factory for tests
@@ -270,7 +264,6 @@ Week 9-10:  ████ CRUD tests, Hiring tests, Performance optimization
 
 ## Post-Implementation Tasks (Future)
 
-- [ ] Chat module replacement with Slack/Teams integration
 - [ ] Standup module migration to separate app
 - [ ] Organizational chart feature
 - [ ] Exit interview workflow

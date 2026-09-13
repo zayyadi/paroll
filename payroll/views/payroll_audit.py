@@ -33,8 +33,10 @@ logger = logging.getLogger(__name__)
 def log_audit_trail(user, action, content_object, changes=None):
     if changes is None:
         changes = {}
+    company = get_user_company(user)
     AuditTrail.objects.create(
-        user=user, action=action, content_object=content_object, changes=changes
+        user=user, action=action, content_object=content_object, changes=changes,
+        company=company,
     )
 
 
@@ -44,7 +46,11 @@ def audit_trail_list(request):
     query = request.GET.get("q")
     user_filter = request.GET.get("user")
     action_filter = request.GET.get("action")
-    logs = AuditTrail.objects.all().order_by("-timestamp")
+    company = get_user_company(request.user)
+    if company is None:
+        logs = AuditTrail.objects.none()
+    else:
+        logs = AuditTrail.objects.filter(company=company).order_by("-timestamp")
     if query:
         logs = logs.filter(
             Q(user__email__icontains=query)
@@ -57,7 +63,7 @@ def audit_trail_list(request):
     if action_filter:
         logs = logs.filter(action__icontains=action_filter)
     action_choices = (
-        AuditTrail.objects.exclude(action__isnull=True)
+        logs.exclude(action__isnull=True)
         .exclude(action__exact="")
         .values_list("action", flat=True)
         .distinct()
@@ -92,5 +98,8 @@ def audit_trail_list(request):
 @permission_required("payroll.view_audittrail", raise_exception=True)
 def audit_trail_detail(request, id=None, pk=None):
     log_id = pk if pk is not None else id
-    log = get_object_or_404(AuditTrail, pk=log_id)
+    company = get_user_company(request.user)
+    if company is None:
+        raise Http404("No active company is configured for this account.")
+    log = get_object_or_404(AuditTrail, pk=log_id, company=company)
     return render(request, "pay/audit_trail_detail.html", {"log": log})

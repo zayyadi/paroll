@@ -81,7 +81,7 @@
                             <div class="text-xs text-secondary-500 truncate max-w-xs">{{ log.content_object|default:"-" }}</div>
                         </td>
                         <td class="px-6 py-4 text-sm text-secondary-700">
-                            <div>{{ log.timestamp|date:"M d, Y" }}</div>
+                            <div>{{ log.timestamp|date:"d M Y" }}</div>
                             <div class="text-xs text-secondary-500">{{ log.timestamp|date:"H:i:s" }}</div>
                         </td>
                         <td class="px-6 py-4">

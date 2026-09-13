@@ -33,11 +33,11 @@
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div>
                 <p class="text-sm font-medium text-secondary-500">Start Date</p>
-                <p class="text-sm text-secondary-900 mt-1">{{ fiscal_year.start_date|date:"F d, Y" }}</p>
+                <p class="text-sm text-secondary-900 mt-1">{{ fiscal_year.start_date|date:"d M Y" }}</p>
             </div>
             <div>
                 <p class="text-sm font-medium text-secondary-500">End Date</p>
-                <p class="text-sm text-secondary-900 mt-1">{{ fiscal_year.end_date|date:"F d, Y" }}</p>
+                <p class="text-sm text-secondary-900 mt-1">{{ fiscal_year.end_date|date:"d M Y" }}</p>
             </div>
             <div>
                 <p class="text-sm font-medium text-secondary-500">Total Journals</p>
@@ -110,8 +110,8 @@
                             <div class="text-sm font-medium text-secondary-900">{{ period.name }}</div>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap">
-                            <div class="text-sm text-secondary-900">{{ period.start_date|date:"M d, Y" }}</div>
-                            <div class="text-sm text-secondary-500">to {{ period.end_date|date:"M d, Y" }}</div>
+                            <div class="text-sm text-secondary-900">{{ period.start_date|date:"d M Y" }}</div>
+                            <div class="text-sm text-secondary-500">to {{ period.end_date|date:"d M Y" }}</div>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap">
                             {% if period.is_closed %}

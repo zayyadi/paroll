@@ -67,7 +67,7 @@
             <div class="rounded-2xl bg-surface-container-low p-4">
                 <div class="flex items-center justify-between gap-4">
                     <p class="font-semibold text-secondary-900">{{ record.employee.first_name }} {{ record.employee.last_name }}</p>
-                    <span class="text-sm text-secondary-600">{{ record.work_date|date:"M j, Y" }}</span>
+                    <span class="text-sm text-secondary-600">{{ record.work_date|date:"d M Y" }}</span>
                 </div>
                 <p class="mt-2 text-sm text-secondary-600">{{ record.get_status_display }} · {{ record.hours_worked }} hrs</p>
             </div>

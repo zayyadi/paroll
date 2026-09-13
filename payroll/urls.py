@@ -8,7 +8,6 @@ app_name = "payroll"
 
 urlpatterns = [
     path("app/", views.index, name="index"),
-    path("chat/", views.company_chat, name="company_chat"),
     path("documents/", views.my_documents, name="my_documents"),
     path(
         "documents/<int:document_id>/acknowledge/",

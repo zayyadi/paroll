@@ -131,17 +131,26 @@ DATABASES = {
     }
 }
 
-CACHES = {
-    "default": {
-        "BACKEND": "django_redis.cache.RedisCache",
-        "LOCATION": os.environ.get("REDIS_LOCATION", "redis://127.0.0.1:6379/1"),
-        "OPTIONS": {
-            "CLIENT_CLASS": "django_redis.client.DefaultClient",
-        },
-        "KEY_PREFIX": "payroll",
-        "TIMEOUT": 300,  # 5 minutes default
+DISABLE_REDIS_CACHE = env_bool("DISABLE_REDIS_CACHE", False)
+
+if DISABLE_REDIS_CACHE:
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        }
     }
-}
+else:
+    CACHES = {
+        "default": {
+            "BACKEND": "django_redis.cache.RedisCache",
+            "LOCATION": os.environ.get("REDIS_LOCATION", "redis://127.0.0.1:6379/1"),
+            "OPTIONS": {
+                "CLIENT_CLASS": "django_redis.client.DefaultClient",
+            },
+            "KEY_PREFIX": "payroll",
+            "TIMEOUT": 300,  # 5 minutes default
+        }
+    }
 
 AUTHENTICATION_BACKENDS = (
     "django.contrib.auth.backends.ModelBackend",
@@ -546,20 +555,31 @@ CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
 # ============================================================================
 
 # Channel layers for WebSocket communication
-CHANNEL_LAYERS = {
-    "default": {
-        "BACKEND": "channels_redis.core.RedisChannelLayer",
-        "CONFIG": {
-            "hosts": [
-                "redis://{host}:{port}/{db}".format(
-                    host=os.environ.get("REDIS_HOST", "127.0.0.1"),
-                    port=int(os.environ.get("REDIS_PORT", "6379")),
-                    db=int(os.environ.get("REDIS_DB", "3")),
-                )
-            ],
+if DISABLE_REDIS_CACHE:
+    CHANNEL_LAYERS = {
+        "default": {
+            "BACKEND": "channels.layers.InMemoryChannelLayer",
+        }
+    }
+    # Run Celery tasks synchronously when Redis is disabled so dev
+    # doesn't require a broker.
+    CELERY_TASK_ALWAYS_EAGER = True
+    CELERY_TASK_EAGER_PROPAGATES = True
+else:
+    CHANNEL_LAYERS = {
+        "default": {
+            "BACKEND": "channels_redis.core.RedisChannelLayer",
+            "CONFIG": {
+                "hosts": [
+                    "redis://{host}:{port}/{db}".format(
+                        host=os.environ.get("REDIS_HOST", "127.0.0.1"),
+                        port=int(os.environ.get("REDIS_PORT", "6379")),
+                        db=int(os.environ.get("REDIS_DB", "3")),
+                    )
+                ],
+            },
         },
-    },
-}
+    }
 
 # ============================================================================
 # PUSH NOTIFICATION CONFIGURATION (FCM)
@@ -692,7 +712,6 @@ MOBILE_API = {
     "ENABLE_ACCOUNTING": env_bool("MOBILE_ENABLE_ACCOUNTING", True),
     "ENABLE_INVENTORY": env_bool("MOBILE_ENABLE_INVENTORY", True),
     "ENABLE_STANDUPS": env_bool("MOBILE_ENABLE_STANDUPS", True),
-    "ENABLE_CHAT": env_bool("MOBILE_ENABLE_CHAT", True),
     "ENABLE_NOTIFICATIONS": env_bool("MOBILE_ENABLE_NOTIFICATIONS", True),
 }
 

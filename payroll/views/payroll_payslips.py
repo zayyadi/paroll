@@ -205,9 +205,6 @@ def list_payslip(request, emp_slug):
 
 def payslips(request):
     """View to show payslips for the current logged-in user"""
-    # # Check if user can view payroll data (auditors have view-only access)
-    # if not can_view_payroll_data(request.user):
-    #     return HttpResponseForbidden("You don't have permission to view payroll data.")
 
     try:
         employee_profile = request.user.employee_user

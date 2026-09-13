@@ -31,7 +31,7 @@
         <tr class="hover:bg-secondary-50 {% if row.days_overdue > 90 %}bg-red-50{% elif row.days_overdue > 60 %}bg-yellow-50{% endif %}">
           <td class="px-6 py-3 text-sm text-primary-900">{{ row.customer.name }}</td>
           <td class="px-6 py-3 text-sm text-secondary-600 font-mono">{{ row.invoice.document.reference|default:"—" }}</td>
-          <td class="px-6 py-3 text-sm text-secondary-600">{{ row.due_date|date:"M d, Y" }}</td>
+          <td class="px-6 py-3 text-sm text-secondary-600">{{ row.due_date|date:"d M Y" }}</td>
           <td class="px-6 py-3 text-sm text-right font-mono">{{ row.outstanding|floatformat:2 }}</td>
           <td class="px-6 py-3 text-sm text-center {% if row.days_overdue > 60 %}text-red-600 font-semibold{% endif %}">{{ row.days_overdue }}</td>
           <td class="px-6 py-3 text-center">

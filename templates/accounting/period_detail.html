@@ -33,11 +33,11 @@
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div>
                 <p class="text-sm font-medium text-secondary-500">Start Date</p>
-                <p class="text-sm text-secondary-900 mt-1">{{ period.start_date|date:"F d, Y" }}</p>
+                <p class="text-sm text-secondary-900 mt-1">{{ period.start_date|date:"d M Y" }}</p>
             </div>
             <div>
                 <p class="text-sm font-medium text-secondary-500">End Date</p>
-                <p class="text-sm text-secondary-900 mt-1">{{ period.end_date|date:"F d, Y" }}</p>
+                <p class="text-sm text-secondary-900 mt-1">{{ period.end_date|date:"d M Y" }}</p>
             </div>
             <div>
                 <p class="text-sm font-medium text-secondary-500">Total Journals</p>
@@ -142,7 +142,7 @@
                             {{ journal.transaction_number }}
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-secondary-900">
-                            {{ journal.date|date:"M d, Y" }}
+                            {{ journal.date|date:"d M Y" }}
                         </td>
                         <td class="px-6 py-4">
                             <div class="text-sm font-medium text-secondary-900">{{ journal.description|truncatechars:50 }}</div>

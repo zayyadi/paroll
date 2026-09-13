@@ -1,12 +1,14 @@
 from django.core.management.base import BaseCommand
 from django.contrib.auth import get_user_model
-from faker import Faker
+from company.models import Company
+from payroll.management.commands.nigeria_fakes import (
+    NIGERIAN_DEMO_COMPANY,
+    nigerian_first_name,
+    nigerian_last_name,
+)
 import random
 
 User = get_user_model()
-fake = Faker()
-
-
 class Command(BaseCommand):
     help = "Creates fake users for testing the payroll system"
 
@@ -27,6 +29,14 @@ class Command(BaseCommand):
         count = options["count"]
         include_admin = options["include_admin"]
 
+        company, company_created = Company.objects.get_or_create(
+            name=NIGERIAN_DEMO_COMPANY,
+        )
+        if company_created:
+            self.stdout.write(
+                self.style.SUCCESS(f"Created company: {NIGERIAN_DEMO_COMPANY}")
+            )
+
         self.stdout.write(f"Creating {count} fake users...")
 
         created_count = 0
@@ -34,9 +44,9 @@ class Command(BaseCommand):
 
         # Create regular users
         for i in range(count):
-            first_name = fake.first_name()
-            last_name = fake.last_name()
-            email = f"{first_name.lower()}.{last_name.lower()}{random.randint(1, 999)}@example.com"
+            first_name = nigerian_first_name()
+            last_name = nigerian_last_name()
+            email = f"{first_name.lower()}.{last_name.lower()}{random.randint(1, 999)}@example.ng"
 
             user, created = User.objects.get_or_create(
                 email=email,
@@ -55,27 +65,29 @@ class Command(BaseCommand):
                 # Set a simple password for testing
                 user.set_password("password123")
                 user.save()
+                self._assign_company(user, company)
                 created_count += 1
                 self.stdout.write(self.style.SUCCESS(f"Created user: {email}"))
             else:
+                self._assign_company(user, company)
                 existing_count += 1
                 self.stdout.write(self.style.WARNING(f"User already exists: {email}"))
 
         # Create admin users if requested
         if include_admin:
-            admin_emails = [
-                "admin@payroll.com",
-                "hr@payroll.com",
-                "manager@payroll.com",
-                "accountant@payroll.com",
+            admin_users = [
+                ("admin@payroll.com", "Adebayo", "Ogundimu"),
+                ("hr@payroll.com", "Chiamaka", "Eze"),
+                ("manager@payroll.com", "Musa", "Bello"),
+                ("accountant@payroll.com", "Ngozi", "Okonkwo"),
             ]
 
-            for email in admin_emails:
+            for email, first_name, last_name in admin_users:
                 user, created = User.objects.get_or_create(
                     email=email,
                     defaults={
-                        "first_name": email.split("@")[0].title(),
-                        "last_name": "User",
+                        "first_name": first_name,
+                        "last_name": last_name,
                         "is_staff": True,
                         "is_active": True,
                         "is_manager": True,
@@ -85,11 +97,13 @@ class Command(BaseCommand):
                 if created:
                     user.set_password("admin123")
                     user.save()
+                    self._assign_company(user, company)
                     created_count += 1
                     self.stdout.write(
                         self.style.SUCCESS(f"Created admin user: {email}")
                     )
                 else:
+                    self._assign_company(user, company)
                     existing_count += 1
                     self.stdout.write(
                         self.style.WARNING(f"Admin user already exists: {email}")
@@ -99,8 +113,19 @@ class Command(BaseCommand):
         self.stdout.write("\n" + "=" * 50)
         self.stdout.write(self.style.SUCCESS("Summary:"))
         self.stdout.write(
-            f"  Total users processed: {count + (len(admin_emails) if include_admin else 0)}"
+            f"  Total users processed: {count + (len(admin_users) if include_admin else 0)}"
         )
         self.stdout.write(f"  New users created: {created_count}")
         self.stdout.write(f"  Users already existing: {existing_count}")
         self.stdout.write("=" * 50)
+
+        for existing_user in User.objects.all():
+            self._assign_company(existing_user, company)
+
+    def _assign_company(self, user, company):
+        if user.company_id == company.id and user.active_company_id == company.id:
+            return
+
+        user.company = company
+        user.active_company = company
+        user.save(update_fields=["company", "active_company"])
