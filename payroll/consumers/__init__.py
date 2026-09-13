@@ -1,6 +1,5 @@
-"""WebSocket consumers for realtime notifications and internal chat."""
+"""WebSocket consumers for realtime notifications."""
 
-from .chat_consumer import CompanyChatConsumer
 from .notification_consumer import NotificationConsumer
 
-__all__ = ["CompanyChatConsumer", "NotificationConsumer"]
+__all__ = ["NotificationConsumer"]

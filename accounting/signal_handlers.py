@@ -408,12 +408,14 @@ def accounting_period_post_save(sender, instance, created, **kwargs):
 def accounting_period_post_delete(sender, instance, **kwargs):
     """Log accounting period deletion."""
 
+    fiscal_year_name = instance.fiscal_year.name if instance.fiscal_year_id else ""
+
     def log_period_delete():
         log_model_change(
             sender=sender,
             instance=instance,
             action=AccountingAuditTrail.ActionType.DELETE,
-            reason=f"Deleted accounting period: {instance.name} ({instance.fiscal_year.name})",
+            reason=f"Deleted accounting period: {instance.name} ({fiscal_year_name})",
         )
 
     # Check if we're in an atomic block and if transaction is in a good state
@@ -654,13 +656,15 @@ def journal_entry_post_save(sender, instance, created, **kwargs):
 def journal_entry_post_delete(sender, instance, **kwargs):
     """Log journal entry deletion."""
 
+    account_name = instance.account.name if instance.account_id else ""
+
     # Use transaction.on_commit to avoid transaction issues
     def log_entry_delete():
         log_model_change(
             sender=sender,
             instance=instance,
             action=AccountingAuditTrail.ActionType.DELETE,
-            reason=f"Deleted journal entry: {instance.get_entry_type_display()} {instance.amount} to {instance.account.name}",
+            reason=f"Deleted journal entry: {instance.get_entry_type_display()} {instance.amount} to {account_name}",
         )
 
     # Check if we're in an atomic block and if transaction is in a good state

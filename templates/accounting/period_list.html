@@ -68,8 +68,8 @@
                             <div class="text-sm font-medium text-secondary-900">{{ period.name }}</div>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap">
-                            <div class="text-sm text-secondary-900">{{ period.start_date|date:"M d, Y" }}</div>
-                            <div class="text-sm text-secondary-500">to {{ period.end_date|date:"M d, Y" }}</div>
+                            <div class="text-sm text-secondary-900">{{ period.start_date|date:"d M Y" }}</div>
+                            <div class="text-sm text-secondary-500">to {{ period.end_date|date:"d M Y" }}</div>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap">
                             {% if period.is_closed %}

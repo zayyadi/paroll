@@ -9,9 +9,30 @@ from django.apps import apps
 from django.utils import timezone
 
 
+def _month_start(value):
+    """Normalize Month/date/datetime/str to a first-day date."""
+    first_day = getattr(value, "first_day", None)
+    if callable(first_day):
+        return first_day()
+    if isinstance(value, str):
+        try:
+            from monthyear import Month as _Month
+
+            return _Month.from_string(value).first_day()
+        except Exception:
+            import datetime as _dt
+
+            return _dt.date.fromisoformat(value[:10]).replace(day=1)
+    import datetime as _dt
+
+    if isinstance(value, _dt.datetime):
+        return value.date().replace(day=1)
+    return value.replace(day=1)
+
+
 def _get_period_bounds(paydays):
-    month_start = paydays.replace(day=1)
-    month_end = month_start.replace(day=monthrange(paydays.year, paydays.month)[1])
+    month_start = _month_start(paydays)
+    month_end = month_start.replace(day=monthrange(month_start.year, month_start.month)[1])
     return month_start, month_end
 
 

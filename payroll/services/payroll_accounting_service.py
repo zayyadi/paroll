@@ -4,6 +4,7 @@ Extracted from payroll/signals.py to keep signal handlers thin.
 """
 
 from decimal import Decimal
+import datetime
 import logging
 from typing import Any
 
@@ -22,6 +23,33 @@ from accounting.utils import (
 from payroll.models import IOU, PayrollRun, IOUDeduction
 
 logger = logging.getLogger(__name__)
+
+
+def _month_start(value: Any) -> Any:
+    """Normalize a Month/date/datetime/str pay-period value to a first-day date.
+
+    ``PayrollRun.paydays`` is a ``MonthField`` which deserializes to
+    ``monthyear.Month`` (has ``first_day()``, no ``replace``). Depending on
+    whether the instance was refreshed from the DB, callers may also see a
+    ``date``/``datetime`` or a ``"YYYY-MM[ -DD]"`` string, so handle all of them.
+    """
+    if value is None:
+        return None
+    first_day = getattr(value, "first_day", None)
+    if callable(first_day):
+        return first_day()
+    if isinstance(value, datetime.datetime):
+        return value.date().replace(day=1)
+    if isinstance(value, datetime.date):
+        return value.replace(day=1)
+    if isinstance(value, str):
+        try:
+            from monthyear import Month as _Month
+
+            return _Month.from_string(value).first_day()
+        except Exception:
+            return datetime.date.fromisoformat(value[:10]).replace(day=1)
+    return value.replace(day=1)
 
 
 PAYROLL_ACCOUNTS = {
@@ -267,11 +295,8 @@ def handle_payroll_period_closure(payroll_run: PayrollRun) -> None:
 
         if entries:
             paydays_value = payroll_run.paydays
-            if hasattr(paydays_value, "first_day"):
-                journal_date = paydays_value.first_day()
-            elif paydays_value:
-                journal_date = paydays_value.replace(day=1)
-            else:
+            journal_date = _month_start(paydays_value)
+            if not journal_date:
                 journal_date = timezone.now().date().replace(day=1)
 
             journal = create_journal_with_entries(
@@ -416,7 +441,7 @@ def create_iou_deduction_for_payroll_entry(
     if not month_anchor:
         return
 
-    month_start = month_anchor.replace(day=1)
+    month_start = _month_start(month_anchor)
 
     ious = IOU.objects.filter(
         employee_id=employee,

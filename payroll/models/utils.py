@@ -45,8 +45,21 @@ class SoftDeleteModel(models.Model):
 class AuditTrail(models.Model):
     """
     Model to track changes to other models.
+
+    Tenant-scoped via nullable ``company`` FK (Phase-0 A2 backfill path):
+    new rows must set company; list/detail views filter by active company.
+    NULL rows are legacy/backfill pending and visible only via ``all_objects``.
     """
 
+    company = models.ForeignKey(
+        "company.Company",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="payroll_audit_trails",
+        db_index=True,
+        help_text="Tenant owner. Required for new rows; NULL marks legacy rows pending backfill.",
+    )
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True
     )
@@ -60,6 +73,11 @@ class AuditTrail(models.Model):
         blank=True,
         help_text="Stores a dictionary of changes (old_value, new_value)",
     )
+    # NOTE: defining any manager suppresses Django's automatic `objects`, so
+    # both are declared explicitly. `objects` stays the default manager;
+    # `all_objects` is the unscoped escape hatch for backfills/admin.
+    objects = models.Manager()
+    all_objects = models.Manager()
 
     def __str__(self):
         return f"{self.user} performed {self.action} on {self.content_object}"

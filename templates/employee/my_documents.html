@@ -43,7 +43,7 @@
                                 <span class="chip chip-info">Available</span>
                             {% endif %}
                         </td>
-                        <td class="px-4 py-4 text-sm text-on-surface-variant tabular-nums">{{ document.expires_at|date:"M j, Y"|default:"-" }}</td>
+                        <td class="px-4 py-4 text-sm text-on-surface-variant tabular-nums">{{ document.expires_at|date:"d M Y"|default:"-" }}</td>
                         <td class="px-4 py-4 text-sm text-on-surface-variant">
                             {% if document.acknowledgement_required and not document.is_acknowledged %}
                             <form method="post" action="{% url 'payroll:acknowledge_document' document.id %}">

@@ -4,6 +4,7 @@ from django.contrib.auth import get_user_model
 from django.utils import timezone
 from payroll.models import EmployeeProfile, Department
 from accounting.models import Account, FiscalYear, AccountingPeriod
+from payroll.management.commands.nigeria_fakes import NIGERIAN_DEMO_COMPANY
 
 User = get_user_model()
 
@@ -116,6 +117,7 @@ class Command(BaseCommand):
             "create_fake_accounts",
             count=accounts_count,
             include_fiscal_year=True,
+            company_name=NIGERIAN_DEMO_COMPANY,
         )
 
         # Step 4: Create payroll data
@@ -137,6 +139,7 @@ class Command(BaseCommand):
                 accounts=accounts_count,
                 journals=50,
                 fiscal_year=timezone.now().year,
+                company_name=NIGERIAN_DEMO_COMPANY,
             )
 
         # Summary
@@ -213,6 +216,7 @@ class Command(BaseCommand):
                 IOUDeduction,
                 LeaveRequest,
                 LeavePolicy,
+                SalaryHistory,
                 Payroll,
                 EmployeeProfile,
             )
@@ -227,29 +231,30 @@ class Command(BaseCommand):
             )
 
             # Payroll data
-            PayrollRunEntry.objects.all().delete()
-            PayrollEntry.objects.all().delete()
-            PayrollRun.objects.all().delete()
-            Allowance.objects.all().delete()
-            Deduction.objects.all().delete()
-            IOUDeduction.objects.all().delete()
-            IOU.objects.all().delete()
-            LeaveRequest.objects.all().delete()
-            LeavePolicy.objects.all().delete()
-            Payroll.objects.all().delete()
+            PayrollRunEntry._base_manager.all().delete()
+            PayrollEntry._base_manager.all().delete()
+            PayrollRun._base_manager.all().delete()
+            Allowance._base_manager.all().delete()
+            Deduction._base_manager.all().delete()
+            IOUDeduction._base_manager.all().delete()
+            IOU._base_manager.all().delete()
+            LeaveRequest._base_manager.all().delete()
+            LeavePolicy._base_manager.all().delete()
+            SalaryHistory.objects.all().delete()
+            Payroll._base_manager.all().delete()
 
             # Employee data
-            EmployeeProfile.objects.all().delete()
-            Department.objects.all().delete()
+            EmployeeProfile._base_manager.all().delete()
+            Department._base_manager.all().delete()
 
             # Accounting data
-            JournalEntry.objects.all().delete()
-            Journal.objects.all().delete()
-            TransactionNumber.objects.all().delete()
-            AccountingAuditTrail.objects.all().delete()
-            Account.objects.all().delete()
-            AccountingPeriod.objects.all().delete()
-            FiscalYear.objects.all().delete()
+            JournalEntry._base_manager.all().delete()
+            Journal._base_manager.all().delete()
+            TransactionNumber._base_manager.all().delete()
+            AccountingAuditTrail._base_manager.all().delete()
+            Account._base_manager.all().delete()
+            AccountingPeriod._base_manager.all().delete()
+            FiscalYear._base_manager.all().delete()
 
             # Users (except superusers)
             User.objects.filter(is_superuser=False).delete()

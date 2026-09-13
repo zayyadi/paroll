@@ -9,13 +9,13 @@
             <div class="card">
                 <div class="card-header bg-warning text-dark">
                     <h4 class="card-title">
-                        <i class="fas fa-exchange-alt"></i> Journal Reversal with Correction
+                        <i data-lucide="arrow-left-right"></i> Journal Reversal with Correction
                     </h4>
                 </div>
                 <div class="card-body">
                     <!-- Information Message -->
                     <div class="alert alert-warning" role="alert">
-                        <h5><i class="fas fa-exclamation-triangle"></i> Reversal with Correction</h5>
+                        <h5><i data-lucide="triangle-alert"></i> Reversal with Correction</h5>
                         <p>This will create two journals: one to reverse the original journal and another with the corrected entries.</p>
                         <p><strong>Original Reason:</strong> {{ reason|linebreaks }}</p>
                     </div>
@@ -132,7 +132,7 @@
 
                                 <h5>Correction Entries</h5>
                                 <div class="alert alert-info">
-                                    <i class="fas fa-info-circle"></i>
+                                    <i data-lucide="info"></i>
                                     Enter the corrected journal entries. These must balance (debits = credits).
                                 </div>
 
@@ -164,13 +164,13 @@
 
                                 <div class="form-group">
                                     <button type="button" class="btn btn-outline-primary" onclick="addCorrectionEntry()">
-                                        <i class="fas fa-plus"></i> Add Entry
+                                        <i data-lucide="plus"></i> Add Entry
                                     </button>
                                     <button type="submit" class="btn btn-warning">
-                                        <i class="fas fa-exchange-alt"></i> Create Reversal with Correction
+                                        <i data-lucide="arrow-left-right"></i> Create Reversal with Correction
                                     </button>
                                     <a href="{% url 'accounting:journal_detail' journal.pk %}" class="btn btn-secondary">
-                                        <i class="fas fa-times"></i> Cancel
+                                        <i data-lucide="x"></i> Cancel
                                     </a>
                                 </div>
                             </form>

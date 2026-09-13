@@ -97,7 +97,7 @@
         <h1>Account Activity Report</h1>
         <p>{{ account.name }} ({{ account.account_number|default:"—" }})</p>
         {% if start_date and end_date %}
-        <p>{{ start_date|date:"F d, Y" }} - {{ end_date|date:"F d, Y" }}</p>
+        <p>{{ start_date|date:"d M Y" }} - {{ end_date|date:"d M Y" }}</p>
         {% endif %}
         <p>Generated on {% now "F d, Y H:i" %}</p>
     </div>
@@ -146,7 +146,7 @@
         <tbody>
             {% for entry in entries %}
             <tr>
-                <td>{{ entry.journal.date|date:"M d, Y" }}</td>
+                <td>{{ entry.journal.date|date:"d M Y" }}</td>
                 <td>{{ entry.journal.transaction_number }}</td>
                 <td>{{ entry.journal.description|truncatechars:30 }}</td>
                 <td>{{ entry.get_entry_type_display }}</td>

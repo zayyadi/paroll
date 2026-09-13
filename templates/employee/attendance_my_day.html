@@ -49,7 +49,7 @@
             {% for record in recent_records %}
             <div class="rounded-2xl bg-surface-container-low p-4">
                 <div class="flex items-center justify-between gap-3">
-                    <p class="font-semibold text-on-surface">{{ record.work_date|date:"M j, Y" }}</p>
+                    <p class="font-semibold text-on-surface">{{ record.work_date|date:"d M Y" }}</p>
                     <span class="rounded-full bg-white px-3 py-1 text-xs font-bold uppercase tracking-[0.18em] text-secondary-700">{{ record.get_status_display }}</span>
                 </div>
                 <p class="mt-2 text-sm text-on-surface-variant tabular-nums">

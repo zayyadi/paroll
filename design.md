@@ -453,8 +453,6 @@ Login, registration, social login, activation, OTP verification, password reset,
 
 **Self profile:** editable personal/contact/bank fields with verification status and clear separation from employer-controlled fields. Data export is a secondary privacy action.
 
-**Company chat:** two-pane desktop layout with conversation list and thread, single pane on mobile. Include unread state, timestamps, attachment state, send failure/retry and empty selection state. Do not imitate a consumer chat app at the cost of workplace clarity.
-
 **Documents:** employee view emphasizes required acknowledgement and expiry; overview view emphasizes missing, expired and unacknowledged documents. Use file type, owner, visibility, upload date, expiry and status consistently.
 
 **Assets:** self view shows assigned assets and return workflow; overview shows owner, condition, issued date, due/returned date and exceptions. Return action requires condition and confirmation.
@@ -826,7 +824,6 @@ flowchart TD
 | Employee profile | Directory → all employee-related records | Header: photo, full name, ID, job title, department, status. Overview: email, phone, address, contract, manager, start date, probation. Payroll: pay grade/salary permission-gated, bank, HMO, pension. Related tabs: leave, attendance, payslips, documents, assets, benefits, learning, performance, IOU, appraisal, discipline, audit |
 | Self-profile | Employee dashboard → edit/export | User-editable contact/address/photo/emergency fields; employer-controlled job/company fields; bank/pension/HMO; verification state; last update; data export request |
 | Departments | People settings → directory filter | Department name; description; head/manager; employee count; active state; created/updated dates |
-| Company chat | Employee dashboard → room/thread/member profile | Room name/type/description; member count; unread count; sender; message body; sent timestamp; read state; attachment metadata if supported; compose field |
 | Documents self/overview | Profile/dashboard → document detail/acknowledge | Title; document type; employee; file name/type/size; uploaded date; acknowledgement required/state/date; expiry date; owner; visibility/status |
 | Assets self/overview | Profile → asset detail/return | Asset name; category; asset tag; serial number; employee; issue date; expected return if supported; returned date; condition/status; notes |
 | Benefits self/overview | Profile → enrollment | Plan name/type; description; eligibility; enrollment window start/end; active state; enrollment status; effective/end date; employer/employee contribution if available |
@@ -1109,7 +1106,7 @@ Centralize tokens and component styles in a compiled stylesheet. Runtime Tailwin
 
 ### Phase 4: supporting modules
 
-- Performance/appraisals, discipline, hiring, attendance, assets, benefits, documents, learning, surveys, workflows and chat.
+- Performance/appraisals, discipline, hiring, attendance, assets, benefits, documents, learning, surveys and workflows.
 - Notifications/preferences and settings.
 - Marketing, legal, email, PDF and error templates.
 

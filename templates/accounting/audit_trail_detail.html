@@ -109,7 +109,7 @@
             </div>
             <div>
                 <p class="text-sm font-medium text-secondary-500">Date</p>
-                <p class="text-sm text-secondary-900 mt-1">{{ audit_log.content_object.date|date:"F d, Y" }}</p>
+                <p class="text-sm text-secondary-900 mt-1">{{ audit_log.content_object.date|date:"d M Y" }}</p>
             </div>
             <div>
                 <p class="text-sm font-medium text-secondary-500">Status</p>
@@ -147,11 +147,11 @@
             </div>
             <div>
                 <p class="text-sm font-medium text-secondary-500">Start Date</p>
-                <p class="text-sm text-secondary-900 mt-1">{{ audit_log.content_object.start_date|date:"F d, Y" }}</p>
+                <p class="text-sm text-secondary-900 mt-1">{{ audit_log.content_object.start_date|date:"d M Y" }}</p>
             </div>
             <div>
                 <p class="text-sm font-medium text-secondary-500">End Date</p>
-                <p class="text-sm text-secondary-900 mt-1">{{ audit_log.content_object.end_date|date:"F d, Y" }}</p>
+                <p class="text-sm text-secondary-900 mt-1">{{ audit_log.content_object.end_date|date:"d M Y" }}</p>
             </div>
         </div>
         {% elif audit_log.content_type.model == 'accountingperiod' %}
@@ -166,11 +166,11 @@
             </div>
             <div>
                 <p class="text-sm font-medium text-secondary-500">Start Date</p>
-                <p class="text-sm text-secondary-900 mt-1">{{ audit_log.content_object.start_date|date:"F d, Y" }}</p>
+                <p class="text-sm text-secondary-900 mt-1">{{ audit_log.content_object.start_date|date:"d M Y" }}</p>
             </div>
             <div>
                 <p class="text-sm font-medium text-secondary-500">End Date</p>
-                <p class="text-sm text-secondary-900 mt-1">{{ audit_log.content_object.end_date|date:"F d, Y" }}</p>
+                <p class="text-sm text-secondary-900 mt-1">{{ audit_log.content_object.end_date|date:"d M Y" }}</p>
             </div>
         </div>
         {% endif %}

@@ -314,20 +314,6 @@
             transform: translateY(-1px);
         }
 
-        .chat-float {
-            position: fixed;
-            bottom: 1.5rem;
-            right: 1.5rem;
-            z-index: 50;
-            animation: floatPulse 2.2s ease-in-out infinite;
-        }
-
-        @keyframes floatPulse {
-            0% { transform: translateY(0); box-shadow: 0 10px 24px rgba(0, 67, 85, 0.25); }
-            50% { transform: translateY(-4px); box-shadow: 0 18px 30px rgba(0, 67, 85, 0.35); }
-            100% { transform: translateY(0); box-shadow: 0 10px 24px rgba(0, 67, 85, 0.25); }
-        }
-
         .btn-primary {
             background: linear-gradient(135deg, #004355 0%, #005c73 100%);
             color: #ffffff;
@@ -402,9 +388,6 @@
                 transition-duration: 0.001ms !important;
             }
 
-            .chat-float {
-                animation: none;
-            }
         }
     </style>
     {% block page_title_in_head %}<title>{{ APP_NAME }} - {{ APP_TAGLINE }}</title>{% endblock %}
@@ -994,105 +977,5 @@
 
     {% block extra_js %}{% endblock %}
 
-    <div id="chat-toast" aria-live="polite" class="fixed right-6 bottom-24 hidden rounded-xl bg-white px-4 py-3 text-sm font-semibold text-secondary-900 shadow-float">
-        New chat message
-    </div>
-
-    <a href="/chat/" id="chat-float" aria-label="Open company chat" class="chat-float flex items-center gap-3 rounded-full bg-primary-600 px-5 py-3 text-sm font-semibold text-white">
-        <span class="relative">
-            <i data-lucide="messages-square" class="h-5 w-5"></i>
-            <span id="chat-float-badge" class="absolute -top-2 -right-2 hidden h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-danger-500 px-1 text-[0.65rem] font-semibold text-white"></span>
-        </span>
-        Chat
-    </a>
-
-    <script>
-        (function () {
-            const chatBadge = document.getElementById("chat-float-badge");
-            const chatToast = document.getElementById("chat-toast");
-            if (!chatBadge || !chatToast) {
-                return;
-            }
-            const unreadUrl = "/api/v1/company-chat/rooms/unread/";
-            const storageKey = "chatUnreadCount";
-            const onChatPage = window.location.pathname.startsWith("/chat");
-
-            function updateBadge(count) {
-                if (count > 0) {
-                    chatBadge.textContent = count > 99 ? "99+" : String(count);
-                    chatBadge.classList.remove("hidden");
-                    chatBadge.classList.add("flex");
-                } else {
-                    chatBadge.classList.add("hidden");
-                    chatBadge.classList.remove("flex");
-                }
-            }
-
-            function showToast() {
-                if (onChatPage) {
-                    return;
-                }
-                chatToast.classList.remove("hidden");
-                setTimeout(() => chatToast.classList.add("hidden"), 4000);
-            }
-
-            function getWsHost() {
-                const protocol = window.location.protocol === "https:" ? "wss" : "ws";
-                const host = window.location.hostname;
-                const port = window.location.port || (protocol === "wss" ? "443" : "80");
-                if (port === "8000") {
-                    return `${protocol}://${host}:8001`;
-                }
-                return `${protocol}://${window.location.host}`;
-            }
-
-            function startRealtime() {
-                const socket = new WebSocket(`${getWsHost()}/ws/chat/company/`);
-
-                socket.onmessage = (event) => {
-                    try {
-                        const payload = JSON.parse(event.data || "{}");
-                        if (payload.type === "chat.message") {
-                            const current = parseInt(localStorage.getItem(storageKey) || "0", 10);
-                            const next = current + 1;
-                            updateBadge(next);
-                            localStorage.setItem(storageKey, String(next));
-                            showToast();
-                        }
-                    } catch (error) {
-                        console.warn("Chat realtime parse failed", error);
-                    }
-                };
-
-                socket.onclose = () => {};
-            }
-
-            async function fetchUnread() {
-                try {
-                    const response = await fetch(unreadUrl, {
-                        headers: { "X-Requested-With": "XMLHttpRequest" },
-                        credentials: "same-origin",
-                    });
-                    if (!response.ok) {
-                        return;
-                    }
-                    const payload = await response.json();
-                    const total = payload.total_unread || 0;
-                    const previous = parseInt(localStorage.getItem(storageKey) || "0", 10);
-                    updateBadge(total);
-                    if (total > previous) {
-                        showToast();
-                    }
-                    localStorage.setItem(storageKey, String(total));
-                } catch (error) {
-                    console.warn("Chat unread fetch failed", error);
-                }
-            }
-
-            fetchUnread();
-            startRealtime();
-            setInterval(fetchUnread, 30000);
-        })();
-    </script>
 </body>
 </html>

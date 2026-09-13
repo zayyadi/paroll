@@ -137,7 +137,7 @@
                         <td class="px-4 py-4 text-sm font-semibold text-secondary-900">{{ offer.candidate.first_name }} {{ offer.candidate.last_name }}</td>
                         <td class="px-4 py-4 text-sm text-secondary-700">{{ offer.title }}</td>
                         <td class="px-4 py-4 text-sm text-secondary-700">{{ offer.get_status_display }}</td>
-                        <td class="px-4 py-4 text-sm text-secondary-700">{{ offer.start_date|date:"M j, Y" }}</td>
+                        <td class="px-4 py-4 text-sm text-secondary-700">{{ offer.start_date|date:"d M Y" }}</td>
                         <td class="px-4 py-4 text-sm text-secondary-700">
                             {% if offer.status == "sent" %}
                             <form method="post" action="{% url 'payroll:hiring_offer_accept' offer.id %}">

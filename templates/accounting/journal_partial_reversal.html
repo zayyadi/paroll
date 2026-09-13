@@ -9,13 +9,13 @@
             <div class="card">
                 <div class="card-header bg-info text-white">
                     <h4 class="card-title">
-                        <i class="fas fa-cut"></i> Partial Journal Reversal
+                        <i data-lucide="scissors"></i> Partial Journal Reversal
                     </h4>
                 </div>
                 <div class="card-body">
                     <!-- Information Message -->
                     <div class="alert alert-info" role="alert">
-                        <h5><i class="fas fa-info-circle"></i> Partial Reversal Information</h5>
+                        <h5><i data-lucide="info"></i> Partial Reversal Information</h5>
                         <p>Select the entries you want to reverse and optionally specify partial amounts. This action will create a new reversal journal for the selected entries only.</p>
                         <p><strong>Original Reason:</strong> {{ reason|linebreaks }}</p>
                     </div>
@@ -122,10 +122,10 @@
 
                                 <div class="form-group">
                                     <button type="submit" class="btn btn-info">
-                                        <i class="fas fa-cut"></i> Create Partial Reversal
+                                        <i data-lucide="scissors"></i> Create Partial Reversal
                                     </button>
                                     <a href="{% url 'accounting:journal_detail' journal.pk %}" class="btn btn-secondary">
-                                        <i class="fas fa-times"></i> Cancel
+                                        <i data-lucide="x"></i> Cancel
                                     </a>
                                 </div>
                             </form>

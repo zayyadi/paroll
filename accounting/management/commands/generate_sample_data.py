@@ -10,6 +10,8 @@ from accounting.models import (
 )
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.auth import get_user_model
+from company.models import Company
+from payroll.management.commands.nigeria_fakes import NIGERIAN_DEMO_COMPANY
 from django.utils import timezone
 from datetime import date, timedelta
 import random
@@ -45,12 +47,18 @@ class Command(BaseCommand):
             action="store_true",
             help="Clear existing sample data before generating new data",
         )
+        parser.add_argument(
+            "--company-name",
+            default=NIGERIAN_DEMO_COMPANY,
+            help=f"Company to generate data for (default: {NIGERIAN_DEMO_COMPANY})",
+        )
 
     def handle(self, *args, **options):
         accounts_count = options["accounts"]
         journals_count = options["journals"]
         fiscal_year_num = options["fiscal_year"]
         clear_existing = options["clear_existing"]
+        company, _ = Company.objects.get_or_create(name=options["company_name"])
 
         self.stdout.write("Starting sample data generation...")
 
@@ -59,13 +67,13 @@ class Command(BaseCommand):
             self._clear_existing_data()
 
         # Create fiscal year and periods
-        fiscal_year = self._create_fiscal_year(fiscal_year_num)
+        fiscal_year = self._create_fiscal_year(fiscal_year_num, company)
 
         # Create accounts
-        accounts = self._create_accounts(accounts_count)
+        accounts = self._create_accounts(accounts_count, company)
 
         # Create journals with entries
-        self._create_journals(journals_count, fiscal_year, accounts)
+        self._create_journals(journals_count, fiscal_year, accounts, company)
 
         self.stdout.write(self.style.SUCCESS("Sample data generation complete!"))
 
@@ -81,13 +89,15 @@ class Command(BaseCommand):
         FiscalYear.objects.all().delete()
         self.stdout.write(self.style.SUCCESS("Existing data cleared"))
 
-    def _create_fiscal_year(self, year):
+    def _create_fiscal_year(self, year, company):
         """Create fiscal year and monthly periods"""
         self.stdout.write(f"Creating fiscal year {year}...")
 
         fiscal_year, created = FiscalYear.objects.get_or_create(
             year=year,
+            company=company,
             defaults={
+                "company": company,
                 "name": f"Fiscal Year {year}",
                 "start_date": date(year, 1, 1),
                 "end_date": date(year, 12, 31),
@@ -100,8 +110,10 @@ class Command(BaseCommand):
             for month in range(1, 13):
                 AccountingPeriod.objects.get_or_create(
                     fiscal_year=fiscal_year,
+                    company=company,
                     period_number=month,
                     defaults={
+                        "company": company,
                         "name": f"Month {month}",
                         "start_date": date(year, month, 1),
                         "end_date": self._get_last_day_of_month(year, month),
@@ -116,7 +128,7 @@ class Command(BaseCommand):
 
         return fiscal_year
 
-    def _create_accounts(self, count):
+    def _create_accounts(self, count, company):
         """Create fake accounts"""
         self.stdout.write(f"Creating {count} fake accounts...")
 
@@ -222,7 +234,9 @@ class Command(BaseCommand):
 
                 account, created = Account.objects.get_or_create(
                     name=name,
+                    company=company,
                     defaults={
+                        "company": company,
                         "account_number": account_number,
                         "type": account_type,
                         "description": f"Auto-generated {account_type.lower()} account",
@@ -237,47 +251,42 @@ class Command(BaseCommand):
 
         return accounts
 
-    def _create_journals(self, count, fiscal_year, accounts):
+    def _create_journals(self, count, fiscal_year, accounts, company):
         """Create sample journals with entries"""
         self.stdout.write(f"Creating {count} sample journals...")
 
         # Get or create a user for journal entries
         user, _ = User.objects.get_or_create(
-            email="accountant@example.com",
+            email="ngozi.okonkwo@example.ng",
             defaults={
-                "first_name": "Sample",
-                "last_name": "Accountant",
+                "first_name": "Ngozi",
+                "last_name": "Okonkwo",
             },
         )
 
         # Sample journal descriptions
         descriptions = [
-            "Monthly salary payments",
-            "Office rent payment",
-            "Utility bill payment",
-            "Equipment purchase",
+            "Monthly salary payments in naira",
+            "Lagos office rent payment",
+            "IKEJA Electric utility bill payment",
+            "Generator diesel purchase",
             "Service revenue received",
             "Consulting fees payment",
             "Insurance premium payment",
             "Marketing campaign expenses",
             "Bank service charges",
-            "Tax payment to authorities",
+            "PAYE remittance to Lagos State IRS",
+            "Pension contribution remittance to PenCom",
+            "NSITF contribution payment",
             "Supplier payment",
             "Customer invoice payment received",
             "Petty cash replenishment",
-            "Training expenses",
+            "Staff training expenses",
             "Legal fees payment",
             "Software subscription",
-            "Maintenance expenses",
-            "Travel expenses reimbursement",
-            "Office supplies purchase",
-            "Vehicle expenses",
+            "Office maintenance expenses",
+            "Staff travel reimbursement",
         ]
-
-        # Create transaction number counter
-        txn_counter, _ = TransactionNumber.objects.get_or_create(
-            fiscal_year=fiscal_year, prefix="TXN", defaults={"current_number": 1}
-        )
 
         for i in range(count):
             # Get a random period
@@ -289,7 +298,8 @@ class Command(BaseCommand):
 
             # Create journal
             journal = Journal.objects.create(
-                transaction_number=f"TXN{str(txn_counter.current_number).zfill(6)}",
+                company=company,
+                transaction_number=TransactionNumber.get_next_number(fiscal_year),
                 description=random.choice(descriptions),
                 date=self._random_date_in_period(period),
                 period=period,
@@ -301,10 +311,6 @@ class Command(BaseCommand):
 
             # Create journal entries (at least 2 for balanced entries)
             self._create_journal_entries(journal, accounts, user)
-
-            # Update transaction number
-            txn_counter.current_number += 1
-            txn_counter.save()
 
             if (i + 1) % 10 == 0:
                 self.stdout.write(f"  Created {i + 1}/{count} journals")

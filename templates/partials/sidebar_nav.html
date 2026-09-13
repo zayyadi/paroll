@@ -252,10 +252,6 @@
         <i data-lucide="gavel" class="sidebar-icon h-5 w-5 text-secondary-400"></i>
         <span>Disciplinary</span>
     </a>
-    <a href="{% url 'payroll:company_chat' %}" class="sidebar-link {% if request.resolver_match.url_name == 'company_chat' %}active{% endif %}">
-        <i data-lucide="messages-square" class="sidebar-icon h-5 w-5 text-secondary-400"></i>
-        <span>Company Chat</span>
-    </a>
     <a href="{% url 'payroll:standup_dashboard' %}" class="sidebar-link {% if request.resolver_match.url_name == 'standup_dashboard' %}active{% endif %}">
         <i data-lucide="calendar-clock" class="sidebar-icon h-5 w-5 text-secondary-400"></i>
         <span>Standup</span>
@@ -479,10 +475,6 @@
     <a href="{% url 'payroll:my_benefits' %}" class="sidebar-link {% if 'benefit' in request.resolver_match.url_name %}active{% endif %}">
         <i data-lucide="heart-handshake" class="sidebar-icon h-5 w-5 text-secondary-400"></i>
         <span>My Benefits</span>
-    </a>
-    <a href="{% url 'payroll:company_chat' %}" class="sidebar-link {% if request.resolver_match.url_name == 'company_chat' %}active{% endif %}">
-        <i data-lucide="messages-square" class="sidebar-icon h-5 w-5 text-secondary-400"></i>
-        <span>Company Chat</span>
     </a>
 
     {% elif not request.user.is_authenticated %}

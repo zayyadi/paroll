@@ -39,7 +39,7 @@
                         <td class="px-4 py-4 text-sm font-semibold text-secondary-900">{{ plan.name }}</td>
                         <td class="px-4 py-4 text-sm text-secondary-700">{{ plan.get_plan_type_display }}</td>
                         <td class="px-4 py-4 text-sm text-secondary-700">
-                            {{ plan.enrollment_window_start|date:"M j, Y"|default:"-" }} to {{ plan.enrollment_window_end|date:"M j, Y"|default:"-" }}
+                            {{ plan.enrollment_window_start|date:"d M Y"|default:"-" }} to {{ plan.enrollment_window_end|date:"d M Y"|default:"-" }}
                         </td>
                         <td class="px-4 py-4 text-sm text-secondary-700">{% if plan.is_active %}Active{% else %}Inactive{% endif %}</td>
                         <td class="px-4 py-4 text-sm text-secondary-700">{{ plan.enrollments.count }}</td>

@@ -10,8 +10,6 @@ from django.core.validators import MaxValueValidator
 
 from django.utils import timezone  # Import timezone
 
-# from autoslug import AutoSlugField  # Temporarily commented out for testing
-
 from calendar import monthrange
 from datetime import date, timedelta
 
@@ -191,6 +189,29 @@ class CompanyPayrollSetting(models.Model):
         default=Decimal("20.00"),
         validators=[MinValueValidator(Decimal("0")), MaxValueValidator(Decimal("100"))],
         help_text="Percentage of annual basic salary paid as 13th month.",
+    )
+    water_rate_threshold = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=Decimal("75000.00"),
+        help_text=(
+            "Basic-salary threshold governing the water-rate deduction. "
+            "At or below this, water_rate_low applies; above it, water_rate_high."
+        ),
+    )
+    water_rate_low = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=Decimal("150.00"),
+        validators=[MinValueValidator(Decimal("0"))],
+        help_text="Monthly water-rate deduction when basic salary is at/below threshold.",
+    )
+    water_rate_high = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=Decimal("200.00"),
+        validators=[MinValueValidator(Decimal("0"))],
+        help_text="Monthly water-rate deduction when basic salary is above threshold.",
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -613,6 +634,7 @@ class Payroll(models.Model):
         default="active",
     )
     objects = PayrollManager()
+    all_objects = models.Manager()
 
     def __str__(self):
         return str(self.basic_salary)
@@ -630,12 +652,6 @@ class Payroll(models.Model):
     def get_itf(self):
         """ITF training levy: 1% of annual gross, employer-funded, if applicable."""
         return self.gross_income * Decimal(1) / Decimal(100)
-
-    # @property
-    # def get_gross_income(self):
-    #     gross = self.get_annual_gross - utils.get_pension_employee(self)
-    #     print(f" gross : {gross}")
-    #     return gross
 
     def recompute_statutory(self, as_of=None):
         """
@@ -660,8 +676,6 @@ class Payroll(models.Model):
         return self
 
     def save(self, *args, **kwargs):
-        # employee = self.employee_pay.first()
-        # self.name = self.get_name
         # Keep the NHF scheme and the legacy is_housing switch in sync so both
         # existing rows and the new classification flag drive the deduction.
         if self.nhf_scheme == "none" and self.is_housing:
@@ -760,10 +774,6 @@ class Allowance(models.Model):
     class Meta:
         verbose_name_plural = "Allowances"
 
-    # def __str__(self):
-    #     # return f"{self.employee.first_name} {self.employee.last_name} - {self.allowance_type} ({self.amount})"
-    #     pass
-
 
 class Deduction(models.Model):
     employee = models.ForeignKey(
@@ -847,6 +857,7 @@ class PayrollEntry(models.Model):
     )
 
     objects = PayrollEntryManager()
+    all_objects = models.Manager()
 
     def __str__(self):
         return self.pays.first_name
@@ -855,11 +866,6 @@ class PayrollEntry(models.Model):
     def calc_allowance(self):
         if not self.pk:
             return Decimal(0)
-
-        # Old implementation (commented out):
-        # if self.allowance_id and self.allowance_id.percentage:
-        #     return self.pays.net_pay * self.allowance_id.percentage / 100
-        # return Decimal(0)
 
         # New implementation: Sum allowances for the employee within the payroll period
         payroll_run_entry = self.payroll_run_entries.select_related(
@@ -968,11 +974,6 @@ class PayrollEntry(models.Model):
             )
             return Decimal(0)
 
-        # Old implementation (commented out):
-        # if self.deduction_id and self.deduction_id.percentage:
-        #     return self.pays.net_pay * self.deduction_id.percentage / 100
-        # return Decimal(0)
-
         # New implementation: Sum deductions for the employee within the payroll period
         payroll_run_entry = self.payroll_run_entries.select_related(
             "payroll_run"
@@ -1067,6 +1068,14 @@ class PayManager(models.Manager):
 
 
 class PayrollRun(models.Model):
+    class Status(models.TextChoices):
+        DRAFT = "draft", "Draft"
+        CALCULATED = "calculated", "Calculated"
+        REVIEWED = "reviewed", "Reviewed"
+        APPROVED = "approved", "Approved"
+        LOCKED = "locked", "Locked"
+        PAID = "paid", "Paid"
+
     company = models.ForeignKey(
         "company.Company",
         on_delete=models.CASCADE,
@@ -1103,8 +1112,19 @@ class PayrollRun(models.Model):
         PayrollEntry, related_name="payroll_payday", through="PayrollRunEntry"
     )
     is_active = models.BooleanField(default=False)
-    closed = models.BooleanField(default=False)
+    closed = models.BooleanField(
+        default=False,
+        help_text="Legacy lock flag. Derived from status (LOCKED/PAID). Use status transitions instead.",
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.DRAFT,
+        db_index=True,
+        help_text="Payroll lifecycle: Draft → Calculated → Reviewed → Approved → Locked → Paid.",
+    )
     objects = PayManager()
+    all_objects = models.Manager()
 
     class Meta:
         verbose_name_plural = "Payroll Runs"
@@ -1117,6 +1137,46 @@ class PayrollRun(models.Model):
 
     def __str__(self):
         return str(self.paydays)
+
+    @property
+    def is_locked(self):
+        return self.status in (self.Status.LOCKED, self.Status.PAID) or self.closed
+
+    _ALLOWED_TRANSITIONS = {
+        Status.DRAFT: (Status.CALCULATED,),
+        Status.CALCULATED: (Status.REVIEWED, Status.DRAFT),
+        Status.REVIEWED: (Status.APPROVED, Status.CALCULATED),
+        Status.APPROVED: (Status.LOCKED, Status.REVIEWED),
+        Status.LOCKED: (Status.PAID,),
+        Status.PAID: (),
+    }
+
+    def transition_to(self, new_status, **save_kwargs):
+        allowed = self._ALLOWED_TRANSITIONS.get(self.status, ())
+        if new_status not in allowed:
+            raise ValidationError(
+                f"Cannot transition payroll run from {self.status} to {new_status}."
+            )
+        self.status = new_status
+        if new_status in (self.Status.LOCKED, self.Status.PAID):
+            self.closed = True
+        save_kwargs.setdefault("update_fields", ["status", "closed"])
+        self.save(**save_kwargs)
+
+    def mark_calculated(self, **kw):
+        return self.transition_to(self.Status.CALCULATED, **kw)
+
+    def mark_reviewed(self, **kw):
+        return self.transition_to(self.Status.REVIEWED, **kw)
+
+    def approve(self, **kw):
+        return self.transition_to(self.Status.APPROVED, **kw)
+
+    def lock(self, **kw):
+        return self.transition_to(self.Status.LOCKED, **kw)
+
+    def mark_paid(self, **kw):
+        return self.transition_to(self.Status.PAID, **kw)
 
     @property
     def save_month_str(self):
@@ -1137,9 +1197,26 @@ class PayrollRun(models.Model):
             else:
                 self.slug = slugify(f"pay-period-{uuid.uuid4().hex[:8]}")
 
-        if self.pk and PayrollRun.objects.filter(pk=self.pk, closed=True).exists():
-            raise ValidationError("This entry is closed and cannot be edited.")
-        # self.paydays_str = self.save_month_str
+        # Keep legacy `closed` flag in sync with lifecycle status.
+        if self.status in (self.Status.LOCKED, self.Status.PAID):
+            self.closed = True
+        elif self.closed and self.status == self.Status.DRAFT:
+            # Old UI flips `closed` directly; map it to LOCKED for auditability.
+            self.status = self.Status.LOCKED
+
+        update_fields = kwargs.get("update_fields")
+        if self.pk:
+            db_locked = PayrollRun.all_objects.filter(
+                pk=self.pk
+            ).filter(
+                models.Q(closed=True)
+                | models.Q(status__in=[self.Status.LOCKED, self.Status.PAID])
+            ).exists()
+            if db_locked and not (
+                update_fields
+                and set(update_fields) <= {"status", "closed", "payment_date"}
+            ):
+                raise ValidationError("This entry is closed and cannot be edited.")
 
         super(PayrollRun, self).save(*args, **kwargs)
 

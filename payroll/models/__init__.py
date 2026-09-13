@@ -52,12 +52,6 @@ from .notification import (
     DeliveryStatus,
     NotificationType,
 )
-from .chat import (
-    CompanyChatMessage,
-    CompanyChatReadState,
-    CompanyChatRoom,
-    CompanyChatRoomMember,
-)
 from .workforce import (
     Position,
     HiringCandidate,

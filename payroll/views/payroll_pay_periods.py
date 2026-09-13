@@ -65,9 +65,13 @@ def pay_period_detail(request, slug):
     company = get_user_company(request.user)
     pay_period = get_object_or_404(PayrollRun, slug=slug, company=company)
     # Fetch related PayrollRunEntry entries if needed for detail view
-    payday_entries = PayrollRunEntry.objects.filter(
-        payroll_run=pay_period,
-        payroll_entry__company=company,
+    payday_entries = (
+        PayrollRunEntry.objects.filter(
+            payroll_run=pay_period,
+            payroll_entry__company=company,
+        )
+        .select_related("payroll_run", "payroll_entry__pays")
+        .prefetch_related("payroll_entry__pays__allowances", "payroll_entry__pays__deductions")
     )
     context = {
         "pay_period": pay_period,

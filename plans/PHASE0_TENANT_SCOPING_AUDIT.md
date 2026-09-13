@@ -52,7 +52,7 @@ now**, and for everyone once the lockdown comes off.
   DisciplinaryAppeal (`case__company=...`), DisciplinaryCase via
   `_disciplinary_case_queryset_for_user`.
 - **api/v1 viewsets** — `TenantScopedModelViewSet` base filters via
-  `company_filter_path`; chat message/room viewsets and `StockMovement`
+  `company_filter_path`; `StockMovement`
   scope by company; `JournalViewSet` uses the base (`company_filter_path="company"`).
 - **payroll views** — every function view resolves
   `company = get_user_company(request.user)`; `visible_employee_profiles_for`
@@ -86,14 +86,13 @@ queried directly today or must be directly scoped for
 | `DisciplinarySanction` | `case.company` |
 | `DisciplinaryAppeal` | `case.company` |
 
-### Payroll — 29 tables (required before `TENANT_SCOPING_ENFORCED` flips on)
+### Payroll — 26 tables (required before `TENANT_SCOPING_ENFORCED` flips on)
 
 | Group | Tables | Backfill via |
 |---|---|---|
 | Employee-scoped (14) | `SalaryHistory`, `Allowance`, `Deduction`, `IOU`, `IOUDeduction` (via `iou`), `LeaveBalance`, `LeaveCarryover`, `LeaveRequest`, `LeaveAuditLog`, `LeaveApproval`, `Notification`, `NotificationPreference`, `NotificationDeliveryLog`, `ArchivedNotification` | `employee.company` (via the employee/user FK) |
 | Run-scoped (3) | `PayrollRunEntry`, `PayslipEmailJob`, `LeaveAllowanceEmailJob` | `payroll_run.company` |
 | Appraisal children (4) | `AppraisalAssignment`, `Metric`, `Review`, `Rating` | `appraisal.company` |
-| Chat (3) | `CompanyChatMessage`, `CompanyChatReadState`, `CompanyChatRoomMember` | `room.company` |
 | Company-setting child (1) | `CompanyHealthInsuranceTier` | `company_payroll_setting.company` |
 | Hiring (1) | `CandidateConsent` | `candidate.company` |
 | Survey (1) | `SurveyQuestion` | `survey_template.company` |

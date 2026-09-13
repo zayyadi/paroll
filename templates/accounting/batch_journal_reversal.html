@@ -9,13 +9,13 @@
             <div class="card">
                 <div class="card-header bg-danger text-white">
                     <h4 class="card-title">
-                        <i class="fas fa-undo-alt"></i> Batch Journal Reversal
+                        <i data-lucide="rotate-ccw"></i> Batch Journal Reversal
                     </h4>
                 </div>
                 <div class="card-body">
                     <!-- Warning Message -->
                     <div class="alert alert-danger" role="alert">
-                        <h5><i class="fas fa-exclamation-triangle"></i> Warning: Mass Reversal Action</h5>
+                        <h5><i data-lucide="triangle-alert"></i> Warning: Mass Reversal Action</h5>
                         <p>You are about to reverse multiple journals in a single operation. This action cannot be undone and will be logged for audit purposes.</p>
                         <p><strong>Total journals available for reversal:</strong> {{ total_journals }}</p>
                     </div>
@@ -58,22 +58,22 @@
 
                                 <div class="form-group">
                                     <button type="button" class="btn btn-outline-primary" onclick="selectAllJournals()">
-                                        <i class="fas fa-check-square"></i> Select All
+                                        <i data-lucide="square-check"></i> Select All
                                     </button>
                                     <button type="button" class="btn btn-outline-secondary" onclick="deselectAllJournals()">
-                                        <i class="fas fa-square"></i> Deselect All
+                                        <i data-lucide="square"></i> Deselect All
                                     </button>
                                     <button type="button" class="btn btn-outline-info" onclick="showSelectedCount()">
-                                        <i class="fas fa-info-circle"></i> Show Count
+                                        <i data-lucide="info"></i> Show Count
                                     </button>
                                 </div>
 
                                 <div class="form-group">
                                     <button type="submit" class="btn btn-danger" onclick="return confirmBatchReversal()">
-                                        <i class="fas fa-undo-alt"></i> Reverse Selected Journals
+                                        <i data-lucide="rotate-ccw"></i> Reverse Selected Journals
                                     </button>
                                     <a href="{% url 'accounting:journal_list' %}" class="btn btn-secondary">
-                                        <i class="fas fa-times"></i> Cancel
+                                        <i data-lucide="x"></i> Cancel
                                     </a>
                                 </div>
                             </form>

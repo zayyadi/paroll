@@ -136,7 +136,7 @@
                     {% for entry in recent_entries %}
                     <tr class="table-row-hover">
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-secondary-900">
-                            {{ entry.journal.date|date:"M d, Y" }}
+                            {{ entry.journal.date|date:"d M Y" }}
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap">
                             <div class="text-sm font-medium text-secondary-900">{{ entry.journal.transaction_number }}</div>

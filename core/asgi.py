@@ -4,7 +4,7 @@ ASGI config for core project.
 It exposes the ASGI callable as a module-level variable named ``application``.
 
 This configuration supports both HTTP and WebSocket connections using Django
-Channels for real-time notifications and internal company chat.
+Channels for real-time notifications.
 
 Architecture Reference: plans/NOTIFICATION_SYSTEM_ARCHITECTURE.md (Section 12)
 
