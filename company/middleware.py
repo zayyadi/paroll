@@ -18,12 +18,13 @@ class ActiveCompanyMiddleware:
     """
 
     EXEMPT_PATH_PREFIXES = (
+        "/health",
+        "/ready",
         "/users/login",
         "/users/logout",
         "/users/register",
         "/users/password_reset",
         "/users/activate",
-        "/admin/",
         "/static/",
         "/media/",
     )

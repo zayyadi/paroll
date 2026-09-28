@@ -218,11 +218,3 @@ if __name__ == "__main__":
 
     pass
 
-
-
-"""
-root@178.62.66.78
-
-
-scp -r root@178.62.66.78:/var/www/promise_tracker ~/promise
-"""

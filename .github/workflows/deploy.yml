@@ -94,5 +94,5 @@ jobs:
             git checkout "$DEPLOY_BRANCH"
             git pull --ff-only origin "$DEPLOY_BRANCH"
             git checkout "$DEPLOY_REF"
-            echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USERNAME" --password-stdin
+            echo "$GHCR_TOKEN" | podman login ghcr.io -u "$GHCR_USERNAME" --password-stdin
             IMAGE_REF="$IMAGE_REF" IMAGE_TAG="$IMAGE_TAG" PRODUCTION_ENV="$PRODUCTION_ENV" ./scripts/deploy.sh

@@ -5,12 +5,12 @@ SaaS on a Docker-based VPS.
 
 ## First-Time VPS Setup
 
-1. Install Docker and the Docker Compose plugin.
-2. Create a deployment user:
+1. Install Podman and podman-compose.
+2. Create a deployment user (rootless; enable linger so services survive logout):
 
    ```bash
    sudo adduser deploy
-   sudo usermod -aG docker deploy
+   sudo loginctl enable-linger deploy
    ```
 
 3. Create the app directory:
@@ -33,7 +33,7 @@ SaaS on a Docker-based VPS.
 6. Log in to GitHub Container Registry if deploying manually:
 
    ```bash
-   echo "TOKEN" | docker login ghcr.io -u "OWNER" --password-stdin
+   echo "TOKEN" | podman login ghcr.io -u "OWNER" --password-stdin
    ```
 
 ## Required Environment
@@ -111,11 +111,11 @@ IMAGE_REF=ghcr.io/OWNER/REPOSITORY:COMMIT_SHA ./scripts/healthcheck.sh
 Useful follow-up commands:
 
 ```bash
-docker compose ps
-docker compose logs --tail=200 web
-docker compose logs --tail=200 celery-worker
-docker compose logs --tail=200 daphne
-docker compose exec -T web python manage.py showmigrations
+podman-compose ps
+podman-compose logs --tail=200 web
+podman-compose logs --tail=200 celery-worker
+podman-compose logs --tail=200 daphne
+podman-compose exec -T web python manage.py showmigrations
 ```
 
 ## Rollback
@@ -173,8 +173,8 @@ Check:
 Run:
 
 ```bash
-docker compose exec -T web python manage.py collectstatic --noinput
-docker compose restart web daphne
+podman-compose exec -T web python manage.py collectstatic --noinput
+podman-compose restart web daphne
 ```
 
 Then check reverse proxy static file routing.
@@ -184,8 +184,8 @@ Then check reverse proxy static file routing.
 Run:
 
 ```bash
-docker compose logs --tail=200 celery-worker
-docker compose exec -T celery-worker celery -A core inspect ping --timeout=10
+podman-compose logs --tail=200 celery-worker
+podman-compose exec -T celery-worker celery -A core inspect ping --timeout=10
 ```
 
 Check Redis first. Celery cannot recover if the broker is unavailable.

@@ -464,8 +464,12 @@ class AuditTrailViewTest(TestCase):
 
     def test_audit_trail_detail_view(self):
         """Test audit trail detail view"""
-        # Create audit trail entry
+        # Create audit trail entry scoped to the auditor's company
+        from company.utils import get_user_company
+
+        company = get_user_company(self.auditor)
         audit_entry = AccountingAuditTrail.objects.create(
+            company=company,
             user=self.auditor,
             action=AccountingAuditTrail.ActionType.CREATE,
             content_type=ContentType.objects.get_for_model(self.account),

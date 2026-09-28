@@ -370,30 +370,33 @@ def monthly_cost_breakdown(config) -> dict:
     """
     Monthly employer-vs-employee cost figures for one pay config.
 
-    Conventions match the Cost of Employment report: annual stored fields
-    (gross, pension, NHF, NHIA, ITF) are divided by 12; PAYE and water are
-    monthly; NSITF is 1% of monthly basic. Employer cost = gross + all
-    employer-funded levies (pension, NHIA, NSITF, ITF).
+    Base net delegates to the canonical monthly_net_pay; employer-cost
+    extras (pension, NHIA, NSITF, ITF) extend it. Conventions match the
+    Cost of Employment report: annual stored fields divided by 12; PAYE
+    and water monthly; NSITF 1% of monthly basic.
     """
+    from payroll.services.payroll_calc import monthly_net_pay
+
     cents = Decimal("0.01")
-    gross = (Decimal(config.gross_income or 0) / Decimal("12")).quantize(cents)
+    base = monthly_net_pay(
+        gross_annual=Decimal(config.gross_income or 0),
+        employee_health_annual=Decimal(config.employee_health or 0),
+        nhf_annual=Decimal(config.nhf or 0),
+        payee_monthly=Decimal(config.payee or 0),
+        water_monthly=Decimal(config.water_rate or 0),
+    )
+    gross = (base["monthly_gross"]).quantize(cents)
     employee_paye = Decimal(config.payee or 0).quantize(cents)
     employee_pension = (
         Decimal(config.pension_employee or 0) / Decimal("12")
     ).quantize(cents)
-    employee_nhf = (Decimal(config.nhf or 0) / Decimal("12")).quantize(cents)
-    employee_nhia = (
-        Decimal(config.employee_health or 0) / Decimal("12")
-    ).quantize(cents)
+    employee_nhf = (base["monthly_nhf"]).quantize(cents)
+    employee_nhia = (base["monthly_health"]).quantize(cents)
     employee_water = Decimal(config.water_rate or 0).quantize(cents)
-    net_pay = (
-        gross
-        - employee_paye
-        - employee_pension
-        - employee_nhf
-        - employee_nhia
-        - employee_water
-    ).quantize(cents)
+    # Report net includes the employee pension slice; the canonical base
+    # covers gross - health - nhf - paye - water, so subtract pension here
+    # to preserve Cost of Employment semantics.
+    net_pay = (base["net"] - employee_pension).quantize(cents)
     employer_pension = (
         Decimal(config.pension_employer or 0) / Decimal("12")
     ).quantize(cents)
@@ -578,11 +581,14 @@ def get_water_rate(self):
 
 def get_net_pay(self):
     """
-    Calculates the net pay for an employee.
+    Monthly base net pay (before PayrollEntry allowances/deductions).
 
-    Note: This function assumes that get_gross_income returns an annual value
-    and divides it by 12 to get the monthly gross income.
+    Delegates to payroll.services.payroll_calc.monthly_net_pay — the
+    canonical rule. See CONTEXT.md: Payroll = annual config, PayrollEntry
+    = per-employee period inputs, Payslip = locked result.
     """
+    from payroll.services.payroll_calc import monthly_net_pay
+
     payroll = getattr(self, "employee_pay", None)
     # Allow direct usage with Payroll instance as well.
     if payroll is None and hasattr(self, "basic_salary"):
@@ -605,18 +611,17 @@ def get_net_pay(self):
     nhf = Decimal(getattr(payroll, "nhf", Decimal("0.00")) or Decimal("0.00"))
     logger.debug("nhf=%s", nhf)
     payee = Decimal(getattr(payroll, "payee", Decimal("0.00")) or Decimal("0.00"))
-    # print(f"payeess: {payee}")
     water_rate = Decimal(
         getattr(payroll, "water_rate", Decimal("0.00")) or Decimal("0.00")
     )
 
-    return (
-        (annual_gross / Decimal("12"))
-        - (employee_health / Decimal("12"))
-        - (nhf / Decimal("12"))
-        - payee
-        - water_rate
-    )
+    return monthly_net_pay(
+        gross_annual=annual_gross,
+        employee_health_annual=employee_health,
+        nhf_annual=nhf,
+        payee_monthly=payee,
+        water_monthly=water_rate,
+    )["net"]
 
 
 def get_num2words(self):

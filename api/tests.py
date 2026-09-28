@@ -170,7 +170,7 @@ class APIV1TenantTests(APITestCase):
             self.assertEqual(response.data["auth"]["grant_types"], [])
         self.assertIn("employees", response.data["features"])
         self.assertIn("payroll", response.data["features"])
-        self.assertIn("inventory", response.data["features"])
+        self.assertNotIn("inventory", response.data["features"])
 
     def test_auth_context_includes_mobile_navigation_metadata(self):
         self.client.force_authenticate(self.user_a)

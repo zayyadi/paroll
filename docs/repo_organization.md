@@ -1,6 +1,6 @@
 # Repository Organization
 
-This project is a Django payroll, HR, inventory, accounting, and API application.
+This project is a Django payroll, HR, accounting, and API application.
 
 ## Core Django Project
 
@@ -12,7 +12,6 @@ This project is a Django payroll, HR, inventory, accounting, and API application
 
 - `payroll/` - Payroll, HR, employee lifecycle, hiring, attendance, benefits, documents, appraisals, and notifications.
 - `accounting/` - Ledger, journals, reporting, disciplinary workflows, fiscal periods, and accounting controls.
-- `inventory/` - Inventory items, stock movements, purchase orders, suppliers, warehouses, and inventory approval workflows.
 - `company/` - Tenant/company membership, active-company scoping, and company-level helpers.
 - `users/` - Authentication, registration, profile, password reset, and user email flows.
 - `api/` - API views, serializers, and v1 viewsets.
@@ -28,7 +27,7 @@ This project is a Django payroll, HR, inventory, accounting, and API application
 
 ## Templates And Static Assets
 
-- `templates/` - Django templates grouped by domain: `employee/`, `inventory/`, `accounting/`, `pay/`, `registration/`, and email templates.
+- `templates/` - Django templates grouped by domain: `employee/`, `accounting/`, `pay/`, `registration/`, and email templates.
 - `static/` - Source/static vendor assets used by templates.
 - `staticfiles/` - Generated collectstatic output and should remain untracked.
 - `media/` - Local uploaded/sample media. Treat production uploads as runtime data, not source code.
@@ -42,4 +41,4 @@ The repository should not track generated Python bytecode, test caches, local vi
 - Use Django migrations for model changes.
 - Use `venv/bin/python manage.py check` for a quick health check.
 - Use `venv/bin/python manage.py test <module> --settings=core.settings_test` for targeted verification.
-- Keep inventory/accounting/HR approval behavior covered with regression tests before refactors.
+- Keep accounting/HR approval behavior covered with regression tests before refactors.

@@ -2,6 +2,11 @@
 source =
     payroll
     accounting
+    company
+    api
+    users
+    standup
+    core
 omit =
     */migrations/*
     */tests.py
@@ -11,4 +16,5 @@ omit =
 
 [report]
 show_missing = True
-skip_covered = True
+skip_covered = False
+fail_under = 80

@@ -63,25 +63,8 @@
   </div>
 </div>
 
-<!-- AR/AP Summary -->
+<!-- Key Ratios -->
 <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-  <div class="bg-white ghost-border rounded-[1rem] p-4">
-    <div class="flex justify-between items-center">
-      <p class="text-xs text-secondary-500 uppercase tracking-wider">Total Receivables</p>
-      <a href="{% url 'accounting:ar_aging' %}" class="text-xs text-primary-600 hover:underline">Details →</a>
-    </div>
-    <p class="text-xl font-bold font-mono text-primary-800">{{ total_ar|floatformat:2 }}</p>
-    {% if overdue_ar > 0 %}
-    <p class="text-xs text-red-600">Overdue >30 days: {{ overdue_ar|floatformat:2 }}</p>
-    {% endif %}
-  </div>
-  <div class="bg-white ghost-border rounded-[1rem] p-4">
-    <div class="flex justify-between items-center">
-      <p class="text-xs text-secondary-500 uppercase tracking-wider">Total Payables</p>
-      <a href="{% url 'accounting:ap_aging' %}" class="text-xs text-primary-600 hover:underline">Details →</a>
-    </div>
-    <p class="text-xl font-bold font-mono text-primary-800">{{ total_ap|floatformat:2 }}</p>
-  </div>
   <div class="bg-white ghost-border rounded-[1rem] p-4">
     <p class="text-xs text-secondary-500 uppercase tracking-wider">Key Ratios</p>
     <div class="text-sm space-y-1 mt-1">
@@ -119,14 +102,6 @@
     <i data-lucide="arrow-left-right" class="mx-auto h-6 w-6 text-primary-500"></i>
     <p class="text-sm font-medium mt-2">Cash Flow</p>
   </a>
-  <a href="{% url 'accounting:ar_aging' %}" class="bg-white ghost-border rounded-[1rem] p-4 text-center hover:shadow-md transition">
-    <i data-lucide="users" class="mx-auto h-6 w-6 text-primary-500"></i>
-    <p class="text-sm font-medium mt-2">AR Aging</p>
-  </a>
-  <a href="{% url 'accounting:ap_aging' %}" class="bg-white ghost-border rounded-[1rem] p-4 text-center hover:shadow-md transition">
-    <i data-lucide="truck" class="mx-auto h-6 w-6 text-primary-500"></i>
-    <p class="text-sm font-medium mt-2">AP Aging</p>
-  </a>
   <a href="{% url 'accounting:month_end_checklist' %}" class="bg-white ghost-border rounded-[1rem] p-4 text-center hover:shadow-md transition">
     <i data-lucide="clipboard-check" class="mx-auto h-6 w-6 text-primary-500"></i>
     <p class="text-sm font-medium mt-2">Month-End Close</p>
@@ -134,14 +109,6 @@
   <a href="{% url 'accounting:financial_ratios' %}" class="bg-white ghost-border rounded-[1rem] p-4 text-center hover:shadow-md transition">
     <i data-lucide="trending-up" class="mx-auto h-6 w-6 text-primary-500"></i>
     <p class="text-sm font-medium mt-2">Financial Ratios</p>
-  </a>
-  <a href="{% url 'accounting:inventory_turnover' %}" class="bg-white ghost-border rounded-[1rem] p-4 text-center hover:shadow-md transition">
-    <i data-lucide="package" class="mx-auto h-6 w-6 text-primary-500"></i>
-    <p class="text-sm font-medium mt-2">Inventory Turnover</p>
-  </a>
-  <a href="{% url 'accounting:gross_margin' %}" class="bg-white ghost-border rounded-[1rem] p-4 text-center hover:shadow-md transition">
-    <i data-lucide="pie-chart" class="mx-auto h-6 w-6 text-primary-500"></i>
-    <p class="text-sm font-medium mt-2">Gross Margin</p>
   </a>
   <a href="{% url 'accounting:executive_dashboard' %}" class="bg-white ghost-border rounded-[1rem] p-4 text-center hover:shadow-md transition">
     <i data-lucide="bar-chart-3" class="mx-auto h-6 w-6 text-primary-500"></i>

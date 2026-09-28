@@ -191,51 +191,6 @@
         <span>Reconciliation</span>
     </a>
 
-    {# ── INVENTORY ── #}
-    <div class="pt-3 pb-1">
-        <p class="px-3 text-[10px] font-bold uppercase tracking-[0.24em] text-secondary-400">Inventory</p>
-    </div>
-    <a href="{% url 'inventory:dashboard' %}" class="sidebar-link {% if request.resolver_match.app_name == 'inventory' and request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
-        <i data-lucide="package" class="sidebar-icon h-5 w-5 text-secondary-400"></i>
-        <span>Inventory Dashboard</span>
-    </a>
-    <a href="{% url 'inventory:item_list' %}" class="sidebar-link {% if request.resolver_match.url_name == 'item_list' or request.resolver_match.url_name == 'item_detail' %}active{% endif %}">
-        <i data-lucide="box" class="sidebar-icon h-5 w-5 text-secondary-400"></i>
-        <span>Items</span>
-    </a>
-    <a href="{% url 'inventory:category_list' %}" class="sidebar-link {% if 'category' in request.resolver_match.url_name %}active{% endif %}">
-        <i data-lucide="tags" class="sidebar-icon h-5 w-5 text-secondary-400"></i>
-        <span>Categories</span>
-    </a>
-    <a href="{% url 'inventory:warehouse_list' %}" class="sidebar-link {% if 'warehouse' in request.resolver_match.url_name or 'location' in request.resolver_match.url_name %}active{% endif %}">
-        <i data-lucide="warehouse" class="sidebar-icon h-5 w-5 text-secondary-400"></i>
-        <span>Warehouses</span>
-    </a>
-    <a href="{% url 'inventory:stock_count_list' %}" class="sidebar-link {% if 'stock_count' in request.resolver_match.url_name %}active{% endif %}">
-        <i data-lucide="clipboard-check" class="sidebar-icon h-5 w-5 text-secondary-400"></i>
-        <span>Stock Counts</span>
-    </a>
-    <a href="{% url 'inventory:purchase_order_list' %}" class="sidebar-link {% if 'purchase_order' in request.resolver_match.url_name %}active{% endif %}">
-        <i data-lucide="shopping-cart" class="sidebar-icon h-5 w-5 text-secondary-400"></i>
-        <span>Purchase Orders</span>
-    </a>
-    <a href="{% url 'inventory:sales_order_list' %}" class="sidebar-link {% if 'sales_order' in request.resolver_match.url_name %}active{% endif %}">
-        <i data-lucide="shopping-bag" class="sidebar-icon h-5 w-5 text-secondary-400"></i>
-        <span>Sales Orders</span>
-    </a>
-    <a href="{% url 'inventory:movement_list' %}" class="sidebar-link {% if 'movement' in request.resolver_match.url_name %}active{% endif %}">
-        <i data-lucide="activity" class="sidebar-icon h-5 w-5 text-secondary-400"></i>
-        <span>Stock Movements</span>
-    </a>
-    <a href="{% url 'inventory:supplier_list' %}" class="sidebar-link {% if 'supplier' in request.resolver_match.url_name %}active{% endif %}">
-        <i data-lucide="truck" class="sidebar-icon h-5 w-5 text-secondary-400"></i>
-        <span>Suppliers</span>
-    </a>
-    <a href="{% url 'inventory:customer_list' %}" class="sidebar-link {% if 'customer' in request.resolver_match.url_name %}active{% endif %}">
-        <i data-lucide="users" class="sidebar-icon h-5 w-5 text-secondary-400"></i>
-        <span>Customers</span>
-    </a>
-
     {# ── SETTINGS ── #}
     <div class="pt-3 pb-1">
         <p class="px-3 text-[10px] font-bold uppercase tracking-[0.24em] text-secondary-400">Settings</p>

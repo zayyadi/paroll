@@ -861,6 +861,7 @@ class PayrollRunPayslipEmailTests(TestCase):
         mocked_apply_async.assert_called_once_with(
             args=[payroll_run.id, job.id],
             queue="notifications_normal",
+            retry=False,
         )
         job.refresh_from_db()
         self.assertEqual(job.celery_task_id, "celery-task-123")
@@ -886,6 +887,126 @@ class PayrollRunPayslipEmailTests(TestCase):
         self.assertEqual(job.skipped_count, 0)
         self.assertIsNotNone(job.started_at)
         self.assertIsNotNone(job.completed_at)
+
+    def test_publish_never_raises_and_returns_none_on_broker_failure(self):
+        from core.messaging import publish
+        from payroll.tasks.payslip_tasks import send_payslips_for_payroll_run_task
+
+        with patch.object(
+            send_payslips_for_payroll_run_task,
+            "apply_async",
+            side_effect=ConnectionError("broker down"),
+        ):
+            self.assertIsNone(
+                publish(
+                    send_payslips_for_payroll_run_task,
+                    1,
+                    2,
+                    queue="notifications_normal",
+                )
+            )
+
+    def test_enqueue_marks_job_failed_instead_of_raising_on_broker_failure(self):
+        from payroll.tasks.payslip_tasks import send_payslips_for_payroll_run_task
+
+        company = Company.objects.create(name="Broker Failure Co")
+        payroll_run = PayrollRun.objects.create(
+            company=company,
+            name="August Payroll",
+            paydays=date(2026, 8, 1),
+            is_active=True,
+        )
+        job = PayslipEmailJob.objects.create(payroll_run=payroll_run)
+        with patch.object(
+            send_payslips_for_payroll_run_task,
+            "apply_async",
+            side_effect=ConnectionError("broker down"),
+        ):
+            self.assertIsNone(job.enqueue())
+        job.refresh_from_db()
+        self.assertEqual(job.status, PayslipEmailJob.Status.FAILED)
+        self.assertIn("Broker publish failed", job.error_message)
+
+    def test_leave_allowance_enqueue_marks_job_failed_on_broker_failure(self):
+        from payroll.tasks.leave_allowance_tasks import send_leave_allowance_slip_task
+
+        company = Company.objects.create(name="Leave Broker Failure Co")
+        employee = EmployeeProfile.objects.create(
+            company=company, first_name="Ada", last_name="Obi"
+        )
+        leave_request = LeaveRequest.objects.create(
+            employee=employee,
+            leave_type="ANNUAL",
+            start_date=date(2026, 9, 1),
+            end_date=date(2026, 9, 3),
+            reason="Annual break",
+        )
+        job = LeaveAllowanceEmailJob.objects.create(
+            leave_request=leave_request,
+            allowance=Allowance.objects.create(
+                employee=employee, amount=Decimal("50000.00")
+            ),
+            amount=Decimal("50000.00"),
+        )
+        with patch.object(
+            send_leave_allowance_slip_task,
+            "apply_async",
+            side_effect=ConnectionError("broker down"),
+        ):
+            self.assertIsNone(job.enqueue())
+        job.refresh_from_db()
+        self.assertEqual(job.status, LeaveAllowanceEmailJob.Status.FAILED)
+
+    def test_add_pay_queues_payslip_email_without_sending_in_request(self):
+        from django.test import Client
+
+        from payroll.tasks.payslip_tasks import send_single_payslip_task
+
+        User = get_user_model()
+        company = Company.objects.create(name="Add Pay Async Co")
+        hr_user = User.objects.create_user(
+            email="hr-addpay@test.com",
+            password="testpass123",
+            company=company,
+            active_company=company,
+        )
+        hr_user.user_permissions.add(
+            Permission.objects.get(codename="add_payroll")
+        )
+        employee_user = User.objects.create_user(
+            email="emp-addpay@test.com",
+            password="testpass123",
+            company=company,
+            active_company=company,
+        )
+        employee = employee_user.employee_user
+        employee.company = company
+        employee.first_name = "Emeka"
+        employee.last_name = "Ade"
+        employee.email = "emp-addpay@test.com"
+        employee.save()
+        client = Client()
+        client.force_login(hr_user)
+        with patch.object(
+            send_single_payslip_task, "apply_async"
+        ) as mocked_apply_async, patch(
+            "payroll.views.payroll_payslips.generate_payslip_pdf"
+        ) as mocked_pdf, patch(
+            "users.email_backend._send_mail_now"
+        ) as mocked_send_now:
+            mocked_apply_async.return_value.id = "task-async-1"
+            with self.captureOnCommitCallbacks(execute=True):
+                response = client.post(
+                    reverse("payroll:add_pay"),
+                    {"employee": employee.id, "basic_salary": "500000.00"},
+                )
+            self.assertEqual(response.status_code, 302)
+            mocked_pdf.assert_not_called()
+            mocked_send_now.assert_not_called()
+            mocked_apply_async.assert_called_once()
+            _, kwargs = mocked_apply_async.call_args
+            self.assertEqual(kwargs.get("queue"), "notifications_normal")
+            self.assertFalse(kwargs.get("retry", True))
 
     @patch("payroll.tasks.leave_allowance_tasks.custom_send_mail")
     @patch("payroll.tasks.leave_allowance_tasks.generate_payslip_pdf")
