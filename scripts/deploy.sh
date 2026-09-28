@@ -7,6 +7,15 @@ COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.yml}"
 PROD_COMPOSE_FILE="${PROD_COMPOSE_FILE:-docker-compose.prod.yml}"
 IMAGE_REF="${IMAGE_REF:-}"
 RUN_HEALTHCHECK="${RUN_HEALTHCHECK:-1}"
+# Podman-first: override e.g. COMPOSE_BIN="podman compose" if the compose plugin is installed.
+COMPOSE_BIN="${COMPOSE_BIN:-podman-compose}"
+
+if ! command -v "$COMPOSE_BIN" >/dev/null 2>&1 && podman compose version >/dev/null 2>&1; then
+  COMPOSE_BIN="podman compose"
+fi
+# Split "podman compose" into an array if the plugin form is used.
+# shellcheck disable=SC2206
+COMPOSE=($COMPOSE_BIN)
 
 cd "$APP_DIR"
 
@@ -22,20 +31,20 @@ fi
 
 if [[ -n "$IMAGE_REF" ]]; then
   export IMAGE_REF
-  docker compose --env-file "$ENV_FILE" -f "$PROD_COMPOSE_FILE" pull web celery-worker celery-beat daphne
-  docker compose --env-file "$ENV_FILE" -f "$PROD_COMPOSE_FILE" up -d db redis
-  docker compose --env-file "$ENV_FILE" -f "$PROD_COMPOSE_FILE" up -d web celery-worker celery-beat daphne
+  "${COMPOSE[@]}" --env-file "$ENV_FILE" -f "$PROD_COMPOSE_FILE" pull web celery-worker celery-beat daphne
+  "${COMPOSE[@]}" --env-file "$ENV_FILE" -f "$PROD_COMPOSE_FILE" up -d db redis
+  "${COMPOSE[@]}" --env-file "$ENV_FILE" -f "$PROD_COMPOSE_FILE" up -d web celery-worker celery-beat daphne
   COMPOSE_ARGS=(--env-file "$ENV_FILE" -f "$PROD_COMPOSE_FILE")
 else
-  docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" up -d --build
+  "${COMPOSE[@]}" --env-file "$ENV_FILE" -f "$COMPOSE_FILE" up -d --build
   COMPOSE_ARGS=(--env-file "$ENV_FILE" -f "$COMPOSE_FILE")
 fi
 
-docker compose "${COMPOSE_ARGS[@]}" exec -T web python manage.py migrate --noinput
-docker compose "${COMPOSE_ARGS[@]}" exec -T web python manage.py collectstatic --noinput
+"${COMPOSE[@]}" "${COMPOSE_ARGS[@]}" exec -T web python manage.py migrate --noinput
+"${COMPOSE[@]}" "${COMPOSE_ARGS[@]}" exec -T web python manage.py collectstatic --noinput
 
-docker compose "${COMPOSE_ARGS[@]}" up -d --remove-orphans
+"${COMPOSE[@]}" "${COMPOSE_ARGS[@]}" up -d --remove-orphans
 
 if [[ "$RUN_HEALTHCHECK" == "1" ]]; then
-  ENV_FILE="$ENV_FILE" IMAGE_REF="$IMAGE_REF" ./scripts/healthcheck.sh
+  ENV_FILE="$ENV_FILE" IMAGE_REF="$IMAGE_REF" COMPOSE_BIN="$COMPOSE_BIN" ./scripts/healthcheck.sh
 fi

@@ -220,17 +220,11 @@ urlpatterns = [
     # Phase 2 Reports
     path("reports/cash-flow/", views.cash_flow_report, name="cash_flow"),
     path("reports/financial-ratios/", views.financial_ratios_report, name="financial_ratios"),
-    path("reports/ar-aging/", views.ar_aging_report, name="ar_aging"),
-    path("reports/ap-aging/", views.ap_aging_report, name="ap_aging"),
-    path("reports/inventory-turnover/", views.inventory_turnover_report, name="inventory_turnover"),
-    path("reports/gross-margin/", views.gross_margin_report, name="gross_margin"),
     path("reports/month-end-checklist/", views.month_end_checklist_view, name="month_end_checklist"),
     path("reports/executive/", views.executive_dashboard, name="executive_dashboard"),
     # External Accounting Connectors
     path("reports/export/journals/", views.export_journals_csv_view, name="export_journals_csv"),
     path("reports/export/chart-of-accounts/", views.export_chart_of_accounts_csv_view, name="export_chart_of_accounts_csv"),
-    path("reports/export/suppliers/", views.export_suppliers_csv_view, name="export_suppliers_csv"),
-    path("reports/export/customers/", views.export_customers_csv_view, name="export_customers_csv"),
     # Phase 1: Budget Management
     path("budgets/", views.budget_list, name="budget_list"),
     path("budgets/create/", views.budget_create, name="budget_create"),

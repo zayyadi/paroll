@@ -862,6 +862,16 @@ class PayrollEntry(models.Model):
     def __str__(self):
         return self.pays.first_name
 
+    # Canonical naming (CONTEXT.md): employee. Legacy `pays` FK name
+    # retained for backward compat (DB column unchanged).
+    @property
+    def employee(self):
+        return self.pays
+
+    @employee.setter
+    def employee(self, value):
+        self.pays = value
+
     @property
     def calc_allowance(self):
         if not self.pk:
@@ -1044,16 +1054,31 @@ class PayrollEntry(models.Model):
 
     @property
     def get_netpay(self):
+        """Period net = canonical base + allowances - deductions.
+
+        Base comes from the linked Payroll config via monthly_net_pay
+        (same rule as EmployeeProfile.net_pay); falls back to stored
+        pays.net_pay when no config is linked.
+        """
+        from payroll.services.payroll_calc import monthly_net_pay
+
+        allowances = self.calc_allowance
+        deductions = self.calc_deduction
+        payroll = getattr(self.pays, "employee_pay", None)
+        if payroll is not None:
+            base = monthly_net_pay(
+                gross_annual=getattr(payroll, "gross_income", 0) or 0,
+                employee_health_annual=getattr(payroll, "employee_health", 0) or 0,
+                nhf_annual=getattr(payroll, "nhf", 0) or 0,
+                payee_monthly=getattr(payroll, "payee", 0) or 0,
+                water_monthly=getattr(payroll, "water_rate", 0) or 0,
+                allowances_monthly=allowances,
+                deductions_monthly=deductions,
+            )["net"]
+            return base
         if not self.pays.net_pay:
             return Decimal(0.0)
-        return (
-            self.pays.net_pay
-            + self.calc_allowance
-            - self.calc_deduction
-            # - self.employee_health
-            # - self.nhf
-            # - self.pays.employee_pay.nsitf
-        )
+        return self.pays.net_pay + allowances - deductions
 
     def save(self, *args, **kwargs):
         if self.pays and self.pays.company_id and not self.company_id:
@@ -1141,6 +1166,20 @@ class PayrollRun(models.Model):
     @property
     def is_locked(self):
         return self.status in (self.Status.LOCKED, self.Status.PAID) or self.closed
+
+    # Canonical naming (CONTEXT.md): period / entries. Legacy names
+    # paydays / payroll_payday / payday / payvar remain for backward compat.
+    @property
+    def period(self):
+        return self.paydays
+
+    @period.setter
+    def period(self, value):
+        self.paydays = value
+
+    @property
+    def entries(self):
+        return self.payroll_payday
 
     _ALLOWED_TRANSITIONS = {
         Status.DRAFT: (Status.CALCULATED,),
@@ -1274,12 +1313,23 @@ class PayslipEmailJob(models.Model):
         return f"Payslip emails for {self.payroll_run} ({self.get_status_display()})"
 
     def enqueue(self):
+        """Queue background delivery. Never raises: routes must not wait on
+        the broker. On publish failure the job is marked FAILED (with the
+        error) so the recovery commands pick it up."""
+        from core.messaging import publish
         from payroll.tasks.payslip_tasks import send_payslips_for_payroll_run_task
 
-        result = send_payslips_for_payroll_run_task.apply_async(
-            args=[self.payroll_run_id, self.id],
+        result = publish(
+            send_payslips_for_payroll_run_task,
+            self.payroll_run_id,
+            self.id,
             queue="notifications_normal",
         )
+        if result is None:
+            self.status = self.Status.FAILED
+            self.error_message = "Broker publish failed; retry via process_payslip_email_jobs."
+            self.save(update_fields=["status", "error_message", "updated_at"])
+            return None
         self.status = self.Status.QUEUED
         self.celery_task_id = result.id or ""
         self.error_message = ""
@@ -1329,16 +1379,27 @@ class LeaveAllowanceEmailJob(models.Model):
         return f"Leave allowance slip for leave #{self.leave_request_id} ({self.get_status_display()})"
 
     def enqueue(self):
+        """Queue background delivery. Never raises: routes must not wait on
+        the broker. On publish failure the job is marked FAILED (with the
+        error) so it can be retried."""
+        from core.messaging import publish
         from payroll.tasks.leave_allowance_tasks import send_leave_allowance_slip_task
 
-        result = send_leave_allowance_slip_task.apply_async(
-            args=[self.leave_request_id, self.id],
+        result = publish(
+            send_leave_allowance_slip_task,
+            self.leave_request_id,
+            self.id,
             queue="notifications_normal",
         )
+        if result is None:
+            self.status = self.Status.FAILED
+            self.error_message = "Broker publish failed; will be retried."
+            self.save(update_fields=["status", "error_message", "updated_at"])
+            return None
         self.status = self.Status.QUEUED
         self.celery_task_id = result.id or ""
         self.error_message = ""
-        self.save(update_fields=["status", "celery_task_id", "error_message", "updated_at"])
+        self.save(update_fields=["status", "error_message", "updated_at"])
         return result
 
 

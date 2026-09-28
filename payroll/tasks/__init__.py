@@ -15,7 +15,10 @@ from payroll.tasks.notification_tasks import (
     send_daily_digest_task,
     send_weekly_digest_task,
 )
-from payroll.tasks.payslip_tasks import send_payslips_for_payroll_run_task
+from payroll.tasks.payslip_tasks import (
+    send_payslips_for_payroll_run_task,
+    send_single_payslip_task,
+)
 from payroll.tasks.retention_tasks import apply_hr_retention_task
 
 __all__ = [
@@ -28,5 +31,6 @@ __all__ = [
     "send_daily_digest_task",
     "send_weekly_digest_task",
     "send_payslips_for_payroll_run_task",
+    "send_single_payslip_task",
     "apply_hr_retention_task",
 ]

@@ -105,8 +105,6 @@ from .utils import (
     get_cash_flow_statement,
     get_financial_ratios,
     get_month_end_checklist,
-    get_inventory_turnover,
-    get_gross_margin_by_product,
 )
 from .permissions import (
     is_auditor,
@@ -266,19 +264,6 @@ def accounting_dashboard(request):
         company=company, is_active=True
     ).order_by("-start_date")[:6]
 
-    # AR/AP summaries
-    try:
-        from inventory.services import get_accounts_receivable_aging, get_accounts_payable_aging
-        ar = get_accounts_receivable_aging(company)
-        ap = get_accounts_payable_aging(company)
-        total_ar = sum(row["outstanding"] for row in ar)
-        total_ap = sum(row["outstanding"] for row in ap)
-        overdue_ar = sum(row["outstanding"] for row in ar if row["days_overdue"] > 30)
-    except Exception:
-        total_ar = Decimal("0.00")
-        total_ap = Decimal("0.00")
-        overdue_ar = Decimal("0.00")
-
     context = {
         "draft_journals_count": metrics["draft_journals"],
         "pending_journals_count": metrics["pending_journals"],
@@ -290,9 +275,6 @@ def accounting_dashboard(request):
         "is_payroll_processor": is_payroll_processor(request.user),
         "metrics": metrics,
         "ratios": ratios,
-        "total_ar": total_ar,
-        "total_ap": total_ap,
-        "overdue_ar": overdue_ar,
     }
 
     return render(request, "accounting/dashboard.html", context)
@@ -1288,13 +1270,13 @@ class AccountingPeriodCloseView(LoginRequiredMixin, PeriodClosingMixin, FormView
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        period = get_object_or_404(AccountingPeriod, pk=self.kwargs["pk"])
+        period = self.get_permission_object()
         context["period"] = period
         context["journal_count"] = Journal.objects.filter(period=period).count()
         return context
 
     def post(self, request, *args, **kwargs):
-        period = get_object_or_404(AccountingPeriod, pk=self.kwargs["pk"])
+        period = self.get_permission_object()
         reason = request.POST.get("reason", "")
 
         try:
@@ -1312,51 +1294,7 @@ class AccountingPeriodCloseView(LoginRequiredMixin, PeriodClosingMixin, FormView
             return redirect("accounting:period_close", pk=period.pk)
 
 
-class AuditTrailListView(LoginRequiredMixin, AuditorOrFinanceReadMixin, ListView):
-    """
-    List all audit trail entries (auditors, or finance users read-only)
-    """
-
-    model = AccountingAuditTrail
-    template_name = "accounting/audit_trail_list.html"
-    context_object_name = "audit_logs"
-    paginate_by = 20
-
-    def get_queryset(self):
-        queryset = AccountingAuditTrail.objects.all().order_by("-timestamp")
-
-        user_id = self.request.GET.get("user")
-        if user_id:
-            queryset = queryset.filter(user_id=user_id)
-
-        action = self.request.GET.get("action")
-        if action:
-            queryset = queryset.filter(action=action)
-
-        start_date = self.request.GET.get("start_date")
-        end_date = self.request.GET.get("end_date")
-        if start_date:
-            queryset = queryset.filter(timestamp__gte=start_date)
-        if end_date:
-            queryset = queryset.filter(timestamp__lte=end_date)
-
-        return queryset
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context["action_choices"] = AccountingAuditTrail.ActionType.choices
-        context["users"] = User.objects.all()
-        return context
-
-
-class AuditTrailDetailView(LoginRequiredMixin, AuditorOrFinanceReadMixin, DetailView):
-    """
-    View audit trail entry details (auditors, or finance users read-only)
-    """
-
-    model = AccountingAuditTrail
-    template_name = "accounting/audit_trail_detail.html"
-    context_object_name = "audit_log"
+from .views_audit import AuditTrailDetailView, AuditTrailListView  # noqa: E402,F401
 
 
 @login_required
@@ -1563,28 +1501,6 @@ def export_chart_of_accounts_csv_view(request):
 
 @login_required
 @auditor_or_accountant_required
-def export_suppliers_csv_view(request):
-    company = get_user_company(request.user)
-    from integrations.export_connectors import export_suppliers_csv
-    csv_data = export_suppliers_csv(company)
-    response = HttpResponse(csv_data, content_type="text/csv")
-    response["Content-Disposition"] = 'attachment; filename="paroll_suppliers.csv"'
-    return response
-
-
-@login_required
-@auditor_or_accountant_required
-def export_customers_csv_view(request):
-    company = get_user_company(request.user)
-    from integrations.export_connectors import export_customers_csv
-    csv_data = export_customers_csv(company)
-    response = HttpResponse(csv_data, content_type="text/csv")
-    response["Content-Disposition"] = 'attachment; filename="paroll_customers.csv"'
-    return response
-
-
-@login_required
-@auditor_or_accountant_required
 def cash_flow_report(request):
     company = get_user_company(request.user)
     end_date = timezone.now().date()
@@ -1619,62 +1535,6 @@ def financial_ratios_report(request):
 
 @login_required
 @auditor_or_accountant_required
-def ar_aging_report(request):
-    company = get_user_company(request.user)
-    from inventory.services import get_accounts_receivable_aging
-    aging = get_accounts_receivable_aging(company)
-    total = sum(row["outstanding"] for row in aging)
-    return render(request, "accounting/reports/ar_aging.html", {
-        "aging": aging, "total_outstanding": total,
-    })
-
-
-@login_required
-@auditor_or_accountant_required
-def ap_aging_report(request):
-    company = get_user_company(request.user)
-    from inventory.services import get_accounts_payable_aging
-    aging = get_accounts_payable_aging(company)
-    total = sum(row["outstanding"] for row in aging)
-    return render(request, "accounting/reports/ap_aging.html", {
-        "aging": aging, "total_outstanding": total,
-    })
-
-
-@login_required
-@auditor_or_accountant_required
-def inventory_turnover_report(request):
-    company = get_user_company(request.user)
-    end_date = timezone.now().date()
-    start_date = end_date - timedelta(days=365)
-    period_id = request.GET.get("period")
-    if period_id:
-        period = get_object_or_404(AccountingPeriod, pk=period_id, company=company)
-        start_date = period.start_date
-        end_date = period.end_date
-    data = get_inventory_turnover(company, start_date, end_date)
-    return render(request, "accounting/reports/inventory_turnover.html", data)
-
-
-@login_required
-@auditor_or_accountant_required
-def gross_margin_report(request):
-    company = get_user_company(request.user)
-    end_date = timezone.now().date()
-    start_date = end_date - timedelta(days=365)
-    period_id = request.GET.get("period")
-    if period_id:
-        period = get_object_or_404(AccountingPeriod, pk=period_id, company=company)
-        start_date = period.start_date
-        end_date = period.end_date
-    products = get_gross_margin_by_product(company, start_date, end_date)
-    return render(request, "accounting/reports/gross_margin.html", {
-        "products": products, "start_date": start_date, "end_date": end_date,
-    })
-
-
-@login_required
-@auditor_or_accountant_required
 def month_end_checklist_view(request):
     company = get_user_company(request.user)
     period_id = request.GET.get("period")
@@ -1695,21 +1555,10 @@ def executive_dashboard(request):
     company = get_user_company(request.user)
     metrics = get_dashboard_metrics(company)
     ratios = get_financial_ratios(company, as_of_date=metrics["as_of_date"])
-    try:
-        from inventory.services import get_accounts_receivable_aging, get_accounts_payable_aging
-        ar = get_accounts_receivable_aging(company)
-        ap = get_accounts_payable_aging(company)
-        total_ar = sum(row["outstanding"] for row in ar)
-        total_ap = sum(row["outstanding"] for row in ap)
-    except Exception:
-        total_ar = Decimal("0.00")
-        total_ap = Decimal("0.00")
 
     return render(request, "accounting/reports/executive_dashboard.html", {
         "metrics": metrics,
         "ratios": ratios,
-        "total_ar": total_ar,
-        "total_ap": total_ap,
     })
 
 

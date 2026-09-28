@@ -6,7 +6,6 @@ from api.v1.viewsets import (
     AccountViewSet,
     AccountingPeriodViewSet,
     AuthContextView,
-    CustomerViewSet,
     DepartmentViewSet,
     EmployeeViewSet,
     FiscalYearViewSet,
@@ -16,10 +15,6 @@ from api.v1.viewsets import (
     LeavePolicyViewSet,
     LeaveRequestViewSet,
     MobileConfigView,
-    InventoryCategoryViewSet,
-    InventoryDocumentViewSet,
-    InventoryItemViewSet,
-    PurchaseOrderViewSet,
     MyCompaniesView,
     PayrollEntryViewSet,
     PayrollRunEntryViewSet,
@@ -30,13 +25,6 @@ from api.v1.viewsets import (
     StandupQuestionViewSet,
     StandupTeamMemberViewSet,
     StandupTeamViewSet,
-    StockLocationViewSet,
-    StockMovementViewSet,
-    SupplierViewSet,
-    TaxJurisdictionViewSet,
-    TaxRuleViewSet,
-    UnitOfMeasureViewSet,
-    WarehouseViewSet,
     SwitchCompanyView,
 )
 
@@ -66,18 +54,6 @@ router.register(r"fiscal-years", FiscalYearViewSet, basename="fiscal-year")
 router.register(r"accounting-periods", AccountingPeriodViewSet, basename="accounting-period")
 router.register(r"journals", JournalViewSet, basename="journal")
 router.register(r"journal-entries", JournalEntryViewSet, basename="journal-entry")
-router.register(r"inventory/units", UnitOfMeasureViewSet, basename="inventory-unit")
-router.register(r"inventory/categories", InventoryCategoryViewSet, basename="inventory-category")
-router.register(r"inventory/items", InventoryItemViewSet, basename="inventory-item")
-router.register(r"inventory/tax-jurisdictions", TaxJurisdictionViewSet, basename="inventory-tax-jurisdiction")
-router.register(r"inventory/tax-rules", TaxRuleViewSet, basename="inventory-tax-rule")
-router.register(r"inventory/warehouses", WarehouseViewSet, basename="inventory-warehouse")
-router.register(r"inventory/locations", StockLocationViewSet, basename="inventory-location")
-router.register(r"inventory/suppliers", SupplierViewSet, basename="inventory-supplier")
-router.register(r"inventory/customers", CustomerViewSet, basename="inventory-customer")
-router.register(r"inventory/purchase-orders", PurchaseOrderViewSet, basename="inventory-purchase-order")
-router.register(r"inventory/documents", InventoryDocumentViewSet, basename="inventory-document")
-router.register(r"inventory/movements", StockMovementViewSet, basename="inventory-movement")
 
 urlpatterns = [
     path("mobile/config/", MobileConfigView.as_view(), name="mobile-config"),

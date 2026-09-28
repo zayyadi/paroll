@@ -49,7 +49,7 @@ def log_model_change(sender, instance, action, changes=None, reason=None):
     content_type = ContentType.objects.get_for_model(instance)
     object_id = getattr(instance, "_audit_deleted_pk", instance.pk)
     object_id = object_id if object_id is not None else 0
-    company = getattr(instance, "company", None)
+    company = AccountingAuditTrail._resolve_company(instance, user=user)
 
     def log_audit_trail():
         try:
@@ -1095,11 +1095,17 @@ def log_batch_journal_reversal(
 
     def log_batch_reversal():
         try:
+            batch_company = None
+            for journal in list(journals or []) + list(reversal_journals or []):
+                batch_company = getattr(journal, "company", None)
+                if batch_company is not None:
+                    break
             # Log the batch reversal operation
             AccountingAuditTrail.log_action(
                 user=user,
                 action=AccountingAuditTrail.ActionType.REVERSE,
                 instance=None,  # No specific instance for batch operation
+                company=batch_company,
                 changes={
                     "operation_type": "batch_reversal",
                     "reversal_reason": reason,

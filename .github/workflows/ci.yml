@@ -31,7 +31,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
-          python-version: "3.11"
+          python-version: "3.12"
           cache: pip
 
       - name: Install application dependencies
@@ -41,7 +41,19 @@ jobs:
 
       - name: Install CI-only quality tools
         run: |
-          pip install bandit pip-audit
+          pip install ruff black isort mypy bandit pip-audit coverage
+
+      - name: Lint (ruff)
+        run: ruff check accounting api company core marketing monthyear payroll standup users
+
+      - name: Format check (black)
+        run: black --check accounting api company core payroll users --diff
+
+      - name: Import order (isort)
+        run: isort --check-only --diff accounting api company core payroll users
+
+      - name: Type check (mypy, non-blocking)
+        run: mypy company/api api/v1/serializers.py company/tenancy.py company/utils.py payroll/services/ || true
 
       - name: Django system check
         run: python manage.py check --settings=core.settings_test
@@ -50,16 +62,16 @@ jobs:
         run: python manage.py makemigrations --check --dry-run --settings=core.settings_test
 
       - name: Run Django test suite
-        run: python manage.py test --settings=core.settings_test
+        run: coverage run manage.py test --settings=core.settings_test && coverage report --fail-under=80
 
       - name: Static security scan
-        run: bandit -r accounting api company core inventory marketing monthyear payroll standup users -x "*/tests.py,*/test_*.py,*/tests/*"
+        run: bandit -r accounting api company core marketing monthyear payroll standup users -x "*/migrations/*,*/tests.py,*/test_*.py,*/tests/*"
 
       - name: Dependency vulnerability audit
         run: pip-audit -r requirements.txt
 
   docker:
-    name: Docker image build
+    name: Container image build
     runs-on: ubuntu-latest
     timeout-minutes: 20
     needs: django
@@ -68,5 +80,5 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v6
 
-      - name: Build Docker image
-        run: docker build --tag payroll-saas:${{ github.sha }} .
+      - name: Build container image
+        run: podman build --tag payroll-saas:${{ github.sha }} .

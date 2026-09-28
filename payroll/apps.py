@@ -27,4 +27,8 @@ class PayrollConfig(AppConfig):
         import payroll.tasks.payslip_tasks
 
         # Import notification services (ensures services are initialized)
-        import payroll.services.notification_service
+        import payroll.services.notification_service  # noqa
+
+        # HR owns discipline employment effects; ledger tables emit,
+        # payroll reacts (see payroll/discipline/signals.py).
+        import payroll.discipline.signals  # noqa

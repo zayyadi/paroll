@@ -148,9 +148,9 @@ Record:
 - What the failure message meant.
 - What code or config change fixed it.
 
-### Milestone 2: Docker Image Build
+### Milestone 2: Container Image Build
 
-Confirm `docker build .` works locally and in CI. The goal is to learn the
+Confirm `podman build .` works locally and the image builds in CI. The goal is to learn the
 difference between "runs on my laptop" and "runs from a production artifact".
 
 Record:
@@ -187,7 +187,7 @@ Record:
 - Check GitHub Actions logs from top to bottom; fix the first real failure.
 - Confirm `SECRET_KEY` and `DJANGO_SETTINGS_MODULE` are present in CI.
 - Run the same failing command locally with `--settings=core.settings_test`.
-- On the VPS, run `docker compose ps` before reading logs.
-- Read logs with `docker compose logs --tail=200 web`.
+- On the VPS, run `podman-compose ps` before reading logs.
+- Read logs with `podman-compose logs --tail=200 web`.
 - If Redis or PostgreSQL is unhealthy, fix infrastructure before app code.
 - If migrations fail, do not keep restarting services; inspect the migration.

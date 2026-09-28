@@ -905,8 +905,6 @@ class AccountingAuditTrail(BaseModel):
     company = models.ForeignKey(
         "company.Company",
         on_delete=models.CASCADE,
-        null=True,
-        blank=True,
         related_name="accounting_audit_trails",
     )
     user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
@@ -962,6 +960,86 @@ class AccountingAuditTrail(BaseModel):
         return value
 
     @classmethod
+    def _resolve_company(cls, instance, user=None, company=None):
+        """Resolve the tenant company for an audit row.
+
+        Follows FK chains so child rows without a direct ``company`` FK
+        (e.g. ``JournalEntry`` via ``journal``, ``Allowance`` via
+        ``employee``) still get scoped correctly. Explicit ``company``
+        wins; otherwise instance chain, then user, then request context.
+        Returns None when no tenant is determinable (caller must skip).
+        """
+        if company is not None:
+            return company
+
+        def _company_of(obj):
+            if obj is None:
+                return None
+            try:
+                return getattr(obj, "company", None)
+            except Exception:
+                return None
+
+        if instance is not None:
+            direct = _company_of(instance)
+            if direct is not None:
+                return direct
+            for attr in (
+                "journal",
+                "case",
+                "fiscal_year",
+                "period",
+                "employee",
+                "employee_id",
+                "pays",
+                "payroll_entry",
+                "payroll_run",
+                "payday",
+                "iou",
+                "supplier",
+                "customer",
+                "item",
+                "location",
+                "warehouse",
+                "team",
+                "member",
+                "account",
+            ):
+                try:
+                    parent = getattr(instance, attr, None)
+                except Exception:
+                    continue
+                resolved = _company_of(parent)
+                if resolved is not None:
+                    return resolved
+                if parent is not None:
+                    for nested in ("employee", "journal"):
+                        try:
+                            grandparent = getattr(parent, nested, None)
+                        except Exception:
+                            continue
+                        resolved = _company_of(grandparent)
+                        if resolved is not None:
+                            return resolved
+        if user is not None:
+            for attr in ("active_company", "company"):
+                try:
+                    resolved = getattr(user, attr, None)
+                except Exception:
+                    continue
+                if resolved is not None:
+                    return resolved
+        try:
+            from company.tenancy import get_current_company
+
+            current = get_current_company()
+            if current is not None:
+                return current
+        except Exception:
+            pass
+        return None
+
+    @classmethod
     def log_action(
         cls,
         user,
@@ -987,7 +1065,12 @@ class AccountingAuditTrail(BaseModel):
             if object_id is not None
             else (instance.pk if instance is not None and instance.pk is not None else 0)
         )
-        company = company if company is not None else getattr(instance, "company", None)
+        company = cls._resolve_company(instance, user=user, company=company)
+        if company is None:
+            # No tenant determinable (e.g. system action with no company
+            # context). Skip rather than write an unscoped row or break the
+            # caller's transaction with a NOT NULL violation.
+            return None
         safe_changes = cls._make_json_safe(changes or {})
 
         def create_audit_entry():
@@ -1380,7 +1463,6 @@ class DisciplinaryCase(BaseModel):
     company = models.ForeignKey(
         "company.Company",
         on_delete=models.CASCADE,
-        null=True,
         blank=True,
         related_name="disciplinary_cases",
         db_index=True,
@@ -1747,33 +1829,11 @@ class DisciplinarySanction(BaseModel):
         return sanction_end >= period_start
 
     def _apply_employment_effects(self):
-        if (
-            self.status != self.Status.ACTIVE
-            or self.sanction_type != self.SanctionType.TERMINATION
-        ):
-            return
-
-        today = timezone.localdate()
-        if self.effective_date and self.effective_date > today:
-            return
-
-        respondent = self.case.respondent
-        if not respondent:
-            return
-
-        if respondent.is_active:
-            respondent.is_active = False
-            respondent.save(update_fields=["is_active"])
-
-        EmployeeProfile = apps.get_model("payroll", "EmployeeProfile")
-        try:
-            employee = EmployeeProfile.objects.get(user=respondent)
-        except EmployeeProfile.DoesNotExist:
-            return
-
-        if employee.status != "terminated":
-            employee.status = "terminated"
-            employee.save(update_fields=["status"])
+        # Deprecated: HR employment effects now live in
+        # payroll/discipline/services.apply_termination_effects, wired via
+        # payroll/discipline/signals.py. Kept as no-op so ledger never
+        # imports payroll (ADR-0002). Remove with the table move.
+        return
 
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)

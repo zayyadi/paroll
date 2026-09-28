@@ -250,7 +250,7 @@ class RoleBasedSidebarTests(TestCase):
         content = response.content.decode()
         self.assertIn("Employees", content)
         self.assertIn("Accounting Dashboard", content)
-        self.assertIn("Inventory Dashboard", content)
+        self.assertNotIn("Inventory Dashboard", content)
         self.assertIn("Payroll Settings", content)
 
     def test_employee_sidebar_excludes_admin_sections(self):

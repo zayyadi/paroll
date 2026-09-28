@@ -55,7 +55,6 @@ INSTALLED_APPS = [
     "social_django",
     "accounting",
     "company",
-    "inventory",
     "standup",
     "marketing",
     "compliance",
@@ -74,6 +73,7 @@ INTERNAL_IPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "core.middleware.DevNoCacheMiddleware",
@@ -234,7 +234,7 @@ CRISPY_ALLOWED_TEMPLATE_PACKS = ["tailwind"]
 
 CRISPY_TEMPLATE_PACK = "tailwind"
 
-STATIC_URL = "static/"
+STATIC_URL = "/static/"
 MEDIA_URL = "/media/"
 
 MEDIA_ROOT = os.path.join(BASE_DIR, "media")
@@ -242,6 +242,17 @@ MEDIA_ROOT = os.path.join(BASE_DIR, "media")
 STATICFILES_DIRS = [os.path.join(BASE_DIR, "static")]
 
 STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
+
+STORAGES = {
+    "default": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    },
+    "staticfiles": {
+        # CompressedStaticFilesStorage (not Manifest) so a missing .map
+        # reference in vendored CSS never breaks collectstatic deploys.
+        "BACKEND": "whitenoise.storage.CompressedStaticFilesStorage",
+    },
+}
 
 
 SOCIAL_AUTH_JSONFIELD_ENABLED = True
@@ -425,6 +436,14 @@ CELERY_TASK_TRACK_STARTED = True
 
 CELERY_TASK_SEND_SENT_EVENT = True
 
+# Publish resilience: routes publish via core.messaging.publish(), which
+# already fails fast. These defaults make even direct apply_async() calls
+# fail fast instead of stalling requests on broker reconnect loops.
+# Worker-side reliability comes from task autoretry, not publish retries.
+CELERY_TASK_PUBLISH_RETRY = False
+CELERY_BROKER_CONNECTION_TIMEOUT = int(os.getenv("CELERY_BROKER_CONNECTION_TIMEOUT", "5"))
+CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
+
 # Celery worker settings
 CELERY_WORKER_CONCURRENCY = 4
 
@@ -467,6 +486,10 @@ CELERY_TASK_ROUTES = {
         "routing_key": "notifications.normal",
     },
     "payroll.send_payslips_for_payroll_run": {
+        "queue": "notifications_normal",
+        "routing_key": "notifications.normal",
+    },
+    "payroll.send_single_payslip": {
         "queue": "notifications_normal",
         "routing_key": "notifications.normal",
     },
@@ -561,9 +584,16 @@ if DISABLE_REDIS_CACHE:
             "BACKEND": "channels.layers.InMemoryChannelLayer",
         }
     }
-    # Run Celery tasks synchronously when Redis is disabled so dev
-    # doesn't require a broker.
-    CELERY_TASK_ALWAYS_EAGER = True
+    # Run Celery tasks synchronously when Redis is disabled so bare-dev
+    # doesn't require a broker. Production MUST set CELERY_TASK_ALWAYS_EAGER
+    # explicitly to False (or run with Redis): eager mode executes every
+    # "background" task — SMTP, SMS, PDF rendering — inside the request
+    # thread, which is exactly the blocking behaviour core/messaging exists
+    # to prevent.
+    if os.getenv("CELERY_TASK_ALWAYS_EAGER") is None:
+        CELERY_TASK_ALWAYS_EAGER = DISABLE_REDIS_CACHE
+    else:
+        CELERY_TASK_ALWAYS_EAGER = env_bool("CELERY_TASK_ALWAYS_EAGER", False)
     CELERY_TASK_EAGER_PROPAGATES = True
 else:
     CHANNEL_LAYERS = {
@@ -710,7 +740,6 @@ MOBILE_API = {
     "TERMS_URL": os.getenv("MOBILE_TERMS_URL", "/legal/terms/"),
     "ENABLE_PAYROLL": env_bool("MOBILE_ENABLE_PAYROLL", True),
     "ENABLE_ACCOUNTING": env_bool("MOBILE_ENABLE_ACCOUNTING", True),
-    "ENABLE_INVENTORY": env_bool("MOBILE_ENABLE_INVENTORY", True),
     "ENABLE_STANDUPS": env_bool("MOBILE_ENABLE_STANDUPS", True),
     "ENABLE_NOTIFICATIONS": env_bool("MOBILE_ENABLE_NOTIFICATIONS", True),
 }

@@ -115,49 +115,24 @@ def add_pay(request):
         except Exception as e:
             messages.error(request, f"An unexpected error occurred: {e}")
 
-        # Send payslip email
+        # Payslip email leaves the request immediately: PDF rendering and
+        # SMTP delivery run in Celery so slow providers never block payroll.
         if employee and employee.user and employee.user.email:
-            payslip_data = {
-                "payroll": payroll_instance,
-                "employee": employee,
-                # Add any other data needed for the payslip template
-            }
-            pdf_content = generate_payslip_pdf(payslip_data)
+            from core.messaging import publish
+            from payroll.tasks.payslip_tasks import send_single_payslip_task
 
-            if pdf_content:
-                subject = f"Your Payslip for {payroll_instance.month_year}"
-                context = {
-                    "user": employee.user,
-                    "employee": employee,
-                    "employee_name": (
-                        f"{employee.first_name or ''} {employee.last_name or ''}".strip()
-                        or employee.user.email
-                    ),
-                    "payroll": payroll_instance,
-                    "month_year": payroll_instance.month_year,
-                    "net_pay_amount": payroll_instance.net_pay,
-                }
-
-                # Prepare attachments for custom_send_mail
-                attachments = [
-                    {
-                        "filename": f"payslip_{employee.emp_id or employee.id}_{payroll_instance.month_year}.pdf",
-                        "content": pdf_content,
-                        "mimetype": "application/pdf",
-                    }
-                ]
-
-                custom_send_mail(
-                    subject,
-                    "email/payslip_email.html",
-                    context,
-                    DEFAULT_FROM_EMAIL,
-                    [employee.user.email],
-                    attachments=attachments,
+            transaction.on_commit(
+                lambda: publish(
+                    send_single_payslip_task,
+                    payroll_instance.id,
+                    employee.id,
+                    queue="notifications_normal",
                 )
-                messages.info(request, f"Payslip sent to {employee.user.email}")
-            else:
-                messages.error(request, "Failed to generate payslip PDF.")
+            )
+            messages.info(
+                request,
+                f"Payslip is being sent to {employee.user.email} in the background.",
+            )
         else:
             messages.warning(request, "Employee email not found, payslip not sent.")
 

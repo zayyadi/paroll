@@ -1,5 +1,9 @@
 # Project Feature Guide
 
+> Retired: the inventory module was removed (see `docs/adr/0003-remove-inventory-module.md`).
+> Sections below describing inventory, AR/AP aging, turnover, or gross-margin
+> reports are historical and no longer reflect the codebase.
+
 This guide documents the major features in the Payroll SaaS Platform, what each
 feature does, and how users or operators are expected to use it. It is based on
 the current Django apps, URL surfaces, models, and existing project docs.

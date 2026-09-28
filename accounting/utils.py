@@ -1178,92 +1178,10 @@ def get_month_end_checklist(company, period):
             ).exists(),
             "detail": "Ensure period-end accrual templates are configured.",
         },
-        {
-            "label": "Inventory reconciled to GL",
-            "passed": True,
-            "detail": "Run inventory-to-GL reconciliation before close.",
-        },
     ]
 
     all_passed = all(c["passed"] for c in checks)
     return {"checks": checks, "all_passed": all_passed, "period": period}
-
-
-def get_inventory_turnover(company, start_date, end_date):
-    """Calculate inventory turnover ratio = COGS / Average Inventory."""
-    from inventory.models import InventoryValuationLayer
-
-    start_value = Decimal(
-        InventoryValuationLayer.objects.filter(
-            company=company, created_at__date__lte=start_date
-        ).aggregate(total=Sum("remaining_total_cost"))["total"]
-        or "0.00"
-    )
-    end_value = Decimal(
-        InventoryValuationLayer.objects.filter(
-            company=company, created_at__date__lte=end_date
-        ).aggregate(total=Sum("remaining_total_cost"))["total"]
-        or "0.00"
-    )
-
-    cogs_entries = JournalEntry.objects.filter(
-        account__name__icontains="cogs",
-        journal__company=company,
-        journal__status=Journal.JournalStatus.POSTED,
-        journal__date__gte=start_date,
-        journal__date__lte=end_date,
-        entry_type="DEBIT",
-    ).aggregate(total=Sum("amount"))["total"] or Decimal("0.00")
-
-    avg_inventory = ((start_value + end_value) / 2).quantize(Decimal("0.01"))
-    turnover = (cogs_entries / avg_inventory).quantize(Decimal("0.01")) if avg_inventory else Decimal("0")
-
-    return {
-        "cogs": cogs_entries,
-        "start_inventory": start_value,
-        "end_inventory": end_value,
-        "avg_inventory": avg_inventory,
-        "turnover_ratio": float(turnover),
-        "days_inventory": float((Decimal("365") / turnover) if turnover else Decimal("0")),
-    }
-
-
-def get_gross_margin_by_product(company, start_date, end_date):
-    """Compute gross margin by inventory item from sales invoices."""
-    from inventory.models import SalesInvoice, SalesInvoiceLine
-
-    invoices = SalesInvoice.objects.filter(
-        company=company,
-        document__document_date__gte=start_date,
-        document__document_date__lte=end_date,
-    ).prefetch_related("lines__item")
-
-    products = {}
-    for invoice in invoices:
-        for line in invoice.lines.all():
-            if not line.item:
-                continue
-            key = line.item.sku or line.item.name
-            if key not in products:
-                products[key] = {"item": line.item, "revenue": Decimal("0.00"), "cogs": Decimal("0.00"), "qty_sold": 0}
-            products[key]["revenue"] += line.total or Decimal("0.00")
-            products[key]["cogs"] += (line.unit_cost * line.quantity) if line.unit_cost else Decimal("0.00")
-            products[key]["qty_sold"] += line.quantity or 0
-
-    results = []
-    for data in products.values():
-        margin = data["revenue"] - data["cogs"]
-        margin_pct = (margin / data["revenue"] * 100) if data["revenue"] else Decimal("0")
-        results.append({
-            "item": data["item"],
-            "revenue": data["revenue"],
-            "cogs": data["cogs"],
-            "gross_margin": margin,
-            "margin_pct": float(margin_pct.quantize(Decimal("0.01"))),
-            "qty_sold": data["qty_sold"],
-        })
-
-    return sorted(results, key=lambda x: x["revenue"], reverse=True)
 
 
 def get_latest_exchange_rate(company, base_currency, quote_currency, as_of_date):
