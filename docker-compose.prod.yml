@@ -1,6 +1,6 @@
 services:
   db:
-    image: postgres:16-alpine
+    image: docker.io/library/postgres:16-alpine
     restart: unless-stopped
     environment:
       POSTGRES_DB: ${DB_NAME:-payroll_db}
@@ -15,7 +15,7 @@ services:
       retries: 5
 
   redis:
-    image: redis:7-alpine
+    image: docker.io/library/redis:7-alpine
     restart: unless-stopped
     command: redis-server --appendonly yes
     volumes:
@@ -28,17 +28,23 @@ services:
 
   web:
     image: ${IMAGE_REF:?Set IMAGE_REF to the image tag to deploy}
+    build:
+      context: .
+      dockerfile: Dockerfile
     restart: unless-stopped
     command: gunicorn core.wsgi:application --bind 0.0.0.0:8000 --workers 3 --timeout 60 --access-logfile - --error-logfile -
+    # Localhost-only: Nginx on the host is the sole front door. Publishing to
+    # the world invites scanners whose half-open connections park sync workers
+    # until WORKER TIMEOUT murders them (see web logs: "no URI read").
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     env_file:
       - ./.env
     environment:
       - DJANGO_SETTINGS_MODULE=${DJANGO_SETTINGS_MODULE:-core.settings_saas}
     volumes:
-      - ./staticfiles:/app/staticfiles
-      - ./media:/app/media
+      - ./staticfiles:/app/staticfiles:U
+      - ./media:/app/media:U
     depends_on:
       db:
         condition: service_healthy
@@ -53,6 +59,9 @@ services:
 
   celery-worker:
     image: ${IMAGE_REF:?Set IMAGE_REF to the image tag to deploy}
+    build:
+      context: .
+      dockerfile: Dockerfile
     restart: unless-stopped
     command: celery -A core worker -l INFO -Q notifications_critical,notifications_high,notifications_normal,notifications_low --concurrency=4
     env_file:
@@ -69,6 +78,9 @@ services:
 
   celery-beat:
     image: ${IMAGE_REF:?Set IMAGE_REF to the image tag to deploy}
+    build:
+      context: .
+      dockerfile: Dockerfile
     restart: unless-stopped
     command: celery -A core beat -l INFO --scheduler django_celery_beat.schedulers:DatabaseScheduler
     env_file:
@@ -85,17 +97,20 @@ services:
 
   daphne:
     image: ${IMAGE_REF:?Set IMAGE_REF to the image tag to deploy}
+    build:
+      context: .
+      dockerfile: Dockerfile
     restart: unless-stopped
     command: daphne -b 0.0.0.0 -p 8001 core.asgi:application
     ports:
-      - "8001:8001"
+      - "127.0.0.1:8001:8001"
     env_file:
       - ./.env
     environment:
       - DJANGO_SETTINGS_MODULE=${DJANGO_SETTINGS_MODULE:-core.settings_saas}
     volumes:
-      - ./staticfiles:/app/staticfiles
-      - ./media:/app/media
+      - ./staticfiles:/app/staticfiles:U
+      - ./media:/app/media:U
     depends_on:
       redis:
         condition: service_healthy

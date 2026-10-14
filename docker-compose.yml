@@ -3,7 +3,7 @@ services:
   # DATABASE SERVICE
   # ============================================================================
   db:
-    image: postgres:16-alpine
+    image: docker.io/library/postgres:16-alpine
     restart: unless-stopped
     environment:
       POSTGRES_DB: ${DB_NAME:-payroll_db}
@@ -23,7 +23,9 @@ services:
   # WEB SERVICE
   # ============================================================================
   web:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile
     command: gunicorn core.wsgi:application --bind 0.0.0.0:8000
     volumes:
       - .:/app
@@ -44,7 +46,7 @@ services:
   # ============================================================================
   # Redis for caching, Celery broker, and Channels
   redis:
-    image: redis:7-alpine
+    image: docker.io/library/redis:7-alpine
     ports:
       - "6379:6379"
     volumes:
@@ -62,7 +64,9 @@ services:
   # ============================================================================
   # Celery worker for processing notification tasks
   celery-worker:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile
     command: celery -A core worker -l INFO -Q notifications_critical,notifications_high,notifications_normal,notifications_low --concurrency=4
     volumes:
       - .:/app
@@ -88,7 +92,9 @@ services:
   # ============================================================================
   # Celery beat for scheduled tasks
   celery-beat:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile
     command: celery -A core beat -l INFO --scheduler django_celery_beat.schedulers:DatabaseScheduler
     volumes:
       - .:/app
@@ -114,7 +120,9 @@ services:
   # ============================================================================
   # Daphne for WebSocket support
   daphne:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile
     command: daphne -b 0.0.0.0 -p 8001 core.asgi:application
     volumes:
       - .:/app

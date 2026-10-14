@@ -5,11 +5,17 @@ FROM python:3.12-slim
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 ENV DJANGO_SETTINGS_MODULE=core.settings_saas
+# Writable home for the non-root app user (fontconfig/matplotlib caches).
+ENV HOME=/app
 
-# System libs for weasyprint/pillow (see INSTALL.md) + postgres client for debugging
-RUN apt-get update && apt-get install -y --no-install-recommends \
+# System libs for weasyprint/pillow. libjpeg62-turbo is the trixie name
+# (bookworm called it libjpeg-turbo8); accept either via shell fallback.
+RUN apt-get update && (apt-get install -y --no-install-recommends \
     libpango-1.0-0 libpangoft2-1.0-0 libpangocairo-1.0-0 libcairo2 \
-    libgdk-pixbuf-2.0-0 libharfbuzz-subset0 libharfbuzz0b libopenjp2-7 libjpeg-turbo8 \
+    libgdk-pixbuf-2.0-0 libharfbuzz-subset0 libharfbuzz0b libopenjp2-7 libjpeg62-turbo \
+    || apt-get install -y --no-install-recommends \
+    libpango-1.0-0 libpangoft2-1.0-0 libpangocairo-1.0-0 libcairo2 \
+    libgdk-pixbuf-2.0-0 libharfbuzz-subset0 libharfbuzz0b libopenjp2-7 libjpeg-turbo8) \
     && rm -rf /var/lib/apt/lists/*
 
 # Create a non-root user
