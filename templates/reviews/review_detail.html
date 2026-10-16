@@ -10,12 +10,14 @@
       <p><span class="font-semibold">Appraisal:</span> {{ object.appraisal }}</p>
       <p><span class="font-semibold">Employee:</span> {{ object.employee }}</p>
       <p><span class="font-semibold">Reviewer:</span> {{ object.reviewer }}</p>
+      <p><span class="font-semibold">Status:</span> {{ object.get_status_display }}</p>
+      {% if object.published_at %}<p><span class="font-semibold">Published:</span> {{ object.published_at }}</p>{% endif %}
     </div>
   </div>
 
   {% if object.self_assessment %}
   <div class="bg-white rounded-xl shadow-soft p-6 border border-secondary-100">
-    <h3 class="text-xl font-semibold text-secondary-900 mb-2">Self-Assessment</h3>
+    <h3 class="text-xl font-semibold text-secondary-900 mb-2">Reviewer Assessment</h3>
     <p class="text-secondary-700 whitespace-pre-line">{{ object.self_assessment }}</p>
   </div>
   {% endif %}

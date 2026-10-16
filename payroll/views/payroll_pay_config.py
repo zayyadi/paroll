@@ -34,114 +34,48 @@ from accounting.models import Account, Journal
 from accounting.utils import create_journal_entry
 from payroll.views.payroll_helpers import _get_payroll_close_journal_transaction_number
 
-def add_pay(request):
-    form = PayrollForm(request.POST or None, user=request.user)
-    company = get_user_company(request.user)
-    if form.is_valid():
-        employee = form.cleaned_data["employee"]
-        basic_salary = form.cleaned_data["basic_salary"]
 
-        payroll_instance = Payroll.objects.create(
-            basic_salary=basic_salary,
-            company=company,
-        )
-        employee.employee_pay = payroll_instance
-        employee.save()
+def _queue_single_payslip_email(payroll_id) -> None:
+    """Queue single-payslip PDF+email after commit; never fail payroll creation."""
+    try:
+        def _enqueue() -> None:
+            try:
+                from core.background import send_celery_task
 
-        messages.success(request, "Pay created successfully")
-
-        # Create Journal Entries
-        try:
-            salary_expense_account = Account.objects.get(
-                company=company, name="Salary Expense"
-            )
-            pension_expense_account = Account.objects.get(
-                company=company, name="Pension Expense"
-            )
-            salaries_payable_account = Account.objects.get(
-                company=company, name="Salaries Payable"
-            )
-            pension_payable_account = Account.objects.get(
-                company=company, name="Pension Payable"
-            )
-            tax_payable_account = Account.objects.get(
-                company=company, name="PAYE Tax Payable"
-            )
-            nsitf_payable_account = Account.objects.get(
-                company=company, name="NSITF Payable"
-            )
-
-            entries = [
-                {
-                    "account": salary_expense_account,
-                    "entry_type": "DEBIT",
-                    "amount": payroll_instance.gross_income,
-                },
-                {
-                    "account": pension_expense_account,
-                    "entry_type": "DEBIT",
-                    "amount": payroll_instance.pension_employer,
-                },
-                {
-                    "account": salaries_payable_account,
-                    "entry_type": "CREDIT",
-                    "amount": employee.net_pay,
-                },
-                {
-                    "account": pension_payable_account,
-                    "entry_type": "CREDIT",
-                    "amount": payroll_instance.pension,
-                },
-                {
-                    "account": tax_payable_account,
-                    "entry_type": "CREDIT",
-                    "amount": payroll_instance.payee,
-                },
-                {
-                    "account": nsitf_payable_account,
-                    "entry_type": "CREDIT",
-                    "amount": payroll_instance.nsitf,
-                },
-            ]
-            create_journal_entry(
-                company=company,
-                date=timezone.now().date(),
-                description=f"Payroll for {employee.first_name} {employee.last_name}",
-                entries=entries,
-            )
-            messages.success(request, "Journal entries created successfully.")
-        except Account.DoesNotExist as e:
-            messages.error(request, f"Failed to create journal entries: {e}")
-        except Exception as e:
-            messages.error(request, f"An unexpected error occurred: {e}")
-
-        # Payslip email leaves the request immediately: PDF rendering and
-        # SMTP delivery run in Celery so slow providers never block payroll.
-        if employee and employee.user and employee.user.email:
-            from core.messaging import publish
-            from payroll.tasks.payslip_tasks import send_single_payslip_task
-
-            transaction.on_commit(
-                lambda: publish(
-                    send_single_payslip_task,
-                    payroll_instance.id,
-                    employee.id,
+                send_celery_task(
+                    "payroll.send_single_payslip_email",
+                    args=[payroll_id],
                     queue="notifications_normal",
                 )
-            )
-            messages.info(
-                request,
-                f"Payslip is being sent to {employee.user.email} in the background.",
-            )
+            except Exception as exc:
+                logger.exception(
+                    "Failed to enqueue single payslip email for payroll %s: %s",
+                    payroll_id,
+                    exc,
+                )
+
+        transaction.on_commit(_enqueue)
+    except Exception as exc:
+        logger.exception(
+            "Failed to schedule single payslip email for payroll %s: %s", payroll_id, exc
+        )
+
+@login_required
+@permission_required('payroll.change_payroll', raise_exception=True)
+def add_pay(request):
+    form = PayrollForm(request.POST or None, user=request.user)
+    if request.method == 'POST' and form.is_valid():
+        from payroll.financial_approval_actions import change_salary
+        from approvals.proposals import pending_response
+        try:
+            approval = change_salary(employee=form.cleaned_data['employee'],
+                basic_salary=form.cleaned_data['basic_salary'],user=request.user)
+        except ValidationError as exc:
+            form.add_error(None,exc)
         else:
-            messages.warning(request, "Employee email not found, payslip not sent.")
+            return pending_response(request,approval)
+    return render(request,'pay/add_pay.html',{'form':form})
 
-        return redirect("payroll:index")
-    context = {"form": form}
-    return render(request, "pay/add_pay.html", context)
-
-
-@permission_required("payroll.delete_payroll", raise_exception=True)
 
 def delete_pay(
     request, id

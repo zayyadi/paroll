@@ -3,6 +3,7 @@ from typing import Any
 
 from django.contrib.contenttypes.models import ContentType
 from django.db import transaction
+from django.core.exceptions import ValidationError
 
 from accounting.models import Account, Journal
 from accounting.utils import (
@@ -72,6 +73,8 @@ def _journal_exists_for_allowance(allowance: Allowance) -> bool:
 
 
 def calculate_leave_allowance_amount(leave_request: Any) -> Decimal:
+    if leave_request.leave_type != 'ANNUAL':
+        return Decimal('0.00')
     employee = leave_request.employee
     payroll = getattr(employee, "employee_pay", None)
     if not payroll:
@@ -110,6 +113,15 @@ def process_leave_allowance_for_request(
     """
     if leave_request.status != "APPROVED":
         return None
+    existing = Allowance.objects.filter(source_leave_request=leave_request).first()
+    if existing is not None and _journal_exists_for_allowance(existing):
+        return existing
+    from approvals.services import current_execution, execution_authorized
+    from approvals.guards import require_approved_context
+    execution = current_execution()
+    if execution is None or (not execution_authorized(leave_request, 'leave.approve') and execution.action != 'payroll.leave_allowance.backfill'):
+        raise ValidationError('Submit missing historical leave allowances for independent financial approval.')
+    require_approved_context(leave_request)
 
     amount = calculate_leave_allowance_amount(leave_request)
     if amount <= 0:

@@ -48,6 +48,15 @@ from payroll.permissions import (
 User = get_user_model()
 
 
+
+from tests.approval_helpers import approve_source, approve_request, approval_user
+
+def _approved_leave(**kwargs):
+    source = LeaveRequest.objects.create(**kwargs)
+    approve_source(source, "leave.approve")
+    return source
+
+
 class EmployeeViewSecurityTests(TestCase):
     @classmethod
     def setUpTestData(cls):
@@ -424,13 +433,12 @@ class AttendanceViewTests(TestCase):
         self.assertEqual(response.status_code, 200)
 
     def test_who_is_out_lists_leave_and_absence(self):
-        LeaveRequest.objects.create(
+        _approved_leave(
             employee=self.employee_profile,
             leave_type="ANNUAL",
             start_date=date.today(),
             end_date=date.today(),
             reason="Out today",
-            status="APPROVED",
         )
 
         AttendanceRecord.objects.create(
@@ -722,7 +730,7 @@ class WorkflowExecutionViewTests(TestCase):
             current_stage=stage,
             status=HiringCandidate.Status.IN_PROCESS,
         )
-        JobOffer.objects.create(
+        offer = JobOffer.objects.create(
             company=self.company,
             candidate=candidate,
             title="People Operations Lead",
@@ -730,10 +738,10 @@ class WorkflowExecutionViewTests(TestCase):
             salary_amount=Decimal("500000.00"),
             currency="NGN",
             start_date=date(2026, 7, 1),
-            status=JobOffer.Status.SENT,
             created_by=self.admin_user,
         )
 
+        approve_source(offer, "hiring.offer.release", maker=self.admin_user)
         response = self.client.get(reverse("payroll:workflow_overview"))
 
         self.assertEqual(response.status_code, 200)
@@ -859,6 +867,9 @@ class WorkflowExecutionViewTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 302)
+        from approvals.models import ApprovalRequest
+        request = ApprovalRequest.objects.get(action="hiring.advance", object_id=candidate.pk, status="PENDING")
+        approve_request(request)
         candidate.refresh_from_db()
         self.assertEqual(candidate.current_stage, review_stage)
 
@@ -878,6 +889,9 @@ class WorkflowExecutionViewTests(TestCase):
         self.assertEqual(response.status_code, 302)
         offer = JobOffer.objects.get(candidate=candidate)
         self.assertEqual(offer.created_by, self.admin_user)
+        from approvals.models import ApprovalRequest
+        request = ApprovalRequest.objects.get(action="hiring.offer.release", object_id=offer.pk, status="PENDING")
+        approve_request(request)
         candidate.refresh_from_db()
         self.assertEqual(candidate.status, HiringCandidate.Status.OFFER)
 

@@ -30,6 +30,24 @@ def initiate_offboarding(
             OffboardingTask.objects.create(
                 checklist=checklist, category=cat, title=title, order=order
             )
+        # Fan out a signed webhook when an exit/termination begins (P1-9).
+        # ``last_working_day`` may arrive as a str or date, so coerce.
+        from webhooks.services import emit_event
+
+        if hasattr(last_working_day, "isoformat"):
+            lwd = last_working_day.isoformat()
+        else:
+            lwd = str(last_working_day)
+        emit_event(
+            employee.company,
+            "employee.terminated",
+            {
+                "checklist_id": str(checklist.pk),
+                "employee_id": str(employee.pk),
+                "reason": reason,
+                "last_working_day": lwd,
+            },
+        )
     return checklist
 
 
@@ -43,26 +61,28 @@ def complete_task(*, task: Any, completed_by: Any, notes: str = "") -> Any:
 
 
 def calculate_final_settlement(*, checklist: Any) -> Decimal:
-    employee = checklist.employee
-    total = Decimal("0.00")
+    """Legacy one-number settlement summary (payables only).
 
-    if employee.employee_pay:
-        total += employee.employee_pay.basic / Decimal("12")
+    P2-15: the full statement (payables + receivables + asset recovery with
+    journal linkage) lives in ``ExitSettlement``; this delegates to the same
+    payables helper so the two can never disagree.
+    """
+    from payroll.services.exit_settlement_service import payables_for
 
-    from payroll.models.payroll import LeaveBalance
-
-    balance = LeaveBalance.objects.filter(employee=employee, year=timezone.now().year).first()
-    if balance:
-        total += Decimal(str(balance.annual_leave)) * (
-            employee.employee_pay.basic / Decimal("12") / Decimal("20")
-        )
+    payables = payables_for(checklist.employee)
+    total = payables["final_month_salary"] + payables["leave_encashment"]
 
     checklist.final_settlement_amount = total
     checklist.save(update_fields=["final_settlement_amount"])
     return total
 
 
-def complete_offboarding(*, checklist: Any) -> Any:
+def complete_offboarding(*, checklist: Any, actor: Any = None) -> Any:
+    from approvals.services import execution_authorized
+    if not execution_authorized(checklist, "offboarding.complete"):
+        from payroll.services.hr_workflow import decide
+        return decide(checklist, "offboarding.complete", actor)
+
     all_done = not checklist.tasks.filter(is_completed=False).exists()
     if not all_done:
         raise ValueError("All tasks must be completed before finalizing offboarding.")

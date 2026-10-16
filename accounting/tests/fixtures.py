@@ -3,6 +3,7 @@ Test fixtures for accounting tests.
 Provides factory methods for creating test data.
 """
 
+from tests.approval_helpers import approve_journal, post_journal
 from decimal import Decimal
 from datetime import date, timedelta
 from django.contrib.auth import get_user_model
@@ -580,7 +581,7 @@ class JournalFactory:
             description, amount, user=accountant
         )
         journal.submit_for_approval()
-        journal.approve(accountant)
+        journal = approve_journal(journal)
         return journal
 
     @staticmethod
@@ -590,7 +591,7 @@ class JournalFactory:
         journal = JournalFactory.create_approved_journal(
             description, amount, accountant
         )
-        journal.post(accountant)
+        journal = post_journal(journal)
         return journal
 
 

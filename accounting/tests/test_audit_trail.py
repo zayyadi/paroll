@@ -1,3 +1,8 @@
+from tests.approval_helpers import (
+    approved_operation_for,
+    approve_journal,
+)
+from decimal import Decimal
 """
 Comprehensive tests for audit trail functionality.
 This test suite ensures that all accounting operations are properly logged
@@ -253,7 +258,7 @@ class FiscalYearAuditTrailTest(TransactionTestCase):
         )
 
         # Close the fiscal year
-        fiscal_year.close(self.user)
+        approved_operation_for("accounting.change_fiscalyear")(fiscal_year.close,self.user)
 
         # Check audit trail entry
         audit_entry = AccountingAuditTrail.objects.get(
@@ -262,7 +267,8 @@ class FiscalYearAuditTrailTest(TransactionTestCase):
             action=AccountingAuditTrail.ActionType.CLOSE_FISCAL_YEAR,
         )
 
-        self.assertEqual(audit_entry.user, self.user)
+        self.assertEqual(audit_entry.user, fiscal_year.closed_by)
+        self.assertNotEqual(audit_entry.user, self.user)
         self.assertEqual(
             audit_entry.action, AccountingAuditTrail.ActionType.CLOSE_FISCAL_YEAR
         )
@@ -320,7 +326,7 @@ class AccountingPeriodAuditTrailTest(TransactionTestCase):
         )
 
         # Close the period
-        period.close(self.user)
+        approved_operation_for("accounting.change_accountingperiod")(period.close,self.user)
 
         # Check audit trail entry
         audit_entry = AccountingAuditTrail.objects.get(
@@ -329,7 +335,8 @@ class AccountingPeriodAuditTrailTest(TransactionTestCase):
             action=AccountingAuditTrail.ActionType.CLOSE_PERIOD,
         )
 
-        self.assertEqual(audit_entry.user, self.user)
+        self.assertEqual(audit_entry.user, period.closed_by)
+        self.assertNotEqual(audit_entry.user, self.user)
         self.assertEqual(
             audit_entry.action, AccountingAuditTrail.ActionType.CLOSE_PERIOD
         )
@@ -383,7 +390,7 @@ class JournalAuditTrailTest(TransactionTestCase):
             },
         ]
 
-        journal = create_journal_with_entries(
+        journal = approved_operation_for("accounting.change_journal")(create_journal_with_entries,
             date=date(2023, 1, 15),
             description="Test Journal",
             entries=entries,
@@ -413,8 +420,10 @@ class JournalAuditTrailTest(TransactionTestCase):
             created_by=self.user,
         )
 
+        journal.add_entry(self.account1, "DEBIT", Decimal("100.00"))
+        journal.add_entry(self.account2, "CREDIT", Decimal("100.00"))
         # Approve the journal
-        journal.approve(self.user)
+        approve_journal(journal)
 
         # Check audit trail entry
         audit_entry = AccountingAuditTrail.objects.get(
@@ -423,7 +432,10 @@ class JournalAuditTrailTest(TransactionTestCase):
             action=AccountingAuditTrail.ActionType.APPROVE,
         )
 
-        self.assertEqual(audit_entry.user, self.user)
+        self.assertEqual(audit_entry.user, journal.approved_by)
+        self.assertEqual(audit_entry.ip_address, "192.168.1.1")
+        self.assertEqual(audit_entry.user_agent, "Test Browser")
+        self.assertNotEqual(audit_entry.user, journal.created_by)
         self.assertEqual(audit_entry.action, AccountingAuditTrail.ActionType.APPROVE)
 
     def test_journal_posting_logged(self):
@@ -432,14 +444,16 @@ class JournalAuditTrailTest(TransactionTestCase):
             description="Test Journal",
             date=date(2023, 1, 15),
             period=self.period,
-            status=Journal.JournalStatus.APPROVED,
+            status=Journal.JournalStatus.DRAFT,
             created_by=self.user,
-            approved_by=self.user,
-            approved_at=timezone.now(),
         )
 
+        journal.add_entry(self.account1, "DEBIT", Decimal("100.00"))
+        journal.add_entry(self.account2, "CREDIT", Decimal("100.00"))
+
         # Post the journal
-        journal.post(self.user)
+        approve_journal(journal)
+        journal.post(journal.approved_by)
 
         # Check audit trail entry
         audit_entry = AccountingAuditTrail.objects.get(
@@ -448,7 +462,9 @@ class JournalAuditTrailTest(TransactionTestCase):
             action=AccountingAuditTrail.ActionType.POST,
         )
 
-        self.assertEqual(audit_entry.user, self.user)
+        self.assertEqual(audit_entry.user, journal.posted_by)
+        self.assertEqual(audit_entry.ip_address, "192.168.1.1")
+        self.assertEqual(audit_entry.user_agent, "Test Browser")
         self.assertEqual(audit_entry.action, AccountingAuditTrail.ActionType.POST)
 
     def test_journal_reversal_logged(self):
@@ -458,16 +474,17 @@ class JournalAuditTrailTest(TransactionTestCase):
             description="Original Journal",
             date=date(2023, 1, 15),
             period=self.period,
-            status=Journal.JournalStatus.POSTED,
+            status=Journal.JournalStatus.DRAFT,
             created_by=self.user,
-            approved_by=self.user,
-            approved_at=timezone.now(),
-            posted_by=self.user,
-            posted_at=timezone.now(),
         )
 
+        journal.add_entry(self.account1, "DEBIT", Decimal("100.00"))
+        journal.add_entry(self.account2, "CREDIT", Decimal("100.00"))
+        approve_journal(journal)
+        journal.post(journal.approved_by)
+
         # Reverse the journal
-        reversal_journal = journal.reverse(self.user, "Test reversal")
+        reversal_journal = approved_operation_for("accounting.change_journal")(journal.reverse,self.user, "Test reversal")
 
         # Check audit trail entries
         original_audit = AccountingAuditTrail.objects.get(
@@ -482,9 +499,9 @@ class JournalAuditTrailTest(TransactionTestCase):
             action=AccountingAuditTrail.ActionType.CREATE,
         )
 
-        self.assertEqual(original_audit.user, self.user)
+        self.assertEqual(original_audit.user, reversal_journal.created_by)
         self.assertEqual(original_audit.action, AccountingAuditTrail.ActionType.REVERSE)
-        self.assertEqual(reversal_audit.user, self.user)
+        self.assertEqual(reversal_audit.user, reversal_journal.created_by)
         self.assertEqual(reversal_audit.action, AccountingAuditTrail.ActionType.CREATE)
 
 
@@ -744,7 +761,7 @@ class AuditTrailIntegrationTest(TransactionTestCase):
             },
         ]
 
-        journal = create_journal_with_entries(
+        journal = approved_operation_for("accounting.change_journal")(create_journal_with_entries,
             date=date(2023, 1, 15),
             description="Test Journal",
             entries=entries,
@@ -754,16 +771,16 @@ class AuditTrailIntegrationTest(TransactionTestCase):
         )
 
         # Approve and post journal
-        post_journal(journal, self.user)
+        approved_operation_for("accounting.change_journal")(post_journal, journal, self.user)
 
         # Reverse the journal
-        reversal_journal = reverse_journal(journal, self.user, "Correction needed")
+        reversal_journal = approved_operation_for("accounting.change_journal")(reverse_journal, journal, self.user, "Correction needed")
 
         # Close the period
-        close_accounting_period(period, self.user, "Period closed")
+        approved_operation_for("accounting.change_accountingperiod")(close_accounting_period, period, self.user, "Period closed")
 
         # Close the fiscal year
-        close_fiscal_year(fiscal_year, self.user, "Fiscal year closed")
+        approved_operation_for("accounting.change_fiscalyear")(close_fiscal_year, fiscal_year, self.user, "Fiscal year closed")
 
         # Verify all audit trail entries exist
         audit_entries = AccountingAuditTrail.objects.filter(
@@ -779,9 +796,15 @@ class AuditTrailIntegrationTest(TransactionTestCase):
         self.assertIn(AccountingAuditTrail.ActionType.POST, actions)
         self.assertIn(AccountingAuditTrail.ActionType.REVERSE, actions)
 
-        # Verify user attribution
+        # Every effect records its actual independent checker or original maker.
+        expected_actors = {
+            (AccountingAuditTrail.ActionType.CREATE, journal.pk): journal.created_by,
+            (AccountingAuditTrail.ActionType.POST, journal.pk): journal.posted_by,
+            (AccountingAuditTrail.ActionType.REVERSE, journal.pk): reversal_journal.created_by,
+            (AccountingAuditTrail.ActionType.CREATE, reversal_journal.pk): reversal_journal.created_by,
+        }
         for entry in audit_entries:
-            self.assertEqual(entry.user, self.user)
+            self.assertEqual(entry.user, expected_actors[(entry.action, entry.object_id)], f"Wrong actor for {entry.action} on journal {entry.object_id}")
             self.assertEqual(entry.ip_address, "192.168.1.1")
             self.assertEqual(entry.user_agent, "Test Browser")
 

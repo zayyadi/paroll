@@ -1,5 +1,6 @@
 {# Sidebar navigation partial - used by both mobile and desktop sidebars #}
 <nav class="space-y-1">
+    <a href="{% url 'approvals:inbox' %}" class="sidebar-link {% if request.resolver_match.namespace == 'approvals' %}active{% endif %}"><i data-lucide="badge-check" class="sidebar-icon h-5 w-5 text-secondary-400"></i><span>Approvals</span></a>
     {# ── Dashboard ── #}
     <a href="{% url 'payroll:index' %}" class="sidebar-link {% if request.resolver_match.url_name == 'index' %}active{% endif %}">
         <i data-lucide="layout-dashboard" class="sidebar-icon h-5 w-5 text-secondary-400"></i>
@@ -189,6 +190,51 @@
     <a href="{% url 'accounting:reconciliation_list' %}" class="sidebar-link {% if 'reconciliation' in request.resolver_match.url_name %}active{% endif %}">
         <i data-lucide="check-square" class="sidebar-icon h-5 w-5 text-secondary-400"></i>
         <span>Reconciliation</span>
+    </a>
+
+    {# ── INVENTORY ── #}
+    <div class="pt-3 pb-1">
+        <p class="px-3 text-[10px] font-bold uppercase tracking-[0.24em] text-secondary-400">Inventory</p>
+    </div>
+    <a href="{% url 'inventory:dashboard' %}" class="sidebar-link {% if request.resolver_match.app_name == 'inventory' and request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
+        <i data-lucide="package" class="sidebar-icon h-5 w-5 text-secondary-400"></i>
+        <span>Inventory Dashboard</span>
+    </a>
+    <a href="{% url 'inventory:item_list' %}" class="sidebar-link {% if request.resolver_match.url_name == 'item_list' or request.resolver_match.url_name == 'item_detail' %}active{% endif %}">
+        <i data-lucide="box" class="sidebar-icon h-5 w-5 text-secondary-400"></i>
+        <span>Items</span>
+    </a>
+    <a href="{% url 'inventory:category_list' %}" class="sidebar-link {% if 'category' in request.resolver_match.url_name %}active{% endif %}">
+        <i data-lucide="tags" class="sidebar-icon h-5 w-5 text-secondary-400"></i>
+        <span>Categories</span>
+    </a>
+    <a href="{% url 'inventory:warehouse_list' %}" class="sidebar-link {% if 'warehouse' in request.resolver_match.url_name or 'location' in request.resolver_match.url_name %}active{% endif %}">
+        <i data-lucide="warehouse" class="sidebar-icon h-5 w-5 text-secondary-400"></i>
+        <span>Warehouses</span>
+    </a>
+    <a href="{% url 'inventory:stock_count_list' %}" class="sidebar-link {% if 'stock_count' in request.resolver_match.url_name %}active{% endif %}">
+        <i data-lucide="clipboard-check" class="sidebar-icon h-5 w-5 text-secondary-400"></i>
+        <span>Stock Counts</span>
+    </a>
+    <a href="{% url 'inventory:purchase_order_list' %}" class="sidebar-link {% if 'purchase_order' in request.resolver_match.url_name %}active{% endif %}">
+        <i data-lucide="shopping-cart" class="sidebar-icon h-5 w-5 text-secondary-400"></i>
+        <span>Purchase Orders</span>
+    </a>
+    <a href="{% url 'inventory:sales_order_list' %}" class="sidebar-link {% if 'sales_order' in request.resolver_match.url_name %}active{% endif %}">
+        <i data-lucide="shopping-bag" class="sidebar-icon h-5 w-5 text-secondary-400"></i>
+        <span>Sales Orders</span>
+    </a>
+    <a href="{% url 'inventory:movement_list' %}" class="sidebar-link {% if 'movement' in request.resolver_match.url_name %}active{% endif %}">
+        <i data-lucide="activity" class="sidebar-icon h-5 w-5 text-secondary-400"></i>
+        <span>Stock Movements</span>
+    </a>
+    <a href="{% url 'inventory:supplier_list' %}" class="sidebar-link {% if 'supplier' in request.resolver_match.url_name %}active{% endif %}">
+        <i data-lucide="truck" class="sidebar-icon h-5 w-5 text-secondary-400"></i>
+        <span>Suppliers</span>
+    </a>
+    <a href="{% url 'inventory:customer_list' %}" class="sidebar-link {% if 'customer' in request.resolver_match.url_name %}active{% endif %}">
+        <i data-lucide="users" class="sidebar-icon h-5 w-5 text-secondary-400"></i>
+        <span>Customers</span>
     </a>
 
     {# ── SETTINGS ── #}
@@ -438,4 +484,15 @@
         <span>Login</span>
     </a>
     {% endif %}
+{% if request.user.is_authenticated %}
+<a href="{% url 'payroll:timesheets' %}" class="sidebar-link">Timesheets</a>
+{% if perms.payroll.view_leavetype %}<a href="{% url 'payroll:leave_types' %}" class="sidebar-link">Leave types</a>{% endif %}
+{% if perms.payroll.view_employeeprofile and perms.payroll.view_payrollentry %}<a href="{% url 'payroll:people_analytics' %}" class="sidebar-link">People analytics</a>{% endif %}
+{% if perms.payroll.view_exitsettlement %}<a href="{% url 'payroll:hr_records' 'exit-settlements' %}" class="sidebar-link">Exit settlements</a>{% endif %}
+{% if perms.payroll.view_leaveledgerentry %}<a href="{% url 'payroll:hr_records' 'leave-ledger' %}" class="sidebar-link">Leave ledger</a>{% endif %}
+{% if perms.payroll.view_retropaydelta %}<a href="{% url 'payroll:hr_records' 'retro-pay-deltas' %}" class="sidebar-link">Retro pay</a>{% endif %}
+{% if perms.payroll.view_compreview %}<a href="{% url 'payroll:hr_records' 'comp-reviews' %}" class="sidebar-link">Compensation reviews</a>{% endif %}
+{% if perms.payroll.view_salaryband %}<a href="{% url 'payroll:hr_records' 'salary-bands' %}" class="sidebar-link">Salary bands</a>{% endif %}
+
+{% endif %}
 </nav>

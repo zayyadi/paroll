@@ -1,0 +1,19 @@
+{% extends "base_new.html" %}
+{% block content %}
+<div class="max-w-7xl mx-auto p-6 space-y-6">
+<h1 class="text-2xl font-bold">People analytics</h1>
+<form method="get">{{ form.as_p }}<button class="btn-primary" type="submit">Update report</button><button name="format" value="json" type="submit">Download JSON</button></form>
+{% if dataset %}
+<div class="grid md:grid-cols-3 gap-4">
+<div class="bento-card p-4">Active headcount <strong>{{ dataset.metrics.headcount.total }}</strong></div>
+<div class="bento-card p-4">Completed exits <strong>{{ dataset.metrics.attrition.terminations }}</strong></div>
+<div class="bento-card p-4">Attrition fraction <strong>{{ dataset.metrics.attrition.rate }}</strong></div>
+<div class="bento-card p-4">Absence days <strong>{{ dataset.metrics.absence.total_days }}</strong></div>
+<div class="bento-card p-4">Approved overtime hours <strong>{{ dataset.metrics.overtime.total_hours }}</strong></div>
+<div class="bento-card p-4">Payroll net pay <strong>{{ dataset.metrics.payroll_cost.total_net_pay }}</strong></div>
+</div>
+<h2>Headcount by department</h2><ul>{% for row in dataset.metrics.headcount.by_department %}<li>{{ row.department }}: {{ row.count }}</li>{% empty %}<li>No departments in this report.</li>{% endfor %}</ul>
+<h2>Payroll costs by run</h2><table class="min-w-full"><thead><tr><th>Period</th><th>Status</th><th>Employees</th><th>Net pay</th></tr></thead><tbody>{% for row in dataset.metrics.payroll_cost.runs %}<tr><td>{{ row.period }}</td><td>{{ row.status }}</td><td>{{ row.employees }}</td><td>{{ row.net_pay }}</td></tr>{% empty %}<tr><td colspan="4">No payroll runs.</td></tr>{% endfor %}</tbody></table>
+{% for metric, error in dataset.errors.items %}<p role="alert">{{ metric }}: {{ error }}</p>{% endfor %}
+{% endif %}
+</div>{% endblock %}

@@ -4,6 +4,7 @@ from django.shortcuts import render, redirect
 from django.urls import reverse
 from django.contrib.auth.views import LoginView
 from django.contrib import messages
+from django.db import transaction
 from django.contrib.auth import logout, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import (
@@ -42,6 +43,7 @@ except ImportError:  # pragma: no cover - optional social auth dependency.
 
 from users.forms import SignUpForm
 from users.models import CustomUser
+from users.activation import can_activate_registration
 from company.models import Company
 from company.utils import set_active_company
 
@@ -380,6 +382,8 @@ def _clear_otp_attempts(flow: str, email: str, ip: str):
 
 
 def send_registration_activation_email(request, user):
+    if not can_activate_registration(user):
+        return
     otp_timeout = getattr(settings, "REGISTRATION_OTP_TIMEOUT_SECONDS", 600)
     otp = generate_otp()
     cache.set(f"registration_otp_{user.email}", otp, timeout=otp_timeout)
@@ -490,6 +494,7 @@ class CustomRegisterView(RegisterView):
         if form.is_valid():
             user = form.save(commit=False)
             user.is_active = False  # Deactivate account until email is verified
+            user.registration_pending = True
             user.save()
             send_registration_activation_email(request, user)
             messages.success(
@@ -502,6 +507,7 @@ class CustomRegisterView(RegisterView):
         return render(request, "registration/register.html", {"form": form})
 
 
+@transaction.atomic
 def verify_registration_otp_view(request, email):
     ip = _get_client_ip(request)
     flow = "registration"
@@ -512,17 +518,18 @@ def verify_registration_otp_view(request, email):
             request, "registration/verify_registration_otp.html", {"email": email}
         )
 
-    user = CustomUser.objects.filter(email=email).first()
+    user = CustomUser.objects.select_for_update().filter(email=email).first()
 
     if request.method == "POST":
         user_otp = request.POST.get("otp")
         stored_otp = cache.get(f"registration_otp_{email}")
 
-        if user and (not user.is_active) and stored_otp and stored_otp == user_otp:
+        if can_activate_registration(user) and stored_otp and stored_otp == user_otp:
             cache.delete(f"registration_otp_{email}")
             _clear_otp_attempts(flow, email, ip)
             user.is_active = True
-            user.save(update_fields=["is_active"])
+            user.registration_pending = False
+            user.save(update_fields=["is_active", "registration_pending"])
             logger.info("Registration OTP verified for user_id=%s", user.id)
             messages.success(
                 request, "Email verified successfully. You can now log in."
@@ -541,19 +548,20 @@ def verify_registration_otp_view(request, email):
     )
 
 
+@transaction.atomic
 def activate_account_view(request, uidb64, token):
     user = None
     try:
         uid = force_str(urlsafe_base64_decode(uidb64))
-        user = CustomUser.objects.filter(pk=uid).first()
+        user = CustomUser.objects.select_for_update().filter(pk=uid).first()
     except (TypeError, ValueError, OverflowError):
         user = None
 
-    if user and default_token_generator.check_token(user, token):
-        if not user.is_active:
-            user.is_active = True
-            user.save(update_fields=["is_active"])
-            logger.info("Account activated by token for user_id=%s", user.id)
+    if can_activate_registration(user) and default_token_generator.check_token(user, token):
+        user.is_active = True
+        user.registration_pending = False
+        user.save(update_fields=["is_active", "registration_pending"])
+        logger.info("Registration account activated by token for user_id=%s", user.id)
         cache.delete(f"registration_otp_{user.email}")
         messages.success(request, "Account activated. You can now log in.")
         return redirect("users:login")
@@ -575,12 +583,13 @@ def activate_account_view(request, uidb64, token):
     )
 
 
+@transaction.atomic
 def resend_registration_activation_view(request, email):
     if request.method != "POST":
         return redirect(reverse("users:verify_registration_otp", kwargs={"email": email}))
 
-    user = CustomUser.objects.filter(email=email).first()
-    if user and not user.is_active:
+    user = CustomUser.objects.select_for_update().filter(email=email).first()
+    if can_activate_registration(user):
         allowed, message = get_resend_limit_status(email)
         if not allowed:
             messages.error(request, message)

@@ -4,16 +4,17 @@ from datetime import date
 from zoneinfo import ZoneInfo
 
 from django.db import models, transaction
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.conf import settings
 from django.shortcuts import get_object_or_404
 from django.urls import NoReverseMatch, reverse
 from django.utils.dateparse import parse_date
 from django.utils import timezone
 from django.utils.text import slugify
-from rest_framework import status, viewsets
+from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied, ValidationError as DRFValidationError
-from rest_framework.permissions import AllowAny, DjangoModelPermissions, IsAuthenticated
+from rest_framework.permissions import AllowAny, DjangoModelPermissions, IsAuthenticated, SAFE_METHODS
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from drf_spectacular.utils import extend_schema, inline_serializer
@@ -22,6 +23,33 @@ from rest_framework import serializers as drf_serializers
 from accounting.models import Account, AccountingPeriod, FiscalYear, Journal, JournalEntry
 from company.models import Company
 from company.utils import get_user_companies, get_user_company, set_active_company
+from inventory.models import (
+    Customer,
+    InventoryCategory,
+    InventoryDocument,
+    InventoryItem,
+    PurchaseOrder,
+    StockLocation,
+    StockMovement,
+    Supplier,
+    TaxJurisdiction,
+    TaxRule,
+    UnitOfMeasure,
+    Warehouse,
+)
+from inventory.services import (
+    post_customer_payment,
+    post_customer_return,
+    post_inventory_adjustment,
+    post_opening_stock,
+    post_purchase_receipt,
+    post_sales_invoice,
+    post_supplier_payment,
+    post_supplier_return,
+    post_tax_remittance,
+    post_stock_transfer,
+    receive_purchase_order,
+)
 from payroll.models import (
     Department,
     EmployeeProfile,
@@ -46,6 +74,9 @@ from api.v1.permissions import CanMutateAccounting, IsAccountingRole, IsTenantMe
 from api.v1.serializers import (
     AccountSerializer,
     AccountingPeriodSerializer,
+    CustomerPaymentSerializer,
+    CustomerReturnSerializer,
+    CustomerSerializer,
     CompanyMembershipSerializer,
     DepartmentSerializer,
     EmployeeProfileSerializer,
@@ -55,7 +86,14 @@ from api.v1.serializers import (
     JournalSerializer,
     LeavePolicySerializer,
     LeaveRequestSerializer,
+    InventoryAdjustmentSerializer,
+    InventoryCategorySerializer,
+    InventoryDocumentSerializer,
+    InventoryItemSerializer,
+    OpeningStockSerializer,
     PayrollEntrySerializer,
+    PurchaseOrderReceiveSerializer,
+    PurchaseOrderSerializer,
     PayrollRunEntrySerializer,
     PayrollRunSerializer,
     PayrollSerializer,
@@ -64,6 +102,19 @@ from api.v1.serializers import (
     StandupQuestionSerializer,
     StandupTeamMemberSerializer,
     StandupTeamSerializer,
+    StockLocationSerializer,
+    StockMovementSerializer,
+    StockTransferSerializer,
+    SupplierSerializer,
+    TaxJurisdictionSerializer,
+    TaxRuleSerializer,
+    SalesInvoiceSerializer,
+    SupplierPaymentSerializer,
+    SupplierReturnSerializer,
+    TaxRemittanceSerializer,
+    PurchaseReceiptSerializer,
+    UnitOfMeasureSerializer,
+    WarehouseSerializer,
 )
 
 
@@ -71,6 +122,7 @@ MOBILE_FEATURES = {
     "employees": "Employee directory, profile, and self-service context.",
     "payroll": "Payroll records, payroll runs, payslips, leave, and IOUs.",
     "accounting": "Accounts, fiscal years, periods, journals, and reports.",
+    "inventory": "Items, warehouses, suppliers, customers, purchase orders, and stock movements.",
     "standups": "Team standups, questions, check-ins, blockers, and follows.",
     "notifications": "Notification inbox, preferences, and delivery state.",
 }
@@ -81,6 +133,7 @@ def _enabled_mobile_features():
     flags = {
         "payroll": mobile_settings.get("ENABLE_PAYROLL", True),
         "accounting": mobile_settings.get("ENABLE_ACCOUNTING", True),
+        "inventory": mobile_settings.get("ENABLE_INVENTORY", True),
         "standups": mobile_settings.get("ENABLE_STANDUPS", True),
         "notifications": mobile_settings.get("ENABLE_NOTIFICATIONS", True),
     }
@@ -112,6 +165,10 @@ def _mobile_navigation_for_user(user):
         ).exists()
     ):
         navigation.append("accounting")
+    if "inventory" in enabled_features and user.has_perm(
+        "inventory.view_inventoryitem"
+    ):
+        navigation.append("inventory")
     return navigation
 
 
@@ -148,10 +205,29 @@ class TenantScopedModelViewSet(viewsets.ModelViewSet):
 
         field_name = self.company_filter_path.split("__")[0]
         model_fields = {field.name for field in serializer.Meta.model._meta.get_fields()}
-        if field_name in model_fields:
-            serializer.save(**{field_name: company})
+        if self.company_filter_path == 'company' and 'company' in model_fields:
+            serializer.save(company=company)
         else:
             serializer.save()
+
+
+class SuperuserOnlyAccountingMixin:
+    """
+    Temporary safety gate for accounting APIs until models are fully tenant-scoped.
+    Finance users are allowed read-only access; mutations remain superuser-only.
+    """
+
+    def _ensure_superuser(self):
+        from accounting.permissions import is_finance_user
+
+        request = self.request
+        if request.user.is_superuser:
+            return
+        if request.method in SAFE_METHODS and is_finance_user(request.user):
+            return
+        raise PermissionDenied(
+            "Accounting API access is temporarily restricted to superusers."
+        )
 
 
 class DepartmentViewSet(TenantScopedModelViewSet):
@@ -171,7 +247,7 @@ class EmployeeViewSet(TenantScopedModelViewSet):
     search_fields = ["first_name", "last_name", "email", "emp_id"]
     ordering_fields = ["created", "first_name", "last_name"]
 
-    @action(detail=False, methods=["get"], permission_classes=[IsAuthenticated, IsTenantMember, DjangoModelPermissions])
+    @action(detail=False, methods=["get"], permission_classes=[IsAuthenticated, IsTenantMember])
     def me(self, request):
         employee = get_object_or_404(self.get_queryset(), user=request.user)
         serializer = self.get_serializer(employee)
@@ -208,9 +284,9 @@ class PayrollRunViewSet(TenantScopedModelViewSet):
                 {"detail": "Payroll run is already closed."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        payroll_run.closed = True
-        payroll_run.save(update_fields=["closed"])
-        return Response({"detail": "Payroll run closed successfully."})
+        from payroll.financial_approval_actions import request_payroll_lock
+        approval = request_payroll_lock(payroll_run,request.user)
+        return Response({'detail':'Payroll locking is awaiting independent approval.','approval_id':approval.pk,'status':approval.status},status=202)
 
 
 class PayrollRunEntryViewSet(TenantScopedModelViewSet):
@@ -230,7 +306,11 @@ class LeavePolicyViewSet(TenantScopedModelViewSet):
     ordering_fields = ["leave_type", "max_days"]
 
 
-class LeaveRequestViewSet(TenantScopedModelViewSet):
+from payroll.api_hr_requests import HRRequestAPIMixin
+
+
+class LeaveRequestViewSet(HRRequestAPIMixin, TenantScopedModelViewSet):
+    hr_employee_field = "employee"
     queryset = LeaveRequest.objects.select_related("employee", "approved_by").all().order_by("-created_at")
     serializer_class = LeaveRequestSerializer
     company_filter_path = "employee__company"
@@ -241,7 +321,6 @@ class LeaveRequestViewSet(TenantScopedModelViewSet):
         if (
             leave_request.employee.user_id
             and leave_request.employee.user_id == self.request.user.id
-            and not self.request.user.is_superuser
         ):
             raise PermissionDenied("You cannot review your own leave request.")
         if leave_request.status != "PENDING":
@@ -253,22 +332,29 @@ class LeaveRequestViewSet(TenantScopedModelViewSet):
     def approve(self, request, pk=None):
         leave_request = self.get_object()
         self._ensure_can_review_leave(leave_request)
-        leave_request.status = "APPROVED"
-        leave_request.approved_by = request.user
-        leave_request.save(user=request.user)
-        return Response({"detail": "Leave request approved."})
+        from payroll.services.hr_workflow import decide_leave
+        from django.core.exceptions import ValidationError as DjangoValidationError
+        try:
+            result = decide_leave(leave=leave_request, actor=request.user)
+        except DjangoValidationError as exc:
+            raise DRFValidationError({"detail": exc.messages}) from exc
+        return Response({"approval_id": result.pk, "status": result.status})
 
     @action(detail=True, methods=["post"])
     def reject(self, request, pk=None):
         leave_request = self.get_object()
         self._ensure_can_review_leave(leave_request)
-        leave_request.status = "REJECTED"
-        leave_request.approved_by = request.user
-        leave_request.save(user=request.user)
-        return Response({"detail": "Leave request rejected."})
+        from payroll.services.hr_workflow import decide_leave
+        from django.core.exceptions import ValidationError as DjangoValidationError
+        try:
+            result = decide_leave(leave=leave_request, actor=request.user, decision="REJECT", comment=request.data.get("comment", ""))
+        except DjangoValidationError as exc:
+            raise DRFValidationError({"detail": exc.messages}) from exc
+        return Response({"approval_id": result.pk, "status": result.status})
 
 
-class IOUViewSet(TenantScopedModelViewSet):
+class IOUViewSet(HRRequestAPIMixin, TenantScopedModelViewSet):
+    hr_employee_field = "employee_id"
     queryset = IOU.objects.select_related("employee_id").all().order_by("-created_at")
     serializer_class = IOUSerializer
     company_filter_path = "employee_id__company"
@@ -279,7 +365,6 @@ class IOUViewSet(TenantScopedModelViewSet):
         if (
             iou.employee_id.user_id
             and iou.employee_id.user_id == self.request.user.id
-            and not self.request.user.is_superuser
         ):
             raise PermissionDenied("You cannot review your own IOU request.")
         if iou.status != "PENDING":
@@ -291,7 +376,6 @@ class IOUViewSet(TenantScopedModelViewSet):
         if (
             iou.employee_id.user_id
             and iou.employee_id.user_id == self.request.user.id
-            and not self.request.user.is_superuser
         ):
             raise PermissionDenied("You cannot settle your own IOU request.")
         if iou.status != "APPROVED":
@@ -303,26 +387,39 @@ class IOUViewSet(TenantScopedModelViewSet):
     def approve(self, request, pk=None):
         iou = self.get_object()
         self._ensure_can_review_iou(iou)
-        iou.status = "APPROVED"
-        iou.approved_at = timezone.now().date()
-        iou.save()
-        return Response({"detail": "IOU approved."})
+        from payroll.services.hr_workflow import decide_iou
+        from django.core.exceptions import ValidationError as DjangoValidationError
+        try:
+            result = decide_iou(iou=iou, actor=request.user)
+        except DjangoValidationError as exc:
+            raise DRFValidationError({"detail": exc.messages}) from exc
+        return Response({"approval_id": result.pk, "status": result.status})
 
     @action(detail=True, methods=["post"])
     def reject(self, request, pk=None):
         iou = self.get_object()
         self._ensure_can_review_iou(iou)
-        iou.status = "REJECTED"
-        iou.save()
-        return Response({"detail": "IOU rejected."})
+        from payroll.services.hr_workflow import decide_iou
+        from django.core.exceptions import ValidationError as DjangoValidationError
+        try:
+            result = decide_iou(iou=iou, actor=request.user, decision="REJECT", comment=request.data.get("comment", ""))
+        except DjangoValidationError as exc:
+            raise DRFValidationError({"detail": exc.messages}) from exc
+        return Response({"approval_id": result.pk, "status": result.status})
 
     @action(detail=True, methods=["post"])
     def mark_paid(self, request, pk=None):
         iou = self.get_object()
         self._ensure_can_mark_iou_paid(iou)
-        iou.status = "PAID"
-        iou.save()
-        return Response({"detail": "IOU marked as paid."})
+        from payroll.services.hr_workflow import decide_iou
+        from django.core.exceptions import ValidationError as DjangoValidationError
+        try:
+            result = decide_iou(iou=iou, actor=request.user, decision="SETTLE", comment=request.data.get("comment", ""),
+                    payload={key: request.data[key] for key in ("payment_method", "amount_received", "receipt_reference") if key in request.data})
+        except DjangoValidationError as exc:
+            raise DRFValidationError({"detail": exc.messages}) from exc
+        return Response({"approval_id": result.pk, "status": result.status})
+
 
 
 class AccountViewSet(TenantScopedModelViewSet):
@@ -345,8 +442,8 @@ class FiscalYearViewSet(TenantScopedModelViewSet):
     @action(detail=True, methods=["post"])
     def close(self, request, pk=None):
         fiscal_year = self.get_object()
-        fiscal_year.close(request.user)
-        return Response({"detail": "Fiscal year closed."})
+        approval=fiscal_year.close(request.user,approval_actor=request.user)
+        return Response({'approval_id':approval.pk,'status':approval.status,'detail':'Awaiting independent approval.'},status=202)
 
 
 class AccountingPeriodViewSet(TenantScopedModelViewSet):
@@ -360,8 +457,8 @@ class AccountingPeriodViewSet(TenantScopedModelViewSet):
     @action(detail=True, methods=["post"])
     def close(self, request, pk=None):
         period = self.get_object()
-        period.close(request.user)
-        return Response({"detail": "Accounting period closed."})
+        approval=period.close(request.user,approval_actor=request.user)
+        return Response({'approval_id':approval.pk,'status':approval.status,'detail':'Awaiting independent approval.'},status=202)
 
 
 class JournalViewSet(TenantScopedModelViewSet):
@@ -371,6 +468,9 @@ class JournalViewSet(TenantScopedModelViewSet):
     company_filter_path = "company"
     search_fields = ["transaction_number", "description", "status"]
     ordering_fields = ["created_at", "date", "status"]
+
+    def get_queryset(self):
+        return super().get_queryset()
 
     def perform_create(self, serializer):
         serializer.save(company=self.get_company(), created_by=self.request.user)
@@ -397,9 +497,8 @@ class JournalViewSet(TenantScopedModelViewSet):
     def reverse(self, request, pk=None):
         journal = self.get_object()
         reason = request.data.get("reason", "").strip() or "API reversal"
-        reversal = journal.reverse(request.user, reason)
-        data = self.get_serializer(reversal).data
-        return Response(data, status=status.HTTP_201_CREATED)
+        approval=journal.reverse(request.user,reason,approval_actor=request.user)
+        return Response({'approval_id':approval.pk,'status':approval.status,'detail':'Awaiting independent approval.'},status=202)
 
 
 class JournalEntryViewSet(TenantScopedModelViewSet):
@@ -411,16 +510,432 @@ class JournalEntryViewSet(TenantScopedModelViewSet):
     ordering_fields = ["created_at", "amount"]
 
     def perform_create(self, serializer):
-        company = self.get_company()
-        if company is None:
-            raise PermissionDenied("No active company is configured for this account.")
-        journal = serializer.validated_data.get("journal")
-        if journal is not None and journal.company_id != company.id:
-            raise PermissionDenied("Journal must belong to your company.")
-        account = serializer.validated_data.get("account")
-        if account is not None and account.company_id != company.id:
-            raise PermissionDenied("Account must belong to your company.")
         serializer.save(created_by=self.request.user)
+
+
+class UnitOfMeasureViewSet(TenantScopedModelViewSet):
+    queryset = UnitOfMeasure.objects.all().order_by("name")
+    serializer_class = UnitOfMeasureSerializer
+    search_fields = ["name", "abbreviation"]
+    ordering_fields = ["name", "abbreviation", "created_at"]
+
+
+class InventoryCategoryViewSet(TenantScopedModelViewSet):
+    queryset = InventoryCategory.objects.select_related(
+        "company",
+        "inventory_account",
+        "opening_balance_equity_account",
+        "adjustment_gain_account",
+        "shrinkage_expense_account",
+    ).all().order_by("name")
+    serializer_class = InventoryCategorySerializer
+    search_fields = ["name"]
+    ordering_fields = ["name", "created_at"]
+
+
+class InventoryItemViewSet(TenantScopedModelViewSet):
+    queryset = InventoryItem.objects.select_related(
+        "company", "category", "base_unit"
+    ).all().order_by("sku", "name")
+    serializer_class = InventoryItemSerializer
+    search_fields = ["sku", "name", "barcode"]
+    ordering_fields = ["sku", "name", "created_at", "reorder_point"]
+
+
+class TaxJurisdictionViewSet(TenantScopedModelViewSet):
+    queryset = TaxJurisdiction.objects.select_related("company").all().order_by(
+        "country_code", "code"
+    )
+    serializer_class = TaxJurisdictionSerializer
+    search_fields = ["code", "name", "country_code"]
+    ordering_fields = ["code", "name", "country_code", "created_at"]
+
+
+class TaxRuleViewSet(TenantScopedModelViewSet):
+    queryset = TaxRule.objects.select_related("company", "jurisdiction").all().order_by(
+        "jurisdiction__code", "tax_type", "-effective_from"
+    )
+    serializer_class = TaxRuleSerializer
+    search_fields = ["jurisdiction__code", "jurisdiction__name", "tax_type"]
+    ordering_fields = ["tax_type", "transaction_type", "rate", "effective_from"]
+
+
+class WarehouseViewSet(TenantScopedModelViewSet):
+    queryset = Warehouse.objects.select_related("company").all().order_by("code")
+    serializer_class = WarehouseSerializer
+    search_fields = ["code", "name"]
+    ordering_fields = ["code", "name", "created_at"]
+
+
+class StockLocationViewSet(TenantScopedModelViewSet):
+    queryset = StockLocation.objects.select_related("company", "warehouse").all().order_by(
+        "warehouse__code", "code"
+    )
+    serializer_class = StockLocationSerializer
+    search_fields = ["code", "name", "warehouse__code"]
+    ordering_fields = ["code", "name", "created_at"]
+
+
+class SupplierViewSet(TenantScopedModelViewSet):
+    queryset = Supplier.objects.select_related("company", "payable_account").all().order_by("name")
+    serializer_class = SupplierSerializer
+    search_fields = ["name", "contact_name", "email", "phone"]
+    ordering_fields = ["name", "created_at"]
+
+
+class CustomerViewSet(TenantScopedModelViewSet):
+    queryset = Customer.objects.select_related(
+        "company", "receivable_account", "wht_receivable_account"
+    ).all().order_by("name")
+    serializer_class = CustomerSerializer
+    search_fields = ["name", "contact_name", "email", "phone"]
+    ordering_fields = ["name", "created_at"]
+
+
+class PurchaseOrderViewSet(TenantScopedModelViewSet):
+    queryset = (
+        PurchaseOrder.objects.select_related("company", "supplier")
+        .prefetch_related("lines__item")
+        .all()
+        .order_by("-order_date", "-created_at")
+    )
+    serializer_class = PurchaseOrderSerializer
+    search_fields = ["reference", "supplier__name", "notes"]
+    ordering_fields = ["order_date", "created_at", "status"]
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        try:
+            approval = serializer.save()
+        except (ValueError, DjangoValidationError) as exc:
+            raise DRFValidationError({'detail': str(exc)}) from exc
+        from approvals.models import ApprovalRequest
+        if isinstance(approval, ApprovalRequest):
+            return Response({'detail':'Awaiting independent approval.','approval_id':approval.pk,'status':approval.status},status=202)
+        return Response(self.get_serializer(approval).data,status=201)
+
+    @action(detail=True, methods=["post"])
+    def receive(self, request, pk=None):
+        purchase_order = self.get_object()
+        serializer = PurchaseOrderReceiveSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        try:
+            document = receive_purchase_order(
+                approval_actor=request.user,
+                company=self.get_company(),
+                purchase_order=purchase_order,
+                location=data["location"],
+                lines=data["lines"],
+                vat_input_account=data.get("vat_input_account"),
+                posting_date=data.get("posting_date"),
+                reference=data.get("reference", ""),
+                reason=data.get("reason", "Purchase order receipt"),
+            )
+        except (ValueError, DjangoValidationError) as exc:
+            raise DRFValidationError({"detail": str(exc)})
+        from approvals.models import ApprovalRequest
+        if isinstance(document, ApprovalRequest):
+            return Response({'detail':'Awaiting independent approval.','approval_id':document.pk,'status':document.status},status=202)
+        return Response(InventoryDocumentSerializer(document, context=self.get_serializer_context()).data,status=201)
+
+
+class InventoryDocumentViewSet(TenantScopedModelViewSet):
+    queryset = InventoryDocument.objects.select_related("company", "journal").all().order_by(
+        "-document_date", "-created_at"
+    )
+    serializer_class = InventoryDocumentSerializer
+    search_fields = ["reference", "reason", "document_type"]
+    ordering_fields = ["document_date", "created_at", "document_type", "status"]
+
+    def _operation_response(self, document):
+        from approvals.models import ApprovalRequest
+        if isinstance(document,ApprovalRequest):
+            return Response({'detail':'Awaiting independent approval.','approval_id':document.pk,'status':document.status},status=202)
+        return Response(self.get_serializer(document).data,status=201)
+
+    @action(detail=False, methods=["post"], url_path="opening-stock")
+    def opening_stock(self, request):
+        serializer = OpeningStockSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        company = self.get_company()
+        data = serializer.validated_data
+        try:
+            document = post_opening_stock(
+                approval_actor=request.user,
+                company=company,
+                item=data["item"],
+                location=data["location"],
+                quantity=data["quantity"],
+                unit_cost=data["unit_cost"],
+                posting_date=data.get("posting_date"),
+                reference=data.get("reference", ""),
+                reason=data.get("reason", "Opening stock"),
+            )
+        except (ValueError, DjangoValidationError) as exc:
+            raise DRFValidationError({"detail": str(exc)})
+        return self._operation_response(document)
+
+    @action(detail=False, methods=["post"], url_path="purchase-receipt")
+    def purchase_receipt(self, request):
+        serializer = PurchaseReceiptSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        company = self.get_company()
+        data = serializer.validated_data
+        line = {
+            "item": data["item"],
+            "quantity": data["quantity"],
+            "unit_cost": data["unit_cost"],
+        }
+        if "vat_rate" in data:
+            line["vat_rate"] = data["vat_rate"]
+        if "wht_rate" in data:
+            line["wht_rate"] = data["wht_rate"]
+        try:
+            document = post_purchase_receipt(
+                approval_actor=request.user,
+                company=company,
+                supplier=data["supplier"],
+                location=data["location"],
+                lines=[line],
+                vat_input_account=data.get("vat_input_account"),
+                posting_date=data.get("posting_date"),
+                reference=data.get("reference", ""),
+                reason=data.get("reason", "Purchase receipt"),
+            )
+        except (ValueError, DjangoValidationError) as exc:
+            raise DRFValidationError({"detail": str(exc)})
+        return self._operation_response(document)
+
+    @action(detail=False, methods=["post"], url_path="sales-invoice")
+    def sales_invoice(self, request):
+        serializer = SalesInvoiceSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        company = self.get_company()
+        data = serializer.validated_data
+        line = {
+            "item": data["item"],
+            "quantity": data["quantity"],
+            "unit_price": data["unit_price"],
+        }
+        if "vat_rate" in data:
+            line["vat_rate"] = data["vat_rate"]
+        if "wht_rate" in data:
+            line["wht_rate"] = data["wht_rate"]
+        try:
+            document = post_sales_invoice(
+                approval_actor=request.user,
+                company=company,
+                customer=data["customer"],
+                location=data["location"],
+                lines=[line],
+                vat_output_account=data.get("vat_output_account"),
+                posting_date=data.get("posting_date"),
+                reference=data.get("reference", ""),
+                reason=data.get("reason", "Sales invoice"),
+            )
+        except (ValueError, DjangoValidationError) as exc:
+            raise DRFValidationError({"detail": str(exc)})
+        return self._operation_response(document)
+
+    @action(detail=False, methods=["post"], url_path="customer-return")
+    def customer_return(self, request):
+        serializer = CustomerReturnSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        company = self.get_company()
+        data = serializer.validated_data
+        try:
+            document = post_customer_return(
+                approval_actor=request.user,
+                company=company,
+                customer=data["customer"],
+                location=data["location"],
+                lines=[
+                    {
+                        "item": data["item"],
+                        "quantity": data["quantity"],
+                        "unit_price": data["unit_price"],
+                        "unit_cost": data["unit_cost"],
+                        "vat_rate": data.get("vat_rate", 0),
+                        "wht_rate": data.get("wht_rate", 0),
+                    }
+                ],
+                vat_output_account=data.get("vat_output_account"),
+                posting_date=data.get("posting_date"),
+                reference=data.get("reference", ""),
+                reason=data.get("reason", "Customer return"),
+            )
+        except (ValueError, DjangoValidationError) as exc:
+            raise DRFValidationError({"detail": str(exc)})
+        return self._operation_response(document)
+
+    @action(detail=False, methods=["post"], url_path="supplier-return")
+    def supplier_return(self, request):
+        serializer = SupplierReturnSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        company = self.get_company()
+        data = serializer.validated_data
+        try:
+            document = post_supplier_return(
+                approval_actor=request.user,
+                company=company,
+                supplier=data["supplier"],
+                location=data["location"],
+                lines=[
+                    {
+                        "item": data["item"],
+                        "quantity": data["quantity"],
+                        "unit_cost": data["unit_cost"],
+                        "vat_rate": data.get("vat_rate", 0),
+                        "wht_rate": data.get("wht_rate", 0),
+                    }
+                ],
+                vat_input_account=data.get("vat_input_account"),
+                posting_date=data.get("posting_date"),
+                reference=data.get("reference", ""),
+                reason=data.get("reason", "Supplier return"),
+            )
+        except (ValueError, DjangoValidationError) as exc:
+            raise DRFValidationError({"detail": str(exc)})
+        return self._operation_response(document)
+
+    @action(detail=False, methods=["post"], url_path="customer-payment")
+    def customer_payment(self, request):
+        serializer = CustomerPaymentSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        company = self.get_company()
+        data = serializer.validated_data
+        try:
+            document = post_customer_payment(
+                approval_actor=request.user,
+                company=company,
+                customer=data["customer"],
+                cash_account=data["cash_account"],
+                amount=data["amount"],
+                posting_date=data.get("posting_date"),
+                reference=data.get("reference", ""),
+                reason=data.get("reason", "Customer payment"),
+            )
+        except (ValueError, DjangoValidationError) as exc:
+            raise DRFValidationError({"detail": str(exc)})
+        return self._operation_response(document)
+
+    @action(detail=False, methods=["post"], url_path="supplier-payment")
+    def supplier_payment(self, request):
+        serializer = SupplierPaymentSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        company = self.get_company()
+        data = serializer.validated_data
+        try:
+            document = post_supplier_payment(
+                approval_actor=request.user,
+                company=company,
+                supplier=data["supplier"],
+                cash_account=data["cash_account"],
+                amount=data["amount"],
+                posting_date=data.get("posting_date"),
+                reference=data.get("reference", ""),
+                reason=data.get("reason", "Supplier payment"),
+            )
+        except (ValueError, DjangoValidationError) as exc:
+            raise DRFValidationError({"detail": str(exc)})
+        return self._operation_response(document)
+
+    @action(detail=False, methods=["post"], url_path="tax-remittance")
+    def tax_remittance(self, request):
+        serializer = TaxRemittanceSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        company = self.get_company()
+        data = serializer.validated_data
+        try:
+            document = post_tax_remittance(
+                approval_actor=request.user,
+                company=company,
+                cash_account=data["cash_account"],
+                vat_output_account=data.get("vat_output_account"),
+                vat_input_account=data.get("vat_input_account"),
+                wht_payable_account=data.get("wht_payable_account"),
+                vat_output_amount=data.get("vat_output_amount", 0),
+                vat_input_amount=data.get("vat_input_amount", 0),
+                wht_amount=data.get("wht_amount", 0),
+                posting_date=data.get("posting_date"),
+                reference=data.get("reference", ""),
+                reason=data.get("reason", "Tax remittance"),
+            )
+        except (ValueError, DjangoValidationError) as exc:
+            raise DRFValidationError({"detail": str(exc)})
+        return self._operation_response(document)
+
+    @action(detail=False, methods=["post"], url_path="adjustment")
+    def adjustment(self, request):
+        serializer = InventoryAdjustmentSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        company = self.get_company()
+        data = serializer.validated_data
+        try:
+            document = post_inventory_adjustment(
+                approval_actor=request.user,
+                company=company,
+                item=data["item"],
+                location=data["location"],
+                quantity_delta=data["quantity_delta"],
+                unit_cost=data.get("unit_cost"),
+                posting_date=data.get("posting_date"),
+                reference=data.get("reference", ""),
+                reason=data.get("reason", "Inventory adjustment"),
+            )
+        except (ValueError, DjangoValidationError) as exc:
+            raise DRFValidationError({"detail": str(exc)})
+        return self._operation_response(document)
+
+    @action(detail=False, methods=["post"], url_path="transfer")
+    def transfer(self, request):
+        serializer = StockTransferSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        company = self.get_company()
+        data = serializer.validated_data
+        try:
+            document = post_stock_transfer(
+                approval_actor=request.user,
+                company=company,
+                item=data["item"],
+                from_location=data["from_location"],
+                to_location=data["to_location"],
+                quantity=data["quantity"],
+                posting_date=data.get("posting_date"),
+                reference=data.get("reference", ""),
+                reason=data.get("reason", "Stock transfer"),
+            )
+        except (ValueError, DjangoValidationError) as exc:
+            raise DRFValidationError({"detail": str(exc)})
+        return self._operation_response(document)
+
+
+class StockMovementViewSet(
+    mixins.ListModelMixin,
+    mixins.RetrieveModelMixin,
+    viewsets.GenericViewSet,
+):
+    permission_classes = [IsAuthenticated, IsTenantMember]
+    serializer_class = StockMovementSerializer
+    search_fields = ["item__sku", "item__name", "location__code", "memo"]
+    ordering_fields = ["movement_date", "created_at", "quantity", "total_cost"]
+
+    def get_queryset(self):
+        company = get_user_company(self.request.user)
+        if company is None:
+            return StockMovement.objects.none()
+        queryset = StockMovement.objects.select_related(
+            "company", "document", "item", "location", "location__warehouse"
+        ).filter(company=company)
+        item_id = self.request.query_params.get("item")
+        location_id = self.request.query_params.get("location")
+        if item_id:
+            queryset = queryset.filter(item_id=item_id)
+        if location_id:
+            queryset = queryset.filter(location_id=location_id)
+        return queryset.order_by("-movement_date", "-created_at")
 
 
 class StandupTeamViewSet(TenantScopedModelViewSet):

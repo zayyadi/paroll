@@ -1,3 +1,4 @@
+from django.core.exceptions import ValidationError
 from django.contrib.auth.decorators import login_required, permission_required
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
@@ -81,11 +82,19 @@ def overtime_approve(request, pk):
 
     if request.method == "POST":
         action = request.POST.get("action")
-        if action == "approve":
-            approve_overtime(entry=entry, approved_by=request.user)
-            messages.success(request, f"Overtime for {entry.employee} approved.")
-        elif action == "reject":
-            reject_overtime(entry=entry, approved_by=request.user)
-            messages.warning(request, f"Overtime for {entry.employee} rejected.")
+        try:
+            if action == "approve":
+                result = approve_overtime(entry=entry, approved_by=request.user)
+                if result.status == "PENDING":
+                    messages.info(request, "Approval recorded; awaiting the next stage.")
+                else:
+                    messages.success(request, "Overtime approval completed.")
+            elif action == "reject":
+                reject_overtime(entry=entry, approved_by=request.user, comment=request.POST.get("comment", ""))
+                messages.warning(request, "Overtime request rejected.")
+            else:
+                messages.error(request, "Select an approval decision.")
+        except (ValidationError, ValueError) as exc:
+            messages.error(request, "; ".join(exc.messages) if isinstance(exc, ValidationError) else str(exc))
 
     return redirect("payroll:overtime_entries")

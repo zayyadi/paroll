@@ -1,3 +1,6 @@
+from tests.approval_helpers import (
+    approve_journal,
+)
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from django.template.loader import render_to_string
@@ -23,8 +26,8 @@ class TrialBalanceReportTemplateTests(TestCase):
             "Trial Balance Journal", 1000, user=self.auditor
         )
         self.journal.submit_for_approval()
-        self.journal.approve(self.auditor)
-        self.journal.post(self.auditor)
+        approve_journal(self.journal)
+        self.journal.post(self.journal.approved_by)
         self.period = self.journal.period
         self.client.force_login(self.auditor)
 

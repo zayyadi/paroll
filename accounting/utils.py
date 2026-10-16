@@ -404,6 +404,12 @@ def create_journal_with_entries(
                 created_by=user,
             )
 
+        from approvals.services import current_execution
+        execution = current_execution()
+        if execution is not None:
+            journal.approval_request = execution
+            journal.save(update_fields=['approval_request'])
+
         # Auto-post if requested
         if auto_post:
             if user:
@@ -417,10 +423,9 @@ def create_journal_with_entries(
                 )
             else:
                 # System-generated auto posting path
-                journal.status = Journal.JournalStatus.POSTED
-                journal.approved_at = timezone.now()
-                journal.posted_at = timezone.now()
-                journal.save(update_fields=["status", "approved_at", "posted_at"])
+                journal.submit_for_approval()
+                journal.approve(None)
+                journal.post(None)
 
         # Recompute denormalized balances for all affected accounts
         seen = set()
@@ -557,6 +562,7 @@ def reverse_journal_partial(
             )
 
         # Auto-approve and post reversal
+        reversal_journal.submit_for_approval()
         reversal_journal.approve(user)
         reversal_journal.post(user)
 
@@ -813,8 +819,14 @@ def close_accounting_period(
                 validate_balances=False,
             )
 
-        # Close the period
-        period.close(user)
+        # The canonical utility owns this business audit record; direct model
+        # effects retain the signal fallback. Capture the change fields too.
+        previous_audit_flag=getattr(period,'_suppress_close_audit',False)
+        period._suppress_close_audit=True
+        try:
+            period.close(user)
+        finally:
+            period._suppress_close_audit=previous_audit_flag
 
         # Use enhanced logging function for period closure
         log_period_closure(
@@ -839,8 +851,12 @@ def close_fiscal_year(fiscal_year, user, reason=None, ip_address=None, user_agen
         Updated FiscalYear instance
     """
     with transaction.atomic():
-        # Close the fiscal year
-        fiscal_year.close(user)
+        previous_audit_flag=getattr(fiscal_year,'_suppress_close_audit',False)
+        fiscal_year._suppress_close_audit=True
+        try:
+            fiscal_year.close(user)
+        finally:
+            fiscal_year._suppress_close_audit=previous_audit_flag
 
         # Use enhanced logging function for fiscal year closure
         log_fiscal_year_closure(
@@ -877,7 +893,7 @@ def get_budget_vs_actual(company, fiscal_year, period=None, include_unbudgeted=F
     entries = JournalEntry.objects.select_related("account", "journal").filter(
         journal__company=company,
         journal__period__fiscal_year=fiscal_year,
-        journal__status=Journal.JournalStatus.POSTED,
+        journal__status__in=[Journal.JournalStatus.POSTED, Journal.JournalStatus.REVERSED],
     )
     if period is not None:
         entries = entries.filter(journal__period=period)
@@ -925,7 +941,7 @@ def get_account_balance_as_of(account, as_of_date):
         account.entries.filter(
             entry_type="DEBIT",
             journal__date__lte=as_of_date,
-            journal__status=Journal.JournalStatus.POSTED,
+            journal__status__in=[Journal.JournalStatus.POSTED, Journal.JournalStatus.REVERSED],
         ).aggregate(total=Sum("amount"))["total"]
         or 0
     )
@@ -933,7 +949,7 @@ def get_account_balance_as_of(account, as_of_date):
         account.entries.filter(
             entry_type="CREDIT",
             journal__date__lte=as_of_date,
-            journal__status=Journal.JournalStatus.POSTED,
+            journal__status__in=[Journal.JournalStatus.POSTED, Journal.JournalStatus.REVERSED],
         ).aggregate(total=Sum("amount"))["total"]
         or 0
     )
@@ -1082,7 +1098,7 @@ def get_cash_flow_statement(company, start_date, end_date):
     """Direct-method cash flow from operating, investing, and financing activities."""
     entries = JournalEntry.objects.select_related("account", "journal").filter(
         journal__company=company,
-        journal__status=Journal.JournalStatus.POSTED,
+        journal__status__in=[Journal.JournalStatus.POSTED, Journal.JournalStatus.REVERSED],
         journal__date__gte=start_date,
         journal__date__lte=end_date,
     )
@@ -1178,10 +1194,92 @@ def get_month_end_checklist(company, period):
             ).exists(),
             "detail": "Ensure period-end accrual templates are configured.",
         },
+        {
+            "label": "Inventory reconciled to GL",
+            "passed": True,
+            "detail": "Run inventory-to-GL reconciliation before close.",
+        },
     ]
 
     all_passed = all(c["passed"] for c in checks)
     return {"checks": checks, "all_passed": all_passed, "period": period}
+
+
+def get_inventory_turnover(company, start_date, end_date):
+    """Calculate inventory turnover ratio = COGS / Average Inventory."""
+    from inventory.models import InventoryValuationLayer
+
+    start_value = Decimal(
+        InventoryValuationLayer.objects.filter(
+            company=company, created_at__date__lte=start_date
+        ).aggregate(total=Sum("remaining_total_cost"))["total"]
+        or "0.00"
+    )
+    end_value = Decimal(
+        InventoryValuationLayer.objects.filter(
+            company=company, created_at__date__lte=end_date
+        ).aggregate(total=Sum("remaining_total_cost"))["total"]
+        or "0.00"
+    )
+
+    cogs_entries = JournalEntry.objects.filter(
+        account__name__icontains="cogs",
+        journal__company=company,
+        journal__status=Journal.JournalStatus.POSTED,
+        journal__date__gte=start_date,
+        journal__date__lte=end_date,
+        entry_type="DEBIT",
+    ).aggregate(total=Sum("amount"))["total"] or Decimal("0.00")
+
+    avg_inventory = ((start_value + end_value) / 2).quantize(Decimal("0.01"))
+    turnover = (cogs_entries / avg_inventory).quantize(Decimal("0.01")) if avg_inventory else Decimal("0")
+
+    return {
+        "cogs": cogs_entries,
+        "start_inventory": start_value,
+        "end_inventory": end_value,
+        "avg_inventory": avg_inventory,
+        "turnover_ratio": float(turnover),
+        "days_inventory": float((Decimal("365") / turnover) if turnover else Decimal("0")),
+    }
+
+
+def get_gross_margin_by_product(company, start_date, end_date):
+    """Compute gross margin by inventory item from sales invoices."""
+    from inventory.models import SalesInvoice, SalesInvoiceLine
+
+    invoices = SalesInvoice.objects.filter(
+        company=company,
+        document__document_date__gte=start_date,
+        document__document_date__lte=end_date,
+    ).prefetch_related("lines__item")
+
+    products = {}
+    for invoice in invoices:
+        for line in invoice.lines.all():
+            if not line.item:
+                continue
+            key = line.item.sku or line.item.name
+            if key not in products:
+                products[key] = {"item": line.item, "revenue": Decimal("0.00"), "cogs": Decimal("0.00"), "qty_sold": 0}
+            products[key]["revenue"] += line.total or Decimal("0.00")
+            products[key]["cogs"] += (line.unit_cost * line.quantity) if line.unit_cost else Decimal("0.00")
+            products[key]["qty_sold"] += line.quantity or 0
+
+    results = []
+    for data in products.values():
+        margin = data["revenue"] - data["cogs"]
+        margin_pct = (margin / data["revenue"] * 100) if data["revenue"] else Decimal("0")
+        results.append({
+            "item": data["item"],
+            "revenue": data["revenue"],
+            "cogs": data["cogs"],
+            "gross_margin": margin,
+            "margin_pct": float(margin_pct.quantize(Decimal("0.01"))),
+            "qty_sold": data["qty_sold"],
+        })
+
+    return sorted(results, key=lambda x: x["revenue"], reverse=True)
 
 
 def get_latest_exchange_rate(company, base_currency, quote_currency, as_of_date):

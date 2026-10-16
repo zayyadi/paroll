@@ -1,3 +1,6 @@
+from tests.approval_helpers import (
+    approved_operation_for,
+)
 from decimal import Decimal
 from datetime import date
 
@@ -62,7 +65,7 @@ class BankReconciliationTest(TestCase):
 
         # Post some deposits
         from accounting.utils import create_journal_with_entries
-        self.j1 = create_journal_with_entries(
+        self.j1 = approved_operation_for("accounting.change_journal")(create_journal_with_entries,
             company=self.company, date=date(2026, 5, 10),
             description="Customer payment",
             entries=[
@@ -72,7 +75,7 @@ class BankReconciliationTest(TestCase):
             user=self.user, fiscal_year=self.fiscal_year, period=self.period,
             auto_post=True, validate_balances=False,
         )
-        self.j2 = create_journal_with_entries(
+        self.j2 = approved_operation_for("accounting.change_journal")(create_journal_with_entries,
             company=self.company, date=date(2026, 5, 15),
             description="Rent payment",
             entries=[
@@ -139,18 +142,18 @@ class BankReconciliationTest(TestCase):
         recon = create_bank_reconciliation(
             self.company, self.bank_account, self.period, self.user, self.bank_txs_data
         )
-        recon = approve_reconciliation(recon, self.user)
+        recon = approved_operation_for("accounting.change_accountreconciliation")(approve_reconciliation, recon, self.user)
         self.assertEqual(recon.status, "APPROVED")
-        self.assertEqual(recon.approved_by, self.user)
+        self.assertNotEqual(recon.approved_by, self.user)
         self.assertIsNotNone(recon.approved_at)
 
     def test_approve_already_approved_raises(self):
         recon = create_bank_reconciliation(
             self.company, self.bank_account, self.period, self.user, self.bank_txs_data
         )
-        approve_reconciliation(recon, self.user)
+        approved_operation_for("accounting.change_accountreconciliation")(approve_reconciliation, recon, self.user)
         with self.assertRaises(ValidationError):
-            approve_reconciliation(recon, self.user)
+            approved_operation_for("accounting.change_accountreconciliation")(approve_reconciliation, recon, self.user)
 
     def test_reconciliation_rejects_non_asset_account(self):
         recon = create_bank_reconciliation(

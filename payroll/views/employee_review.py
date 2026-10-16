@@ -52,7 +52,9 @@ class ReviewCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
         appraisal = get_object_or_404(models.Appraisal, pk=self.kwargs["appraisal_pk"])
         employee = get_object_or_404(models.EmployeeProfile, pk=self.kwargs["employee_pk"])
         company = get_user_company(self.request.user)
-        if company and (
+        if not company:
+            raise PermissionDenied("Select a company before accessing appraisals.")
+        if (
             appraisal.company_id != company.id or employee.company_id != company.id
         ):
             raise Http404("Appraisal or employee not found in your company.")
@@ -69,6 +71,8 @@ class ReviewCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
         return kwargs
 
     def dispatch(self, request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return self.handle_no_permission()
         appraisal, employee = self._get_targets()
         requester_profile = getattr(request.user, "employee_user", None)
         if requester_profile is None:
@@ -107,6 +111,9 @@ class ReviewCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
         rating_formset = context["rating_formset"]
         if not rating_formset.is_valid() or not self._validate_unique_metrics(rating_formset):
             return self.render_to_response(self.get_context_data(form=form))
+        if self.request.POST.get("action") != "draft" and not any(item.cleaned_data.get("metric") for item in rating_formset.forms):
+            form.add_error(None, "Add at least one metric rating before submitting this review.")
+            return self.render_to_response(self.get_context_data(form=form))
         appraisal, employee = self._get_targets()
         with transaction.atomic():
             review = form.save(commit=False)
@@ -114,6 +121,11 @@ class ReviewCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
             review.save()
             rating_formset.instance = review
             rating_formset.save()
+            if self.request.POST.get("action") != "draft":
+                review.status = "SUBMITTED"
+                review.save(update_fields=["status"])
+                from approvals.services import submit_approval
+                submit_approval(source=review, action="appraisal.publish", requester=self.request.user)
             self.object = review
         return HttpResponseRedirect(self.get_success_url())
 
@@ -132,28 +144,28 @@ class ReviewAccessMixin(LoginRequiredMixin):
             "appraisal", "employee", "reviewer"
         )
         company = get_user_company(self.request.user)
-        if company:
-            queryset = queryset.filter(appraisal__company=company)
-        return queryset
+        if not company:
+            raise PermissionDenied("Select a company before accessing reviews.")
+        return queryset.filter(appraisal__company=company)
 
     def get_queryset(self):
         return self._review_in_scope()
 
     def dispatch(self, request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return self.handle_no_permission()
         obj = self.get_object()
-        is_owner = (
-            getattr(request.user, "employee_user", None) in [obj.reviewer, obj.employee]
-        )
-        has_permission = (
-            request.user.is_superuser
-            or is_owner
-            or (
-                self.required_permission
-                and request.user.has_perm(self.required_permission)
-            )
-        )
-        if not has_permission:
-            raise PermissionDenied("You are not allowed to access this review.")
+        profile = getattr(request.user, "employee_user", None)
+        is_reviewer = profile is not None and profile.pk == obj.reviewer_id
+        is_employee = profile is not None and profile.pk == obj.employee_id
+        if self.required_permission == "payroll.view_review":
+            allowed = is_reviewer or (is_employee and obj.status == "PUBLISHED") or (not is_employee and request.user.has_perm("payroll.view_review"))
+        else:
+            allowed = is_reviewer and obj.status == "DRAFT"
+            if self.required_permission == "payroll.delete_review":
+                allowed = allowed and request.user.has_perm("payroll.delete_review")
+        if not allowed:
+            raise PermissionDenied("You are not allowed to perform this review action.")
         return super().dispatch(request, *args, **kwargs)
 
 
@@ -205,11 +217,19 @@ class ReviewUpdateView(ReviewAccessMixin, UpdateView):
         rating_formset = context["rating_formset"]
         if not rating_formset.is_valid() or not self._validate_unique_metrics(rating_formset):
             return self.render_to_response(self.get_context_data(form=form))
+        if self.request.POST.get("action") != "draft" and not any(item.cleaned_data.get("metric") for item in rating_formset.forms):
+            form.add_error(None, "Add at least one metric rating before submitting this review.")
+            return self.render_to_response(self.get_context_data(form=form))
         with transaction.atomic():
             self.object = form.save()
             rating_formset.instance = self.object
             rating_formset.save()
-        return super().form_valid(form)
+            if self.request.POST.get("action") != "draft":
+                self.object.status = "SUBMITTED"
+                self.object.save(update_fields=["status"])
+                from approvals.services import submit_approval
+                submit_approval(source=self.object, action="appraisal.publish", requester=self.request.user)
+        return HttpResponseRedirect(self.get_success_url())
 
     def get_success_url(self):
         return reverse_lazy(
@@ -245,6 +265,8 @@ class AssignAppraisalView(LoginRequiredMixin, PermissionRequiredMixin, FormView)
 
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
+        if not get_user_company(self.request.user):
+            raise PermissionDenied("Select a company before assigning reviews.")
         kwargs["user"] = self.request.user
         return kwargs
 

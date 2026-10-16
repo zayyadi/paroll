@@ -1,0 +1,62 @@
+{% extends "inventory/base.html" %}
+
+{% block inventory_content %}
+<div class="space-y-6">
+    <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+            <h1 class="text-2xl font-bold text-secondary-900">Sales Invoices</h1>
+            <p class="mt-1 text-sm text-secondary-500">Review open, pending, and posted customer invoices.</p>
+        </div>
+        <a href="{% url 'inventory:sales_invoice' %}" class="inline-flex items-center justify-center rounded-md bg-primary-600 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-700">
+            <i data-lucide="plus" class="mr-2 h-4 w-4"></i>
+            New Invoice
+        </a>
+    </div>
+
+    <div class="flex flex-wrap gap-2">
+        <a href="{% url 'inventory:sales_invoice_list' %}" class="rounded-md px-3 py-2 text-sm font-medium {% if current_status == 'all' %}bg-primary-600 text-white{% else %}bg-white text-secondary-700 hover:bg-secondary-50{% endif %}">All</a>
+        <a href="{% url 'inventory:sales_invoice_list' %}?status=open" class="rounded-md px-3 py-2 text-sm font-medium {% if current_status == 'open' %}bg-primary-600 text-white{% else %}bg-white text-secondary-700 hover:bg-secondary-50{% endif %}">Open</a>
+        <a href="{% url 'inventory:sales_invoice_list' %}?status=pending" class="rounded-md px-3 py-2 text-sm font-medium {% if current_status == 'pending' %}bg-primary-600 text-white{% else %}bg-white text-secondary-700 hover:bg-secondary-50{% endif %}">Pending</a>
+        <a href="{% url 'inventory:sales_invoice_list' %}?status=posted" class="rounded-md px-3 py-2 text-sm font-medium {% if current_status == 'posted' %}bg-primary-600 text-white{% else %}bg-white text-secondary-700 hover:bg-secondary-50{% endif %}">Posted</a>
+    </div>
+
+    <div class="overflow-hidden rounded-lg bg-white shadow-soft">
+        <table class="min-w-full divide-y divide-secondary-200">
+            <thead class="bg-secondary-50">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium uppercase text-secondary-500">Reference</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium uppercase text-secondary-500">Customer</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium uppercase text-secondary-500">Date</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium uppercase text-secondary-500">Posting</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium uppercase text-secondary-500">Payment</th>
+                    <th class="px-6 py-3 text-right text-xs font-medium uppercase text-secondary-500">Total</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium uppercase text-secondary-500">Action</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-secondary-200">
+                {% for invoice in sales_invoices %}
+                <tr class="hover:bg-secondary-50">
+                    <td class="whitespace-nowrap px-6 py-4 text-sm font-medium text-secondary-900">{{ invoice.document.reference|default:invoice.pk }}</td>
+                    <td class="whitespace-nowrap px-6 py-4 text-sm text-secondary-700">{{ invoice.customer }}</td>
+                    <td class="whitespace-nowrap px-6 py-4 text-sm text-secondary-700">{{ invoice.invoice_date|default:invoice.document.document_date }}</td>
+                    <td class="whitespace-nowrap px-6 py-4 text-sm">
+                        <span class="rounded-full px-2 py-1 text-xs font-medium {% if invoice.document.status == 'POSTED' %}bg-green-100 text-green-800{% elif invoice.document.status == 'CANCELLED' %}bg-red-100 text-red-800{% else %}bg-yellow-100 text-yellow-800{% endif %}">{{ invoice.document.get_status_display }}</span>
+                    </td>
+                    <td class="whitespace-nowrap px-6 py-4 text-sm">
+                        <span class="rounded-full px-2 py-1 text-xs font-medium {% if invoice.payment_status == 'PAID' %}bg-green-100 text-green-800{% elif invoice.payment_status == 'UNPAID' or invoice.payment_status == 'PARTIAL' %}bg-blue-100 text-blue-800{% else %}bg-yellow-100 text-yellow-800{% endif %}">{{ invoice.get_payment_status_display }}</span>
+                    </td>
+                    <td class="whitespace-nowrap px-6 py-4 text-right text-sm text-secondary-700">{{ invoice.document.total_amount|floatformat:2 }}</td>
+                    <td class="whitespace-nowrap px-6 py-4 text-sm">
+                        <a href="{% url 'inventory:sales_invoice_detail' invoice.pk %}" class="font-medium text-primary-600 hover:text-primary-800">View</a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7" class="px-6 py-8 text-center text-sm text-secondary-500">No sales invoices found.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

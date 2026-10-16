@@ -1,3 +1,6 @@
+from tests.approval_helpers import (
+    approved_operation_for,
+)
 from decimal import Decimal
 from datetime import date
 
@@ -113,7 +116,7 @@ class CurrencyRevaluationTest(TestCase):
 
     def _post_usd_balance(self, amount):
         from accounting.utils import create_journal_with_entries
-        create_journal_with_entries(
+        approved_operation_for("accounting.change_journal")(create_journal_with_entries,
             company=self.company,
             date=self.reval_date,
             description="Fund USD account",
@@ -140,7 +143,7 @@ class CurrencyRevaluationTest(TestCase):
 
     def _post_gbp_balance(self, amount):
         from accounting.utils import create_journal_with_entries
-        create_journal_with_entries(
+        approved_operation_for("accounting.change_journal")(create_journal_with_entries,
             company=self.company,
             date=self.reval_date,
             description="GBP loan drawdown",
@@ -257,7 +260,7 @@ class CurrencyRevaluationTest(TestCase):
         reval = generate_fx_revaluation(
             self.company, self.reval_date, "NGN", self.user
         )
-        reval = post_fx_revaluation(
+        reval = approved_operation_for("accounting.change_currencyrevaluation")(post_fx_revaluation,
             reval, self.user, self.unrealized_gain, self.unrealized_loss
         )
         self.assertEqual(reval.status, CurrencyRevaluation.Status.POSTED)
@@ -269,7 +272,7 @@ class CurrencyRevaluationTest(TestCase):
         reval = generate_fx_revaluation(
             self.company, self.reval_date, "NGN", self.user
         )
-        reval = post_fx_revaluation(
+        reval = approved_operation_for("accounting.change_currencyrevaluation")(post_fx_revaluation,
             reval, self.user, self.unrealized_gain, self.unrealized_loss
         )
         # validate_entries raises on imbalance, returns None on success
@@ -288,11 +291,11 @@ class CurrencyRevaluationTest(TestCase):
         reval = generate_fx_revaluation(
             self.company, self.reval_date, "NGN", self.user
         )
-        post_fx_revaluation(
+        approved_operation_for("accounting.change_currencyrevaluation")(post_fx_revaluation,
             reval, self.user, self.unrealized_gain, self.unrealized_loss
         )
         with self.assertRaises(ValidationError):
-            post_fx_revaluation(
+            approved_operation_for("accounting.change_currencyrevaluation")(post_fx_revaluation,
                 reval, self.user, self.unrealized_gain, self.unrealized_loss
             )
 
@@ -301,12 +304,12 @@ class CurrencyRevaluationTest(TestCase):
         reval = generate_fx_revaluation(
             self.company, self.reval_date, "NGN", self.user
         )
-        post_fx_revaluation(
+        approved_operation_for("accounting.change_currencyrevaluation")(post_fx_revaluation,
             reval, self.user, self.unrealized_gain, self.unrealized_loss
         )
-        reverse_fx_revaluation(reval, self.user)
+        approved_operation_for("accounting.change_currencyrevaluation")(reverse_fx_revaluation, reval, self.user)
         with self.assertRaises(ValidationError):
-            post_fx_revaluation(
+            approved_operation_for("accounting.change_currencyrevaluation")(post_fx_revaluation,
                 reval, self.user, self.unrealized_gain, self.unrealized_loss
             )
 
@@ -315,10 +318,10 @@ class CurrencyRevaluationTest(TestCase):
         reval = generate_fx_revaluation(
             self.company, self.reval_date, "NGN", self.user
         )
-        reval = post_fx_revaluation(
+        reval = approved_operation_for("accounting.change_currencyrevaluation")(post_fx_revaluation,
             reval, self.user, self.unrealized_gain, self.unrealized_loss
         )
-        reval = reverse_fx_revaluation(reval, self.user, reason="Test reversal")
+        reval = approved_operation_for("accounting.change_currencyrevaluation")(reverse_fx_revaluation, reval, self.user, reason="Test reversal")
         self.assertEqual(reval.status, CurrencyRevaluation.Status.REVERSED)
 
     def test_reverse_non_posted_raises(self):
@@ -326,17 +329,17 @@ class CurrencyRevaluationTest(TestCase):
             self.company, self.reval_date, "NGN", self.user
         )
         with self.assertRaises(ValidationError):
-            reverse_fx_revaluation(reval, self.user)
+            approved_operation_for("accounting.change_currencyrevaluation")(reverse_fx_revaluation, reval, self.user)
 
     def test_reversal_creates_audit_trail(self):
         self._post_usd_balance(Decimal("100.00"))
         reval = generate_fx_revaluation(
             self.company, self.reval_date, "NGN", self.user
         )
-        reval = post_fx_revaluation(
+        reval = approved_operation_for("accounting.change_currencyrevaluation")(post_fx_revaluation,
             reval, self.user, self.unrealized_gain, self.unrealized_loss
         )
-        reverse_fx_revaluation(reval, self.user)
+        approved_operation_for("accounting.change_currencyrevaluation")(reverse_fx_revaluation, reval, self.user)
         self.assertEqual(reval.status, CurrencyRevaluation.Status.REVERSED)
 
     def test_post_creates_audit_trail(self):
@@ -344,7 +347,7 @@ class CurrencyRevaluationTest(TestCase):
         reval = generate_fx_revaluation(
             self.company, self.reval_date, "NGN", self.user
         )
-        post_fx_revaluation(
+        approved_operation_for("accounting.change_currencyrevaluation")(post_fx_revaluation,
             reval, self.user, self.unrealized_gain, self.unrealized_loss
         )
         self.assertEqual(reval.status, CurrencyRevaluation.Status.POSTED)

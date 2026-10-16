@@ -9,7 +9,7 @@ from django.db import transaction
 from django.db.models import Sum, Q, Count
 from django.utils import timezone
 from django.core.paginator import Paginator
-from django.core.exceptions import ValidationError
+from django.core.exceptions import PermissionDenied, ValidationError
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.template.loader import render_to_string
 from django.contrib.auth import get_user_model
@@ -105,6 +105,8 @@ from .utils import (
     get_cash_flow_statement,
     get_financial_ratios,
     get_month_end_checklist,
+    get_inventory_turnover,
+    get_gross_margin_by_product,
 )
 from .permissions import (
     is_auditor,
@@ -264,6 +266,19 @@ def accounting_dashboard(request):
         company=company, is_active=True
     ).order_by("-start_date")[:6]
 
+    # AR/AP summaries
+    try:
+        from inventory.services import get_accounts_receivable_aging, get_accounts_payable_aging
+        ar = get_accounts_receivable_aging(company)
+        ap = get_accounts_payable_aging(company)
+        total_ar = sum(row["outstanding"] for row in ar)
+        total_ap = sum(row["outstanding"] for row in ap)
+        overdue_ar = sum(row["outstanding"] for row in ar if row["days_overdue"] > 30)
+    except Exception:
+        total_ar = Decimal("0.00")
+        total_ap = Decimal("0.00")
+        overdue_ar = Decimal("0.00")
+
     context = {
         "draft_journals_count": metrics["draft_journals"],
         "pending_journals_count": metrics["pending_journals"],
@@ -275,6 +290,9 @@ def accounting_dashboard(request):
         "is_payroll_processor": is_payroll_processor(request.user),
         "metrics": metrics,
         "ratios": ratios,
+        "total_ar": total_ar,
+        "total_ap": total_ap,
+        "overdue_ar": overdue_ar,
     }
 
     return render(request, "accounting/dashboard.html", context)
@@ -971,7 +989,7 @@ class BalanceAdjustmentView(LoginRequiredMixin, AccountantRequiredMixin, FormVie
         adjustment_type = form.cleaned_data["adjustment_type"].lower()
 
         try:
-            create_journal_with_entries(
+            approval = create_journal_with_entries(
                 company=get_user_company(self.request.user),
                 date=timezone.now().date(),
                 description=(
@@ -990,9 +1008,8 @@ class BalanceAdjustmentView(LoginRequiredMixin, AccountantRequiredMixin, FormVie
             )
             return self.form_invalid(form)
 
-        messages.success(
-            self.request, "Balance adjustment posted successfully and auto-posted."
-        )
+        from approvals.proposals import pending_response
+        return pending_response(self.request,approval)
         return super().form_valid(form)
 
 
@@ -1042,11 +1059,15 @@ class JournalApprovalView(LoginRequiredMixin, JournalApprovalMixin, FormView):
 
         try:
             if action == "approve":
-                journal.approve(self.request.user)
+                approval = journal.approve(self.request.user)
+                if approval.status == 'PENDING':
+                    from approvals.proposals import pending_response
+                    return pending_response(self.request,approval)
                 messages.success(self.request, "Journal approved successfully.")
             else:
-                journal.status = Journal.JournalStatus.CANCELLED
-                journal.save()
+                from approvals.services import request_or_decide
+                request_or_decide(source=journal,action='journal.approve',actor=self.request.user,
+                    decision='REJECT',comment=reason)
                 messages.success(self.request, "Journal rejected.")
         except ValidationError as exc:
             messages.error(self.request, ", ".join(exc.messages))
@@ -1123,6 +1144,10 @@ class JournalReversalView(LoginRequiredMixin, JournalReversalMixin, FormView):
                 ip_address=self.request.META.get("REMOTE_ADDR"),
                 user_agent=self.request.META.get("HTTP_USER_AGENT"),
             )
+            from approvals.models import ApprovalRequest
+            if isinstance(reversal_journal, ApprovalRequest):
+                from approvals.proposals import pending_response
+                return pending_response(self.request, reversal_journal)
             messages.success(self.request, "Journal reversed successfully.")
             return redirect("accounting:journal_detail", pk=reversal_journal.pk)
         except Exception as e:
@@ -1270,31 +1295,75 @@ class AccountingPeriodCloseView(LoginRequiredMixin, PeriodClosingMixin, FormView
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        period = self.get_permission_object()
+        period = get_object_or_404(AccountingPeriod, pk=self.kwargs["pk"])
         context["period"] = period
         context["journal_count"] = Journal.objects.filter(period=period).count()
         return context
 
     def post(self, request, *args, **kwargs):
-        period = self.get_permission_object()
+        period = get_object_or_404(AccountingPeriod, pk=self.kwargs["pk"])
         reason = request.POST.get("reason", "")
 
         try:
-            close_accounting_period(
+            approval = close_accounting_period(
                 period,
                 request.user,
                 reason=reason,
                 ip_address=request.META.get("REMOTE_ADDR"),
                 user_agent=request.META.get("HTTP_USER_AGENT"),
             )
-            messages.success(request, f"Period {period} closed successfully.")
-            return redirect("accounting:period_detail", pk=period.pk)
+            from approvals.proposals import pending_response
+            return pending_response(request, approval)
         except Exception as e:
             messages.error(request, f"Error closing period: {str(e)}")
             return redirect("accounting:period_close", pk=period.pk)
 
 
-from .views_audit import AuditTrailDetailView, AuditTrailListView  # noqa: E402,F401
+class AuditTrailListView(LoginRequiredMixin, AuditorOrFinanceReadMixin, ListView):
+    """
+    List all audit trail entries (auditors, or finance users read-only)
+    """
+
+    model = AccountingAuditTrail
+    template_name = "accounting/audit_trail_list.html"
+    context_object_name = "audit_logs"
+    paginate_by = 20
+
+    def get_queryset(self):
+        queryset = AccountingAuditTrail.objects.all().order_by("-timestamp")
+
+        user_id = self.request.GET.get("user")
+        if user_id:
+            queryset = queryset.filter(user_id=user_id)
+
+        action = self.request.GET.get("action")
+        if action:
+            queryset = queryset.filter(action=action)
+
+        start_date = self.request.GET.get("start_date")
+        end_date = self.request.GET.get("end_date")
+        if start_date:
+            queryset = queryset.filter(timestamp__gte=start_date)
+        if end_date:
+            queryset = queryset.filter(timestamp__lte=end_date)
+
+        return queryset
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["action_choices"] = AccountingAuditTrail.ActionType.choices
+        context["users"] = User.objects.all()
+        return context
+
+
+class AuditTrailDetailView(LoginRequiredMixin, AuditorOrFinanceReadMixin, DetailView):
+    """
+    View audit trail entry details (auditors, or finance users read-only)
+    """
+
+    model = AccountingAuditTrail
+    template_name = "accounting/audit_trail_detail.html"
+    context_object_name = "audit_log"
 
 
 @login_required
@@ -1501,6 +1570,28 @@ def export_chart_of_accounts_csv_view(request):
 
 @login_required
 @auditor_or_accountant_required
+def export_suppliers_csv_view(request):
+    company = get_user_company(request.user)
+    from integrations.export_connectors import export_suppliers_csv
+    csv_data = export_suppliers_csv(company)
+    response = HttpResponse(csv_data, content_type="text/csv")
+    response["Content-Disposition"] = 'attachment; filename="paroll_suppliers.csv"'
+    return response
+
+
+@login_required
+@auditor_or_accountant_required
+def export_customers_csv_view(request):
+    company = get_user_company(request.user)
+    from integrations.export_connectors import export_customers_csv
+    csv_data = export_customers_csv(company)
+    response = HttpResponse(csv_data, content_type="text/csv")
+    response["Content-Disposition"] = 'attachment; filename="paroll_customers.csv"'
+    return response
+
+
+@login_required
+@auditor_or_accountant_required
 def cash_flow_report(request):
     company = get_user_company(request.user)
     end_date = timezone.now().date()
@@ -1535,6 +1626,62 @@ def financial_ratios_report(request):
 
 @login_required
 @auditor_or_accountant_required
+def ar_aging_report(request):
+    company = get_user_company(request.user)
+    from inventory.services import get_accounts_receivable_aging
+    aging = get_accounts_receivable_aging(company)
+    total = sum(row["outstanding"] for row in aging)
+    return render(request, "accounting/reports/ar_aging.html", {
+        "aging": aging, "total_outstanding": total,
+    })
+
+
+@login_required
+@auditor_or_accountant_required
+def ap_aging_report(request):
+    company = get_user_company(request.user)
+    from inventory.services import get_accounts_payable_aging
+    aging = get_accounts_payable_aging(company)
+    total = sum(row["outstanding"] for row in aging)
+    return render(request, "accounting/reports/ap_aging.html", {
+        "aging": aging, "total_outstanding": total,
+    })
+
+
+@login_required
+@auditor_or_accountant_required
+def inventory_turnover_report(request):
+    company = get_user_company(request.user)
+    end_date = timezone.now().date()
+    start_date = end_date - timedelta(days=365)
+    period_id = request.GET.get("period")
+    if period_id:
+        period = get_object_or_404(AccountingPeriod, pk=period_id, company=company)
+        start_date = period.start_date
+        end_date = period.end_date
+    data = get_inventory_turnover(company, start_date, end_date)
+    return render(request, "accounting/reports/inventory_turnover.html", data)
+
+
+@login_required
+@auditor_or_accountant_required
+def gross_margin_report(request):
+    company = get_user_company(request.user)
+    end_date = timezone.now().date()
+    start_date = end_date - timedelta(days=365)
+    period_id = request.GET.get("period")
+    if period_id:
+        period = get_object_or_404(AccountingPeriod, pk=period_id, company=company)
+        start_date = period.start_date
+        end_date = period.end_date
+    products = get_gross_margin_by_product(company, start_date, end_date)
+    return render(request, "accounting/reports/gross_margin.html", {
+        "products": products, "start_date": start_date, "end_date": end_date,
+    })
+
+
+@login_required
+@auditor_or_accountant_required
 def month_end_checklist_view(request):
     company = get_user_company(request.user)
     period_id = request.GET.get("period")
@@ -1555,10 +1702,21 @@ def executive_dashboard(request):
     company = get_user_company(request.user)
     metrics = get_dashboard_metrics(company)
     ratios = get_financial_ratios(company, as_of_date=metrics["as_of_date"])
+    try:
+        from inventory.services import get_accounts_receivable_aging, get_accounts_payable_aging
+        ar = get_accounts_receivable_aging(company)
+        ap = get_accounts_payable_aging(company)
+        total_ar = sum(row["outstanding"] for row in ar)
+        total_ap = sum(row["outstanding"] for row in ap)
+    except Exception:
+        total_ar = Decimal("0.00")
+        total_ap = Decimal("0.00")
 
     return render(request, "accounting/reports/executive_dashboard.html", {
         "metrics": metrics,
         "ratios": ratios,
+        "total_ar": total_ar,
+        "total_ap": total_ap,
     })
 
 
@@ -1717,27 +1875,17 @@ class DisciplinaryDecisionUpdateView(
         return _disciplinary_case_queryset_for_user(self.request.user)
 
     def form_valid(self, form):
-        disciplinary_case = form.save(commit=False)
-        old_status = disciplinary_case.status
-        disciplinary_case.decide(
-            finding=form.cleaned_data["finding"],
-            decided_by=self.request.user,
-            rationale=form.cleaned_data["decision_rationale"],
-        )
-        disciplinary_case.findings_summary = form.cleaned_data["findings_summary"]
-        disciplinary_case.save(update_fields=["findings_summary", "updated_at"])
-        log_disciplinary_case_audit(
-            disciplinary_case,
-            DisciplinaryCaseAudit.Action.DECISION_RECORDED,
-            actor=self.request.user,
-            details={
-                "old_status": old_status,
-                "new_status": disciplinary_case.status,
-                "finding": disciplinary_case.finding,
-                "required_review_level": disciplinary_case.required_review_level,
-            },
-        )
-        messages.success(self.request, "Case decision recorded.")
+        from accounting.discipline_approval_actions import submit_case_decision
+        # ModelForm validation edits its instance; reviewed input belongs in the request payload.
+        disciplinary_case = DisciplinaryCase.objects.get(pk=self.object.pk)
+        try:
+            submit_case_decision(case=disciplinary_case, actor=self.request.user,
+                finding=form.cleaned_data["finding"], rationale=form.cleaned_data["decision_rationale"],
+                findings_summary=form.cleaned_data["findings_summary"])
+        except ValidationError as exc:
+            form.add_error(None, "; ".join(exc.messages))
+            return self.form_invalid(form)
+        messages.success(self.request, "Decision submitted for independent review.")
         return redirect("payroll:discipline_case_detail", pk=disciplinary_case.pk)
 
     def get_context_data(self, **kwargs):
@@ -1776,22 +1924,27 @@ class DisciplinarySanctionCreateView(
         )
         return super().dispatch(request, *args, **kwargs)
 
-    def form_valid(self, form):
+    def get_form(self, form_class=None):
+        form = super().get_form(form_class)
         form.instance.case = self.disciplinary_case
         form.instance.created_by = self.request.user
-        response = super().form_valid(form)
-        log_disciplinary_case_audit(
-            self.disciplinary_case,
-            DisciplinaryCaseAudit.Action.SANCTION_CREATED,
-            actor=self.request.user,
-            details={
-                "sanction_id": self.object.id,
-                "sanction_type": self.object.sanction_type,
-                "status": self.object.status,
-            },
-        )
-        messages.success(self.request, "Sanction recorded.")
-        return response
+        return form
+
+    def form_valid(self, form):
+        from approvals.permissions import require_company_authority
+        from approvals.services import submit_approval
+        require_company_authority(self.request.user, self.disciplinary_case.company, "accounting.change_disciplinarysanction")
+        try:
+            with transaction.atomic():
+                self.object = form.save()
+                submit_approval(source=self.object, action="discipline.sanction", requester=self.request.user)
+                log_disciplinary_case_audit(self.disciplinary_case, DisciplinaryCaseAudit.Action.SANCTION_CREATED,
+                    actor=self.request.user, details={"sanction_id": self.object.pk, "status": self.object.status})
+        except ValidationError as exc:
+            form.add_error(None, "; ".join(exc.messages))
+            return self.form_invalid(form)
+        messages.success(self.request, "Sanction submitted for independent approval.")
+        return redirect(self.get_success_url())
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -1825,38 +1978,34 @@ class DisciplinarySanctionCreateView(
 
 
 class DisciplinaryAppealCreateView(
-    LoginRequiredMixin, DisciplineAccessRequiredMixin, CreateView
+    LoginRequiredMixin, CreateView
 ):
     model = DisciplinaryAppeal
     form_class = DisciplinaryAppealForm
     template_name = "accounting/discipline/appeal_form.html"
 
     def dispatch(self, request, *args, **kwargs):
-        self.disciplinary_case = _get_disciplinary_case_for_user(
-            request.user, kwargs["pk"]
-        )
+        if not request.user.is_authenticated:
+            return super().dispatch(request, *args, **kwargs)
+        from approvals.permissions import require_company_authority
+        self.disciplinary_case = _get_disciplinary_case_for_user(request.user, kwargs["pk"])
+        if request.user.pk not in {self.disciplinary_case.respondent_id, self.disciplinary_case.reporter_id}:
+            require_company_authority(request.user, self.disciplinary_case.company, "accounting.change_disciplinarycase")
         return super().dispatch(request, *args, **kwargs)
 
-    def form_valid(self, form):
+    def get_form(self, form_class=None):
+        form = super().get_form(form_class)
         form.instance.case = self.disciplinary_case
         form.instance.appellant = self.request.user
-        old_status = self.disciplinary_case.status
-        self.disciplinary_case.status = DisciplinaryCase.Status.APPEALED
-        self.disciplinary_case.save(update_fields=["status", "updated_at"])
-        response = super().form_valid(form)
-        log_disciplinary_case_audit(
-            self.disciplinary_case,
-            DisciplinaryCaseAudit.Action.APPEAL_SUBMITTED,
-            actor=self.request.user,
-            details={
-                "appeal_id": self.object.id,
-                "grounds": self.object.grounds,
-                "old_status": old_status,
-                "new_status": self.disciplinary_case.status,
-            },
-        )
+        return form
+
+    def form_valid(self, form):
+        with transaction.atomic():
+            self.object = form.save()
+            log_disciplinary_case_audit(self.disciplinary_case, DisciplinaryCaseAudit.Action.APPEAL_SUBMITTED,
+                actor=self.request.user, details={"appeal_id": self.object.pk, "grounds": self.object.grounds})
         messages.success(self.request, "Appeal submitted.")
-        return response
+        return redirect(self.get_success_url())
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -1903,39 +2052,15 @@ class DisciplinaryAppealReviewView(
         )
 
     def form_valid(self, form):
-        appeal = form.save(commit=False)
-        old_case_status = appeal.case.status
-        old_appeal_status = self.get_object().status
-        appeal.reviewed_by = self.request.user
-        appeal.reviewed_at = timezone.now()
-        appeal.save()
-
-        if appeal.status in [
-            DisciplinaryAppeal.Status.UPHELD,
-            DisciplinaryAppeal.Status.MODIFIED,
-            DisciplinaryAppeal.Status.OVERTURNED,
-            DisciplinaryAppeal.Status.REJECTED,
-        ]:
-            appeal.case.close_case()
-        elif appeal.status == DisciplinaryAppeal.Status.REINVESTIGATION_ORDERED:
-            appeal.case.status = DisciplinaryCase.Status.UNDER_INVESTIGATION
-            appeal.case.save(update_fields=["status", "updated_at"])
-
-        log_disciplinary_case_audit(
-            appeal.case,
-            DisciplinaryCaseAudit.Action.APPEAL_REVIEWED,
-            actor=self.request.user,
-            details={
-                "appeal_id": appeal.id,
-                "old_appeal_status": old_appeal_status,
-                "new_appeal_status": appeal.status,
-                "old_case_status": old_case_status,
-                "new_case_status": appeal.case.status,
-                "outcome_notes": appeal.outcome_notes,
-            },
-        )
-
-        messages.success(self.request, "Appeal review recorded.")
+        from accounting.discipline_approval_actions import submit_appeal_review
+        appeal = DisciplinaryAppeal.objects.select_related("case").get(pk=self.object.pk)
+        try:
+            submit_appeal_review(appeal=appeal, actor=self.request.user,
+                status=form.cleaned_data["status"], outcome_notes=form.cleaned_data["outcome_notes"])
+        except ValidationError as exc:
+            form.add_error(None, "; ".join(exc.messages))
+            return self.form_invalid(form)
+        messages.success(self.request, "Appeal review submitted for independent approval.")
         return redirect("payroll:discipline_case_detail", pk=appeal.case.pk)
 
     def get_context_data(self, **kwargs):
@@ -2438,7 +2563,7 @@ def general_ledger_report(request):
     company = get_user_company(request.user)
 
     entries = JournalEntry.objects.filter(
-        journal__company=company, journal__status=Journal.JournalStatus.POSTED
+        journal__company=company, journal__status__in=[Journal.JournalStatus.POSTED, Journal.JournalStatus.REVERSED]
     )
 
     if period_id:
@@ -2710,6 +2835,10 @@ class JournalPartialReversalView(LoginRequiredMixin, JournalReversalMixin, FormV
             if "reversal_data" in self.request.session:
                 del self.request.session["reversal_data"]
 
+            from approvals.models import ApprovalRequest
+            if isinstance(reversal_journal, ApprovalRequest):
+                from approvals.proposals import pending_response
+                return pending_response(self.request, reversal_journal)
             messages.success(self.request, "Journal partially reversed successfully.")
             return redirect("accounting:journal_detail", pk=reversal_journal.pk)
         except Exception as e:
@@ -2782,7 +2911,7 @@ class JournalReversalWithCorrectionView(
                     )
 
             try:
-                reversal_journal, correction_journal = reverse_journal_with_correction(
+                approval = reverse_journal_with_correction(
                     journal,
                     self.request.user,
                     reason,
@@ -2794,10 +2923,8 @@ class JournalReversalWithCorrectionView(
                 if "reversal_data" in self.request.session:
                     del self.request.session["reversal_data"]
 
-                messages.success(
-                    self.request, "Journal reversed with correction successfully."
-                )
-                return redirect("accounting:journal_detail", pk=correction_journal.pk)
+                from approvals.proposals import pending_response
+                return pending_response(self.request, approval)
             except Exception as e:
                 messages.error(
                     self.request, f"Error reversing journal with correction: {str(e)}"
@@ -2852,6 +2979,10 @@ class JournalReversalConfirmationView(
             if "reversal_data" in self.request.session:
                 del self.request.session["reversal_data"]
 
+            from approvals.models import ApprovalRequest
+            if isinstance(reversal_journal, ApprovalRequest):
+                from approvals.proposals import pending_response
+                return pending_response(self.request, reversal_journal)
             messages.success(self.request, "Journal reversed successfully.")
             return redirect("accounting:journal_detail", pk=reversal_journal.pk)
         except Exception as e:
@@ -2890,9 +3021,10 @@ class BatchJournalReversalView(LoginRequiredMixin, AccountingRoleRequiredMixin, 
 
             messages.success(
                 self.request,
-                f"Successfully reversed {len(reversal_journals)} journals.",
+                "Batch reversal submitted for independent approval.",
             )
-            return redirect("accounting:journal_list")
+            from approvals.proposals import pending_response
+            return pending_response(self.request, reversal_journals)
         except Exception as e:
             messages.error(self.request, f"Error in batch reversal: {str(e)}")
             return self.form_invalid(form)
@@ -3034,7 +3166,7 @@ class ReconciliationDetailView(LoginRequiredMixin, AccountingRoleRequiredMixin, 
         context["ledger_entries"] = JournalEntry.objects.filter(
             account=recon.account,
             journal__company=company,
-            journal__status=Journal.JournalStatus.POSTED,
+            journal__status__in=[Journal.JournalStatus.POSTED, Journal.JournalStatus.REVERSED],
         ).select_related("journal").order_by("journal__date")
 
         if recon.period:
@@ -3077,7 +3209,7 @@ class ReconciliationMatchView(LoginRequiredMixin, AccountingRoleRequiredMixin, D
         context["ledger_entries"] = JournalEntry.objects.filter(
             account=recon.account,
             journal__company=company,
-            journal__status=Journal.JournalStatus.POSTED,
+            journal__status__in=[Journal.JournalStatus.POSTED, Journal.JournalStatus.REVERSED],
             journal__date__lte=recon.period.end_date if recon.period else timezone.now().date(),
         ).exclude(id__in=matched_entry_ids).select_related("journal").order_by("journal__date")
 
@@ -3120,9 +3252,13 @@ def reconciliation_approve(request, pk):
     )
     if request.method == "POST":
         from .utils import approve_reconciliation
-        approve_reconciliation(recon, request.user)
-        messages.success(request, "Reconciliation approved.")
-        return redirect("accounting:reconciliation_detail", pk=recon.pk)
+        from approvals.proposals import pending_response
+        try:
+            approval = approve_reconciliation(recon, request.user)
+            return pending_response(request, approval)
+        except (ValidationError, PermissionDenied) as exc:
+            messages.error(request, str(exc))
+            return redirect("accounting:reconciliation_detail", pk=recon.pk)
     return render(request, "accounting/reconciliation_approve.html", {"reconciliation": recon})
 
 
@@ -3307,7 +3443,7 @@ def budget_vs_actual_report(request):
                 actual = JournalEntry.objects.filter(
                     account=bl.account,
                     journal__company=company,
-                    journal__status="POSTED",
+                    journal__status__in=["POSTED", "REVERSED"],
                 )
                 if period:
                     actual = actual.filter(journal__date__gte=period.start_date, journal__date__lte=period.end_date)
@@ -3425,7 +3561,8 @@ def post_accrual(request, pk):
                 ],
                 auto_post=True,
             )
-            messages.success(request, f"Accrual journal {journal.transaction_number} posted.")
+            from approvals.proposals import pending_response
+            return pending_response(request, journal)
         except Exception as exc:
             messages.error(request, str(exc))
     return redirect("accounting:accrual_template_list")
@@ -3555,12 +3692,13 @@ def tax_return_file(request, pk):
     company = get_user_company(request.user)
     ret = get_object_or_404(TaxReturn.objects.filter(company=company), pk=pk)
     if request.method == "POST":
-        ret.status = TaxReturn.Status.FILED
-        ret.filed_by = request.user
-        ret.filed_at = timezone.now()
-        ret.filing_reference = request.POST.get("filing_reference", "")
-        ret.save(update_fields=["status", "filed_by", "filed_at", "filing_reference", "updated_at"])
-        messages.success(request, "Tax return marked as filed.")
+        from .utils import file_tax_return
+        from approvals.proposals import pending_response
+        try:
+            approval = file_tax_return(ret, request.user, filing_reference=request.POST.get("filing_reference", ""))
+            return pending_response(request, approval)
+        except (ValidationError, PermissionDenied) as exc:
+            messages.error(request, str(exc))
     return redirect("accounting:tax_return_detail", pk=pk)
 
 

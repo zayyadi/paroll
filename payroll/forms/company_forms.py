@@ -40,6 +40,8 @@ class CompanyPayrollSettingForm(forms.ModelForm):
             "leave_allowance_percentage",
             "pays_thirteenth_month",
             "thirteenth_month_percentage",
+            "require_timesheet_approval",
+            "deduct_unpaid_absence",
             "ewa_enabled",
             "ewa_advance_percent",
             "ewa_max_per_cycle",

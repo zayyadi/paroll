@@ -692,8 +692,10 @@ class ComplianceCalendarTests(TestCase):
 
     def test_nhf_obligation_included_when_deduction_exists(self):
         config = self.employee.employee_pay
-        config.is_housing = True
-        config.save()  # recomputes the stored NHF amount
+        from payroll.financial_approval_actions import change_salary
+        from tests.approval_helpers import approved_operation_for
+        approved_operation_for('payroll.change_payroll')(change_salary, employee=self.employee,
+            basic_salary=config.basic_salary, salary_options={'is_housing': True})
         obligations = compliance.compliance_obligations(
             self.company, as_of=date(2026, 6, 5)
         )
@@ -901,9 +903,10 @@ class ComplianceCalendarTests(TestCase):
     def _enable_all_schemes(self):
         """Turn on NHF and NHIA amounts so all five schemes produce rows."""
         config = self.employee.employee_pay
-        config.nhf_scheme = "voluntary"
-        config.is_nhif = True
-        config.save()
+        from payroll.financial_approval_actions import change_salary
+        from tests.approval_helpers import approved_operation_for
+        approved_operation_for('payroll.change_payroll')(change_salary, employee=self.employee,
+            basic_salary=config.basic_salary, salary_options={'nhf_scheme':'voluntary', 'is_nhif':True})
 
     def test_scheme_breakdown_groups_overdue_by_scheme(self):
         self._enable_all_schemes()

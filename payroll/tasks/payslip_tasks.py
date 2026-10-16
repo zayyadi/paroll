@@ -115,78 +115,93 @@ def send_payslips_for_payroll_run_task(self, payroll_run_id, job_id=None):
 
 @shared_task(
     bind=True,
-    name="payroll.send_single_payslip",
+    name="payroll.send_single_payslip_email",
     autoretry_for=(Exception,),
     retry_backoff=True,
     retry_jitter=True,
     retry_kwargs={"max_retries": 3},
 )
-def send_single_payslip_task(self, payroll_id, employee_id):
-    """Render and email one salary-config payslip outside the request cycle.
+def send_single_payslip_email_task(self, payroll_id):
+    """Render a single payslip PDF and queue its email in the background.
 
-    Called from the add-pay route, which must return without waiting on PDF
-    rendering or SMTP delivery.
+    Used by the add-pay flow so PDF generation + SMTP never block payroll
+    creation. Failures are logged; the core Payroll row already exists.
     """
     from django.conf import settings
 
-    from payroll.models import EmployeeProfile, Payroll
+    from payroll.models import Payroll
     from payroll.views.payroll_payslips import generate_payslip_pdf
-    from users.email_backend import _send_mail_now
+    from users.email_backend import send_mail as custom_send_mail
 
     payroll_instance = Payroll.objects.filter(id=payroll_id).first()
-    employee = (
-        EmployeeProfile.objects.select_related("user").filter(id=employee_id).first()
-    )
-    if payroll_instance is None or employee is None:
-        logger.warning(
-            "Skipping single payslip: payroll_id=%s employee_id=%s not found",
-            payroll_id,
-            employee_id,
-        )
-        return {"success": False, "message": "Payroll or employee not found"}
+    if payroll_instance is None:
+        logger.warning("Payroll %s not found, skipping payslip email", payroll_id)
+        return {"success": False, "message": "Payroll not found"}
 
-    recipient_email = (
-        employee.user.email
-        if employee.user and employee.user.email
-        else employee.email
-    )
+    # Payroll -> EmployeeProfile reverse: pointed to by EmployeeProfile.employee_pay.
+    from payroll.models import EmployeeProfile
+
+    employee = EmployeeProfile.objects.select_related("user").filter(
+        employee_pay_id=payroll_instance.id
+    ).first()
+    if employee is None:
+        logger.warning("No employee linked to payroll %s, skipping email", payroll_id)
+        return {"success": False, "message": "Employee not found"}
+
+    recipient_email = None
+    if getattr(employee, "user", None) and employee.user.email:
+        recipient_email = employee.user.email
+    elif getattr(employee, "email", None):
+        recipient_email = employee.email
     if not recipient_email:
-        logger.warning("Skipping single payslip: employee_id=%s has no email", employee_id)
+        logger.warning("Employee email missing for payroll %s", payroll_id)
         return {"success": False, "message": "Employee email not found"}
 
-    pdf_content = generate_payslip_pdf(
-        {"payroll": payroll_instance, "employee": employee}
-    )
+    try:
+        pdf_content = generate_payslip_pdf(
+            {"payroll": payroll_instance, "employee": employee}
+        )
+    except Exception as exc:
+        logger.exception("Payslip PDF generation failed for payroll %s: %s", payroll_id, exc)
+        return {"success": False, "message": f"PDF generation failed: {exc}"}
     if not pdf_content:
-        raise RuntimeError("Payslip PDF generation failed")
+        logger.error("Payslip PDF generation returned empty for payroll %s", payroll_id)
+        return {"success": False, "message": "PDF generation failed"}
 
     employee_name = (
-        f"{employee.first_name or ''} {employee.last_name or ''}".strip()
+        f"{getattr(employee, 'first_name', '') or ''} "
+        f"{getattr(employee, 'last_name', '') or ''}".strip()
         or recipient_email
     )
-    _send_mail_now(
-        subject=f"Your Payslip for {payroll_instance.month_year}",
-        template_name="email/payslip_email.html",
-        context={
-            "user": employee.user or employee,
-            "employee": employee,
-            "employee_name": employee_name,
-            "payroll": payroll_instance,
-            "month_year": payroll_instance.month_year,
-            "net_pay_amount": payroll_instance.net_pay,
-        },
-        from_email=settings.DEFAULT_FROM_EMAIL,
-        recipient_list=[recipient_email],
-        attachments=[
-            {
-                "filename": f"payslip_{employee.emp_id or employee.id}_{payroll_instance.month_year}.pdf",
-                "content": pdf_content,
-                "mimetype": "application/pdf",
-            }
-        ],
-        fail_silently=False,
-    )
-    logger.info(
-        "Single payslip sent: payroll_id=%s employee_id=%s", payroll_id, employee_id
-    )
-    return {"success": True}
+    month_year = getattr(payroll_instance, "month_year", "")
+    filename = f"payslip_{getattr(employee, 'emp_id', None) or employee.id}_{month_year}.pdf"
+    try:
+        custom_send_mail(
+            subject=f"Your Payslip for {month_year}",
+            template_name="email/payslip_email.html",
+            context={
+                "user": getattr(employee, "user", None) or employee,
+                "employee": employee,
+                "employee_name": employee_name,
+                "payroll": payroll_instance,
+                "month_year": month_year,
+                "net_pay_amount": getattr(
+                    payroll_instance, "net_pay", getattr(payroll_instance, "netpay", "")
+                ),
+            },
+            from_email=getattr(settings, "DEFAULT_FROM_EMAIL", None),
+            recipient_list=[recipient_email],
+            attachments=[
+                {
+                    "filename": filename,
+                    "content": pdf_content,
+                    "mimetype": "application/pdf",
+                }
+            ],
+        )
+    except Exception as exc:
+        logger.exception("Payslip email enqueue failed for payroll %s: %s", payroll_id, exc)
+        return {"success": False, "message": str(exc)}
+
+    logger.info("Queued single payslip email for payroll %s to %s", payroll_id, recipient_email)
+    return {"success": True, "payroll_id": payroll_id, "recipient": recipient_email}

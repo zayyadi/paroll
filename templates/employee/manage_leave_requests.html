@@ -2,6 +2,7 @@
 
 {% block page_header %}Manage Leave Requests{% endblock %}
 
+{% load hr_approval_controls %}
 {% block content %}
 <div class="space-y-6">
     <div class="bg-white rounded-xl shadow-soft p-6 border border-secondary-100">
@@ -30,14 +31,18 @@
                         <td class="px-6 py-4 text-sm text-secondary-700 max-w-sm truncate">{{ req.reason|default:"N/A" }}</td>
                         <td class="px-6 py-4 text-right text-sm font-medium">
                             <a href="{% url 'payroll:view_leave_request' req.id %}" class="text-primary-600 hover:text-primary-900 mr-3">View</a>
+                            {% may_decide_hr req "leave.approve" request.user as may_decide %}
+                            {% if may_decide %}
                             <form method="post" action="{% url 'payroll:approve_leave' req.id %}" class="inline">
                                 {% csrf_token %}
                                 <button type="submit" class="text-success-700 hover:text-success-900 mr-3">Approve</button>
                             </form>
                             <form method="post" action="{% url 'payroll:reject_leave' req.id %}" class="inline">
+                                <input name="comment" required aria-label="Rejection reason" placeholder="Rejection reason" class="border rounded p-2">
                                 {% csrf_token %}
                                 <button type="submit" class="text-danger-700 hover:text-danger-900">Reject</button>
                             </form>
+                            {% endif %}
                         </td>
                     </tr>
                     {% empty %}

@@ -7,3 +7,5 @@ from .notification_admin import (
 )
 
 from .general_admin import *
+
+from .hr_surfaces import *

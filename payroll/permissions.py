@@ -11,6 +11,14 @@ from payroll.models import (
     Deduction,
     PayrollRun,
     AuditTrail,
+    Timesheet,
+    LeaveType,
+    LeaveLedgerEntry,
+    ExitSettlement,
+    RetroPayDelta,
+    CompReview,
+    SalaryBand,
+    PayrollEntry,
 )
 
 
@@ -45,7 +53,19 @@ def setup_groups_and_permissions():
             "Warning: ContentType for CustomUser not found. Skipping CustomUser admin permissions."
         )
 
+    hr_product_permissions = {
+        Timesheet: ["view_timesheet", "change_timesheet"],
+        LeaveType: ["view_leavetype", "add_leavetype", "change_leavetype"],
+        LeaveLedgerEntry: ["view_leaveledgerentry"],
+        ExitSettlement: ["view_exitsettlement"],
+        RetroPayDelta: ["view_retropaydelta"],
+        CompReview: ["view_compreview"],
+        SalaryBand: ["view_salaryband", "add_salaryband", "change_salaryband"],
+        PayrollEntry: ["view_payrollentry"],
+    }
+
     payroll_models_for_admin = {
+        **hr_product_permissions,
         LeaveRequest: [
             "add_leaverequest",
             "change_leaverequest",
@@ -115,6 +135,7 @@ def setup_groups_and_permissions():
         )
 
     payroll_models_for_hr = {
+        **hr_product_permissions,
         LeaveRequest: [
             "add_leaverequest",
             "change_leaverequest",
@@ -164,6 +185,7 @@ def setup_groups_and_permissions():
 
     supervisor_permissions_list = []
     payroll_models_for_supervisor = {
+        Timesheet: ["view_timesheet", "change_timesheet"],
         LeaveRequest: ["change_leaverequest", "view_leaverequest"],
         LeavePolicy: ["view_leavepolicy"],
         EmployeeProfile: ["view_employeeprofile"],
@@ -218,3 +240,11 @@ if __name__ == "__main__":
 
     pass
 
+
+
+"""
+root@178.62.66.78
+
+
+scp -r root@178.62.66.78:/var/www/promise_tracker ~/promise
+"""

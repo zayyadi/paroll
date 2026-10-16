@@ -160,6 +160,7 @@ class AccountActivationTests(TestCase):
         self.User = get_user_model()
         self.user = self.User.objects.create_user(
             email="inactive@example.com",
+            registration_pending=True,
             first_name="Inactive",
             last_name="User",
             password="StrongPass123!",

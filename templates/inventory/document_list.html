@@ -1,0 +1,22 @@
+{% extends "inventory/base.html" %}
+
+{% block inventory_content %}
+<div class="bg-white rounded-lg shadow-soft">
+    <div class="px-6 py-4 border-b border-gray-200">
+        <h3 class="text-lg font-semibold text-secondary-900">Inventory Documents</h3>
+    </div>
+    <div class="divide-y divide-gray-100">
+        {% for document in documents %}
+        <div class="px-6 py-4 flex items-center justify-between">
+            <div>
+                <p class="text-sm font-semibold text-secondary-900">{{ document.get_document_type_display }} #{{ document.pk }}</p>
+                <p class="text-xs text-secondary-500">{{ document.document_date }} · {{ document.reason|default:"No reason" }}</p>
+            </div>
+            <span class="inline-flex items-center rounded-md bg-gray-100 px-2.5 py-1 text-xs font-medium text-secondary-700">{{ document.get_status_display }}</span>
+        </div>
+        {% empty %}
+        <p class="px-6 py-8 text-sm text-secondary-500">No inventory documents.</p>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

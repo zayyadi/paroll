@@ -1,8 +1,9 @@
+from payroll.workflow_managers import HRWorkflowManager, HRWorkflowQuerySet, SalaryTermsQuerySet
 from decimal import Decimal
 import uuid
 import logging
 
-from django.db import models
+from django.db import models, transaction
 from django.utils.translation import gettext_lazy as _
 from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator
@@ -27,7 +28,7 @@ from payroll.models.employee_profile import EmployeeProfile
 from payroll.models.utils import SoftDeleteModel
 
 
-class PayrollManager(models.Manager):
+class PayrollManager(models.Manager.from_queryset(SalaryTermsQuerySet)):
     def get_queryset(self):
         return super().get_queryset().filter(status="active")
 
@@ -124,6 +125,21 @@ class CompanyPayrollSetting(models.Model):
         help_text=(
             "NSITF Employees' Compensation levy (1% of monthly payroll) is "
             "employer-paid under the ECA 2010."
+        ),
+    )
+    deduct_unpaid_absence = models.BooleanField(
+        default=False,
+        help_text=(
+            "When on, days recorded as absent in the pay period deduct one "
+            "daily basic rate (monthly basic / 22) from the payslip."
+        ),
+    )
+    require_timesheet_approval = models.BooleanField(
+        default=False,
+        help_text=(
+            "When on, attendance hours are only payable once the employee's "
+            "weekly timesheet has been approved (P2-14). Raw clock data stays "
+            "reviewable but does not feed gross pay until certified."
         ),
     )
     leave_allowance_percentage = models.DecimalField(
@@ -486,6 +502,9 @@ class RemittanceRecord(CompanyOwnedModel):
 
 
 class Payroll(models.Model):
+    class Meta:
+        base_manager_name = "all_objects"
+
     company = models.ForeignKey(
         "company.Company",
         on_delete=models.CASCADE,
@@ -634,7 +653,7 @@ class Payroll(models.Model):
         default="active",
     )
     objects = PayrollManager()
-    all_objects = models.Manager()
+    all_objects = SalaryTermsQuerySet.as_manager()
 
     def __str__(self):
         return str(self.basic_salary)
@@ -676,6 +695,12 @@ class Payroll(models.Model):
         return self
 
     def save(self, *args, **kwargs):
+        from approvals.guards import approved_context
+        if self.pk and not approved_context(self.company_id):
+            previous = type(self)._base_manager.get(pk=self.pk)
+            salary_inputs = ('basic_salary','is_housing','is_nhif','nhf_scheme')
+            if any(getattr(previous,name) != getattr(self,name) for name in salary_inputs) and EmployeeProfile._base_manager.filter(employee_pay_id=self.pk).exists():
+                raise ValidationError('Assigned salary terms cannot be changed directly. Submit a salary-change proposal.')
         # Keep the NHF scheme and the legacy is_housing switch in sync so both
         # existing rows and the new classification flag drive the deduction.
         if self.nhf_scheme == "none" and self.is_housing:
@@ -739,6 +764,86 @@ class SalaryHistory(models.Model):
 
     def __str__(self):
         return f"{self.employee} salary from {self.effective_date}"
+
+
+class RetroPayDelta(models.Model):
+    """Audit trail for a backdated salary change caught up in a later period.
+
+    When a salary change is approved with an effective date in a past, already
+    paid period, the employee is owed the difference between what they were
+    paid under the old config and what the new config would have paid, for
+    each month between the effective date and the current period. This model
+    records that catch-up as an explicit, reversible adjustment rather than
+    silently mutating history.
+
+    ``monthly_delta`` is the canonical net-pay difference (``payroll_calc``)
+    between the new and old configs; ``total_delta`` is that times
+    ``months_owed``. Reversal creates a matching negative adjustment.
+    """
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending"
+        APPLIED = "applied", "Applied"
+        REVERSED = "reversed", "Reversed"
+
+    employee = models.ForeignKey(
+        EmployeeProfile,
+        on_delete=models.CASCADE,
+        related_name="retro_pay_deltas",
+    )
+    from_config = models.ForeignKey(
+        Payroll,
+        on_delete=models.PROTECT,
+        related_name="+",
+    )
+    to_config = models.ForeignKey(
+        Payroll,
+        on_delete=models.PROTECT,
+        related_name="+",
+    )
+    effective_date = models.DateField(
+        help_text="Date the new salary takes effect (may be backdated)."
+    )
+    period = MonthField(
+        "Catch-up pay period",
+        help_text="Pay period the delta is paid in (the current run's month).",
+    )
+    months_owed = models.PositiveIntegerField(
+        help_text="Whole months between the effective date and the catch-up period."
+    )
+    monthly_delta = models.DecimalField(max_digits=12, decimal_places=2)
+    total_delta = models.DecimalField(max_digits=12, decimal_places=2)
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.PENDING,
+    )
+    allowance = models.ForeignKey(
+        "Allowance",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="retro_pay_deltas",
+        help_text="The allowance created to pay this delta (reversal negates it).",
+    )
+    note = models.TextField(blank=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="retro_pay_deltas_created",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+        verbose_name = "Retro Pay Delta"
+        verbose_name_plural = "Retro Pay Deltas"
+
+    def __str__(self):
+        return f"Retro {self.employee} {self.period} ({self.total_delta})"
 
 
 class Allowance(models.Model):
@@ -827,12 +932,43 @@ class Deduction(models.Model):
 #         super(Deduction, self).save(*args, **kwargs)
 
 
-class PayrollEntryManager(models.Manager):
+class PayrollEntryQuerySet(models.QuerySet):
+    def bulk_create(self, objs, **kwargs):
+        if kwargs.get("update_conflicts"):
+            raise ValidationError("Payroll records cannot be replaced through bulk conflict updates.")
+        return super().bulk_create(objs, **kwargs)
+
+    def _assert_editable(self):
+        entry_ids = list(self.values_list("pk", flat=True))
+        run_ids = PayrollRunEntry.objects.filter(
+            payroll_entry_id__in=entry_ids
+        ).values_list("payroll_run_id", flat=True)
+        runs = PayrollRun.all_objects.select_for_update().filter(
+            pk__in=run_ids
+        ).order_by("pk")
+        if any(run.is_locked for run in runs):
+            raise ValidationError("Locked payroll amounts cannot be changed or deleted.")
+
+    @transaction.atomic
+    def update(self, **kwargs):
+        self._assert_editable()
+        return super().update(**kwargs)
+
+    @transaction.atomic
+    def delete(self):
+        self._assert_editable()
+        return super().delete()
+
+
+class PayrollEntryManager(models.Manager.from_queryset(PayrollEntryQuerySet)):
     def get_queryset(self):
         return super().get_queryset().filter(status="active")
 
 
 class PayrollEntry(models.Model):
+    class Meta:
+        base_manager_name = "all_objects"
+
     company = models.ForeignKey(
         "company.Company",
         on_delete=models.CASCADE,
@@ -857,20 +993,10 @@ class PayrollEntry(models.Model):
     )
 
     objects = PayrollEntryManager()
-    all_objects = models.Manager()
+    all_objects = PayrollEntryQuerySet.as_manager()
 
     def __str__(self):
         return self.pays.first_name
-
-    # Canonical naming (CONTEXT.md): employee. Legacy `pays` FK name
-    # retained for backward compat (DB column unchanged).
-    @property
-    def employee(self):
-        return self.pays
-
-    @employee.setter
-    def employee(self, value):
-        self.pays = value
 
     @property
     def calc_allowance(self):
@@ -906,7 +1032,26 @@ class PayrollEntry(models.Model):
                 source_leave_request__end_date__gte=month_start,
             )
         )
+        # Automatic LV is annual-leave only; ordinary manually entered LV
+        # remains an independent payroll allowance.
+        period_allowances=period_allowances.exclude(
+            models.Q(allowance_type='LV',source_leave_request__isnull=False)
+            & ~models.Q(source_leave_request__leave_type='ANNUAL')
+        )
+        # Leave approval pays its source-backed LV separately. Keeping that
+        # allowance record is audit history, not another payroll entitlement.
+        from django.contrib.contenttypes.models import ContentType
+        from accounting.models import Journal
+        paid_leave_ids = set(Journal.objects.filter(
+            company=self.pays.company,
+            content_type=ContentType.objects.get_for_model(Allowance),
+            object_id__in=period_allowances.filter(allowance_type='LV',source_leave_request__isnull=False).values_list('pk',flat=True),
+            status=Journal.JournalStatus.POSTED,
+            description__startswith='Leave allowance paid to',
+        ).values_list('object_id',flat=True))
         for allowance in period_allowances:
+            if allowance.pk in paid_leave_ids:
+                continue
             total_allowance += allowance.amount
 
         total_allowance += self._get_auto_leave_allowance(
@@ -914,8 +1059,27 @@ class PayrollEntry(models.Model):
             month_end=month_end,
         )
         total_allowance += self._get_auto_thirteenth_month_allowance(payroll_month)
+        # Approved overtime for the period feeds gross pay (P1-7).
+        total_allowance += self._get_auto_overtime_allowance(
+            month_start=month_start,
+            month_end=month_end,
+        )
 
         return total_allowance
+
+    def _get_auto_overtime_allowance(self, month_start: date, month_end: date) -> Decimal:
+        """Approved ``OvertimeEntry`` pay for the pay period.
+
+        Attendance previously fed no payroll figures at all; this pulls the
+        already-computed ``overtime_service.get_overtime_allowance`` (weighted
+        hours x hourly basic rate) into the payslip. Pending/rejected entries
+        and entries dated outside the period are excluded.
+        """
+        if not self.pays or not self.pays.employee_pay_id:
+            return Decimal("0.00")
+        from payroll.services.overtime_service import get_overtime_allowance
+
+        return get_overtime_allowance(self.pays, month_start, month_end)
 
     def _get_company_payroll_setting(self):
         company = self.company or self.pays.company
@@ -940,6 +1104,7 @@ class PayrollEntry(models.Model):
 
         is_on_approved_leave = self.pays.leave_requests.filter(
             status="APPROVED",
+            leave_type="ANNUAL",
             start_date__lte=month_end,
             end_date__gte=month_start,
             processed_leave_allowance__isnull=True,
@@ -1037,11 +1202,44 @@ class PayrollEntry(models.Model):
 
     @property
     def calc_deduction(self):
-        total_deduction = self.calc_standard_deduction + self.calc_iou_deduction
+        total_deduction = (
+            self.calc_standard_deduction
+            + self.calc_iou_deduction
+            + self.calc_absence_deduction
+        )
         _deduction_debug_print(
             f"Total calculated deductions for payroll_entry_id={self.pk}: {total_deduction}."
         )
         return total_deduction
+
+    @property
+    def calc_absence_deduction(self) -> Decimal:
+        """Unpaid-absence days in the run period (company opt-in, P1-7).
+
+        Attendance previously never reached the payroll path; when the company
+        enables ``deduct_unpaid_absence``, each absent day in the pay period
+        deducts one daily basic rate (monthly basic / 22).
+        """
+        setting = self._get_company_payroll_setting()
+        if setting is None or not setting.deduct_unpaid_absence:
+            return Decimal("0.00")
+        payroll_run_entry = self.payroll_run_entries.select_related(
+            "payroll_run"
+        ).first()
+        if not payroll_run_entry:
+            return Decimal("0.00")
+        run = payroll_run_entry.payroll_run
+        from calendar import monthrange
+
+        from payroll.services.attendance_pay import absence_deduction_for
+
+        month_start = date(run.paydays.year, run.paydays.month, 1)
+        month_end = date(
+            run.paydays.year,
+            run.paydays.month,
+            monthrange(run.paydays.year, run.paydays.month)[1],
+        )
+        return absence_deduction_for(self.pays, month_start, month_end)
 
     @property
     def total_deductions(self) -> Decimal:
@@ -1054,40 +1252,57 @@ class PayrollEntry(models.Model):
 
     @property
     def get_netpay(self):
-        """Period net = canonical base + allowances - deductions.
-
-        Base comes from the linked Payroll config via monthly_net_pay
-        (same rule as EmployeeProfile.net_pay); falls back to stored
-        pays.net_pay when no config is linked.
-        """
-        from payroll.services.payroll_calc import monthly_net_pay
-
-        allowances = self.calc_allowance
-        deductions = self.calc_deduction
-        payroll = getattr(self.pays, "employee_pay", None)
-        if payroll is not None:
-            base = monthly_net_pay(
-                gross_annual=getattr(payroll, "gross_income", 0) or 0,
-                employee_health_annual=getattr(payroll, "employee_health", 0) or 0,
-                nhf_annual=getattr(payroll, "nhf", 0) or 0,
-                payee_monthly=getattr(payroll, "payee", 0) or 0,
-                water_monthly=getattr(payroll, "water_rate", 0) or 0,
-                allowances_monthly=allowances,
-                deductions_monthly=deductions,
-            )["net"]
-            return base
         if not self.pays.net_pay:
             return Decimal(0.0)
-        return self.pays.net_pay + allowances - deductions
+        from payroll.services.payroll_calc import entry_net_pay
 
+        return entry_net_pay(
+            self.pays.net_pay,
+            allowances_monthly=self.calc_allowance,
+            deductions_monthly=self.calc_deduction,
+        )
+
+    @transaction.atomic
     def save(self, *args, **kwargs):
+        if self.pk:
+            type(self).all_objects.filter(pk=self.pk)._assert_editable()
         if self.pays and self.pays.company_id and not self.company_id:
             self.company_id = self.pays.company_id
         self.netpay = self.get_netpay
         super(PayrollEntry, self).save(*args, **kwargs)
 
+    def delete(self, *args, **kwargs):
+        return type(self).all_objects.filter(pk=self.pk).delete()
 
-class PayManager(models.Manager):
+
+class PayrollRunQuerySet(models.QuerySet):
+    def bulk_create(self, objs, **kwargs):
+        if kwargs.get("update_conflicts"):
+            raise ValidationError("Payroll records cannot be replaced through bulk conflict updates.")
+        from approvals.guards import guard_source_save
+        objs = list(objs)
+        for obj in objs:
+            guard_source_save(obj)
+        return super().bulk_create(objs, **kwargs)
+
+    def _assert_unlocked(self):
+        if any(run.is_locked for run in self.select_for_update().order_by("pk")):
+            raise ValidationError("Locked payroll runs cannot be changed or deleted.")
+
+    @transaction.atomic
+    def update(self, **kwargs):
+        if {"status", "closed"} & set(kwargs):
+            raise ValidationError("Payroll lifecycle changes must use save().")
+        self._assert_unlocked()
+        return super().update(**kwargs)
+
+    @transaction.atomic
+    def delete(self):
+        self._assert_unlocked()
+        return super().delete()
+
+
+class PayManager(models.Manager.from_queryset(PayrollRunQuerySet)):
     def get_queryset(self):
         return super().get_queryset().filter(is_active=True)
 
@@ -1109,6 +1324,9 @@ class PayrollRun(models.Model):
         blank=True,
         db_index=True,
     )
+    requested_by = models.ForeignKey('users.CustomUser', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='requested_payroll_runs')
+    currency = models.CharField(max_length=3, default='NGN')
     name = models.CharField(
         max_length=50,
         default="test",
@@ -1148,10 +1366,37 @@ class PayrollRun(models.Model):
         db_index=True,
         help_text="Payroll lifecycle: Draft → Calculated → Reviewed → Approved → Locked → Paid.",
     )
+
+    class RunType(models.TextChoices):
+        REGULAR = "regular", "Regular"
+        OFF_CYCLE = "off_cycle", "Off-cycle"
+        TERMINATION = "termination", "Termination"
+
+    run_type = models.CharField(
+        max_length=20,
+        choices=RunType.choices,
+        default=RunType.REGULAR,
+        db_index=True,
+        help_text=(
+            "Regular runs are the monthly cycle and may not overlap another "
+            "regular run for the same period. Off-cycle and termination runs "
+            "pay corrections or final settlements outside the cycle."
+        ),
+    )
+    reason_code = models.CharField(
+        max_length=40,
+        blank=True,
+        default="",
+        help_text=(
+            "Reason for an off-cycle or termination run (e.g. correction, "
+            "bonus, final_settlement). Empty for regular runs."
+        ),
+    )
     objects = PayManager()
-    all_objects = models.Manager()
+    all_objects = PayrollRunQuerySet.as_manager()
 
     class Meta:
+        base_manager_name = "all_objects"
         verbose_name_plural = "Payroll Runs"
         unique_together = (("company", "name"), ("company", "slug"))
 
@@ -1166,20 +1411,6 @@ class PayrollRun(models.Model):
     @property
     def is_locked(self):
         return self.status in (self.Status.LOCKED, self.Status.PAID) or self.closed
-
-    # Canonical naming (CONTEXT.md): period / entries. Legacy names
-    # paydays / payroll_payday / payday / payvar remain for backward compat.
-    @property
-    def period(self):
-        return self.paydays
-
-    @period.setter
-    def period(self, value):
-        self.paydays = value
-
-    @property
-    def entries(self):
-        return self.payroll_payday
 
     _ALLOWED_TRANSITIONS = {
         Status.DRAFT: (Status.CALCULATED,),
@@ -1196,11 +1427,33 @@ class PayrollRun(models.Model):
             raise ValidationError(
                 f"Cannot transition payroll run from {self.status} to {new_status}."
             )
+        if new_status == self.Status.REVIEWED:
+            # Pre-flight readiness gate (Gusto blockers analogue): block the
+            # CALCULATED -> REVIEWED step until every typed blocker is cleared.
+            from payroll.services.preflight import run_preflight
+
+            run_preflight(self).raise_if_blocked()
+        previous_status = self.status
         self.status = new_status
         if new_status in (self.Status.LOCKED, self.Status.PAID):
             self.closed = True
         save_kwargs.setdefault("update_fields", ["status", "closed"])
         self.save(**save_kwargs)
+        # Fan out a signed webhook so integrators see run state live (P1-9).
+        from webhooks.services import emit_event
+
+        emit_event(
+            self.company,
+            "payroll.run.state_changed",
+            {
+                "run_id": str(self.pk),
+                "slug": self.slug,
+                "name": self.name,
+                "from_status": previous_status,
+                "to_status": self.status,
+                "paydays": self.paydays.isoformat() if self.paydays else None,
+            },
+        )
 
     def mark_calculated(self, **kw):
         return self.transition_to(self.Status.CALCULATED, **kw)
@@ -1222,17 +1475,38 @@ class PayrollRun(models.Model):
 
         return utils.convert_month_to_word(str(self.paydays))
 
+    def _validate_run_type(self):
+        """Enforce run-type rules for off-cycle and correction payrolls.
+
+        A non-regular run must carry a reason code. Same-period re-runs of a
+        *regular* run are deliberately still allowed: the product treats a
+        re-run as a supported flow (report period lists dedupe repeated
+        paydays — see ``payroll.tests_tax``). Off-cycle and termination runs
+        add reason-coded corrections without touching the regular cycle.
+        """
+        if self.run_type != self.RunType.REGULAR and not self.reason_code.strip():
+            raise ValidationError(
+                "An off-cycle or termination run needs a reason code."
+            )
+
+    @transaction.atomic
     def save(self, *args, **kwargs):
         from django.utils.text import slugify
 
+        self._validate_run_type()
         first_entry = self.payroll_payday.first() if self.pk else None
         if first_entry and first_entry.company_id and not self.company_id:
             self.company_id = first_entry.company_id
 
         if not self.slug:
-            # Generate slug from paydays field (YYYY-MM format)
+            # Generate slug from paydays field (YYYY-MM format). Non-regular
+            # runs share the period with the cycle, so their slug carries the
+            # run type and a short unique suffix to satisfy (company, slug).
             if self.paydays:
-                self.slug = slugify(f"pay-period-{self.paydays.strftime('%Y-%m')}")
+                base = f"pay-period-{self.paydays.strftime('%Y-%m')}"
+                if self.run_type != self.RunType.REGULAR:
+                    base = f"{base}-{self.run_type}-{uuid.uuid4().hex[:8]}"
+                self.slug = slugify(base)
             else:
                 self.slug = slugify(f"pay-period-{uuid.uuid4().hex[:8]}")
 
@@ -1245,19 +1519,56 @@ class PayrollRun(models.Model):
 
         update_fields = kwargs.get("update_fields")
         if self.pk:
-            db_locked = PayrollRun.all_objects.filter(
-                pk=self.pk
-            ).filter(
-                models.Q(closed=True)
-                | models.Q(status__in=[self.Status.LOCKED, self.Status.PAID])
-            ).exists()
-            if db_locked and not (
-                update_fields
-                and set(update_fields) <= {"status", "closed", "payment_date"}
-            ):
-                raise ValidationError("This entry is closed and cannot be edited.")
+            persisted = PayrollRun.all_objects.select_for_update().get(pk=self.pk)
+            if persisted.is_locked:
+                if not (
+                    update_fields
+                    and set(update_fields) <= {"status", "closed", "payment_date"}
+                ):
+                    raise ValidationError("This entry is closed and cannot be edited.")
+                allowed_statuses = {persisted.status}
+                if persisted.status == self.Status.LOCKED:
+                    allowed_statuses.add(self.Status.PAID)
+                if not self.closed or self.status not in allowed_statuses:
+                    raise ValidationError("A locked or paid payroll run cannot be reopened.")
+        if update_fields and {"status", "closed"} & set(update_fields):
+            kwargs["update_fields"] = set(update_fields) | {"status", "closed"}
 
+        from approvals.guards import guard_source_save
+        guard_source_save(self, update_fields=kwargs.get("update_fields"))
         super(PayrollRun, self).save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        return type(self).all_objects.filter(pk=self.pk).delete()
+
+
+class PayrollRunEntryQuerySet(models.QuerySet):
+    def update(self, **kwargs):
+        raise ValidationError("Payroll membership changes must use save().")
+
+    @transaction.atomic
+    def delete(self):
+        run_ids = list(self.values_list("payroll_run_id", flat=True))
+        runs = PayrollRun.all_objects.select_for_update().filter(pk__in=run_ids)
+        if any(run.is_locked for run in runs):
+            raise ValidationError("Locked payroll membership cannot be deleted.")
+        return super().delete()
+
+    @transaction.atomic
+    def bulk_create(self, objs, **kwargs):
+        if kwargs.get("update_conflicts"):
+            raise ValidationError("Workflow records cannot be replaced through bulk conflict updates.")
+        objs = list(objs)
+        run_ids = {obj.payroll_run_id for obj in objs}
+        list(PayrollRun.all_objects.select_for_update().filter(pk__in=run_ids).order_by("pk"))
+        members = set()
+        for obj in objs:
+            obj.full_clean()
+            key = (obj.payroll_run_id, obj.payroll_entry.pays_id)
+            if key in members:
+                raise ValidationError("An employee can only appear once in a payroll run.")
+            members.add(key)
+        return super().bulk_create(objs, **kwargs)
 
 
 class PayrollRunEntry(models.Model):
@@ -1271,6 +1582,49 @@ class PayrollRunEntry(models.Model):
         on_delete=models.CASCADE,
         related_name="payroll_run_entries",
     )
+
+    objects = PayrollRunEntryQuerySet.as_manager()
+
+    class Meta:
+        base_manager_name = "objects"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["payroll_run", "payroll_entry"],
+                name="unique_payroll_run_entry",
+            )
+        ]
+
+    def clean(self):
+        super().clean()
+        run = PayrollRun.all_objects.get(pk=self.payroll_run_id)
+        entry = self.payroll_entry
+        if not run.company_id or entry.company_id != run.company_id or entry.pays.company_id != run.company_id:
+            raise ValidationError("Payroll run and employee must belong to the same company.")
+        run_ids = {run.pk}
+        if self.pk:
+            previous_run = type(self).objects.filter(pk=self.pk).values_list("payroll_run_id", flat=True).first()
+            if previous_run:
+                run_ids.add(previous_run)
+        if any(item.is_locked for item in PayrollRun.all_objects.filter(pk__in=run_ids)):
+            raise ValidationError("Locked payroll membership cannot be changed.")
+        if type(self).objects.filter(
+            payroll_run_id=run.pk, payroll_entry__pays_id=entry.pays_id
+        ).exclude(pk=self.pk).exists():
+            raise ValidationError("An employee can only appear once in a payroll run.")
+
+    @transaction.atomic
+    def save(self, *args, **kwargs):
+        run_ids = {self.payroll_run_id}
+        if self.pk:
+            previous_run = type(self).objects.filter(pk=self.pk).values_list("payroll_run_id", flat=True).first()
+            if previous_run:
+                run_ids.add(previous_run)
+        list(PayrollRun.all_objects.select_for_update().filter(pk__in=run_ids).order_by("pk"))
+        self.full_clean()
+        return super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        return type(self).objects.filter(pk=self.pk).delete()
 
 
 class PayslipEmailJob(models.Model):
@@ -1313,23 +1667,12 @@ class PayslipEmailJob(models.Model):
         return f"Payslip emails for {self.payroll_run} ({self.get_status_display()})"
 
     def enqueue(self):
-        """Queue background delivery. Never raises: routes must not wait on
-        the broker. On publish failure the job is marked FAILED (with the
-        error) so the recovery commands pick it up."""
-        from core.messaging import publish
         from payroll.tasks.payslip_tasks import send_payslips_for_payroll_run_task
 
-        result = publish(
-            send_payslips_for_payroll_run_task,
-            self.payroll_run_id,
-            self.id,
+        result = send_payslips_for_payroll_run_task.apply_async(
+            args=[self.payroll_run_id, self.id],
             queue="notifications_normal",
         )
-        if result is None:
-            self.status = self.Status.FAILED
-            self.error_message = "Broker publish failed; retry via process_payslip_email_jobs."
-            self.save(update_fields=["status", "error_message", "updated_at"])
-            return None
         self.status = self.Status.QUEUED
         self.celery_task_id = result.id or ""
         self.error_message = ""
@@ -1379,27 +1722,16 @@ class LeaveAllowanceEmailJob(models.Model):
         return f"Leave allowance slip for leave #{self.leave_request_id} ({self.get_status_display()})"
 
     def enqueue(self):
-        """Queue background delivery. Never raises: routes must not wait on
-        the broker. On publish failure the job is marked FAILED (with the
-        error) so it can be retried."""
-        from core.messaging import publish
         from payroll.tasks.leave_allowance_tasks import send_leave_allowance_slip_task
 
-        result = publish(
-            send_leave_allowance_slip_task,
-            self.leave_request_id,
-            self.id,
+        result = send_leave_allowance_slip_task.apply_async(
+            args=[self.leave_request_id, self.id],
             queue="notifications_normal",
         )
-        if result is None:
-            self.status = self.Status.FAILED
-            self.error_message = "Broker publish failed; will be retried."
-            self.save(update_fields=["status", "error_message", "updated_at"])
-            return None
         self.status = self.Status.QUEUED
         self.celery_task_id = result.id or ""
         self.error_message = ""
-        self.save(update_fields=["status", "error_message", "updated_at"])
+        self.save(update_fields=["status", "celery_task_id", "error_message", "updated_at"])
         return result
 
 
@@ -1422,6 +1754,15 @@ class IOUDeduction(models.Model):
 
 
 class IOU(SoftDeleteModel):
+    class Meta:
+        base_manager_name = "all_objects"
+
+    requested_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT,
+        null=True, blank=True, related_name="created_iou_requests")
+
+    objects = HRWorkflowManager()
+    all_objects = HRWorkflowQuerySet.as_manager()
+
     STATUS_CHOICES = [
         ("PENDING", "Pending"),
         ("APPROVED", "Approved"),
@@ -1506,8 +1847,10 @@ class IOU(SoftDeleteModel):
 
     @property
     def repaid_amount(self):
-        paid = self.deductions.aggregate(total=models.Sum("amount")).get("total")
-        return paid or Decimal("0.00")
+        if self.status == 'PAID' and self.payment_method == 'DIRECT_PAYMENT':
+            return self.total_amount
+        paid = self.deductions.filter(models.Q(payday__closed=True) | models.Q(payday__status__in=['locked','paid'])).aggregate(total=models.Sum('amount')).get('total')
+        return paid or Decimal('0.00')
 
     @property
     def outstanding_amount(self):
@@ -1528,8 +1871,24 @@ class IOU(SoftDeleteModel):
             raise ValidationError({"amount": "Amount must be greater than zero."})
         if self.tenor is None or self.tenor <= 0:
             raise ValidationError({"tenor": "Tenor must be at least 1 month."})
+        if self.interest_rate is not None and self.interest_rate < 0:
+            raise ValidationError({"interest_rate": "Interest cannot be negative."})
 
+    def delete(self, *args, **kwargs):
+        from payroll.services.hr_workflow import guard_delete
+        guard_delete(self)
+        return super().delete(*args, **kwargs)
+
+    @transaction.atomic
     def save(self, *args, **kwargs):
+        from payroll.services.hr_workflow import guard_requester
+        guard_requester(self, kwargs.get("update_fields"))
+        from payroll.services.hr_workflow import guard_state
+        action = "iou.settle" if self.status == "PAID" else "iou.approve"
+        guard_state(self, action, {"APPROVED", "REJECTED", "PAID"}, ("approved_at",), update_fields=kwargs.get("update_fields"))
+        previous = type(self).objects.filter(pk=self.pk).first() if self.pk else None
+        if previous and previous.status in {"APPROVED", "PAID"}:
+            guard_state(self, action, set(), ("amount", "tenor", "interest_rate", "repayment_deduction_percentage", "payment_method", "employee_id_id", "approved_at", "due_date"), update_fields=kwargs.get("update_fields"))
         # Ensure created_at is set if this is a new instance and it's not already set
         if not self.pk and not self.created_at:  # self.pk is None for new instances
             self.created_at = timezone.now().date()
@@ -1571,6 +1930,10 @@ class PublicHoliday(CompanyOwnedModel):
 
 
 class LeavePolicy(models.Model):
+    # Fallback catalogue for company-less (default) policies. Active policies
+    # resolve their types through ``LeaveType`` (see below); this list remains
+    # only so legacy rows and the ``LeaveLedgerEntry``/``LeaveRequest`` choice
+    # fields keep validating when no ``LeaveType`` row exists yet.
     LEAVE_TYPES = [
         ("CASUAL", "Casual Leave"),
         ("SICK", "Sick Leave"),
@@ -1604,6 +1967,87 @@ class LeavePolicy(models.Model):
             raise ValidationError("Annual leave cannot be below the statutory minimum.")
 
 
+class LeaveType(models.Model):
+    """Company-configurable leave catalogue (P2-12, gap #12).
+
+    Replaces the fixed five-type set that was hard-coded in two places. Each
+    company owns its own ``LeaveType`` rows; the Nigerian statutory defaults
+    (annual/sick/casual/maternity/paternity) are seeded per company on first
+    use via :func:`payroll.services.leave_type_service.ensure_default_leave_types`.
+
+    ``code`` is the stable identifier used in ``LeaveRequest.leave_type`` and
+    ``LeaveLedgerEntry.leave_type``; ``name`` is the human label.
+    """
+
+    company = models.ForeignKey(
+        "company.Company",
+        on_delete=models.CASCADE,
+        related_name="leave_types",
+        null=True,
+        blank=True,
+        db_index=True,
+    )
+    code = models.CharField(max_length=20)
+    name = models.CharField(max_length=60)
+    # Entitlement granted per year, in days. This is the source of truth that
+    # ``get_leave_balance`` seeds ``LeaveBalance`` from (reconciles the old
+    # 10/5/3/40/14 vs 20/10/7/90/14 conflict in favour of the latter).
+    default_days = models.DecimalField(
+        max_digits=5, decimal_places=2, default=Decimal("0")
+    )
+    is_paid = models.BooleanField(default=True)
+    # Whether requests of this type may be taken in half-day increments.
+    allows_half_day = models.BooleanField(default=False)
+    # Whether unused days of this type can be encashed (paid out) at settlement.
+    encashable = models.BooleanField(default=False)
+    # Encashment values one unused day at settlement, as a fraction of a daily
+    # wage (1.0 == a full day's pay). Only meaningful when ``encashable``.
+    encashment_rate = models.DecimalField(
+        max_digits=5, decimal_places=2, default=Decimal("1.00")
+    )
+    # Carry-over of unused days into the next year, as a fraction of the
+    # entitlement (0 == no carry-over). Applied by the annual carry-over job.
+    carryover_rate = models.DecimalField(
+        max_digits=5, decimal_places=2, default=Decimal("0")
+    )
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = (("company", "code"),)
+        ordering = ["code"]
+
+    def __str__(self):
+        return f"{self.name} ({self.code})"
+
+    def clean(self):
+        super().clean()
+        if self.default_days < 0:
+            raise ValidationError("Default days cannot be negative.")
+        if self.encashable and self.encashment_rate < 0:
+            raise ValidationError("Encashment rate cannot be negative.")
+        if not (Decimal("0") <= self.carryover_rate <= Decimal("1")):
+            raise ValidationError("Carry-over rate must be between 0 and 1.")
+
+
+def leave_type_choices(company=None):
+    """Choice tuples for the fixed ``leave_type`` fields.
+
+    Prefers the company's active ``LeaveType`` rows; falls back to the legacy
+    five-type catalogue for company-less contexts and pre-migration data.
+    """
+    qs = LeaveType.objects.filter(is_active=True)
+    if company is not None:
+        company_types = list(qs.filter(company=company).values_list("code", "name"))
+        if company_types:
+            return company_types
+    global_types = list(qs.filter(company__isnull=True).values_list("code", "name"))
+    if global_types:
+        return global_types
+    return LeavePolicy.LEAVE_TYPES
+
+
 class LeaveBlackoutPeriod(models.Model):
     company = models.ForeignKey(
         "company.Company",
@@ -1632,6 +2076,77 @@ class LeaveBlackoutPeriod(models.Model):
 
     def __str__(self):
         return self.name
+
+
+class LeaveLedgerEntry(models.Model):
+    """Append-only leave event, summed at read time (Frappe/BambooHR ledger).
+
+    Gap #6: balances are derived by summing these events rather than trusting a
+    mutable counter. ``LeaveBalance`` is retained as a read model materialised
+    from the ledger, but the ledger is the source of truth.
+
+    Event types:
+        ACCRUAL       — the annual entitlement granted for a year.
+        USAGE         — days consumed by an approved leave request.
+        CARRY_FORWARD — days carried from the previous year.
+        EXPIRY        — carried-forward days that lapsed.
+        ADJUSTMENT    — manual correction (positive or negative).
+
+    ``days`` is signed: accruals/carry-forward/positive adjustments are +,
+    usage and expiry are recorded negative so a balance is a plain ``Sum``.
+    """
+
+    class EventType(models.TextChoices):
+        ACCRUAL = "accrual", "Accrual"
+        USAGE = "usage", "Usage"
+        CARRY_FORWARD = "carry_forward", "Carry Forward"
+        EXPIRY = "expiry", "Expiry"
+        ADJUSTMENT = "adjustment", "Adjustment"
+
+    employee = models.ForeignKey(
+        EmployeeProfile,
+        on_delete=models.CASCADE,
+        related_name="leave_ledger_entries",
+    )
+    leave_type = models.CharField(max_length=20)
+    event_type = models.CharField(
+        max_length=20, choices=EventType.choices, db_index=True
+    )
+    days = models.DecimalField(max_digits=6, decimal_places=2)
+    year = models.PositiveIntegerField(db_index=True)
+    leave_request = models.ForeignKey(
+        "LeaveRequest",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="ledger_entries",
+    )
+    note = models.CharField(max_length=255, blank=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="leave_ledger_entries_created",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+        verbose_name = "Leave Ledger Entry"
+        verbose_name_plural = "Leave Ledger Entries"
+        indexes = [
+            models.Index(
+                fields=["employee", "leave_type", "year"],
+                name="leave_ledger_balance_idx",
+            )
+        ]
+
+    def __str__(self):
+        return (
+            f"{self.employee} {self.leave_type} {self.event_type} "
+            f"{self.days:+} ({self.year})"
+        )
 
 
 class LeaveBalance(models.Model):
@@ -1685,11 +2200,28 @@ class LeaveCarryover(models.Model):
 
 
 class LeaveRequest(models.Model):
+    class Meta:
+        base_manager_name = "all_objects"
+
+    requested_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT,
+        null=True, blank=True, related_name="created_leaverequest_requests")
+
+    objects = HRWorkflowManager()
+    all_objects = HRWorkflowQuerySet.as_manager()
+
     STATUS_CHOICES = [
         ("PENDING", "Pending"),
+        ("PENDING_HR", "Pending HR"),
         ("APPROVED", "Approved"),
         ("REJECTED", "Rejected"),
+        ("WITHDRAWN", "Withdrawn"),
+        ("CANCELLED", "Cancelled"),
     ]
+
+    # States a request may still leave (be withdrawn/cancelled from) vs. those
+    # that are terminal. Used by the withdraw/cancel service (P2-12).
+    LIVE_STATES = ("PENDING", "PENDING_HR")
+    TERMINAL_STATES = ("APPROVED", "REJECTED", "WITHDRAWN", "CANCELLED")
 
     LEAVE_CHOICES = [
         ("CASUAL", "Casual Leave"),
@@ -1703,7 +2235,7 @@ class LeaveRequest(models.Model):
         "EmployeeProfile", on_delete=models.CASCADE, related_name="leave_requests"
     )
 
-    leave_type = models.CharField(max_length=20, choices=LEAVE_CHOICES)
+    leave_type = models.CharField(max_length=20)
     start_date = models.DateField()
     end_date = models.DateField()
 
@@ -1736,6 +2268,10 @@ class LeaveRequest(models.Model):
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    def get_leave_type_display(self):
+        row = LeaveType.objects.filter(company=self.employee.company, code=self.leave_type).first()
+        return row.name if row else dict(self.LEAVE_CHOICES).get(self.leave_type, self.leave_type)
 
     @property
     def calculate_days(self) -> int:
@@ -1776,6 +2312,12 @@ class LeaveRequest(models.Model):
     def clean(self):
         super().clean()
 
+        if not self.start_date or not self.end_date or not self.employee_id:
+            return
+        from payroll.services.leave_type_service import ensure_default_leave_types
+        ensure_default_leave_types(self.employee.company)
+        if not LeaveType.objects.filter(company=self.employee.company, code=self.leave_type, is_active=True).exists():
+            raise ValidationError({"leave_type": "Select an active company leave type."})
         if self.start_date > self.end_date:
             raise ValidationError("End date cannot be before start date.")
 
@@ -1791,25 +2333,26 @@ class LeaveRequest(models.Model):
             raise ValidationError("Leave request falls within a blackout period.")
 
         if self.status == "APPROVED" and not self.hr_override:
-            balance = get_leave_balance(self.employee, self.start_date.year)
             days = self.duration
 
-            leave_map = {
-                "ANNUAL": balance.annual_leave,
-                "SICK": balance.sick_leave,
-                "CASUAL": balance.casual_leave,
-                "MATERNITY": balance.maternity_leave,
-                "PATERNITY": balance.paternity_leave,
-            }
-
-            if leave_map[self.leave_type] < days:
+            from payroll.services.leave_type_service import available_leave_balances
+            available = available_leave_balances(self.employee, self.start_date.year)
+            if available.get(self.leave_type, Decimal("0")) < Decimal(str(days)):
                 raise ValidationError(
                     f"Insufficient {self.leave_type.lower()} leave balance."
                 )
 
+        # Half-day requests are only valid for types that allow them (P2-12).
+        if self.is_half_day and not self.hr_override:
+            from payroll.services.leave_type_service import validate_half_day
+
+            validate_half_day(
+                self.leave_type, True, company=self.employee.company
+            )
+
         overlap_qs = LeaveRequest.objects.filter(
             employee=self.employee,
-            status__in=["PENDING", "APPROVED"],
+            status__in=["PENDING", "PENDING_HR", "APPROVED"],
             start_date__lte=self.end_date,
             end_date__gte=self.start_date,
         )
@@ -1820,7 +2363,20 @@ class LeaveRequest(models.Model):
                 "Leave dates overlap with an existing pending/approved leave request."
             )
 
+    def delete(self, *args, **kwargs):
+        from payroll.services.hr_workflow import guard_delete
+        guard_delete(self)
+        return super().delete(*args, **kwargs)
+
+    @transaction.atomic
     def save(self, *args, **kwargs):
+        from payroll.services.hr_workflow import guard_requester
+        guard_requester(self, kwargs.get("update_fields"))
+        from payroll.services.hr_workflow import guard_state
+        guard_state(self, "leave.approve", {"APPROVED", "REJECTED"}, ("approved_by_id", "manager_approved_by_id", "manager_approved_at", "hr_approved_at"), update_fields=kwargs.get("update_fields"))
+        old = type(self).objects.filter(pk=self.pk).first() if self.pk else None
+        if old and old.status == "APPROVED":
+            guard_state(self, "leave.approve", set(), ("employee_id", "leave_type", "start_date", "end_date", "is_half_day", "hr_override", "override_reason"), update_fields=kwargs.get("update_fields"))
         user = kwargs.pop("user", None)
 
         is_new = self.pk is None
@@ -1833,25 +2389,8 @@ class LeaveRequest(models.Model):
         super().save(*args, **kwargs)
 
         # Deduct leave only once
-        if self.status == "APPROVED" and previous_status != "APPROVED":
-            if self.approved_by_id and not self.manager_approved_by_id:
-                approval_time = timezone.now()
-                self.manager_approved_by = self.approved_by
-                self.manager_approved_at = approval_time
-                self.hr_approved_at = approval_time
-                LeaveRequest.objects.filter(pk=self.pk).update(
-                    manager_approved_by=self.manager_approved_by,
-                    manager_approved_at=self.manager_approved_at,
-                    hr_approved_at=self.hr_approved_at,
-                )
-                LeaveApproval.objects.get_or_create(
-                    leave_request=self,
-                    step="manager",
-                    defaults={
-                        "approver": self.approved_by,
-                        "approved_at": approval_time,
-                    },
-                )
+        status_written = kwargs.get("update_fields") is None or "status" in kwargs["update_fields"]
+        if status_written and self.status == "APPROVED" and previous_status != "APPROVED":
             balance = get_leave_balance(self.employee, self.start_date.year)
             days = self.duration
 
@@ -1869,6 +2408,29 @@ class LeaveRequest(models.Model):
 
                 balance.save()
 
+                # Append the same consumption to the leave ledger so balances
+                # can be derived from append-only events (P1-6); the counter
+                # above stays as the read model.
+                from payroll.services.leave_ledger import record_usage
+
+                record_usage(self, days=days)
+
+                # Fan out a signed webhook on approval (P1-9).
+                from webhooks.services import emit_event
+
+                emit_event(
+                    self.employee.company,
+                    "leave.request.approved",
+                    {
+                        "leave_request_id": str(self.pk),
+                        "employee_id": str(self.employee_id),
+                        "leave_type": self.leave_type,
+                        "start_date": self.start_date.isoformat(),
+                        "end_date": self.end_date.isoformat(),
+                        "days": str(days),
+                    },
+                )
+
             from payroll.services.leave_allowance import process_leave_allowance_for_request
 
             process_leave_allowance_for_request(self)
@@ -1878,7 +2440,8 @@ class LeaveRequest(models.Model):
             populate_attendance_for_leave(self)
 
         # Audit logging
-        action = "CREATED" if is_new else f"STATUS_CHANGED_TO_{self.status}"
+        persisted_status = self.status if status_written else previous_status
+        action = "CREATED" if is_new else f"STATUS_CHANGED_TO_{persisted_status}"
         LeaveAuditLog.objects.create(
             leave_request=self, action=action, performed_by=user
         )
@@ -1977,13 +2540,22 @@ def get_leave_balance(employee, year=None):
     if not year:
         year = date.today().year
 
+    # Make sure the company's leave catalogue exists before deriving
+    # entitlements from it (idempotent no-op once seeded).
+    from payroll.services.leave_type_service import (
+        ensure_default_leave_types,
+        entitlement_days,
+    )
+
+    ensure_default_leave_types(employee.company)
     defaults = {
-        "annual_leave": 20,
-        "sick_leave": 10,
-        "casual_leave": 7,
-        "maternity_leave": 90,
-        "paternity_leave": 14,
+        "annual_leave": int(entitlement_days("ANNUAL", employee.company)),
+        "sick_leave": int(entitlement_days("SICK", employee.company)),
+        "casual_leave": int(entitlement_days("CASUAL", employee.company)),
+        "maternity_leave": int(entitlement_days("MATERNITY", employee.company)),
+        "paternity_leave": int(entitlement_days("PATERNITY", employee.company)),
     }
+    carryover = 0
     previous = LeaveBalance.objects.filter(employee=employee, year=year - 1).first()
     if previous:
         carryover = Decimal(previous.annual_leave or 0)
@@ -2012,15 +2584,54 @@ def get_leave_balance(employee, year=None):
                 },
             )
 
-    balance, _ = LeaveBalance.objects.get_or_create(
+    balance, created = LeaveBalance.objects.get_or_create(
         employee=employee,
         year=year,
         defaults=defaults,
     )
+    if created:
+        # Mirror the seeded entitlement into the leave ledger so balances stay
+        # derivable from append-only events (P1-6). Local import: the ledger
+        # service imports payroll.models.
+        from payroll.services.leave_ledger import seed_balance_accruals
+
+        seed_balance_accruals(employee, balance)
     return balance
 
 
+class BankPaymentFileQuerySet(models.QuerySet):
+    @transaction.atomic
+    def update(self, **kwargs):
+        if "status" in kwargs:
+            raise ValidationError("Payment status changes must use the bank payment service.")
+        if any(item.status in ("SUBMITTED", "CONFIRMED") for item in self.select_for_update()):
+            raise ValidationError("Submitted payment files cannot be changed.")
+        return super().update(**kwargs)
+
+    @transaction.atomic
+    def delete(self):
+        if any(item.status in ("SUBMITTED", "CONFIRMED") for item in self.select_for_update()):
+            raise ValidationError("Submitted payment files cannot be deleted.")
+        return super().delete()
+
+    def bulk_create(self, objs, **kwargs):
+        if kwargs.get("update_conflicts"):
+            raise ValidationError("Workflow records cannot be replaced through bulk conflict updates.")
+        objs = list(objs)
+        if any(item.status != "GENERATED" for item in objs):
+            raise ValidationError("Payment files must start in generated status.")
+        return super().bulk_create(objs, **kwargs)
+
+
+class BankPaymentFileManager(models.Manager.from_queryset(BankPaymentFileQuerySet)):
+    def get_queryset(self):
+        return super().get_queryset().filter(deleted_at__isnull=True)
+
+
 class BankPaymentFile(SoftDeleteModel):
+    objects = BankPaymentFileManager()
+    all_objects = BankPaymentFileQuerySet.as_manager()
+
     company = models.ForeignKey(
         "company.Company",
         on_delete=models.CASCADE,
@@ -2059,7 +2670,36 @@ class BankPaymentFile(SoftDeleteModel):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
+        base_manager_name = "all_objects"
         ordering = ["-created_at"]
 
     def __str__(self):
         return f"{self.bank_name} - {self.payroll_run} ({self.total_records} records)"
+
+    @transaction.atomic
+    def save(self, *args, **kwargs):
+        validated_transition = kwargs.pop("_validated_transition", False)
+        if not self.pk and self.status != "GENERATED":
+            raise ValidationError("Payment files must start in generated status.")
+        if self.payroll_run.company_id != self.company_id:
+            raise ValidationError("Payment file and payroll must belong to the same company.")
+        if self.pk:
+            persisted = type(self).all_objects.select_for_update().filter(pk=self.pk).first()
+            if persisted and persisted.status != self.status and not validated_transition:
+                raise ValidationError("Payment status changes must use the bank payment service.")
+            if persisted and persisted.status == "GENERATED" and self.status not in (
+                "GENERATED", "SUBMITTED", "FAILED"
+            ):
+                raise ValidationError("Payment files must be submitted before confirmation.")
+            if persisted and persisted.status in ("SUBMITTED", "CONFIRMED"):
+                update_fields = set(kwargs.get("update_fields") or ())
+                confirming = (
+                    persisted.status == "SUBMITTED"
+                    and self.status == "CONFIRMED"
+                    and update_fields == {"status", "confirmed_at"}
+                )
+                if not confirming:
+                    raise ValidationError("Submitted payment files cannot be changed.")
+        from approvals.guards import guard_source_save
+        guard_source_save(self, update_fields=kwargs.get("update_fields"))
+        super().save(*args, **kwargs)

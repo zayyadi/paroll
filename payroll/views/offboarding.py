@@ -1,3 +1,4 @@
+from django.core.exceptions import ValidationError
 from django.contrib.auth.decorators import login_required, permission_required
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
@@ -118,9 +119,12 @@ def offboarding_complete(request, pk):
 
     if request.method == "POST":
         try:
-            complete_offboarding(checklist=checklist)
-            messages.success(request, "Offboarding completed successfully.")
-        except ValueError as e:
-            messages.error(request, str(e))
+            result = complete_offboarding(checklist=checklist, actor=request.user)
+            if result.status == "PENDING":
+                messages.info(request, "Approval recorded; awaiting the next stage.")
+            else:
+                messages.success(request, "Offboarding approval completed.")
+        except (ValidationError, ValueError) as e:
+            messages.error(request, "; ".join(e.messages) if isinstance(e, ValidationError) else str(e))
 
     return redirect("payroll:offboarding_detail", pk=pk)

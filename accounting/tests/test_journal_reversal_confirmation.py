@@ -1,3 +1,7 @@
+from tests.approval_helpers import (
+    approve_journal,
+    post_journal as approved_post_journal,
+)
 from datetime import date
 
 from django.contrib.auth import get_user_model
@@ -54,7 +58,7 @@ class JournalReversalConfirmationTests(TestCase):
             period=period,
             date=date(2026, 1, 15),
             description="Imported posted journal",
-            status=Journal.JournalStatus.POSTED,
+            status=Journal.JournalStatus.DRAFT,
         )
         JournalEntry.objects.create(
             journal=journal,
@@ -68,6 +72,9 @@ class JournalReversalConfirmationTests(TestCase):
             entry_type=JournalEntry.EntryType.CREDIT,
             amount="100.00",
         )
+        journal.submit_for_approval()
+        approve_journal(journal)
+        approved_post_journal(journal)
         self.client.force_login(user)
         session = self.client.session
         session["reversal_data"] = {
@@ -83,4 +90,10 @@ class JournalReversalConfirmationTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Imported posted journal")
-        self.assertContains(response, "Not recorded")
+        # Legacy records can omit actors; exercise that rendering state without
+        # forging a posted record or bypassing the approval service.
+        from django.template.loader import render_to_string
+        journal.created_by = None
+        journal.posted_by = None
+        legacy_content = render_to_string("accounting/journal_reversal_confirmation.html", {"journal": journal, "reversal_data": session["reversal_data"]}, request=response.wsgi_request)
+        self.assertIn("Not recorded", legacy_content)

@@ -1,3 +1,4 @@
+from django.core.exceptions import ValidationError
 from django.contrib.auth.decorators import login_required, permission_required
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
@@ -83,13 +84,20 @@ def transfer_approve(request, pk):
 
     if request.method == "POST":
         action = request.POST.get("action")
-        if action == "approve":
-            approve_transfer(transfer=transfer, approved_by=request.user)
-            execute_transfer(transfer=transfer, performed_by=request.user)
-            messages.success(request, f"Transfer for {transfer.employee} approved and executed.")
-        elif action == "reject":
-            reject_transfer(transfer=transfer, approved_by=request.user)
-            messages.warning(request, f"Transfer for {transfer.employee} rejected.")
+        try:
+            if action == "approve":
+                result = approve_transfer(transfer=transfer, approved_by=request.user)
+                if result.status == "PENDING":
+                    messages.info(request, "Approval recorded; awaiting the next stage.")
+                else:
+                    messages.success(request, "Transfer approval completed.")
+            elif action == "reject":
+                reject_transfer(transfer=transfer, approved_by=request.user, comment=request.POST.get("comment", ""))
+                messages.warning(request, "Transfer request rejected.")
+            else:
+                messages.error(request, "Select an approval decision.")
+        except (ValidationError, ValueError) as exc:
+            messages.error(request, "; ".join(exc.messages) if isinstance(exc, ValidationError) else str(exc))
 
     return redirect("payroll:transfer_detail", pk=pk)
 
@@ -157,12 +165,19 @@ def promotion_approve(request, pk):
 
     if request.method == "POST":
         action = request.POST.get("action")
-        if action == "approve":
-            approve_promotion(promotion=promotion, approved_by=request.user)
-            execute_promotion(promotion=promotion, performed_by=request.user)
-            messages.success(request, f"Promotion for {promotion.employee} approved and executed.")
-        elif action == "reject":
-            reject_promotion(promotion=promotion, approved_by=request.user)
-            messages.warning(request, f"Promotion for {promotion.employee} rejected.")
+        try:
+            if action == "approve":
+                result = approve_promotion(promotion=promotion, approved_by=request.user)
+                if result.status == "PENDING":
+                    messages.info(request, "Approval recorded; awaiting the next stage.")
+                else:
+                    messages.success(request, "Promotion approval completed.")
+            elif action == "reject":
+                reject_promotion(promotion=promotion, approved_by=request.user, comment=request.POST.get("comment", ""))
+                messages.warning(request, "Promotion request rejected.")
+            else:
+                messages.error(request, "Select an approval decision.")
+        except (ValidationError, ValueError) as exc:
+            messages.error(request, "; ".join(exc.messages) if isinstance(exc, ValidationError) else str(exc))
 
     return redirect("payroll:promotion_detail", pk=pk)

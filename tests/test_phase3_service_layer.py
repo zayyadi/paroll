@@ -10,19 +10,20 @@ class Phase3ServiceLayerTests(SimpleTestCase):
         from payroll import notification_signals
 
         iou = Mock(status="APPROVED")
+        iou.pk = 123
         with override_settings(NOTIFICATION_SIGNALS_ENABLED=True), patch(
-            "payroll.notification_signals.NotificationSignalService"
-        ) as service_class:
+            "payroll.notification_signals._enqueue_after_commit"
+        ) as mocked_enqueue:
             notification_signals.handle_iou_signal(
                 sender=object,
                 instance=iou,
                 created=False,
             )
 
-        service_class.return_value.handle_iou_saved.assert_called_once_with(
-            iou,
-            created=False,
-        )
+        # Handlers must not block the request: they only enqueue a worker task.
+        mocked_enqueue.assert_called_once()
+        task_name = mocked_enqueue.call_args.args[0]
+        self.assertEqual(task_name, "payroll.handle_iou_signal")
 
     def test_legacy_notification_dispatch_helpers_delegate_to_service_layer(self):
         from payroll import notification_signals

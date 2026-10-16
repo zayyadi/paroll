@@ -1,0 +1,8 @@
+{% extends "base_new.html" %}
+{% block content %}<div class="max-w-5xl mx-auto p-6 space-y-6">
+<h1 class="text-2xl font-bold">Leave types</h1>
+<p>Annual entitlements apply when a yearly balance is first granted. Deactivate a type to stop new requests while retaining its history.</p>
+<ul>{% for row in leave_types %}<li><a href="{% url 'payroll:leave_type_edit' row.pk %}">{{ row.name }}</a> ({{ row.code }}): {{ row.default_days }} days, {{ row.is_active|yesno:"Active,Inactive" }}</li>{% endfor %}</ul>
+<a href="{% url 'payroll:leave_types' %}">Add leave type</a>
+<form method="post">{% csrf_token %}{{ form.as_p }}<button class="btn-primary" type="submit">Save leave type</button></form>
+</div>{% endblock %}

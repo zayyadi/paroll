@@ -23,6 +23,7 @@ class Command(BaseCommand):
     )
 
     def add_arguments(self, parser):
+        parser.add_argument("--requested-by",type=str,help="Active company maker user ID/email for approval submissions.")
         parser.add_argument(
             "--apply",
             action="store_true",
@@ -56,14 +57,25 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
-        apply_changes = options["apply"]
+        apply_changes = options['apply']
+        actor = None
+        if apply_changes:
+            from django.contrib.auth import get_user_model
+            value = options.get('requested_by')
+            if not value:
+                raise CommandError('--apply queues reviewed proposals and requires --requested-by.')
+            query = {'pk':int(value)} if str(value).isdigit() else {'email':value}
+            try:
+                actor = get_user_model().objects.get(is_active=True,**query)
+            except get_user_model().DoesNotExist as exc:
+                raise CommandError('The requested maker is not an active user.') from exc
         from_date = self._parse_date(options.get("from_date"), "--from-date")
         to_date = self._parse_date(options.get("to_date"), "--to-date")
 
         if from_date and to_date and from_date > to_date:
             raise CommandError("--from-date cannot be later than --to-date")
 
-        accounts = self._get_required_accounts()
+
         payroll_ct = ContentType.objects.get_for_model(PayrollRun)
         journal_ct = ContentType.objects.get_for_model(Journal)
 
@@ -72,6 +84,12 @@ class Command(BaseCommand):
             content_type=payroll_ct,
             object_id__isnull=False,
         ).order_by("date", "pk")
+
+        if actor is not None:
+            from approvals.permissions import require_company_authority
+            company_id = actor.active_company_id or actor.company_id
+            require_company_authority(actor,company_id,'accounting.change_journal')
+            queryset = queryset.filter(company_id=company_id)
 
         if options.get("journal_id"):
             queryset = queryset.filter(pk__in=options["journal_id"])
@@ -90,7 +108,7 @@ class Command(BaseCommand):
         totals = {
             "scanned": 0,
             "candidates": 0,
-            "created": 0,
+            "queued": 0,
             "already_corrected": 0,
             "skipped": 0,
             "errors": 0,
@@ -141,7 +159,11 @@ class Command(BaseCommand):
                 continue
 
             try:
-                create_journal_with_entries(
+                accounts = self._get_required_accounts(journal.company)
+                approval = create_journal_with_entries(
+                    company=journal.company,
+                    user=actor,
+                    approval_key=f'payroll-statutory-correction-{journal.pk}',
                     date=journal.date,
                     description=f"{CORRECTION_PREFIX} {journal.transaction_number}",
                     entries=self._build_entries(correction, accounts),
@@ -151,7 +173,8 @@ class Command(BaseCommand):
                     auto_post=True,
                     validate_balances=False,
                 )
-                totals["created"] += 1
+                totals["queued"] += 1
+                self.stdout.write(f"  awaiting approval request={approval.pk}")
             except Exception as exc:
                 totals["errors"] += 1
                 self.stderr.write(
@@ -161,7 +184,7 @@ class Command(BaseCommand):
         self.stdout.write(
             "summary "
             f"scanned={totals['scanned']} candidates={totals['candidates']} "
-            f"created={totals['created']} already_corrected={totals['already_corrected']} "
+            f"queued={totals['queued']} already_corrected={totals['already_corrected']} "
             f"skipped={totals['skipped']} errors={totals['errors']}"
         )
 
@@ -173,11 +196,11 @@ class Command(BaseCommand):
         except ValueError as exc:
             raise CommandError(f"Invalid {arg_name} value '{value}'. Use YYYY-MM-DD.") from exc
 
-    def _get_required_accounts(self):
+    def _get_required_accounts(self, company):
         account_numbers = ["6010", "6030", "2130", "2150"]
         accounts = {
             account.account_number: account
-            for account in Account.objects.filter(account_number__in=account_numbers)
+            for account in Account.objects.filter(company=company, account_number__in=account_numbers)
         }
 
         missing = [number for number in account_numbers if number not in accounts]

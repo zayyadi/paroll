@@ -2,6 +2,11 @@
 Model tests for all accounting models.
 Tests model creation, validation, methods, and relationships.
 """
+from tests.approval_helpers import (
+    approved_operation_for,
+    approve_journal,
+    post_journal as approved_post_journal,
+)
 
 from decimal import Decimal
 from datetime import date, timedelta
@@ -100,9 +105,14 @@ class AccountModelTest(TestCase):
             amount=Decimal("300"),
         )
 
+        offset = AccountFactory.create_account("Balance offset", "3001", Account.AccountType.EQUITY)
+        JournalEntry.objects.create(journal=journal, account=offset, entry_type="CREDIT", amount=Decimal("700"))
+        journal.submit_for_approval()
+        approve_journal(journal)
+        approved_post_journal(journal)
+
         # Asset balance = debits - credits = 1000 - 300 = 700.
-        # Entries created directly bypass posting, so the cached current_balance
-        # is not updated; compute the arithmetic balance explicitly.
+        # Both cached and computed financial balances use posted entries.
         self.assertEqual(self.account.get_balance(cached=False), Decimal("700"))
 
     def test_get_balance_liability_account(self):
@@ -133,9 +143,13 @@ class AccountModelTest(TestCase):
             amount=Decimal("1000"),
         )
 
+        JournalEntry.objects.create(journal=journal, account=self.account, entry_type="DEBIT", amount=Decimal("800"))
+        journal.submit_for_approval()
+        approve_journal(journal)
+        approved_post_journal(journal)
+
         # Liability balance = credits - debits = 1000 - 200 = 800.
-        # Entries created directly bypass posting, so the cached current_balance
-        # is not updated; compute the arithmetic balance explicitly.
+        # Both cached and computed financial balances use posted entries.
         self.assertEqual(liability_account.get_balance(cached=False), Decimal("800"))
 
     def test_balance_property(self):
@@ -215,15 +229,17 @@ class FiscalYearModelTest(TestCase):
             name="Month 1",
             start_date=date(2023, 1, 1),
             end_date=date(2023, 1, 31),
-            is_closed=True,
+            is_closed=False,
         )
 
+        approved_operation_for("accounting.change_accountingperiod")(self.fiscal_year.periods.get().close, user)
+
         # Close fiscal year
-        self.fiscal_year.close(user)
+        approved_operation_for("accounting.change_fiscalyear")(self.fiscal_year.close,user)
 
         self.assertTrue(self.fiscal_year.is_closed)
         self.assertIsNotNone(self.fiscal_year.closed_at)
-        self.assertEqual(self.fiscal_year.closed_by, user)
+        self.assertNotEqual(self.fiscal_year.closed_by, user)
 
     def test_fiscal_year_close_with_open_periods(self):
         """Test fiscal year closure with open periods"""
@@ -241,7 +257,7 @@ class FiscalYearModelTest(TestCase):
 
         # Should raise validation error
         with self.assertRaises(ValidationError):
-            self.fiscal_year.close(user)
+            approved_operation_for("accounting.change_fiscalyear")(self.fiscal_year.close,user)
 
     def test_fiscal_year_ordering(self):
         """Test fiscal year ordering"""
@@ -337,11 +353,11 @@ class AccountingPeriodModelTest(TestCase):
         user = UserFactory.create_admin()
 
         # Close period
-        self.period.close(user)
+        approved_operation_for("accounting.change_accountingperiod")(self.period.close,user)
 
         self.assertTrue(self.period.is_closed)
         self.assertIsNotNone(self.period.closed_at)
-        self.assertEqual(self.period.closed_by, user)
+        self.assertNotEqual(self.period.closed_by, user)
 
     def test_period_unique_constraint(self):
         """Test period number uniqueness within fiscal year"""
@@ -570,8 +586,7 @@ class JournalModelTest(TestCase):
 
     def test_journal_submit_for_approval_invalid_status(self):
         """Test submitting journal for approval with invalid status"""
-        self.journal.status = Journal.JournalStatus.POSTED
-        self.journal.save()
+        self.journal = JournalFactory.create_posted_journal(user=self.user)
 
         with self.assertRaises(ValidationError):
             self.journal.submit_for_approval()
@@ -581,11 +596,13 @@ class JournalModelTest(TestCase):
         self.journal.status = Journal.JournalStatus.PENDING_APPROVAL
         self.journal.save()
 
-        self.journal.approve(self.user)
+        self.journal.add_entry(AccountFactory.create_account("Approval cash", "1000", Account.AccountType.ASSET), "DEBIT", Decimal("100"))
+        self.journal.add_entry(AccountFactory.create_account("Approval revenue", "4000", Account.AccountType.REVENUE), "CREDIT", Decimal("100"))
+        approve_journal(self.journal)
         self.journal.refresh_from_db()
 
         self.assertEqual(self.journal.status, Journal.JournalStatus.APPROVED)
-        self.assertEqual(self.journal.approved_by, self.user)
+        self.assertNotEqual(self.journal.approved_by, self.user)
         self.assertIsNotNone(self.journal.approved_at)
 
     def test_journal_approve_invalid_status(self):
@@ -601,14 +618,14 @@ class JournalModelTest(TestCase):
 
         # Approve first
         journal.submit_for_approval()
-        journal.approve(user)
+        approve_journal(journal)
 
         # Then post
-        journal.post(user)
+        journal.post(journal.approved_by)
         journal.refresh_from_db()
 
         self.assertEqual(journal.status, Journal.JournalStatus.POSTED)
-        self.assertEqual(journal.posted_by, user)
+        self.assertEqual(journal.posted_by, journal.approved_by)
         self.assertIsNotNone(journal.posted_at)
 
     def test_journal_post_invalid_status(self):
@@ -623,7 +640,7 @@ class JournalModelTest(TestCase):
         user = UserFactory.create_accountant()
 
         # Reverse it
-        reversal_journal = journal.reverse(user, "Test reversal")
+        reversal_journal = approved_operation_for("accounting.change_journal")(journal.reverse,user, "Test reversal")
 
         # Check original journal
         journal.refresh_from_db()
@@ -638,7 +655,7 @@ class JournalModelTest(TestCase):
     def test_journal_reverse_invalid_status(self):
         """Test reversing journal with invalid status"""
         with self.assertRaises(ValidationError):
-            self.journal.reverse(self.user, "Test reversal")
+            approved_operation_for("accounting.change_journal")(self.journal.reverse,self.user, "Test reversal")
 
     def test_journal_reverse_already_reversed(self):
         """Test reversing already reversed journal"""
@@ -646,11 +663,11 @@ class JournalModelTest(TestCase):
         user = UserFactory.create_accountant()
 
         # Reverse once
-        journal.reverse(user, "First reversal")
+        approved_operation_for("accounting.change_journal")(journal.reverse,user, "First reversal")
 
         # Try to reverse again
         with self.assertRaises(ValidationError):
-            journal.reverse(user, "Second reversal")
+            approved_operation_for("accounting.change_journal")(journal.reverse,user, "Second reversal")
 
     def test_journal_add_entry(self):
         """Test adding entry to journal"""
@@ -671,10 +688,8 @@ class JournalModelTest(TestCase):
 
     def test_journal_add_entry_invalid_status(self):
         """Test adding entry to posted journal"""
-        self.journal.status = Journal.JournalStatus.POSTED
-        self.journal.save()
-
-        cash = AccountFactory.create_account("Cash", "1000", Account.AccountType.ASSET)
+        self.journal = JournalFactory.create_posted_journal(user=self.user)
+        cash = self.journal.entries.filter(entry_type="DEBIT").first().account
 
         with self.assertRaises(ValidationError):
             self.journal.add_entry(

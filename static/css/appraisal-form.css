@@ -1,0 +1,49 @@
+/* Appraisal cycle editor. Scoped to the form; colours follow the shared shell. */
+.appraisal-editor { display: grid; grid-template-columns: minmax(0, 1fr) 290px; gap: 24px; align-items: start; max-width: 1120px; }
+.appraisal-card { min-width: 0; background: var(--pn-surface, #fff); border: 1px solid var(--pn-border, #dfe4e6); border-radius: 20px; box-shadow: 0 8px 24px rgba(26, 28, 29, .035); overflow: hidden; }
+.appraisal-card-heading { display: flex; align-items: center; gap: 16px; padding: 28px 32px; border-bottom: 1px solid #edf0f1; }
+.appraisal-heading-icon { display: grid; place-items: center; flex-shrink: 0; width: 46px; height: 46px; border-radius: 14px; background: var(--pn-primary-soft, #e7f6fa); color: var(--pn-primary, #005c73); }
+.appraisal-heading-icon svg { width: 22px; height: 22px; }
+.appraisal-card-heading h2 { margin: 0; font-family: Manrope, Inter, sans-serif; font-size: 19px; font-weight: 700; letter-spacing: -.025em; color: var(--pn-text, #1a1c1d); }
+.appraisal-card-heading p { margin: 5px 0 0; font-size: 13px; line-height: 1.6; color: var(--pn-muted, #536167); }
+.appraisal-fields { display: grid; gap: 32px; padding: 32px; }
+.appraisal-field { min-width: 0; }
+.appraisal-field label, .appraisal-period legend { display: block; margin-bottom: 9px; color: var(--pn-text, #1a1c1d); font-size: 14px; font-weight: 600; }
+.appraisal-field label span { margin-left: 5px; color: var(--pn-primary, #005c73); }
+.appraisal-editor .appraisal-input { display: block; width: 100%; min-width: 0; min-height: 48px; box-sizing: border-box; padding: 12px 14px; font: inherit; font-size: 14px; }
+.appraisal-input::placeholder { color: #8a959b; opacity: 1; }
+.appraisal-field-hint { margin: 8px 0 0; color: var(--pn-muted, #536167); font-size: 12px; line-height: 1.7; }
+.appraisal-period { min-width: 0; border: 0; padding: 0; margin: 0; }
+.appraisal-period legend { margin-bottom: 0; padding: 0; }
+.appraisal-period > .appraisal-field-hint { margin-top: 5px; }
+.appraisal-date-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; margin-top: 20px; }
+.appraisal-form-footer { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 18px; padding: 22px 32px; border-top: 1px solid #edf0f1; background: #fbfcfc; }
+.appraisal-form-footer > p { display: flex; align-items: center; gap: 6px; margin: 0; color: var(--pn-muted, #536167); font-size: 11px; }
+.appraisal-form-footer > p svg { width: 14px; height: 14px; }
+.appraisal-actions { display: flex; align-items: center; gap: 10px; }
+.appraisal-cancel, .appraisal-submit { display: inline-flex; justify-content: center; align-items: center; gap: 10px; min-height: 44px; padding: 11px 18px; border-radius: 12px; font-size: 13px; font-weight: 600; text-decoration: none; }
+.appraisal-cancel { color: var(--pn-muted, #536167); }
+.appraisal-cancel:hover { color: var(--pn-text, #1a1c1d); background: #edf0f1; }
+.appraisal-submit svg { width: 16px; height: 16px; }
+.appraisal-guide { padding: 10px 2px 0 8px; }
+.appraisal-guide-kicker { display: flex; align-items: center; gap: 8px; color: var(--pn-primary, #005c73); font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.appraisal-guide-kicker svg { width: 15px; height: 15px; flex-shrink: 0; }
+.appraisal-guide h2 { margin: 18px 0 10px; font-family: Manrope, Inter, sans-serif; font-size: 24px; font-weight: 700; line-height: 1.4; letter-spacing: -.035em; color: var(--pn-primary-strong, #004355); }
+.appraisal-guide-intro { margin: 0; color: var(--pn-muted, #536167); font-size: 13px; line-height: 1.8; }
+.appraisal-next-steps { display: grid; gap: 24px; list-style: none; margin: 28px 0; padding: 0; }
+.appraisal-next-steps li { display: flex; align-items: flex-start; gap: 12px; }
+.appraisal-next-steps li > span { display: grid; place-items: center; flex-shrink: 0; width: 28px; height: 28px; border: 1px solid #d5dde0; border-radius: 50%; color: var(--pn-muted, #536167); font-size: 11px; font-weight: 600; }
+.appraisal-next-steps li.is-current > span { border-color: var(--pn-primary, #005c73); background: var(--pn-primary, #005c73); color: #fff; }
+.appraisal-next-steps h3 { margin: 2px 0 4px; font-size: 13px; font-weight: 600; color: var(--pn-text, #1a1c1d); }
+.appraisal-next-steps p { margin: 0; font-size: 12px; line-height: 1.7; color: var(--pn-muted, #536167); }
+.appraisal-guide-note { display: flex; align-items: flex-start; gap: 10px; border-top: 1px solid #dce3e5; padding-top: 20px; color: var(--pn-primary, #005c73); }
+.appraisal-guide-note svg { width: 17px; height: 17px; flex-shrink: 0; margin-top: 2px; }
+.appraisal-guide-note p { margin: 0; font-size: 12px; line-height: 1.8; }
+.appraisal-error-summary { display: flex; align-items: flex-start; gap: 12px; padding: 16px; border: 1px solid #efc5c0; border-radius: 12px; background: #fff1f0; color: var(--pn-danger, #ba1a1a); font-size: 13px; }
+.appraisal-error-summary svg { width: 18px; height: 18px; flex-shrink: 0; }
+.appraisal-error-summary p { margin: 4px 0 0; }
+.appraisal-field-errors { font-size: 12px; line-height: 1.6; color: var(--pn-danger, #ba1a1a); }
+.appraisal-field-errors p { margin: 7px 0 0; }
+.appraisal-editor .has-error .appraisal-input { border-color: var(--pn-danger, #ba1a1a) !important; }
+@media (max-width: 1150px) { .appraisal-editor { grid-template-columns: minmax(0, 1fr); } .appraisal-guide { padding: 4px 8px; max-width: 540px; } }
+@media (max-width: 600px) { .appraisal-card-heading { padding: 22px 20px; align-items: flex-start; gap: 12px; } .appraisal-fields { padding: 24px 20px; gap: 26px; } .appraisal-date-grid { grid-template-columns: minmax(0, 1fr); gap: 20px; } .appraisal-form-footer { padding: 20px; } .appraisal-actions { width: 100%; justify-content: space-between; } .appraisal-submit { flex: 1; } .appraisal-guide { padding-top: 12px; } }

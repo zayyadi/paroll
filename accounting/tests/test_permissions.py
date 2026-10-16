@@ -2,6 +2,9 @@
 Permission tests for role-based access controls.
 Tests all permission functions, decorators, and mixins.
 """
+from tests.approval_helpers import (
+    approve_journal,
+)
 
 from decimal import Decimal
 from datetime import date
@@ -106,9 +109,7 @@ class JournalPermissionFunctionTest(TestCase):
         self.pending_journal.status = Journal.JournalStatus.PENDING_APPROVAL
         self.pending_journal.save()
 
-        self.approved_journal = JournalFactory.create_journal("Approved Journal")
-        self.approved_journal.status = Journal.JournalStatus.APPROVED
-        self.approved_journal.save()
+        self.approved_journal = JournalFactory.create_approved_journal("Approved Journal")
 
         self.posted_journal = JournalFactory.create_posted_journal(
             "Posted Journal", 1000
@@ -121,16 +122,17 @@ class JournalPermissionFunctionTest(TestCase):
 
     def test_can_approve_journal(self):
         """Test journal approval permission"""
-        # Draft journal - accountant and admin can approve
-        self.assertTrue(can_approve_journal(self.draft_journal, self.accountant))
-        self.assertTrue(can_approve_journal(self.draft_journal, self.admin))
+        # A draft has not been submitted and nobody can approve it.
+        self.assertFalse(can_approve_journal(self.draft_journal, self.accountant))
+        self.assertFalse(can_approve_journal(self.draft_journal, self.admin))
         self.assertFalse(can_approve_journal(self.draft_journal, self.auditor))
         self.assertFalse(
             can_approve_journal(self.draft_journal, self.payroll_processor)
         )
         self.assertFalse(can_approve_journal(self.draft_journal, self.regular_user))
 
-        # Pending journal - accountant and admin can approve
+        # Maker cannot approve; a distinct company accountant can.
+        self.assertFalse(can_approve_journal(self.pending_journal, self.pending_journal.created_by))
         self.assertTrue(can_approve_journal(self.pending_journal, self.accountant))
         self.assertTrue(can_approve_journal(self.pending_journal, self.admin))
         self.assertFalse(can_approve_journal(self.pending_journal, self.auditor))
@@ -146,10 +148,9 @@ class JournalPermissionFunctionTest(TestCase):
         self.assertFalse(can_approve_journal(self.posted_journal, self.accountant))
         self.assertFalse(can_approve_journal(self.posted_journal, self.admin))
 
-        # Payroll journal - payroll processor can approve their own
-        self.assertTrue(
-            can_approve_journal(self.payroll_journal, self.payroll_processor)
-        )
+        # Payroll makers cannot approve their own journal; submission is required.
+        self.assertFalse(can_approve_journal(self.payroll_journal, self.payroll_processor))
+        self.payroll_journal.submit_for_approval()
         self.assertTrue(can_approve_journal(self.payroll_journal, self.admin))
         self.assertTrue(can_approve_journal(self.payroll_journal, self.accountant))
 
@@ -478,7 +479,7 @@ class PermissionIntegrationTest(TestCase):
 
         # Create test data
         self.fiscal_year = FiscalYearFactory.create_fiscal_year()
-        self.journal = JournalFactory.create_journal("Test Journal")
+        self.journal = JournalFactory.create_journal_with_entries("Test Journal", user=self.accountant)
         self.account = AccountFactory.create_account(
             "Test Account", "1000", Account.AccountType.ASSET
         )
@@ -491,24 +492,22 @@ class PermissionIntegrationTest(TestCase):
         self.assertFalse(self.payroll_processor.has_perm("accounting.add_journal"))
 
         # Submit for approval (accountant only)
-        self.assertTrue(can_approve_journal(self.journal, self.accountant))
+        self.assertFalse(can_approve_journal(self.journal, self.accountant))
         self.assertFalse(can_approve_journal(self.journal, self.auditor))
 
         # Approve journal (accountant and admin)
         self.journal.status = Journal.JournalStatus.PENDING_APPROVAL
         self.journal.save()
-        self.assertTrue(can_approve_journal(self.journal, self.accountant))
+        self.assertFalse(can_approve_journal(self.journal, self.accountant))
         self.assertFalse(can_approve_journal(self.journal, self.auditor))
 
         # Post journal (accountant only)
-        self.journal.status = Journal.JournalStatus.APPROVED
-        self.journal.save()
+        approve_journal(self.journal)
         self.assertTrue(self.accountant.has_perm("accounting.post_journal"))
         self.assertFalse(self.auditor.has_perm("accounting.post_journal"))
 
         # Reverse journal (accountant, auditor, admin)
-        self.journal.status = Journal.JournalStatus.POSTED
-        self.journal.save()
+        self.journal.post(self.journal.approved_by)
         self.assertTrue(can_reverse_journal(self.journal, self.accountant))
         self.assertTrue(can_reverse_journal(self.journal, self.auditor))
         self.assertFalse(can_reverse_journal(self.journal, self.payroll_processor))
@@ -573,5 +572,6 @@ class PermissionIntegrationTest(TestCase):
         self.assertTrue(can_modify_payroll_data(self.admin))
         self.assertTrue(self.admin.has_perm("accounting.add_account"))
         self.assertTrue(self.admin.has_perm("accounting.add_journal"))
+        self.journal.submit_for_approval()
         self.assertTrue(can_approve_journal(self.journal, self.admin))
         self.assertTrue(can_close_period(None, self.admin))

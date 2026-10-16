@@ -23,6 +23,11 @@ def get_pending_requests_for_escalation() -> list[dict]:
         status="PENDING", created_at__lte=threshold
     ).select_related("employee__user"):
         if not leave.approvals.filter(is_escalated=True).exists():
+            # Surface aged requests to HR rather than leaving them pending
+            # on a manager who never acted (P2-12).
+            from payroll.services.leave_lifecycle import escalate_to_hr
+
+            escalate_to_hr(leave=leave)
             escalatable.append({
                 "type": "leave",
                 "id": leave.pk,

@@ -43,10 +43,12 @@ class AttendanceFeatureTests(TestCase):
             start_date=date(2026, 6, 1),
             end_date=date(2026, 6, 5),
             reason="Rest",
-            status="APPROVED",
+            status="PENDING",
             hr_override=True,
         )
 
+        from tests.approval_helpers import approve_source
+        approve_source(leave, 'leave.approve', maker=self.user)
         populate_attendance_for_leave(leave)
 
         self.assertEqual(

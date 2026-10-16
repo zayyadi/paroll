@@ -50,18 +50,18 @@ def payroll_runs_distinct_by_period(company):
 
 
 def _can_manage_employee_requests(user):
-    """
-    HR, managers, staff admins, and superusers can review employee requests.
-
-    Ordinary employees can submit and track their own requests, but cannot
-    approve, reject, or manage requests for other employees.
-    """
-    return user.is_authenticated and (
+    """Request management authority is scoped to the selected company."""
+    from approvals.permissions import user_in_company, has_company_permission
+    company = get_user_company(user)
+    if not user_in_company(user, company):
+        return False
+    if (has_company_permission(user, company, "payroll.change_leaverequest")
+            or has_company_permission(user, company, "payroll.change_iou")):
+        return True
+    return user.company_id == company.pk and (
         user.is_superuser
         or user.groups.filter(name="HR").exists()
         or getattr(user, "is_manager", False)
-        or user.has_perm("payroll.change_leaverequest")
-        or user.has_perm("payroll.change_iou")
     )
 
 

@@ -1,0 +1,35 @@
+{% extends "inventory/base.html" %}
+
+{% block inventory_content %}
+<div class="bg-white rounded-lg shadow-soft">
+    <div class="px-6 py-4 border-b border-gray-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <h3 class="text-lg font-semibold text-secondary-900">Warehouses</h3>
+        <div class="flex items-center gap-2">
+            <a href="{% url 'inventory:location_create' %}" class="inline-flex items-center px-4 py-2 border border-secondary-300 text-sm font-medium rounded-md text-secondary-700 bg-white hover:bg-secondary-50">
+                <i data-lucide="map-pin" class="mr-2 h-4 w-4"></i>
+                New Location
+            </a>
+            <a href="{% url 'inventory:warehouse_create' %}" class="btn-primary inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white">
+                <i data-lucide="plus" class="mr-2 h-4 w-4"></i>
+                New Warehouse
+            </a>
+        </div>
+    </div>
+    <div class="divide-y divide-gray-100">
+        {% for warehouse in warehouses %}
+        <div class="px-6 py-4">
+            <p class="text-sm font-semibold text-secondary-900">{{ warehouse.code }} - {{ warehouse.name }}</p>
+            <div class="mt-2 flex flex-wrap gap-2">
+                {% for location in warehouse.locations.all %}
+                <span class="inline-flex items-center rounded-md bg-gray-100 px-2.5 py-1 text-xs font-medium text-secondary-700">{{ location.code }} · {{ location.name }}</span>
+                {% empty %}
+                <span class="text-sm text-secondary-500">No locations.</span>
+                {% endfor %}
+            </div>
+        </div>
+        {% empty %}
+        <p class="px-6 py-8 text-sm text-secondary-500">No warehouses.</p>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

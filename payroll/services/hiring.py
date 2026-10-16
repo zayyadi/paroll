@@ -85,6 +85,12 @@ def advance_candidate(
         raise ValueError("Candidate and hiring stage must belong to the same company")
     if next_stage.requires_scorecard and not candidate.scorecards.filter(stage=next_stage).exists():
         raise ValueError("A structured scorecard is required before advancing to this stage")
+    from approvals.services import execution_authorized, submit_approval
+    if next_stage.requires_approval and not execution_authorized(candidate, "hiring.advance"):
+        if advanced_by is None:
+            raise ValueError("An explicit requester is required for this hiring stage.")
+        return submit_approval(source=candidate, action="hiring.advance", requester=advanced_by,
+                               payload={"next_stage_id": next_stage.pk})
     candidate.current_stage = next_stage
     candidate.status = (
         HiringCandidate.Status.HIRED
@@ -120,15 +126,16 @@ def create_job_offer(
         start_date=start_date,
         created_by=created_by,
         terms=terms or {},
+        status=JobOffer.Status.DRAFT,
     )
-    candidate.status = HiringCandidate.Status.OFFER
-    candidate.save(update_fields=["status", "updated_at"])
     return offer
 
 
 def accept_job_offer(offer: Any, accepted_by: Any = None) -> Any:
     from payroll.models import HiringCandidate, JobOffer, JobRequisition, Position, WorkflowExecution, WorkflowTemplate
 
+    if offer.status != JobOffer.Status.SENT:
+        raise ValueError("Only an approved released offer may be accepted.")
     offer.status = JobOffer.Status.ACCEPTED
     offer.accepted_at = timezone.now()
     offer.save(update_fields=["status", "accepted_at", "updated_at"])
@@ -182,3 +189,8 @@ def accept_job_offer(offer: Any, accepted_by: Any = None) -> Any:
             "start_date": offer.start_date.isoformat(),
         },
     )
+
+
+def release_job_offer(*, offer: Any, actor: Any, comment: str = "") -> Any:
+    from payroll.services.hr_workflow import decide
+    return decide(offer, "hiring.offer.release", actor, comment=comment)

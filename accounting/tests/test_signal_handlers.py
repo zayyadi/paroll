@@ -2,6 +2,10 @@
 Signal handler tests for audit trail functionality.
 Tests all signal handlers and audit trail logging.
 """
+from tests.approval_helpers import (
+    approved_operation_for,
+    approve_journal,
+)
 
 from decimal import Decimal
 from datetime import date
@@ -210,12 +214,11 @@ class FiscalYearSignalHandlerTest(TestCase):
 
         # Close all periods
         for period in fiscal_year.periods.all():
-            period.is_closed = True
-            period.save()
+            approved_operation_for("accounting.change_accountingperiod")(period.close, self.user)
 
         # Close fiscal year
         with transaction.atomic():
-            fiscal_year.close(self.user)
+            approved_operation_for("accounting.change_fiscalyear")(fiscal_year.close,self.user)
 
         # Force transaction to commit
         _safe_commit()
@@ -273,7 +276,7 @@ class AccountingPeriodSignalHandlerTest(TestCase):
 
         # Close period
         with transaction.atomic():
-            period.close(self.user)
+            approved_operation_for("accounting.change_accountingperiod")(period.close,self.user)
 
         # Force transaction to commit
         _safe_commit()
@@ -319,13 +322,13 @@ class JournalSignalHandlerTest(TestCase):
     def test_journal_approval_signal(self):
         """Test journal approval signal handler"""
         # Create and approve journal
-        journal = JournalFactory.create_journal("Test Journal")
+        journal = JournalFactory.create_journal_with_entries("Test Journal")
         journal.status = Journal.JournalStatus.PENDING_APPROVAL
         journal.save()
 
         # Approve journal
         with transaction.atomic():
-            journal.approve(self.user)
+            approve_journal(journal)
 
         # Force transaction to commit
         _safe_commit()
@@ -345,11 +348,11 @@ class JournalSignalHandlerTest(TestCase):
         # Create, approve, and post journal
         journal = JournalFactory.create_journal_with_entries("Test Journal", 1000)
         journal.submit_for_approval()
-        journal.approve(self.user)
+        approve_journal(journal)
 
         # Post journal
         with transaction.atomic():
-            journal.post(self.user)
+            journal.post(journal.approved_by)
 
         # Force transaction to commit
         _safe_commit()
@@ -371,7 +374,7 @@ class JournalSignalHandlerTest(TestCase):
 
         # Reverse journal
         with transaction.atomic():
-            journal.reverse(self.user, "Test reversal")
+            approved_operation_for("accounting.change_journal")(journal.reverse,self.user, "Test reversal")
 
         # Force transaction to commit
         _safe_commit()
@@ -501,8 +504,7 @@ class CustomLoggingFunctionTest(TestCase):
     def test_log_journal_approval_function(self):
         """Test journal approval logging function"""
         # Approve journal
-        self.journal.status = Journal.JournalStatus.APPROVED
-        self.journal.save()
+        self.journal = JournalFactory.create_approved_journal("Approval logging", user=self.user)
 
         # Log approval
         with transaction.atomic():
@@ -547,7 +549,7 @@ class CustomLoggingFunctionTest(TestCase):
     def test_log_journal_reversal_function(self):
         """Test journal reversal logging function"""
         # Create reversal journal
-        reversal_journal = self.journal.reverse(self.user, "Test reversal")
+        reversal_journal = approved_operation_for("accounting.change_journal")(self.journal.reverse,self.user, "Test reversal")
 
         # Log reversal
         with transaction.atomic():
@@ -763,13 +765,13 @@ class SignalHandlerIntegrationTest(TestCase):
         journal.submit_for_approval()
 
         # Approve
-        journal.approve(self.user)
+        approve_journal(journal)
 
         # Post
-        journal.post(self.user)
+        journal.post(journal.approved_by)
 
         # Reverse
-        reversal_journal = journal.reverse(self.user, "Workflow reversal")
+        reversal_journal = approved_operation_for("accounting.change_journal")(journal.reverse,self.user, "Workflow reversal")
 
         # Force transaction to commit
         _safe_commit()

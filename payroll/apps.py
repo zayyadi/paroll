@@ -25,10 +25,7 @@ class PayrollConfig(AppConfig):
         # Import notification tasks (ensures Celery tasks are registered)
         import payroll.tasks.notification_tasks
         import payroll.tasks.payslip_tasks
+        import payroll.tasks.signal_tasks
 
         # Import notification services (ensures services are initialized)
-        import payroll.services.notification_service  # noqa
-
-        # HR owns discipline employment effects; ledger tables emit,
-        # payroll reacts (see payroll/discipline/signals.py).
-        import payroll.discipline.signals  # noqa
+        import payroll.services.notification_service

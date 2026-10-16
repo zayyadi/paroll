@@ -21,6 +21,8 @@ from .payroll import (
     CompanyPayrollSetting,
     CompanyHealthInsuranceTier,
     SalaryHistory,
+    RetroPayDelta,
+    LeaveLedgerEntry,
     LeaveRequest,
     LeaveBalance,
     LeaveCarryover,
@@ -34,6 +36,8 @@ from .payroll import (
     PayrollEntry,
     PayslipEmailJob,
     LeavePolicy,
+    LeaveType,
+    leave_type_choices,
     PublicHoliday,
     Deduction,
     IOU,
@@ -84,10 +88,17 @@ from .workforce import (
     BenefitEnrollment,
     OffboardingChecklist,
     OffboardingTask,
+    ExitSettlement,
     OvertimePolicy,
     OvertimeEntry,
     Shift,
     ShiftTemplate,
     ShiftAssignment,
+    Timesheet,
+)
+from .compensation import (
+    SalaryBand,
+    CompCycle,
+    CompReview,
 )
 from .utils import *

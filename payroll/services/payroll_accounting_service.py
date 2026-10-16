@@ -184,6 +184,12 @@ def handle_payroll_period_closure(payroll_run: PayrollRun) -> None:
         for pay_run_entry in pay_run_entries:
             pay_var = pay_run_entry.payroll_entry
             employee = pay_var.pays
+            # A paid allowance or changed draft input must not be posted using
+            # an obsolete stored net amount. Recalculate before approval instead
+            # of silently changing what the checker reviewed.
+            expected_net=Decimal(pay_var.get_netpay or 0).quantize(Decimal('.01'))
+            if Decimal(pay_var.netpay or 0)!=expected_net:
+                raise ValueError('Recalculate payroll entries before submitting payroll approval.')
             employee_payroll = employee.employee_pay
             if not employee_payroll:
                 continue
@@ -463,9 +469,7 @@ def create_iou_deduction_for_payroll_entry(
 
         outstanding = iou.outstanding_amount
         if outstanding <= 0:
-            if iou.status != "PAID":
-                iou.status = "PAID"
-                iou.save(update_fields=["status"])
+            # Draft deduction planning cannot finalize a loan repayment.
             continue
 
         repayment_percent = Decimal(iou.repayment_deduction_percentage or Decimal("0.00"))
@@ -484,8 +488,5 @@ def create_iou_deduction_for_payroll_entry(
             amount=deduction_amount,
         )
 
-        if deduction_amount >= outstanding:
-            iou.status = "PAID"
-            iou.save(update_fields=["status"])
 
     payroll_entry.save()

@@ -4,9 +4,17 @@ from payroll import views
 from payroll.views import notification_view
 from payroll.discipline import views as discipline_views
 
+from payroll.views import hr_surfaces
+
 app_name = "payroll"
 
 urlpatterns = [
+    path("people-analytics/", hr_surfaces.people_analytics, name="people_analytics"),
+    path("timesheets/", hr_surfaces.timesheets, name="timesheets"),
+    path("timesheets/<int:pk>/action/", hr_surfaces.timesheet_action, name="timesheet_action"),
+    path("settings/leave-types/", hr_surfaces.leave_types, name="leave_types"),
+    path("settings/leave-types/<int:pk>/", hr_surfaces.leave_types, name="leave_type_edit"),
+    path("hr-records/<slug:resource>/", hr_surfaces.hr_records, name="hr_records"),
     path("app/", views.index, name="index"),
     path("documents/", views.my_documents, name="my_documents"),
     path(

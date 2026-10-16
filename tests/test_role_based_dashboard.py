@@ -250,7 +250,7 @@ class RoleBasedSidebarTests(TestCase):
         content = response.content.decode()
         self.assertIn("Employees", content)
         self.assertIn("Accounting Dashboard", content)
-        self.assertNotIn("Inventory Dashboard", content)
+        self.assertIn("Inventory Dashboard", content)
         self.assertIn("Payroll Settings", content)
 
     def test_employee_sidebar_excludes_admin_sections(self):
@@ -438,12 +438,10 @@ class DashboardMetricsTests(TestCase):
     def test_discipline_case_board_shows_real_aggregates(self):
         from accounting.models import DisciplinaryCase
 
-        DisciplinaryCase.objects.create(
-            company=self.company,
-            allegation_summary="Documented case",
-            finding=DisciplinaryCase.Finding.SUBSTANTIATED,
-            status=DisciplinaryCase.Status.DECIDED,
-        )
+        from tests.approval_helpers import approve_request, approval_user
+        case = DisciplinaryCase.objects.create(company=self.company, allegation_summary="Documented case", allegation_details="Verified evidence")
+        maker = approval_user(self.company, ["accounting.change_disciplinarycase"])
+        approve_request(case.decide(finding="SUBSTANTIATED", decided_by=maker, rationale="Verified finding"))
         response = self.client.get(reverse("payroll:discipline_case_list"))
         self.assertEqual(response.status_code, 200)
         content = response.content.decode()

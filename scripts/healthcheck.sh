@@ -4,16 +4,9 @@ set -euo pipefail
 ENV_FILE="${ENV_FILE:-.env}"
 COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.yml}"
 PROD_COMPOSE_FILE="${PROD_COMPOSE_FILE:-docker-compose.prod.yml}"
-WEB_URL="${WEB_URL:-http://127.0.0.1:8000/health/}"
-DAPHNE_URL="${DAPHNE_URL:-http://127.0.0.1:8001/health/}"
+WEB_URL="${WEB_URL:-http://127.0.0.1:8000/}"
+DAPHNE_URL="${DAPHNE_URL:-http://127.0.0.1:8001/}"
 PYTHON_BIN="${PYTHON_BIN:-python3}"
-COMPOSE_BIN="${COMPOSE_BIN:-podman-compose}"
-
-if ! command -v "$COMPOSE_BIN" >/dev/null 2>&1 && podman compose version >/dev/null 2>&1; then
-  COMPOSE_BIN="podman compose"
-fi
-# shellcheck disable=SC2206
-COMPOSE=($COMPOSE_BIN)
 
 if [[ -n "${IMAGE_REF:-}" && -f "$PROD_COMPOSE_FILE" ]]; then
   export IMAGE_REF
@@ -22,10 +15,10 @@ else
   COMPOSE_ARGS=(--env-file "$ENV_FILE" -f "$COMPOSE_FILE")
 fi
 
-"${COMPOSE[@]}" "${COMPOSE_ARGS[@]}" ps
+docker compose "${COMPOSE_ARGS[@]}" ps
 
-"${COMPOSE[@]}" "${COMPOSE_ARGS[@]}" exec -T web python manage.py check
-"${COMPOSE[@]}" "${COMPOSE_ARGS[@]}" exec -T web python - <<'PY'
+docker compose "${COMPOSE_ARGS[@]}" exec -T web python manage.py check
+docker compose "${COMPOSE_ARGS[@]}" exec -T web python - <<'PY'
 from django.db import connection
 
 with connection.cursor() as cursor:
@@ -34,7 +27,7 @@ with connection.cursor() as cursor:
 print("database: ok")
 PY
 
-"${COMPOSE[@]}" "${COMPOSE_ARGS[@]}" exec -T web python - <<'PY'
+docker compose "${COMPOSE_ARGS[@]}" exec -T web python - <<'PY'
 from django.core.cache import cache
 
 cache.set("healthcheck", "ok", 10)
@@ -42,7 +35,7 @@ assert cache.get("healthcheck") == "ok"
 print("cache: ok")
 PY
 
-"${COMPOSE[@]}" "${COMPOSE_ARGS[@]}" exec -T celery-worker celery -A core inspect ping --timeout=10
+docker compose "${COMPOSE_ARGS[@]}" exec -T celery-worker celery -A core inspect ping --timeout=10
 
 "$PYTHON_BIN" - <<PY
 from urllib.request import urlopen

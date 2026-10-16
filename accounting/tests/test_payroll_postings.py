@@ -1,3 +1,7 @@
+from tests.approval_helpers import (
+    approved_operation_for,
+    approve_source,
+)
 from datetime import date
 from decimal import Decimal, ROUND_HALF_UP
 
@@ -51,7 +55,7 @@ class PayrollClosePostingTests(TestCase):
         )
 
         # Seed opening balances so payroll-close asset credits pass balance validation.
-        create_journal_with_entries(
+        approved_operation_for("accounting.change_journal")(create_journal_with_entries,
             company=self.company,
             date=date.today().replace(day=1),
             description="Opening balances for payroll posting tests",
@@ -124,8 +128,7 @@ class PayrollClosePostingTests(TestCase):
             is_active=True,
         )
         PayrollRunEntry.objects.create(payroll_run=run, payroll_entry=entry)
-        run.closed = True
-        run.save()
+        approve_source(run, "payroll.lock")
 
         run_ct = ContentType.objects.get_for_model(PayrollRun)
         return Journal.objects.get(content_type=run_ct, object_id=run.pk), run
@@ -201,8 +204,7 @@ class PayrollClosePostingTests(TestCase):
 
         # Refresh to include allowance/deduction effects in netpay before close.
         entry.save()
-        run.closed = True
-        run.save()
+        approve_source(run, "payroll.lock")
 
         run_ct = ContentType.objects.get_for_model(PayrollRun)
         journal = Journal.objects.get(content_type=run_ct, object_id=run.pk)
@@ -250,8 +252,7 @@ class PayrollClosePostingTests(TestCase):
         )
 
         entry.save()
-        run.closed = True
-        run.save()
+        approve_source(run, "payroll.lock")
 
         run_ct = ContentType.objects.get_for_model(PayrollRun)
         journal = Journal.objects.get(content_type=run_ct, object_id=run.pk)

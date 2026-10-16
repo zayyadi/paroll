@@ -1,3 +1,6 @@
+from tests.approval_helpers import (
+    approved_operation_for,
+)
 from datetime import date
 from decimal import Decimal
 
@@ -53,7 +56,7 @@ class FinancialReportDesignerTests(TestCase):
         )
 
     def test_report_builder_sums_selected_company_accounts_into_designed_lines(self):
-        create_journal_with_entries(
+        approved_operation_for("accounting.change_journal")(create_journal_with_entries,
             company=self.company,
             date=date(2026, 5, 15),
             description="Wholesale sale",

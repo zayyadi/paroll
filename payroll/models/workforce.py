@@ -1,6 +1,9 @@
+from payroll.workflow_managers import HRWorkflowManager, HRWorkflowQuerySet
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.db import models
 from datetime import timedelta
+from decimal import Decimal
 from django.utils import timezone
 
 from payroll.models.utils import SoftDeleteModel
@@ -138,6 +141,9 @@ class JobRequisition(SoftDeleteModel):
 
 
 class HiringCandidate(SoftDeleteModel):
+    objects = HRWorkflowManager()
+    all_objects = HRWorkflowQuerySet.as_manager()
+
     class Status(models.TextChoices):
         NEW = "new", "New"
         IN_PROCESS = "in_process", "In process"
@@ -173,6 +179,7 @@ class HiringCandidate(SoftDeleteModel):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
+        base_manager_name = "all_objects"
         ordering = ["-applied_at", "last_name", "first_name"]
         unique_together = ("requisition", "email")
 
@@ -183,7 +190,16 @@ class HiringCandidate(SoftDeleteModel):
     def is_consent_expired(self):
         return bool(self.consent_expires_at and self.consent_expires_at <= timezone.now())
 
+    def delete(self, *args, **kwargs):
+        from payroll.services.hr_workflow import guard_delete
+        guard_delete(self)
+        return super().delete(*args, **kwargs)
+
     def save(self, *args, **kwargs):
+        from payroll.services.hr_workflow import require_execution
+        old = type(self).objects.filter(pk=self.pk).first() if self.pk else None
+        if self.current_stage_id and self.current_stage.requires_approval and (old is None or old.current_stage_id != self.current_stage_id):
+            require_execution(self, "hiring.advance")
         was_new = self.pk is None
         previous_consent = None
         if not was_new:
@@ -304,6 +320,9 @@ class HiringStageScorecard(SoftDeleteModel):
 
 
 class JobOffer(SoftDeleteModel):
+    objects = HRWorkflowManager()
+    all_objects = HRWorkflowQuerySet.as_manager()
+
     class Status(models.TextChoices):
         DRAFT = "draft", "Draft"
         SENT = "sent", "Sent"
@@ -318,7 +337,7 @@ class JobOffer(SoftDeleteModel):
     salary_amount = models.DecimalField(max_digits=14, decimal_places=2)
     currency = models.CharField(max_length=3, default="NGN")
     start_date = models.DateField()
-    status = models.CharField(max_length=20, choices=Status.choices, default=Status.SENT)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.DRAFT)
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
@@ -332,7 +351,42 @@ class JobOffer(SoftDeleteModel):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    def delete(self, *args, **kwargs):
+        from payroll.services.hr_workflow import guard_delete
+        guard_delete(self)
+        return super().delete(*args, **kwargs)
+
+    def save(self, *args, **kwargs):
+        from payroll.services.hr_workflow import guard_state
+        from django.core.exceptions import PermissionDenied
+        old = type(self)._base_manager.filter(pk=self.pk).first() if self.pk else None
+        written = kwargs.get("update_fields")
+        status_written = written is None or "status" in written
+        if old is None and self.status != self.Status.DRAFT:
+            raise PermissionDenied("New offers must be drafts submitted for independent release approval.")
+        if old is not None and status_written and old.status != self.status:
+            permitted = {
+                self.Status.DRAFT: {self.Status.SENT, self.Status.WITHDRAWN},
+                self.Status.SENT: {self.Status.ACCEPTED, self.Status.DECLINED, self.Status.WITHDRAWN},
+            }
+            if self.status not in permitted.get(old.status, set()):
+                raise PermissionDenied("Offer acknowledgment requires a released offer; completed history cannot be reopened.")
+        if old is not None and old.status in {self.Status.ACCEPTED, self.Status.DECLINED, self.Status.WITHDRAWN}:
+            if any(field.name not in {"updated_at"} and (written is None or field.name in written or field.attname in written)
+                   and getattr(old, field.attname) != getattr(self, field.attname) for field in self._meta.concrete_fields):
+                raise PermissionDenied("Completed offer history is immutable.")
+        if self.status == "sent" and (not old or old.status != "sent"):
+            guard_state(self, "hiring.offer.release", {"sent"}, (), update_fields=kwargs.get("update_fields"))
+        if old and old.status == self.Status.SENT:
+            fields = tuple(field.attname for field in self._meta.concrete_fields
+                           if field.name not in {"status", "accepted_at", "updated_at"})
+            guard_state(self, "hiring.offer.release", set(), fields, update_fields=written)
+            if (written is None or "accepted_at" in written) and self.accepted_at != old.accepted_at and self.status != self.Status.ACCEPTED:
+                raise PermissionDenied("Acceptance metadata requires acknowledgment of the released offer.")
+        return super().save(*args, **kwargs)
+
     class Meta:
+        base_manager_name = "all_objects"
         ordering = ["-created_at"]
 
     def __str__(self):
@@ -435,6 +489,73 @@ class AttendanceRecord(SoftDeleteModel):
         ordering = ["-work_date", "employee__first_name"]
         unique_together = ("employee", "work_date")
 
+    def clean(self):
+        """Odoo-style attendance validity (P1-7).
+
+        - a clock-out requires a clock-in;
+        - at most one open check-in (clocked in, not clocked out) per employee;
+        - no two sessions for the same employee may overlap in time
+          (back-to-back sessions that merely touch are allowed).
+
+        Status-only rows (leave/absent/half-day with no clock times) are not
+        check-ins and are exempt from the check-in rules.
+        """
+        super().clean()
+        if self.clock_out and not self.clock_in:
+            raise ValidationError(
+                {"clock_out": "A clock-out requires a clock-in."}
+            )
+        if not self.clock_in:
+            return
+
+        from django.utils import timezone
+
+        def _aware(value):
+            # Rows read back from the DB are tz-aware; freshly assigned
+            # values may be naive. Normalise before comparing.
+            if value is None or timezone.is_aware(value):
+                return value
+            return timezone.make_aware(value, timezone.get_current_timezone())
+
+        self_in = _aware(self.clock_in)
+        self_out = _aware(self.clock_out)
+
+        others = type(self).objects.filter(employee_id=self.employee_id)
+        if self.pk:
+            others = others.exclude(pk=self.pk)
+        others = others.filter(clock_in__isnull=False)
+
+        if self_out is None:
+            # One open check-in per employee (Odoo hr_attendance).
+            if others.filter(clock_out__isnull=True).exists():
+                raise ValidationError(
+                    "An employee can only have one open check-in."
+                )
+
+        # No overlapping sessions: intersecting [clock_in, clock_out]
+        # intervals are rejected; None means an open-ended session.
+        for other in others:
+            other_in = _aware(other.clock_in)
+            other_out = _aware(other.clock_out)
+            starts_before_other_ends = (
+                other_out is None or self_in < other_out
+            )
+            other_starts_before_ends = (
+                self_out is None or other_in < self_out
+            )
+            if starts_before_other_ends and other_starts_before_ends:
+                raise ValidationError(
+                    "Attendance records for an employee cannot overlap in time."
+                )
+
+    def save(self, *args, **kwargs):
+        update_fields = kwargs.get("update_fields")
+        if update_fields is None or not set(update_fields).isdisjoint(
+            {"clock_in", "clock_out", "work_date", "employee"}
+        ):
+            self.full_clean()
+        super().save(*args, **kwargs)
+
     def __str__(self):
         return f"{self.employee} - {self.work_date}"
 
@@ -533,6 +654,16 @@ class EmployeeAsset(SoftDeleteModel):
     )
     issued_at = models.DateTimeField(null=True, blank=True)
     returned_at = models.DateTimeField(null=True, blank=True)
+    replacement_cost = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text=(
+            "Recovery value charged at exit if the asset is not returned "
+            "(P2-15). Empty means the asset carries no recoverable value."
+        ),
+    )
     notes = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -1013,6 +1144,9 @@ class BenefitEnrollment(SoftDeleteModel):
 
 
 class OffboardingChecklist(SoftDeleteModel):
+    objects = HRWorkflowManager()
+    all_objects = HRWorkflowQuerySet.as_manager()
+
     company = models.ForeignKey(
         "company.Company",
         on_delete=models.CASCADE,
@@ -1057,7 +1191,21 @@ class OffboardingChecklist(SoftDeleteModel):
     created_at = models.DateTimeField(auto_now_add=True)
     completed_at = models.DateTimeField(null=True, blank=True)
 
+    def delete(self, *args, **kwargs):
+        from payroll.services.hr_workflow import guard_delete
+        guard_delete(self)
+        return super().delete(*args, **kwargs)
+
+    def save(self, *args, **kwargs):
+        from payroll.services.hr_workflow import guard_state
+        guard_state(self, "offboarding.complete", {"COMPLETED"}, (), update_fields=kwargs.get("update_fields"))
+        old = type(self).objects.filter(pk=self.pk).first() if self.pk else None
+        if old and old.status == "COMPLETED":
+            guard_state(self, "offboarding.complete", set(), ("company_id", "employee_id", "initiated_by_id", "last_working_day", "reason", "final_settlement_amount"), update_fields=kwargs.get("update_fields"))
+        return super().save(*args, **kwargs)
+
     class Meta:
+        base_manager_name = "all_objects"
         ordering = ["-created_at"]
 
     def __str__(self):
@@ -1138,6 +1286,12 @@ class OvertimePolicy(SoftDeleteModel):
 
 
 class OvertimeEntry(SoftDeleteModel):
+    requested_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT,
+        null=True, blank=True, related_name="created_overtimeentry_requests")
+
+    objects = HRWorkflowManager()
+    all_objects = HRWorkflowQuerySet.as_manager()
+
     company = models.ForeignKey(
         "company.Company",
         on_delete=models.CASCADE,
@@ -1177,7 +1331,23 @@ class OvertimeEntry(SoftDeleteModel):
     notes = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
+    def delete(self, *args, **kwargs):
+        from payroll.services.hr_workflow import guard_delete
+        guard_delete(self)
+        return super().delete(*args, **kwargs)
+
+    def save(self, *args, **kwargs):
+        from payroll.services.hr_workflow import guard_requester
+        guard_requester(self, kwargs.get("update_fields"))
+        from payroll.services.hr_workflow import guard_state
+        guard_state(self, "overtime.approve", {"APPROVED", "REJECTED"}, ("approved_by_id", "approved_at"), update_fields=kwargs.get("update_fields"))
+        old = type(self).objects.filter(pk=self.pk).first() if self.pk else None
+        if old and old.status == "APPROVED":
+            guard_state(self, "overtime.approve", set(), ("company_id", "employee_id", "attendance_id", "hours", "rate_multiplier", "date"), update_fields=kwargs.get("update_fields"))
+        return super().save(*args, **kwargs)
+
     class Meta:
+        base_manager_name = "all_objects"
         ordering = ["-date"]
 
     def __str__(self):
@@ -1266,3 +1436,267 @@ class ShiftAssignment(SoftDeleteModel):
 
     def __str__(self):
         return f"{self.employee} -> {self.shift_template}"
+
+
+class Timesheet(SoftDeleteModel):
+    """A weekly roll-up of raw attendance awaiting approval (P2-14).
+
+    BambooHR time tracking separates raw clock data from approved hours: an
+    attendance row is a *record* of a clock event, whereas a timesheet is the
+    *reviewed* set of hours an employee certifies and a manager approves before
+    those hours become payable. This model is that reviewed container — one row
+    per (employee, week) — and links the ``ApprovalRequest`` that carries it
+    through the existing approval policy machinery.
+
+    The week boundary is Monday-anchored (ISO). ``status`` mirrors the
+    ``ApprovalRequest`` lifecycle rather than duplicating it: the request is the
+    source of truth, and this field is a denormalised convenience for list
+    views and the payroll pre-flight check.
+    """
+
+    class Status(models.TextChoices):
+        DRAFT = "draft", "Draft"
+        SUBMITTED = "submitted", "Submitted"
+        APPROVED = "approved", "Approved"
+        REJECTED = "rejected", "Rejected"
+
+    company = models.ForeignKey(
+        "company.Company",
+        on_delete=models.CASCADE,
+        related_name="timesheets",
+    )
+    employee = models.ForeignKey(
+        "payroll.EmployeeProfile",
+        on_delete=models.CASCADE,
+        related_name="timesheets",
+    )
+    week_start = models.DateField(
+        help_text="Monday of the timesheet's week (ISO week boundary)."
+    )
+    # Total hours the employee certifies for the week. Seeded from the sum of
+    # AttendanceRecord.hours_worked but editable before submission, so an
+    # employee can correct a missed clock-out rather than leaving raw data
+    # unreviewed.
+    total_hours = models.DecimalField(max_digits=6, decimal_places=2, default=0)
+    status = models.CharField(
+        max_length=16,
+        choices=Status.choices,
+        default=Status.DRAFT,
+    )
+    submitted_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="submitted_timesheets",
+    )
+    submitted_at = models.DateTimeField(null=True, blank=True)
+    approval_request = models.ForeignKey(
+        "approvals.ApprovalRequest",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="timesheets",
+    )
+    approved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="approved_timesheets",
+    )
+    approved_at = models.DateTimeField(null=True, blank=True)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-week_start", "employee__first_name"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["employee", "week_start"],
+                name="unique_employee_timesheet_week",
+            )
+        ]
+
+    def clean(self):
+        """Anchor the week to Monday and keep the total sane."""
+        super().clean()
+        if self.week_start and self.week_start.weekday() != 0:
+            raise ValidationError(
+                {"week_start": "A timesheet week must start on a Monday."}
+            )
+        if self.total_hours is not None and self.total_hours < 0:
+            raise ValidationError({"total_hours": "Hours cannot be negative."})
+        if self.total_hours is not None and self.total_hours > Decimal("168"):
+            raise ValidationError(
+                {"total_hours": "A week cannot exceed 168 hours."}
+            )
+
+    @property
+    def week_end(self):
+        """Sunday of the timesheet's week."""
+        return self.week_start + timedelta(days=6)
+
+    @property
+    def is_payable(self):
+        """Approved hours only; draft/submitted/rejected hours are not payable.
+
+        This is the property the payroll pre-flight check reads, keeping raw
+        clock data out of gross pay until a manager has certified it.
+        """
+        return self.status == self.Status.APPROVED
+
+    def approve(self, actor):
+        """Mark the timesheet approved (called from the approval adapter)."""
+        self.status = self.Status.APPROVED
+        self.approved_by = actor
+        self.approved_at = timezone.now()
+        self.save(update_fields=["status", "approved_by", "approved_at"])
+
+    def __str__(self):
+        return f"{self.employee} - week of {self.week_start}"
+
+
+class ExitSettlement(SoftDeleteModel):
+    """The single Full-and-Final settlement document (P2-15).
+
+    Frappe's Full and Final Statement combines payables, receivables and
+    asset recovery into one statement with journal linkage; paroll previously
+    spread this across ``OffboardingChecklist.final_settlement_amount`` (a
+    payables-only figure), IOU balances and the asset register with no
+    document tying them together at exit.
+
+    This model *is* that document: one row per offboarding checklist. It is
+    computed by ``exit_settlement_service.build_settlement`` (never hand-
+    entered beyond the discretionary add-back/deduction fields) and posted
+    through the ``exit.settlement`` approval action, which writes the double-
+    entry journal and links it via ``journal``. ``status`` mirrors the
+    approval lifecycle: DRAFT until an approval posts it, POSTED afterwards.
+    """
+
+    class Status(models.TextChoices):
+        DRAFT = "DRAFT", "Draft"
+        POSTED = "POSTED", "Posted"
+
+    company = models.ForeignKey(
+        "company.Company",
+        on_delete=models.CASCADE,
+        related_name="exit_settlements",
+    )
+    checklist = models.OneToOneField(
+        "payroll.OffboardingChecklist",
+        on_delete=models.CASCADE,
+        related_name="exit_settlement",
+    )
+    employee = models.ForeignKey(
+        "payroll.EmployeeProfile",
+        on_delete=models.PROTECT,
+        related_name="exit_settlements",
+    )
+    last_working_day = models.DateField()
+
+    # --- Payables: what the company owes the leaver. ---
+    final_month_salary = models.DecimalField(
+        max_digits=12, decimal_places=2, default=0,
+        help_text="One month's basic salary paid out at exit.",
+    )
+    leave_encashment = models.DecimalField(
+        max_digits=12, decimal_places=2, default=0,
+        help_text="Encashment of unused encashable leave, per LeaveType rates.",
+    )
+    other_payables = models.DecimalField(
+        max_digits=12, decimal_places=2, default=0,
+        help_text="Discretionary add-backs (bonus, commission) reviewed by HR.",
+    )
+
+    # --- Receivables: what the leaver owes the company. ---
+    outstanding_iou = models.DecimalField(
+        max_digits=12, decimal_places=2, default=0,
+        help_text="Unrepaid IOU/EWA principal plus interest at exit.",
+    )
+    unreturned_assets_value = models.DecimalField(
+        max_digits=12, decimal_places=2, default=0,
+        help_text="Recovery value of company assets still in use or lost.",
+    )
+    other_receivables = models.DecimalField(
+        max_digits=12, decimal_places=2, default=0,
+        help_text="Discretionary deductions (damages, advances) reviewed by HR.",
+    )
+
+    status = models.CharField(
+        max_length=16, choices=Status.choices, default=Status.DRAFT
+    )
+    journal = models.ForeignKey(
+        "accounting.Journal",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="exit_settlements",
+        help_text="The double-entry journal written when this statement posted.",
+    )
+    posted_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="posted_exit_settlements",
+    )
+    posted_at = models.DateTimeField(null=True, blank=True)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    @property
+    def payables_total(self) -> Decimal:
+        return (
+            self.final_month_salary
+            + self.leave_encashment
+            + self.other_payables
+        )
+
+    @property
+    def receivables_total(self) -> Decimal:
+        return (
+            self.outstanding_iou
+            + self.unreturned_assets_value
+            + self.other_receivables
+        )
+
+    @property
+    def net_settlement(self) -> Decimal:
+        """Positive: the company pays the leaver. Negative: the leaver repays."""
+        return self.payables_total - self.receivables_total
+
+    @property
+    def is_payable(self) -> bool:
+        return self.net_settlement > 0
+
+    def clean(self):
+        super().clean()
+        for name in (
+            "final_month_salary",
+            "leave_encashment",
+            "other_payables",
+            "outstanding_iou",
+            "unreturned_assets_value",
+            "other_receivables",
+        ):
+            value = getattr(self, name)
+            if value is not None and value < 0:
+                raise ValidationError({name: "Settlement amounts cannot be negative."})
+
+    def save(self, *args, **kwargs):
+        from payroll.services.hr_workflow import guard_state
+
+        guard_state(
+            self,
+            "exit.settlement",
+            {"POSTED"},
+            ("posted_by_id", "posted_at"),
+            update_fields=kwargs.get("update_fields"),
+        )
+        return super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"Exit settlement: {self.employee} ({self.get_status_display()})"

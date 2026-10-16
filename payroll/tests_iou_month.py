@@ -1,4 +1,5 @@
-from datetime import date
+from datetime import date, timedelta
+from django.utils import timezone
 from decimal import Decimal
 
 from django.test import TestCase
@@ -36,15 +37,17 @@ class IOUPayrollEntryMonthSignalTests(TestCase):
             repayment_deduction_percentage=Decimal("30.00"),
             interest_rate=Decimal("0.00"),
             payment_method="SALARY_DEDUCTION",
-            status="APPROVED",
-            approved_at=date(2026, 1, 1),
+            status="PENDING",
         )
+
+        from tests.approval_helpers import approve_source
+        approve_source(self.iou, 'iou.approve')
 
     def test_payroll_entry_signal_handles_month_object(self):
         payroll_run = PayrollRun.objects.create(
             company=self.company,
             name="Payroll 2026-02",
-            paydays=date(2026, 2, 1),
+            paydays=(timezone.localdate().replace(day=28) + timedelta(days=4)).replace(day=1),
         )
         payroll_run.refresh_from_db()
 
@@ -58,4 +61,9 @@ class IOUPayrollEntryMonthSignalTests(TestCase):
         deduction = IOUDeduction.objects.get(iou=self.iou, payday=payroll_run)
         self.assertEqual(deduction.amount, Decimal("10000"))
         self.iou.refresh_from_db()
-        self.assertEqual(self.iou.status, "PAID")
+        self.assertEqual(self.iou.status, "APPROVED")
+        self.assertEqual(self.iou.outstanding_amount, Decimal('10000'))
+        from tests.approval_helpers import approve_source
+        approve_source(payroll_run, 'payroll.lock')
+        self.iou.refresh_from_db()
+        self.assertEqual(self.iou.status, 'PAID')

@@ -35,7 +35,9 @@ from payroll.forms import LeaveRequestForm
 from payroll.models import LeavePolicy, LeaveRequest
 from payroll.models.payroll import get_leave_balance
 from payroll.views.payroll_helpers import _can_manage_employee_requests
+from payroll.services.leave_type_service import leave_balance_cards
 
+@login_required
 def apply_leave(request):
     try:
         company = get_user_company(request.user)
@@ -54,30 +56,28 @@ def apply_leave(request):
         # Redirect to a relevant page, perhaps the main dashboard or a profile creation page
         return redirect("payroll:dashboard")
     if request.method == "POST":
-        form = LeaveRequestForm(request.POST)
+        form = LeaveRequestForm(request.POST, employee=employee_profile)
         form.instance.employee = employee_profile
         if form.is_valid():
             leave_request = form.save(commit=False)
             leave_request.employee = employee_profile
             # Pass the current user to the save method for audit logging
-            leave_request.save(user=request.user)
+            from payroll.services.hr_workflow import submit_hr_request
+            with transaction.atomic():
+                leave_request.requested_by = request.user
+                leave_request.save(user=request.user)
+                submit_hr_request(leave_request, request.user)
             messages.success(request, "Leave request submitted successfully.")
             return redirect("payroll:leave_requests")
     else:
-        form = LeaveRequestForm()
+        form = LeaveRequestForm(employee=employee_profile)
 
-    leave_balance = get_leave_balance(employee_profile)
-    leave_balances = {
-        "annual": leave_balance.annual_leave,
-        "sick": leave_balance.sick_leave,
-        "casual": leave_balance.casual_leave,
-        "maternity": leave_balance.maternity_leave,
-        "paternity": leave_balance.paternity_leave,
-    }
+    balance_cards = leave_balance_cards(employee_profile)
+    leave_balances = {row["code"].lower(): row["days"] for row in balance_cards}
     return render(
         request,
         "employee/apply_leave_new.html",
-        {"form": form, "leave_balances": leave_balances},
+        {"form": form, "leave_balances": leave_balances, "balance_cards": balance_cards},
     )
 
 
@@ -135,17 +135,8 @@ def leave_requests(request):
             employee=employee_profile, status="PENDING"
         ).count()
 
-        # Calculate available days for each leave type
-        if leave_balance:
-            leave_balances = {
-                "annual": leave_balance.annual_leave,
-                "sick": leave_balance.sick_leave,
-                "casual": leave_balance.casual_leave,
-                "maternity": leave_balance.maternity_leave,
-                "paternity": leave_balance.paternity_leave,
-            }
-        else:
-            leave_balances = {}
+        balance_cards = leave_balance_cards(employee_profile, current_year)
+        leave_balances = {row["code"].lower(): row["days"] for row in balance_cards}
 
     except EmployeeProfile.DoesNotExist:
         leave_requests_qs = LeaveRequest.objects.none()
@@ -153,6 +144,7 @@ def leave_requests(request):
         leave_taken = 0
         pending_count = 0
         leave_balances = {}
+        balance_cards = []
 
         messages.info(
             request, "Your user account is not linked to an employee profile."
@@ -162,6 +154,7 @@ def leave_requests(request):
         "requests": leave_requests_qs,
         "leave_balance": leave_balance,
         "leave_balances": leave_balances,
+        "balance_cards": balance_cards,
         "leave_taken": leave_taken,
         "pending_count": pending_count,
         "current_year": current_year,
@@ -226,8 +219,8 @@ def manage_leave_requests(request):
 
     company = get_user_company(request.user)
     requests = LeaveRequest.objects.filter(
-        employee__company=company, status="PENDING"
-    )  # Shows only PENDING for action
+        employee__company=company, status__in=["PENDING", "PENDING_HR"]
+    )  # Shows actionable requests for decision
     return render(
         request, "employee/manage_leave_requests.html", {"requests": requests}
     )
@@ -244,16 +237,18 @@ def approve_leave(request, pk):
 
     company = get_user_company(request.user)
     leave_request = get_object_or_404(LeaveRequest, pk=pk, employee__company=company)
-    leave_request.status = "APPROVED"
-    leave_request.approved_by = request.user
     # Pass the current user to the save method for audit logging
     try:
-        leave_request.save(user=request.user)
+        from payroll.services.hr_workflow import decide_leave
+        result = decide_leave(leave=leave_request, actor=request.user)
     except ValidationError as exc:
         message = "; ".join(exc.messages) if exc.messages else str(exc)
         messages.error(request, message)
         return redirect("payroll:manage_leave_requests")
-    messages.success(request, "Leave request approved.")
+    if result.status == "PENDING":
+        messages.info(request, "Approval recorded; awaiting the next stage.")
+    else:
+        messages.success(request, "Leave request approval completed.")
     return redirect("payroll:manage_leave_requests")
 
 
@@ -266,11 +261,12 @@ def reject_leave(request, pk):
 
     company = get_user_company(request.user)
     leave_request = get_object_or_404(LeaveRequest, pk=pk, employee__company=company)
-    leave_request.status = "REJECTED"
-    leave_request.approved_by = request.user
-    # Pass current user to the save method for audit logging
-    leave_request.save(user=request.user)
-    messages.success(request, "Leave request rejected.")
+    from payroll.services.hr_workflow import decide_leave
+    try:
+        decide_leave(leave=leave_request, actor=request.user, decision="REJECT", comment=request.POST.get("comment", ""))
+        messages.success(request, "Leave request rejected.")
+    except ValidationError as exc:
+        messages.error(request, "; ".join(exc.messages))
     return redirect("payroll:manage_leave_requests")
 
 

@@ -1,6 +1,7 @@
+from payroll.workflow_managers import HRWorkflowManager, HRWorkflowQuerySet, SalaryTermsQuerySet
 import hashlib
 
-from django.db import models
+from django.db import models, transaction
 from decimal import Decimal
 from datetime import timedelta
 from payroll.models.utils import SoftDeleteModel, path_and_rename
@@ -12,7 +13,7 @@ from django.utils.translation import gettext_lazy as _
 from django.core.exceptions import ValidationError
 from django.utils.text import slugify
 
-from django.db.models.signals import post_save
+from django.db.models.signals import post_save, pre_delete
 from django.dispatch import receiver
 from django.core.validators import RegexValidator
 
@@ -53,7 +54,7 @@ class Department(SoftDeleteModel):
         return self.name
 
 
-class EmployeeManager(models.Manager):
+class EmployeeManager(models.Manager.from_queryset(SalaryTermsQuerySet)):
     def get_queryset(self):
         return super().get_queryset().filter(status="active")
 
@@ -320,7 +321,8 @@ class EmployeeProfile(SoftDeleteModel):
         choices=choices.STATUS,
         default="pending",
     )
-    objects = models.Manager()  # The default manager.
+    objects = SalaryTermsQuerySet.as_manager()  # The default manager.
+    all_objects = SalaryTermsQuerySet.as_manager()
     emp_objects = EmployeeManager()
 
     def __init__(self, *args, **kwargs):
@@ -392,6 +394,10 @@ class EmployeeProfile(SoftDeleteModel):
         self.save(update_fields=["probation_status", "confirmed_at", "confirmed_by", "status"])
 
     def save(self, *args, **kwargs):
+        from approvals.guards import approved_context
+        previous = type(self)._base_manager.filter(pk=self.pk).first() if self.pk else None
+        if previous and previous.employee_pay_id and previous.employee_pay_id != self.employee_pay_id and not approved_context(self.company_id):
+            raise ValidationError('Salary changes require an independently approved proposal.')
         self.net_pay = utils.get_net_pay(self)  # noqa: F405
         self.email = self.get_email()
         self.nin_digest = _digest(self.nin)
@@ -432,6 +438,7 @@ class EmployeeProfile(SoftDeleteModel):
             self.__original_employee_pay_id = self.employee_pay_id
 
     class Meta:
+        base_manager_name = "all_objects"
         constraints = [
             # Natural keys are unique per company so two tenants can number
             # employees and hold tax IDs independently ("A-001" in both).
@@ -642,7 +649,65 @@ class Metric(models.Model):
         return self.name
 
 
+class ReviewQuerySet(models.QuerySet):
+    @transaction.atomic
+    def update(self, **kwargs):
+        if not self.exists():
+            return 0
+        if {"status", "published_at", "published_by", "published_by_id"} & kwargs.keys():
+            raise ValidationError("Review publication requires workflow approval.")
+        if any(review.status != "DRAFT" for review in self.select_for_update()):
+            raise ValidationError("Submitted reviews cannot be changed.")
+        return super().update(**kwargs)
+
+    def bulk_create(self, objs, **kwargs):
+        if kwargs.get("update_conflicts"):
+            raise ValidationError("Workflow records cannot be replaced through bulk conflict updates.")
+        objs = list(objs)
+        if any(obj.status != "DRAFT" or obj.published_at or obj.published_by_id for obj in objs):
+            raise ValidationError("Reviews must start as drafts.")
+        return super().bulk_create(objs, **kwargs)
+
+    @transaction.atomic
+    def delete(self):
+        if any(review.status != "DRAFT" for review in self.select_for_update()):
+            raise ValidationError("Submitted reviews cannot be deleted.")
+        return super().delete()
+
+
 class Review(models.Model):
+    objects = ReviewQuerySet.as_manager()
+    status = models.CharField(max_length=20, choices=[("DRAFT", "Draft"), ("SUBMITTED", "Awaiting publication approval"), ("PUBLISHED", "Published"), ("ARCHIVED", "Archived")], default="DRAFT")
+    published_at = models.DateTimeField(null=True, blank=True)
+    published_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="published_reviews")
+
+    @property
+    def company(self):
+        return self.appraisal.company
+
+    @property
+    def company_id(self):
+        return self.appraisal.company_id
+
+    @transaction.atomic
+    def save(self, *args, **kwargs):
+        old = type(self).objects.select_for_update().filter(pk=self.pk).first() if self.pk else None
+        if not old and (self.status != "DRAFT" or self.published_at or self.published_by_id):
+            raise ValidationError("Reviews must start as drafts.")
+        if old:
+            from approvals.services import execution_authorized
+            publishing = execution_authorized(self, "appraisal.publish")
+            if old.status != "DRAFT" and not publishing:
+                raise ValidationError("Submitted reviews cannot be changed.")
+            if (self.published_at != old.published_at or self.published_by_id != old.published_by_id or self.status in {"PUBLISHED", "ARCHIVED"}) and not publishing:
+                raise ValidationError("Review publication requires workflow approval.")
+        return super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        if type(self).objects.filter(pk=self.pk).exclude(status="DRAFT").exists():
+            raise ValidationError("Submitted reviews cannot be deleted.")
+        return super().delete(*args, **kwargs)
+
     appraisal = models.ForeignKey(Appraisal, on_delete=models.CASCADE)
     employee = models.ForeignKey(
         EmployeeProfile, on_delete=models.CASCADE, related_name="reviews_received"
@@ -653,6 +718,8 @@ class Review(models.Model):
     self_assessment = models.TextField(blank=True, null=True)
 
     class Meta:
+        base_manager_name = "objects"
+        permissions = [("publish_review", "Can approve publication of employee reviews")]
         constraints = [
             models.UniqueConstraint(
                 fields=["appraisal", "employee", "reviewer"],
@@ -689,13 +756,61 @@ class Review(models.Model):
         return f"Review of {self.employee} by {self.reviewer} for {self.appraisal}"
 
 
+class RatingQuerySet(models.QuerySet):
+    def _require_drafts(self):
+        reviews = Review.objects.select_for_update().filter(pk__in=self.values("review_id"))
+        if any(review.status != "DRAFT" for review in reviews):
+            raise ValidationError("Submitted review ratings cannot be changed.")
+
+    @transaction.atomic
+    def update(self, **kwargs):
+        self._require_drafts()
+        target = kwargs.get("review_id") or getattr(kwargs.get("review"), "pk", None)
+        if target and Review.objects.exclude(status="DRAFT").filter(pk=target).exists():
+            raise ValidationError("Submitted review ratings cannot be changed.")
+        return super().update(**kwargs)
+
+    @transaction.atomic
+    def delete(self):
+        self._require_drafts()
+        return super().delete()
+
+    @transaction.atomic
+    def bulk_create(self, objs, **kwargs):
+        if kwargs.get("update_conflicts"):
+            raise ValidationError("Workflow records cannot be replaced through bulk conflict updates.")
+        objs = list(objs)
+        reviews = Review.objects.select_for_update().filter(pk__in=[o.review_id for o in objs])
+        if any(review.status != "DRAFT" for review in reviews):
+            raise ValidationError("Submitted review ratings cannot be changed.")
+        return super().bulk_create(objs, **kwargs)
+
+
 class Rating(models.Model):
+    objects = RatingQuerySet.as_manager()
+
+    @transaction.atomic
+    def save(self, *args, **kwargs):
+        review_ids = [self.review_id]
+        if self.pk:
+            review_ids.extend(type(self).objects.filter(pk=self.pk).values_list("review_id", flat=True))
+        reviews = list(Review.objects.select_for_update().filter(pk__in=review_ids))
+        if any(review.status != "DRAFT" for review in reviews):
+            raise ValidationError("Submitted review ratings cannot be changed.")
+        return super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        if Review.objects.filter(pk=self.review_id).exclude(status="DRAFT").exists():
+            raise ValidationError("Submitted review ratings cannot be changed.")
+        return super().delete(*args, **kwargs)
+
     review = models.ForeignKey(Review, on_delete=models.CASCADE)
     metric = models.ForeignKey(Metric, on_delete=models.CASCADE)
     rating = models.IntegerField(choices=[(i, i) for i in range(1, 6)])
     comments = models.TextField(blank=True, null=True)
 
     class Meta:
+        base_manager_name = "objects"
         constraints = [
             models.UniqueConstraint(
                 fields=["review", "metric"],
@@ -707,7 +822,22 @@ class Rating(models.Model):
         return f"{self.metric}: {self.rating}"
 
 
+@receiver(pre_delete, sender=Review)
+def protect_submitted_review(sender, instance, **kwargs):
+    if instance.status != "DRAFT":
+        raise ValidationError("Submitted reviews cannot be deleted, including through appraisal deletion.")
+
+
+@receiver(pre_delete, sender=Rating)
+def protect_submitted_rating(sender, instance, **kwargs):
+    if Review.objects.filter(pk=instance.review_id).exclude(status="DRAFT").exists():
+        raise ValidationError("Submitted review ratings cannot be deleted.")
+
+
 class EmployeeTransfer(SoftDeleteModel):
+    objects = HRWorkflowManager()
+    all_objects = HRWorkflowQuerySet.as_manager()
+
     company = models.ForeignKey(
         "company.Company",
         on_delete=models.CASCADE,
@@ -762,7 +892,21 @@ class EmployeeTransfer(SoftDeleteModel):
     approved_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
+    def delete(self, *args, **kwargs):
+        from payroll.services.hr_workflow import guard_delete
+        guard_delete(self)
+        return super().delete(*args, **kwargs)
+
+    def save(self, *args, **kwargs):
+        from payroll.services.hr_workflow import guard_state
+        guard_state(self, "transfer.approve", {"APPROVED", "REJECTED", "COMPLETED"}, ("approved_by_id", "approved_at"), update_fields=kwargs.get("update_fields"))
+        old = type(self).objects.filter(pk=self.pk).first() if self.pk else None
+        if old and old.status in {"APPROVED", "COMPLETED"}:
+            guard_state(self, "transfer.approve", set(), ("company_id", "requested_by_id", "employee_id", "to_department_id", "to_position", "effective_date"), update_fields=kwargs.get("update_fields"))
+        return super().save(*args, **kwargs)
+
     class Meta:
+        base_manager_name = "all_objects"
         ordering = ["-effective_date"]
 
     def __str__(self):
@@ -770,6 +914,9 @@ class EmployeeTransfer(SoftDeleteModel):
 
 
 class Promotion(SoftDeleteModel):
+    objects = HRWorkflowManager()
+    all_objects = HRWorkflowQuerySet.as_manager()
+
     company = models.ForeignKey(
         "company.Company",
         on_delete=models.CASCADE,
@@ -824,7 +971,21 @@ class Promotion(SoftDeleteModel):
     approved_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
+    def delete(self, *args, **kwargs):
+        from payroll.services.hr_workflow import guard_delete
+        guard_delete(self)
+        return super().delete(*args, **kwargs)
+
+    def save(self, *args, **kwargs):
+        from payroll.services.hr_workflow import guard_state
+        guard_state(self, "promotion.approve", {"APPROVED", "REJECTED", "COMPLETED"}, ("approved_by_id", "approved_at"), update_fields=kwargs.get("update_fields"))
+        old = type(self).objects.filter(pk=self.pk).first() if self.pk else None
+        if old and old.status in {"APPROVED", "COMPLETED"}:
+            guard_state(self, "promotion.approve", set(), ("company_id", "requested_by_id", "employee_id", "new_salary_config_id", "new_title", "effective_date"), update_fields=kwargs.get("update_fields"))
+        return super().save(*args, **kwargs)
+
     class Meta:
+        base_manager_name = "all_objects"
         ordering = ["-effective_date"]
 
     def __str__(self):

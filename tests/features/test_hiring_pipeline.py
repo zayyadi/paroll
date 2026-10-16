@@ -43,6 +43,8 @@ class HiringPipelineFeatureTests(TestCase):
             title="Engineer",
         )
         self.stages = create_standard_hiring_stages(self.company)
+        self.checker = User.objects.create_user(email="offerchecker@example.test", password="x", company=self.company)
+        self.checker.user_permissions.add(Permission.objects.get(content_type__app_label="payroll", codename="change_joboffer"))
 
     def _grant(self, codename):
         permission = Permission.objects.get(
@@ -73,6 +75,9 @@ class HiringPipelineFeatureTests(TestCase):
             start_date=date(2026, 7, 1),
             created_by=self.user,
         )
+        from payroll.services.hiring import release_job_offer
+        release_job_offer(offer=offer, actor=self.checker)
+        offer.refresh_from_db()
         execution = accept_job_offer(offer, accepted_by=self.user)
         candidate.refresh_from_db()
 
@@ -125,6 +130,8 @@ class HiringPipelineFeatureTests(TestCase):
             },
         )
         offer = JobOffer.objects.get(candidate=candidate)
+        from payroll.services.hiring import release_job_offer
+        release_job_offer(offer=offer, actor=self.checker)
         offer_accept = self.client.post(
             reverse("payroll:hiring_offer_accept", args=[offer.pk])
         )
@@ -137,3 +144,39 @@ class HiringPipelineFeatureTests(TestCase):
         self.assertEqual(offer_accept.status_code, 302)
         candidate.refresh_from_db()
         self.assertEqual(candidate.status, HiringCandidate.Status.HIRED)
+
+    def test_required_stage_waits_for_independent_approval(self):
+        from approvals.services import decide_approval
+        from payroll.services.hiring import advance_candidate
+        candidate = self._candidate()
+        stage = next(s for s in self.stages if s.stage_type == "offer")
+        self.checker.user_permissions.add(Permission.objects.get(content_type__app_label="payroll", codename="change_hiringcandidate"))
+        request = advance_candidate(candidate, stage, advanced_by=self.user)
+        candidate.refresh_from_db()
+        self.assertEqual(candidate.current_stage_id, self.stages[0].pk)
+        decide_approval(approval=request, actor=self.checker)
+        candidate.refresh_from_db()
+        self.assertEqual(candidate.current_stage_id, stage.pk)
+
+    def test_draft_offer_cannot_be_accepted_or_bulk_released(self):
+        from django.core.exceptions import PermissionDenied
+        candidate = self._candidate()
+        offer = create_job_offer(candidate=candidate, title="Engineer",
+            employment_type=Position.EmploymentType.FULL_TIME,
+            salary_amount=Decimal("250000.00"), currency="NGN",
+            start_date=date(2026,7,1), created_by=self.user)
+        self.assertEqual(offer.status, JobOffer.Status.DRAFT)
+        with self.assertRaises(ValueError): accept_job_offer(offer, accepted_by=self.user)
+        with self.assertRaises(PermissionDenied):
+            JobOffer.objects.filter(pk=offer.pk).update(status=JobOffer.Status.SENT)
+
+    def test_existing_employee_cannot_approve_own_offer(self):
+        from approvals.services import submit_approval, decide_approval
+        from django.core.exceptions import PermissionDenied
+        candidate=self._candidate(email=self.checker.email)
+        offer=create_job_offer(candidate=candidate,title="Engineer",employment_type=Position.EmploymentType.FULL_TIME,salary_amount=Decimal("250000"),currency="NGN",start_date=date(2026,7,1),created_by=self.user)
+        request=submit_approval(source=offer,action="hiring.offer.release",requester=self.user)
+        self.assertIn(self.checker.pk,request.beneficiary_ids)
+        with self.assertRaises(PermissionDenied): decide_approval(approval=request,actor=self.checker)
+        offer.refresh_from_db()
+        self.assertEqual(offer.status,JobOffer.Status.DRAFT)
