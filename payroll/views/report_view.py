@@ -760,6 +760,18 @@ def mark_remittance(request, obligation, period):
         record.remitted_on = None
     else:
         record.remitted_on = timezone.localdate()
+        # Fan out a signed webhook when a remittance is filed (P1-9).
+        from webhooks.services import emit_event
+
+        emit_event(
+            company,
+            "remittance.filed",
+            {
+                "obligation": obligation,
+                "period": period,
+                "remitted_on": record.remitted_on.isoformat(),
+            },
+        )
     record.save(update_fields=["remitted_on", "updated_at"])
     return redirect("payroll:compliance_calendar")
 

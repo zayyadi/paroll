@@ -54,6 +54,8 @@ class EmployeeRequestAccessTests(TestCase):
             active_company=self.company,
             is_manager=True,
         )
+        from django.contrib.auth.models import Permission
+        self.manager_user.user_permissions.add(*Permission.objects.filter(content_type__app_label="payroll", codename__in=["change_leaverequest", "change_iou"]))
         self.manager = self.manager_user.employee_user
         self.manager.company = self.company
         self.manager.save(update_fields=["company"])
@@ -158,8 +160,9 @@ class EmployeeRequestAccessTests(TestCase):
             start_date=date(2026, 7, 15),
             end_date=date(2026, 7, 15),
             reason="Approved allowance",
-            status="APPROVED",
         )
+        from payroll.services.hr_workflow import decide_leave
+        decide_leave(leave=request, actor=self.manager_user)
         allowance = Allowance.objects.get(source_leave_request=request)
 
         self.client.force_login(self.employee_user)
@@ -179,8 +182,9 @@ class EmployeeRequestAccessTests(TestCase):
             start_date=date(2026, 7, 15),
             end_date=date(2026, 7, 15),
             reason="Approved allowance",
-            status="APPROVED",
         )
+        from payroll.services.hr_workflow import decide_leave
+        decide_leave(leave=request, actor=self.manager_user)
         allowance = Allowance.objects.get(source_leave_request=request)
 
         self.client.force_login(self.employee_user)
@@ -200,8 +204,9 @@ class EmployeeRequestAccessTests(TestCase):
             start_date=date(2026, 7, 20),
             end_date=date(2026, 7, 20),
             reason="Other allowance",
-            status="APPROVED",
         )
+        from payroll.services.hr_workflow import decide_leave
+        decide_leave(leave=request, actor=self.manager_user)
         allowance = Allowance.objects.get(source_leave_request=request)
 
         self.client.force_login(self.employee_user)

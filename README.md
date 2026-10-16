@@ -115,7 +115,7 @@ Important env vars:
 
 See `.env.example` for defaults.
 
-## Podman Compose
+## Docker Compose
 
 `docker-compose.yml` includes:
 
@@ -129,7 +129,7 @@ See `.env.example` for defaults.
 Run:
 
 ```bash
-podman-compose up --build
+docker compose up --build
 ```
 
 ## CI/CD and Deployment

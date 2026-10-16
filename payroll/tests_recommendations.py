@@ -182,12 +182,10 @@ class RecommendationImplementationTests(TestCase):
         self.assertEqual(candidate.first_name, "Deleted")
 
     def test_salary_history_records_compensation_changes(self):
-        payroll = Payroll.objects.create(company=self.company, basic_salary=Decimal("100000.00"))
-        self.employee.employee_pay = payroll
-        self.employee.save(update_fields=["employee_pay"])
-        new_payroll = Payroll.objects.create(company=self.company, basic_salary=Decimal("120000.00"))
-        self.employee.employee_pay = new_payroll
-        self.employee.save(update_fields=["employee_pay"])
+        from payroll.financial_approval_actions import change_salary
+        from tests.approval_helpers import approved_operation_for
+        approved_operation_for('payroll.change_payroll')(change_salary, employee=self.employee, basic_salary=Decimal('100000.00'))
+        new_payroll = approved_operation_for('payroll.change_payroll')(change_salary, employee=self.employee, basic_salary=Decimal('120000.00'))
 
         histories = SalaryHistory.objects.filter(employee=self.employee).order_by("effective_date", "id")
         self.assertGreaterEqual(histories.count(), 2)
@@ -241,9 +239,8 @@ class RecommendationImplementationTests(TestCase):
             end_date=date(2026, 6, 2),
             reason="Rest",
         )
-        request.status = "APPROVED"
-        request.approved_by = self.user
-        request.save(user=self.user)
+        from tests.approval_helpers import approve_source
+        approve_source(request, 'leave.approve', maker=self.user)
 
         records = AttendanceRecord.objects.filter(employee=self.employee, status=AttendanceRecord.Status.LEAVE)
         self.assertEqual(records.count(), 2)

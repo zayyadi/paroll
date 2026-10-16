@@ -1,3 +1,7 @@
+from tests.approval_helpers import (
+    approved_operation_for,
+    approve_source,
+)
 from datetime import date
 from decimal import Decimal
 
@@ -69,7 +73,7 @@ class PeriodCloseControlTests(TestCase):
             is_active=True,
         )
 
-        close_accounting_period(self.period, self.user, "May close")
+        approved_operation_for("accounting.change_accountingperiod")(close_accounting_period, self.period, self.user, "May close")
 
         self.period.refresh_from_db()
         self.assertTrue(self.period.is_closed)
@@ -90,7 +94,7 @@ class PeriodCloseControlTests(TestCase):
             company=self.company,
             fiscal_year=self.fiscal_year,
             name="Operating Budget",
-            status="APPROVED",
+            status="DRAFT",
         )
         BudgetLine.objects.create(
             budget=budget,
@@ -98,7 +102,8 @@ class PeriodCloseControlTests(TestCase):
             period=self.period,
             amount=Decimal("1000.00"),
         )
-        create_journal_with_entries(
+        approve_source(budget, "accounting.budget.approve")
+        approved_operation_for("accounting.change_journal")(create_journal_with_entries,
             company=self.company,
             date=date(2026, 5, 15),
             description="Utility bill",

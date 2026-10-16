@@ -1,4 +1,5 @@
 from django.contrib import admin
+from approvals.domain_admin import CompanyWorkflowAdminMixin
 try:
     from import_export import resources
     from import_export.admin import ImportExportModelAdmin
@@ -53,28 +54,28 @@ class JournalEntryResource(resources.ModelResource):
 
 
 @admin.register(CostCenter)
-class CostCenterAdmin(admin.ModelAdmin):
+class CostCenterAdmin(CompanyWorkflowAdminMixin, admin.ModelAdmin):
     list_display = ("company", "code", "name", "is_active")
     list_filter = ("company", "is_active")
     search_fields = ("company__name", "code", "name")
 
 
 @admin.register(ExchangeRate)
-class ExchangeRateAdmin(admin.ModelAdmin):
+class ExchangeRateAdmin(CompanyWorkflowAdminMixin, admin.ModelAdmin):
     list_display = ("company", "base_currency", "quote_currency", "rate", "rate_date", "source")
     list_filter = ("company", "base_currency", "quote_currency", "rate_date")
     search_fields = ("company__name", "base_currency", "quote_currency", "source")
 
 
 @admin.register(PostingRule)
-class PostingRuleAdmin(admin.ModelAdmin):
+class PostingRuleAdmin(CompanyWorkflowAdminMixin, admin.ModelAdmin):
     list_display = ("company", "document_type", "account_role", "expected_account_type", "is_active")
     list_filter = ("company", "document_type", "expected_account_type", "is_active")
     search_fields = ("company__name", "document_type", "account_role")
 
 
 @admin.register(PostingValidationFailure)
-class PostingValidationFailureAdmin(admin.ModelAdmin):
+class PostingValidationFailureAdmin(CompanyWorkflowAdminMixin, admin.ModelAdmin):
     list_display = ("company", "document_type", "account_role", "account", "created_at")
     list_filter = ("company", "document_type", "account_role", "created_at")
     search_fields = ("company__name", "document_type", "account_role", "message")
@@ -82,7 +83,7 @@ class PostingValidationFailureAdmin(admin.ModelAdmin):
 
 
 @admin.register(AccrualTemplate)
-class AccrualTemplateAdmin(admin.ModelAdmin):
+class AccrualTemplateAdmin(CompanyWorkflowAdminMixin, admin.ModelAdmin):
     list_display = ("company", "name", "debit_account", "credit_account", "amount", "is_active")
     list_filter = ("company", "is_active")
     search_fields = ("company__name", "name")
@@ -96,7 +97,7 @@ class BudgetLineInline(admin.TabularInline):
 
 
 @admin.register(Budget)
-class BudgetAdmin(admin.ModelAdmin):
+class BudgetAdmin(CompanyWorkflowAdminMixin, admin.ModelAdmin):
     list_display = ("company", "name", "fiscal_year", "status")
     list_filter = ("company", "status", "fiscal_year")
     search_fields = ("company__name", "name", "fiscal_year__year")
@@ -115,7 +116,7 @@ class ReconciliationItemInline(admin.TabularInline):
 
 
 @admin.register(AccountReconciliation)
-class AccountReconciliationAdmin(admin.ModelAdmin):
+class AccountReconciliationAdmin(CompanyWorkflowAdminMixin, admin.ModelAdmin):
     list_display = ("company", "account", "period", "statement_balance", "ledger_balance", "variance", "status")
     list_filter = ("company", "status", "period")
     search_fields = ("company__name", "account__name", "account__account_number")
@@ -130,7 +131,7 @@ class FinancialReportLineInline(admin.TabularInline):
 
 
 @admin.register(FinancialReportDefinition)
-class FinancialReportDefinitionAdmin(admin.ModelAdmin):
+class FinancialReportDefinitionAdmin(CompanyWorkflowAdminMixin, admin.ModelAdmin):
     list_display = ("company", "code", "name", "report_type", "is_active")
     list_filter = ("company", "report_type", "is_active")
     search_fields = ("company__name", "code", "name")
@@ -138,7 +139,7 @@ class FinancialReportDefinitionAdmin(admin.ModelAdmin):
 
 
 @admin.register(Account)
-class AccountAdmin(ImportExportModelAdmin):
+class AccountAdmin(CompanyWorkflowAdminMixin, ImportExportModelAdmin):
     resource_class = AccountResource
     list_display = ("company", "account_number", "name", "type", "balance")
     list_filter = ("company", "type")
@@ -162,7 +163,7 @@ class JournalEntryInline(admin.TabularInline):
 
 
 @admin.register(Journal)
-class JournalAdmin(ImportExportModelAdmin):
+class JournalAdmin(CompanyWorkflowAdminMixin, ImportExportModelAdmin):
     resource_class = JournalResource
     list_display = (
         "company",
@@ -219,7 +220,7 @@ class DisciplinaryAppealInline(admin.TabularInline):
 
 
 @admin.register(DisciplinaryCase)
-class DisciplinaryCaseAdmin(admin.ModelAdmin):
+class DisciplinaryCaseAdmin(CompanyWorkflowAdminMixin, admin.ModelAdmin):
     list_display = (
         "case_number",
         "allegation_summary",
@@ -255,7 +256,7 @@ class CurrencyRevaluationLineInline(admin.TabularInline):
 
 
 @admin.register(CurrencyRevaluation)
-class CurrencyRevaluationAdmin(admin.ModelAdmin):
+class CurrencyRevaluationAdmin(CompanyWorkflowAdminMixin, admin.ModelAdmin):
     list_display = ("company", "revaluation_date", "base_currency", "status", "created_by", "created_at")
     list_filter = ("company", "status", "revaluation_date")
     search_fields = ("company__name", "memo")
@@ -264,7 +265,7 @@ class CurrencyRevaluationAdmin(admin.ModelAdmin):
 
 
 @admin.register(BankTransaction)
-class BankTransactionAdmin(admin.ModelAdmin):
+class BankTransactionAdmin(CompanyWorkflowAdminMixin, admin.ModelAdmin):
     list_display = ("company", "account", "transaction_date", "description", "amount", "transaction_type", "is_matched")
     list_filter = ("company", "transaction_type", "is_matched", "transaction_date")
     search_fields = ("description", "reference", "account__name")

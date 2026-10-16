@@ -1,0 +1,37 @@
+{% extends "inventory/base.html" %}
+
+{% block inventory_content %}
+<div class="bg-white rounded-lg shadow-soft">
+    <div class="px-6 py-4 border-b border-gray-200">
+        <h3 class="text-lg font-semibold text-secondary-900">Stock Movements</h3>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">Date</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">Item</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">Location</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">Type</th>
+                    <th class="px-6 py-3 text-right text-xs font-medium text-secondary-500 uppercase tracking-wider">Quantity</th>
+                    <th class="px-6 py-3 text-right text-xs font-medium text-secondary-500 uppercase tracking-wider">Cost</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+                {% for movement in movements %}
+                <tr class="table-row-hover">
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-secondary-500">{{ movement.movement_date }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-secondary-900">{{ movement.item.name }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-secondary-500">{{ movement.location }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-secondary-500">{{ movement.get_movement_type_display }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-right text-secondary-900">{{ movement.quantity|floatformat:2 }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-right text-secondary-900">₦{{ movement.total_cost|floatformat:2 }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="6" class="px-6 py-8 text-center text-sm text-secondary-500">No stock movements.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

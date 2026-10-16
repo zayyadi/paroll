@@ -35,6 +35,7 @@ num2words>=0.5.13
 # Reporting (Paroll_Implementation_Roadmap Phase 5)
 pandas>=2.0.0
 openpyxl>=3.1.0
+xlwt>=1.3,<2  # Existing payroll .xls export writer
 reportlab>=4.0.0
 xhtml2pdf>=0.2.11
 plotly>=5.18.0

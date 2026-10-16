@@ -12,8 +12,13 @@ class EmployeeTransferTest(TestCase):
         self.user = User.objects.create_user(
             email="hr@test.com", password="testpass123", is_staff=True
         )
+        self.user.company = self.company
         self.user.active_company = self.company
         self.user.save()
+        from django.contrib.auth.models import Permission
+        self.checker = User.objects.create_user(email="independent@example.test", password="x", company=self.company)
+        for codename in ['change_employeetransfer', 'change_promotion']:
+            self.checker.user_permissions.add(Permission.objects.get(content_type__app_label="payroll", codename=codename))
         self.dept_a = Department.objects.create(company=self.company, name="Engineering")
         self.dept_b = Department.objects.create(company=self.company, name="Marketing")
         self.employee = self.user.employee_user
@@ -34,7 +39,7 @@ class EmployeeTransferTest(TestCase):
             to_department=self.dept_b,
             from_position="Engineer",
             to_position="Marketing Lead",
-            effective_date="2026-07-01",
+            effective_date="2020-01-01",
             reason="Career change",
             requested_by=self.user,
         )
@@ -48,13 +53,12 @@ class EmployeeTransferTest(TestCase):
             from_department=self.dept_a,
             to_department=self.dept_b,
             to_position="Marketing Lead",
-            effective_date="2026-07-01",
+            effective_date="2020-01-01",
             requested_by=self.user,
         )
         from payroll.services.transfer_service import approve_transfer, execute_transfer
-        approve_transfer(transfer=transfer, approved_by=self.user)
-        self.assertEqual(transfer.status, "APPROVED")
-        execute_transfer(transfer=transfer, performed_by=self.user)
+        approve_transfer(transfer=transfer, approved_by=self.checker)
+        transfer.refresh_from_db()
         self.employee.refresh_from_db()
         self.assertEqual(self.employee.department, self.dept_b)
         self.assertEqual(self.employee.job_title, "Marketing Lead")
@@ -63,11 +67,12 @@ class EmployeeTransferTest(TestCase):
     def test_reject_transfer(self):
         transfer = EmployeeTransfer.objects.create(
             company=self.company, employee=self.employee,
-            to_department=self.dept_b, effective_date="2026-07-01",
+            to_department=self.dept_b, effective_date="2020-01-01",
             requested_by=self.user,
         )
         from payroll.services.transfer_service import reject_transfer
-        reject_transfer(transfer=transfer, approved_by=self.user)
+        reject_transfer(transfer=transfer, approved_by=self.checker, comment="Not funded")
+        transfer.refresh_from_db()
         self.assertEqual(transfer.status, "REJECTED")
 
 
@@ -77,8 +82,13 @@ class PromotionTest(TestCase):
         self.user = User.objects.create_user(
             email="hr@test.com", password="testpass123", is_staff=True
         )
+        self.user.company = self.company
         self.user.active_company = self.company
         self.user.save()
+        from django.contrib.auth.models import Permission
+        self.checker = User.objects.create_user(email="independent@example.test", password="x", company=self.company)
+        for codename in ['change_employeetransfer', 'change_promotion']:
+            self.checker.user_permissions.add(Permission.objects.get(content_type__app_label="payroll", codename=codename))
         self.employee = self.user.employee_user
         self.employee.company = self.company
         self.employee.first_name = "Jane"
@@ -90,7 +100,7 @@ class PromotionTest(TestCase):
         promotion = Promotion.objects.create(
             company=self.company, employee=self.employee,
             old_title="Engineer", new_title="Senior Engineer",
-            effective_date="2026-07-01", requested_by=self.user,
+            effective_date="2020-01-01", requested_by=self.user,
         )
         self.assertEqual(promotion.status, "PENDING")
 
@@ -98,11 +108,11 @@ class PromotionTest(TestCase):
         promotion = Promotion.objects.create(
             company=self.company, employee=self.employee,
             old_title="Engineer", new_title="Senior Engineer",
-            effective_date="2026-07-01", requested_by=self.user,
+            effective_date="2020-01-01", requested_by=self.user,
         )
         from payroll.services.transfer_service import approve_promotion, execute_promotion
-        approve_promotion(promotion=promotion, approved_by=self.user)
-        execute_promotion(promotion=promotion, performed_by=self.user)
+        approve_promotion(promotion=promotion, approved_by=self.checker)
+        promotion.refresh_from_db()
         self.employee.refresh_from_db()
         self.assertEqual(self.employee.job_title, "Senior Engineer")
         self.assertEqual(promotion.status, "COMPLETED")
@@ -111,7 +121,7 @@ class PromotionTest(TestCase):
         other_company = Company.objects.create(name="Other Co")
         transfer = EmployeeTransfer.objects.create(
             company=self.company, employee=self.employee,
-            effective_date="2026-07-01",
+            effective_date="2020-01-01",
         )
         self.assertFalse(
             EmployeeTransfer.objects.filter(company=other_company).exists()

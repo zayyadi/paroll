@@ -9,14 +9,22 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument("--dry-run", action="store_true")
+        parser.add_argument("--requested-by", type=int, default=None)
         parser.add_argument("--candidate-days", type=int, default=None)
         parser.add_argument("--survey-days", type=int, default=730)
         parser.add_argument("--disciplinary-days", type=int, default=1095)
 
     def handle(self, *args, **options):
-        policy = HRRetentionPolicy.objects.filter(is_active=True).first()
+        from django.contrib.auth import get_user_model
+        from company.utils import get_user_company
+        actor = get_user_model().objects.get(pk=options["requested_by"]) if options["requested_by"] is not None else None
+        policies = HRRetentionPolicy.objects.filter(is_active=True)
+        if actor is not None:
+            policies = policies.filter(company=get_user_company(actor))
+        policy = policies.first()
         result = apply_hr_retention(
             policy=policy,
+            actor=actor,
             dry_run=options["dry_run"],
             candidate_days=options["candidate_days"],
             survey_days=options["survey_days"],
@@ -28,6 +36,8 @@ class Command(BaseCommand):
                 "Retention "
                 f"candidates={result.candidates} "
                 f"survey_responses={result.survey_responses} "
-                f"disciplinary_cases={result.disciplinary_cases}"
+                f"disciplinary_cases={result.disciplinary_cases} "
+                f"disciplinary_requires_approval={result.disciplinary_requires_approval} "
+                f"disciplinary_queued={result.disciplinary_queued}"
             )
         )

@@ -413,33 +413,35 @@ def can_manage_disciplinary_case(user):
 
 
 def can_approve_journal(first, second):
-    """
-    Check if user can approve a journal
-    - Superusers can approve any journal
-    - Auditors can approve any journal
-    - Accountants cannot approve journals they created
-    """
-    user, journal = _split_user_and_object(first, second)
+    from approvals.permissions import has_company_permission
+    user,journal = _split_user_and_object(first,second)
+    return bool(journal.status == Journal.JournalStatus.PENDING_APPROVAL
+        and user.pk != journal.created_by_id
+        and has_company_permission(user,journal.company,'accounting.change_journal'))
 
-    if journal.status not in [
-        Journal.JournalStatus.DRAFT,
-        Journal.JournalStatus.PENDING_APPROVAL,
-    ]:
+
+def _validated_company_checker(user, record):
+    """A configured grant is authoritative only inside a final engine callback."""
+    from approvals.services import current_execution
+    from approvals.permissions import user_in_company
+    from approvals.proposals import object_company
+
+    execution = current_execution()
+    if execution is None or record is None or user is None:
         return False
-
-    if user.is_superuser:
-        return True
-
-    if is_auditor(user):
+    company = object_company(record)
+    if (
+        not execution
+        or not company
+        or execution.company_id != company.pk
+        or not user_in_company(user, company)
+    ):
         return False
-
-    if is_accountant(user):
-        return True
-
-    if is_payroll_processor(user):
-        return journal.created_by == user
-
-    return False
+    if execution.current_stage != len(execution.policy_snapshot["stages"]) - 1:
+        return False
+    return execution.decisions.filter(
+        stage=execution.current_stage, actor_id=user.pk, decision="APPROVE"
+    ).exists()
 
 
 def can_reverse_journal(first, second):
@@ -453,6 +455,15 @@ def can_reverse_journal(first, second):
     """
     user, journal = _split_user_and_object(first, second)
 
+    from approvals.services import current_execution
+
+    if current_execution() is not None:
+        return (
+            _validated_company_checker(user, journal)
+            and journal.status == Journal.JournalStatus.POSTED
+            and not journal.reversed_journal
+            and not (journal.period and journal.period.is_closed)
+        )
     if user.is_superuser:
         return True
 
@@ -464,9 +475,10 @@ def can_reverse_journal(first, second):
         return is_auditor(user) or is_accountant(user) or journal.created_by == user
 
     return journal.created_by == user or (
-        is_accountant(user) and journal.created_by and is_payroll_processor(journal.created_by)
+        is_accountant(user)
+        and journal.created_by
+        and is_payroll_processor(journal.created_by)
     )
-
 
 def can_partial_reverse_journal(user, journal):
     """
@@ -530,8 +542,11 @@ def can_close_period(first, second):
     - Only auditors can close periods
     """
     user, period = _split_user_and_object(first, second)
-    return user.is_superuser or is_accountant(user)
+    from approvals.services import current_execution
 
+    if current_execution() is not None:
+        return _validated_company_checker(user, period) and not period.is_closed
+    return user.is_superuser or is_accountant(user)
 
 def _role_required(test_func):
     def decorator(view_func):

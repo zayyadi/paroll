@@ -167,6 +167,8 @@ class IOUUpdateForm(forms.ModelForm):
 
 
 class IOUApprovalForm(forms.ModelForm):
+    status = forms.ChoiceField(choices=[("APPROVED", "Approve stage"), ("REJECTED", "Reject")], label="Decision")
+    comment = forms.CharField(required=False, label="Decision reason", widget=forms.Textarea(attrs={"rows": 2}))
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         input_class = (
@@ -178,7 +180,7 @@ class IOUApprovalForm(forms.ModelForm):
 
     class Meta:
         model = models.IOU
-        fields = ["status", "approved_at", "tenor", "repayment_deduction_percentage"]
+        fields = ["status", "tenor", "repayment_deduction_percentage", "comment"]
         widgets = {
             "approved_at": forms.DateInput(attrs={"type": "date"}),
             "tenor": forms.NumberInput(attrs={"min": 1, "max": 60, "step": 1}),
@@ -190,6 +192,8 @@ class IOUApprovalForm(forms.ModelForm):
     def clean(self):
         cleaned_data = super().clean()
         status = cleaned_data.get("status")
+        if status == "REJECTED" and not cleaned_data.get("comment", "").strip():
+            self.add_error("comment", "A rejection reason is required.")
         tenor = cleaned_data.get("tenor")
         deduction_pct = cleaned_data.get("repayment_deduction_percentage")
 

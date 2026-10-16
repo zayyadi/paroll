@@ -32,17 +32,24 @@ class AppraisalListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
 
     def get_queryset(self):
         company = get_user_company(self.request.user)
+        profile = getattr(self.request.user, "employee_user", None)
+        review_scope = Q()
+        assignment_scope = Q()
+        if not self.request.user.has_perm("payroll.publish_review"):
+            review_scope = Q(review__reviewer=profile) | Q(review__employee=profile, review__status="PUBLISHED") if profile else Q(review__pk__in=[])
+            assignment_scope = Q(appraisalassignment__appraiser=profile) | Q(appraisalassignment__appraisee=profile) if profile else Q(appraisalassignment__pk__in=[])
         queryset = (
             models.Appraisal.objects.annotate(
-                overall_avg=Avg("review__rating__rating"),
-                assignments_count=Count("appraisalassignment", distinct=True),
-                reviews_count=Count("review", distinct=True),
+                overall_avg=Avg("review__rating__rating", filter=review_scope),
+                assignments_count=Count("appraisalassignment", distinct=True, filter=assignment_scope),
+                reviews_count=Count("review", distinct=True, filter=review_scope),
             )
             .order_by("-start_date", "-id")
             .distinct()
         )
-        if company:
-            queryset = queryset.filter(company=company)
+        if not company:
+            raise PermissionDenied("Select a company before accessing appraisals.")
+        queryset = queryset.filter(company=company)
         return queryset
 
     def get_context_data(self, **kwargs):
@@ -60,7 +67,7 @@ class AppraisalListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
                 status_css = "bg-warning"
                 in_progress += 1
             elif appraisal.end_date < today:
-                status_label = "Completed"
+                status_label = "Ended"
                 status_css = "bg-success"
                 completed += 1
 
@@ -90,8 +97,9 @@ class AppraisalDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailVie
     def get_queryset(self):
         company = get_user_company(self.request.user)
         queryset = models.Appraisal.objects.all()
-        if company:
-            queryset = queryset.filter(company=company)
+        if not company:
+            raise PermissionDenied("Select a company before accessing appraisals.")
+        queryset = queryset.filter(company=company)
         return queryset
 
     def get_context_data(self, **kwargs):
@@ -100,11 +108,19 @@ class AppraisalDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailVie
         reviews = models.Review.objects.filter(appraisal=appraisal).select_related(
             "employee", "reviewer"
         )
+        profile = getattr(self.request.user, "employee_user", None)
+        if not self.request.user.has_perm("payroll.publish_review"):
+            reviews = reviews.filter(Q(reviewer=profile) | Q(employee=profile, status="PUBLISHED")) if profile else reviews.none()
         assignments = models.AppraisalAssignment.objects.filter(
             appraisal=appraisal
         ).select_related("appraisee", "appraiser")
 
-        completed_reviews = reviews.count()
+        if not self.request.user.has_perm("payroll.publish_review"):
+            assignments = assignments.filter(Q(appraiser=profile) | Q(appraisee=profile)) if profile else assignments.none()
+        context["visible_reviews"] = reviews
+        context["visible_assignments"] = assignments
+        context["reviewer_profile"] = profile
+        completed_reviews = reviews.exclude(status="DRAFT").count()
         pending_reviews = max(assignments.count() - completed_reviews, 0)
 
         ratings = models.Rating.objects.filter(review__in=reviews).select_related("metric")
@@ -129,6 +145,7 @@ class AppraisalDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailVie
         context["pending_reviews"] = pending_reviews
         context["metric_ratings"] = metric_ratings
         context["overall_avg"] = overall_avg
+        context["metric_chart_data"] = {"labels": list(metric_ratings), "ratings": [item["avg"] for item in metric_ratings.values()]}
 
         return context
 
@@ -143,6 +160,8 @@ class AppraisalCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateVie
 
     def form_valid(self, form):
         form.instance.company = get_user_company(self.request.user)
+        if not form.instance.company:
+            raise PermissionDenied("Select a company before creating appraisals.")
         return super().form_valid(form)
 
 
@@ -157,8 +176,9 @@ class AppraisalUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateVie
     def get_queryset(self):
         company = get_user_company(self.request.user)
         queryset = models.Appraisal.objects.all()
-        if company:
-            queryset = queryset.filter(company=company)
+        if not company:
+            raise PermissionDenied("Select a company before accessing appraisals.")
+        queryset = queryset.filter(company=company)
         return queryset
 
 
@@ -172,7 +192,8 @@ class AppraisalDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteVie
     def get_queryset(self):
         company = get_user_company(self.request.user)
         queryset = models.Appraisal.objects.all()
-        if company:
-            queryset = queryset.filter(company=company)
+        if not company:
+            raise PermissionDenied("Select a company before accessing appraisals.")
+        queryset = queryset.filter(company=company)
         return queryset
 

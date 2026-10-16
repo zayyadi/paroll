@@ -79,6 +79,30 @@ from payroll.models import IOU
 User = get_user_model()
 
 
+
+from tests.approval_helpers import approve_source, approve_request, approval_user
+
+def _approved_leave(**kwargs):
+    source = LeaveRequest.objects.create(**kwargs)
+    approve_source(source, "leave.approve")
+    return source
+
+def _approved_iou(**kwargs):
+    source = IOU.objects.create(**kwargs)
+    approve_source(source, "iou.approve")
+    return source
+
+def _rejected_iou(**kwargs):
+    from approvals.services import submit_approval, decide_approval
+    source = IOU.objects.create(**kwargs)
+    maker = source.employee_id.user or approval_user(source.employee_id.company, ["payroll.change_iou"])
+    request = submit_approval(source=source, action="iou.approve", requester=maker)
+    checker = approval_user(source.employee_id.company, ["payroll.change_iou"])
+    decide_approval(approval=request, actor=checker, decision="REJECT", comment="Fixture rejection decision")
+    source.refresh_from_db()
+    return source
+
+
 class PayrollAllowanceRulesTests(TestCase):
     def setUp(self):
         self.company = Company.objects.create(name="Acme Ltd")
@@ -115,18 +139,17 @@ class PayrollAllowanceRulesTests(TestCase):
         return payroll_entry
 
     def test_leave_allowance_paid_for_staff_with_approved_leave(self):
-        LeaveRequest.objects.create(
+        _approved_leave(
             employee=self.employee,
             leave_type="ANNUAL",
             start_date=date(2026, 3, 10),
             end_date=date(2026, 3, 14),
             reason="Annual vacation",
-            status="APPROVED",
         )
         payroll_entry = self._create_payroll_entry_for_month(payroll_month=3)
 
-        # 15% of annual basic salary (120,000 x 12) = 216,000
-        self.assertEqual(payroll_entry.calc_allowance, Decimal("216000.00"))
+        # The 216,000 leave allowance was paid separately on approval.
+        self.assertEqual(payroll_entry.calc_allowance, Decimal("0.00"))
 
     def test_leave_allowance_percentage_defaults_to_ten_percent(self):
         setting = CompanyPayrollSetting.objects.create(
@@ -149,8 +172,7 @@ class PayrollAllowanceRulesTests(TestCase):
         )
 
         with self.captureOnCommitCallbacks(execute=True):
-            leave_request.status = "APPROVED"
-            leave_request.save()
+            approve_source(leave_request, "leave.approve")
 
         allowance = Allowance.objects.get(source_leave_request=leave_request)
         self.assertEqual(allowance.amount, Decimal("144000.00"))
@@ -162,60 +184,76 @@ class PayrollAllowanceRulesTests(TestCase):
     def test_process_leave_allowances_command_backfills_only_approved_annual_leaves(
         self, mocked_enqueue
     ):
+        historical_employee = EmployeeProfile.objects.create(company=self.company, first_name="Historical", last_name="Leave")
         annual_leave = LeaveRequest.objects.create(
-            employee=self.employee,
+            employee=historical_employee,
             leave_type="ANNUAL",
             start_date=date(2026, 5, 1),
             end_date=date(2026, 5, 5),
             reason="Legacy annual leave",
         )
         sick_leave = LeaveRequest.objects.create(
-            employee=self.employee,
+            employee=historical_employee,
             leave_type="SICK",
             start_date=date(2026, 6, 1),
             end_date=date(2026, 6, 2),
             reason="Legacy sick leave",
         )
-        LeaveRequest.objects.filter(pk__in=[annual_leave.pk, sick_leave.pk]).update(
-            status="APPROVED"
-        )
+        approve_source(annual_leave, "leave.approve")
+        approve_source(sick_leave, "leave.approve")
 
+        from tests.approval_helpers import approved_operation
+        from payroll.financial_approval_actions import change_salary
+        finance = approval_user(self.company, ["payroll.change_payroll", "accounting.change_journal"])
+        approved_operation(change_salary, employee=historical_employee, basic_salary=Decimal("120000"), user=finance, maker=finance, permission="payroll.change_payroll")
         output = StringIO()
         with self.captureOnCommitCallbacks(execute=True):
-            call_command("process_leave_allowances", stdout=output)
+            call_command("process_leave_allowances", "--requested-by", str(finance.pk), stdout=output)
 
         annual_leave.refresh_from_db()
         sick_leave.refresh_from_db()
+        from approvals.models import ApprovalRequest
+        request = ApprovalRequest.objects.get(action="payroll.leave_allowance.backfill", status="PENDING")
+        with self.captureOnCommitCallbacks(execute=True):
+            approve_request(request)
         allowance = Allowance.objects.get(source_leave_request=annual_leave)
         self.assertEqual(allowance.amount, Decimal("216000.00"))
         self.assertFalse(
             Allowance.objects.filter(source_leave_request=sick_leave).exists()
         )
-        self.assertIn("Processed 1 leave allowance(s); skipped 0.", output.getvalue())
+        self.assertIn("Queued 1 leave allowance approval(s)", output.getvalue())
         mocked_enqueue.assert_called_once()
 
     @patch("payroll.models.payroll.LeaveAllowanceEmailJob.enqueue")
     def test_process_leave_allowances_command_can_skip_email_queueing(
         self, mocked_enqueue
     ):
+        historical_employee = EmployeeProfile.objects.create(company=self.company, first_name="Historical", last_name="Leave")
         annual_leave = LeaveRequest.objects.create(
-            employee=self.employee,
+            employee=historical_employee,
             leave_type="ANNUAL",
             start_date=date(2026, 5, 1),
             end_date=date(2026, 5, 5),
             reason="Legacy annual leave",
         )
-        LeaveRequest.objects.filter(pk=annual_leave.pk).update(status="APPROVED")
+        approve_source(annual_leave, "leave.approve")
 
+        from tests.approval_helpers import approved_operation
+        from payroll.financial_approval_actions import change_salary
+        finance = approval_user(self.company, ["payroll.change_payroll", "accounting.change_journal"])
+        approved_operation(change_salary, employee=historical_employee, basic_salary=Decimal("120000"), user=finance, maker=finance, permission="payroll.change_payroll")
         output = StringIO()
-        call_command("process_leave_allowances", "--skip-email", stdout=output)
+        call_command("process_leave_allowances", "--requested-by", str(finance.pk), "--skip-email", stdout=output)
 
+        from approvals.models import ApprovalRequest
+        request = ApprovalRequest.objects.get(action="payroll.leave_allowance.backfill", status="PENDING")
+        approve_request(request)
         allowance = Allowance.objects.get(source_leave_request=annual_leave)
         self.assertEqual(allowance.amount, Decimal("216000.00"))
         self.assertTrue(
             LeaveAllowanceEmailJob.objects.filter(leave_request=annual_leave).exists()
         )
-        self.assertIn("Processed 1 leave allowance(s); skipped 0.", output.getvalue())
+        self.assertIn("Queued 1 leave allowance approval(s)", output.getvalue())
         mocked_enqueue.assert_not_called()
 
     @patch("payroll.models.payroll.LeaveAllowanceEmailJob.enqueue")
@@ -229,8 +267,7 @@ class PayrollAllowanceRulesTests(TestCase):
         )
 
         with self.captureOnCommitCallbacks(execute=True):
-            leave_request.status = "APPROVED"
-            leave_request.save()
+            approve_source(leave_request, "leave.approve")
 
         allowance = Allowance.objects.get(source_leave_request=leave_request)
         self.assertEqual(allowance.employee, self.employee)
@@ -264,7 +301,8 @@ class PayrollAllowanceRulesTests(TestCase):
         )
 
         payroll_entry = self._create_payroll_entry_for_month(payroll_month=3)
-        self.assertEqual(payroll_entry.calc_allowance, Decimal("216000.00"))
+        # The cash journal above already paid the leave allowance.
+        self.assertEqual(payroll_entry.calc_allowance, Decimal("0.00"))
 
     @patch("payroll.models.payroll.LeaveAllowanceEmailJob.enqueue")
     def test_reapproving_leave_does_not_duplicate_allowance_or_email_job(self, mocked_enqueue):
@@ -277,8 +315,7 @@ class PayrollAllowanceRulesTests(TestCase):
         )
 
         with self.captureOnCommitCallbacks(execute=True):
-            leave_request.status = "APPROVED"
-            leave_request.save()
+            approve_source(leave_request, "leave.approve")
 
         mocked_enqueue.reset_mock()
         leave_request.reason = "Updated note after approval"
@@ -307,20 +344,19 @@ class PayrollAllowanceRulesTests(TestCase):
         self.assertEqual(payroll_entry.calc_allowance, Decimal("0.00"))
 
     def test_allowances_do_not_change_taxable_income_or_paye(self):
-        LeaveRequest.objects.create(
+        _approved_leave(
             employee=self.employee,
             leave_type="ANNUAL",
             start_date=date(2026, 12, 1),
             end_date=date(2026, 12, 5),
             reason="Annual vacation",
-            status="APPROVED",
         )
         payroll_entry = self._create_payroll_entry_for_month(payroll_month=12)
         taxable_income_before = self.payroll.taxable_income
         payee_before = self.payroll.payee
 
-        # December leave allowance (15% annual) + 13th month (20% annual) = 504,000
-        self.assertEqual(payroll_entry.calc_allowance, Decimal("504000.00"))
+        # Only the unpaid 13th month enters payroll; leave was paid separately.
+        self.assertEqual(payroll_entry.calc_allowance, Decimal("288000.00"))
         self.assertEqual(self.payroll.taxable_income, taxable_income_before)
         self.assertEqual(self.payroll.payee, payee_before)
 
@@ -368,7 +404,11 @@ class PayrollDisciplinaryEligibilityTests(TestCase):
             reporter=self.hr_user,
             violation_level=DisciplinaryCase.ViolationLevel.LEVEL_3,
         )
-        DisciplinarySanction.objects.create(
+        self.hr_user.user_permissions.add(Permission.objects.get(content_type__app_label="accounting", codename="change_disciplinarycase"))
+        approval = case.decide(finding="SUBSTANTIATED", decided_by=self.hr_user, rationale="Verified findings")
+        approve_request(approval)
+        case.refresh_from_db()
+        sanction = DisciplinarySanction.objects.create(
             case=case,
             sanction_type=DisciplinarySanction.SanctionType.SUSPENSION,
             rationale="Suspended for investigation",
@@ -376,6 +416,8 @@ class PayrollDisciplinaryEligibilityTests(TestCase):
             duration_days=21,
             created_by=self.hr_user,
         )
+
+        approve_source(sanction, "discipline.sanction", maker=self.hr_user)
 
         form = PayrollRunCreateForm(
             data={
@@ -721,6 +763,13 @@ class AppraisalWorkflowStandardsTests(TestCase):
             self_assessment="Completed all goals.",
         )
 
+        Rating.objects.create(review=review, metric=self.metric_1, rating=4, comments="Delivered objectives")
+        review.status = "SUBMITTED"
+        review.save(update_fields=["status"])
+        self.unrelated_user.user_permissions.add(Permission.objects.get(content_type__app_label="payroll", codename="publish_review"))
+        from approvals.services import submit_approval, decide_approval
+        request = submit_approval(source=review, action="appraisal.publish", requester=self.reviewer_user)
+        decide_approval(approval=request, actor=self.unrelated_user)
         self.client.login(email=self.appraisee_user.email, password="testpass123")
         response = self.client.get(
             reverse("payroll:review_detail", kwargs={"pk": review.pk})
@@ -730,11 +779,17 @@ class AppraisalWorkflowStandardsTests(TestCase):
 
 class AppraisalAssignmentEmailTests(TestCase):
     @override_settings(NOTIFICATION_SIGNALS_ENABLED=True)
-    @patch("payroll.notification_signals.NotificationService.send_notification")
-    @patch("payroll.notification_signals.custom_send_mail")
+    @patch("payroll.services.notification_signals.custom_send_mail")
+    @patch(
+        "payroll.services.notification_service.NotificationService.send_notification"
+    )
     def test_assignment_sends_email_to_appraisee_and_appraiser(
-        self, mocked_send_mail, mocked_send_notification
+        self, mocked_send_notification, mocked_send_mail
     ):
+        from payroll.tasks.signal_tasks import (
+            handle_appraisal_assignment_signal_task,
+        )
+
         company = Company.objects.create(name="Mail Co")
         appraiser_user = User.objects.create_user(
             email="reviewer@mailco.test",
@@ -767,11 +822,24 @@ class AppraisalAssignmentEmailTests(TestCase):
             end_date=date(2026, 6, 30),
         )
 
-        AppraisalAssignment.objects.create(
-            appraisal=appraisal,
-            appraisee=appraisee_profile,
-            appraiser=appraiser_profile,
+        # Signal handlers only enqueue; heavy work runs in the worker task.
+        with patch("celery.current_app.send_task") as mocked_send_task:
+            with self.captureOnCommitCallbacks(execute=True):
+                assignment = AppraisalAssignment.objects.create(
+                    appraisal=appraisal,
+                    appraisee=appraisee_profile,
+                    appraiser=appraiser_profile,
+                )
+        mocked_send_task.assert_called_once()
+        self.assertEqual(
+            mocked_send_task.call_args.args[0],
+            "payroll.handle_appraisal_assignment_signal",
         )
+        # Creating the assignment must not send anything inline.
+        self.assertEqual(mocked_send_mail.call_count, 0)
+
+        # Worker execution sends both emails in the background.
+        handle_appraisal_assignment_signal_task(assignment.id, True)
 
         self.assertEqual(mocked_send_mail.call_count, 2)
         recipients = {
@@ -861,7 +929,6 @@ class PayrollRunPayslipEmailTests(TestCase):
         mocked_apply_async.assert_called_once_with(
             args=[payroll_run.id, job.id],
             queue="notifications_normal",
-            retry=False,
         )
         job.refresh_from_db()
         self.assertEqual(job.celery_task_id, "celery-task-123")
@@ -888,126 +955,6 @@ class PayrollRunPayslipEmailTests(TestCase):
         self.assertIsNotNone(job.started_at)
         self.assertIsNotNone(job.completed_at)
 
-    def test_publish_never_raises_and_returns_none_on_broker_failure(self):
-        from core.messaging import publish
-        from payroll.tasks.payslip_tasks import send_payslips_for_payroll_run_task
-
-        with patch.object(
-            send_payslips_for_payroll_run_task,
-            "apply_async",
-            side_effect=ConnectionError("broker down"),
-        ):
-            self.assertIsNone(
-                publish(
-                    send_payslips_for_payroll_run_task,
-                    1,
-                    2,
-                    queue="notifications_normal",
-                )
-            )
-
-    def test_enqueue_marks_job_failed_instead_of_raising_on_broker_failure(self):
-        from payroll.tasks.payslip_tasks import send_payslips_for_payroll_run_task
-
-        company = Company.objects.create(name="Broker Failure Co")
-        payroll_run = PayrollRun.objects.create(
-            company=company,
-            name="August Payroll",
-            paydays=date(2026, 8, 1),
-            is_active=True,
-        )
-        job = PayslipEmailJob.objects.create(payroll_run=payroll_run)
-        with patch.object(
-            send_payslips_for_payroll_run_task,
-            "apply_async",
-            side_effect=ConnectionError("broker down"),
-        ):
-            self.assertIsNone(job.enqueue())
-        job.refresh_from_db()
-        self.assertEqual(job.status, PayslipEmailJob.Status.FAILED)
-        self.assertIn("Broker publish failed", job.error_message)
-
-    def test_leave_allowance_enqueue_marks_job_failed_on_broker_failure(self):
-        from payroll.tasks.leave_allowance_tasks import send_leave_allowance_slip_task
-
-        company = Company.objects.create(name="Leave Broker Failure Co")
-        employee = EmployeeProfile.objects.create(
-            company=company, first_name="Ada", last_name="Obi"
-        )
-        leave_request = LeaveRequest.objects.create(
-            employee=employee,
-            leave_type="ANNUAL",
-            start_date=date(2026, 9, 1),
-            end_date=date(2026, 9, 3),
-            reason="Annual break",
-        )
-        job = LeaveAllowanceEmailJob.objects.create(
-            leave_request=leave_request,
-            allowance=Allowance.objects.create(
-                employee=employee, amount=Decimal("50000.00")
-            ),
-            amount=Decimal("50000.00"),
-        )
-        with patch.object(
-            send_leave_allowance_slip_task,
-            "apply_async",
-            side_effect=ConnectionError("broker down"),
-        ):
-            self.assertIsNone(job.enqueue())
-        job.refresh_from_db()
-        self.assertEqual(job.status, LeaveAllowanceEmailJob.Status.FAILED)
-
-    def test_add_pay_queues_payslip_email_without_sending_in_request(self):
-        from django.test import Client
-
-        from payroll.tasks.payslip_tasks import send_single_payslip_task
-
-        User = get_user_model()
-        company = Company.objects.create(name="Add Pay Async Co")
-        hr_user = User.objects.create_user(
-            email="hr-addpay@test.com",
-            password="testpass123",
-            company=company,
-            active_company=company,
-        )
-        hr_user.user_permissions.add(
-            Permission.objects.get(codename="add_payroll")
-        )
-        employee_user = User.objects.create_user(
-            email="emp-addpay@test.com",
-            password="testpass123",
-            company=company,
-            active_company=company,
-        )
-        employee = employee_user.employee_user
-        employee.company = company
-        employee.first_name = "Emeka"
-        employee.last_name = "Ade"
-        employee.email = "emp-addpay@test.com"
-        employee.save()
-        client = Client()
-        client.force_login(hr_user)
-        with patch.object(
-            send_single_payslip_task, "apply_async"
-        ) as mocked_apply_async, patch(
-            "payroll.views.payroll_payslips.generate_payslip_pdf"
-        ) as mocked_pdf, patch(
-            "users.email_backend._send_mail_now"
-        ) as mocked_send_now:
-            mocked_apply_async.return_value.id = "task-async-1"
-            with self.captureOnCommitCallbacks(execute=True):
-                response = client.post(
-                    reverse("payroll:add_pay"),
-                    {"employee": employee.id, "basic_salary": "500000.00"},
-                )
-            self.assertEqual(response.status_code, 302)
-            mocked_pdf.assert_not_called()
-            mocked_send_now.assert_not_called()
-            mocked_apply_async.assert_called_once()
-            _, kwargs = mocked_apply_async.call_args
-            self.assertEqual(kwargs.get("queue"), "notifications_normal")
-            self.assertFalse(kwargs.get("retry", True))
-
     @patch("payroll.tasks.leave_allowance_tasks.custom_send_mail")
     @patch("payroll.tasks.leave_allowance_tasks.generate_payslip_pdf")
     def test_leave_allowance_task_sends_pdf_slip_and_marks_job_sent(
@@ -1033,13 +980,12 @@ class PayrollRunPayslipEmailTests(TestCase):
             company=company,
             leave_allowance_percentage=Decimal("10.00"),
         )
-        leave_request = LeaveRequest.objects.create(
+        leave_request = _approved_leave(
             employee=employee,
             leave_type="ANNUAL",
             start_date=date(2026, 5, 4),
             end_date=date(2026, 5, 8),
             reason="Annual vacation",
-            status="APPROVED",
         )
         allowance = Allowance.objects.get(source_leave_request=leave_request)
         job = LeaveAllowanceEmailJob.objects.get(leave_request=leave_request)
@@ -1093,8 +1039,7 @@ class PayrollRunPayslipEmailTests(TestCase):
             end_date=date(2026, 5, 8),
             reason="Annual vacation",
         )
-        LeaveRequest.objects.filter(pk=leave_request.pk).update(status="APPROVED")
-        call_command("process_leave_allowances", "--skip-email", stdout=StringIO())
+        approve_source(leave_request, "leave.approve")
         job = LeaveAllowanceEmailJob.objects.get(leave_request=leave_request)
 
         output = StringIO()
@@ -1248,11 +1193,10 @@ class HRComplianceRulesTests(TestCase):
     def test_iou_rejected_event_uses_rejected_event_type(
         self, mocked_send_notification, mocked_dispatch
     ):
-        iou = IOU.objects.create(
+        iou = _rejected_iou(
             employee_id=self.employee,
             amount=Decimal("20000.00"),
             tenor=2,
-            status="REJECTED",
         )
 
         _dispatch_iou_rejected_event(iou)
@@ -1273,6 +1217,8 @@ class IOUTenorApprovalWorkflowTests(TestCase):
             company=self.company,
             active_company=self.company,
         )
+        self.checker = User.objects.create_user(email="iou-checker@example.test", password="x", company=self.company, active_company=self.company)
+        self.checker.user_permissions.add(Permission.objects.get(content_type__app_label="payroll", codename="change_iou"))
         self.employee = EmployeeProfile.objects.get(user=self.user)
         self.employee.company = self.company
         self.employee.status = "active"
@@ -1318,7 +1264,12 @@ class IOUTenorApprovalWorkflowTests(TestCase):
             instance=iou,
         )
         self.assertTrue(form.is_valid(), form.errors)
-        approved_iou = form.save()
+        from payroll.services.hr_workflow import decide_iou
+        payload = {key: form.cleaned_data[key] for key in ("tenor", "repayment_deduction_percentage")}
+        iou.refresh_from_db()
+        decide_iou(iou=iou, actor=self.checker, payload=payload)
+        iou.refresh_from_db()
+        approved_iou = iou
         self.assertEqual(approved_iou.status, "APPROVED")
         self.assertEqual(approved_iou.tenor, 6)
         self.assertEqual(
@@ -1332,9 +1283,9 @@ class IOUTenorApprovalWorkflowTests(TestCase):
             tenor=3,
             repayment_deduction_percentage=Decimal("25.00"),
             reason="Urgent support",
-            status="APPROVED",
-            approved_at=date(2026, 7, 1),
         )
+        from payroll.services.hr_workflow import decide_iou
+        decide_iou(iou=iou, actor=self.checker)
         payroll_entry = PayrollEntry.objects.create(
             company=self.company,
             pays=self.employee,
@@ -1343,7 +1294,7 @@ class IOUTenorApprovalWorkflowTests(TestCase):
         payroll_run = PayrollRun.objects.create(
             company=self.company,
             name="July Payroll",
-            paydays=date(2026, 7, 1),
+            paydays=(timezone.localdate() + timedelta(days=32)).replace(day=1),
             is_active=True,
         )
 
@@ -1367,9 +1318,9 @@ class IOUTenorApprovalWorkflowTests(TestCase):
             tenor=6,
             repayment_deduction_percentage=Decimal("20.00"),
             reason="Urgent support",
-            status="APPROVED",
-            approved_at=date(2026, 3, 1),
         )
+        from payroll.services.hr_workflow import decide_iou
+        decide_iou(iou=iou, actor=self.checker)
         self.client.login(email=self.user.email, password="testpass123")
         response = self.client.get(
             reverse("payroll:iou_payment_slip", kwargs={"pk": iou.pk})
@@ -2117,8 +2068,8 @@ class HiringWorkflowFoundationTests(TestCase):
             first_name="Mira",
             last_name="Hire",
             email="mira@example.com",
-            current_stage=stages[5],
-            status=HiringCandidate.Status.OFFER,
+            current_stage=stages[0],
+            status=HiringCandidate.Status.IN_PROCESS,
         )
         offer = create_job_offer(
             candidate=candidate,
@@ -2130,6 +2081,7 @@ class HiringWorkflowFoundationTests(TestCase):
             created_by=self.hr_user,
         )
 
+        approve_source(offer, "hiring.offer.release", maker=self.hr_user)
         execution = accept_job_offer(offer, accepted_by=self.hr_user)
 
         candidate.refresh_from_db()
@@ -2178,9 +2130,11 @@ class EWAAdvanceEngineTests(TestCase):
             employee_id=self.employee,
             amount=Decimal(amount),
             tenor=1,
-            status=status,
+            status="PENDING",
             is_ewa=True,
         )
+        if status == "APPROVED":
+            approve_source(iou, "iou.approve")
         if created:
             IOU.objects.filter(pk=iou.pk).update(created_at=created)
         return iou

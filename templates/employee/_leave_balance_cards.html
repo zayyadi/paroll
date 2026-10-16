@@ -1,0 +1,5 @@
+<div class="grid grid-cols-2 gap-4 md:grid-cols-5">
+{% for balance in balance_cards %}
+<div class="bento-card p-4 text-center"><p>{{ balance.name }}</p><p class="text-2xl font-semibold">{{ balance.days }} days</p></div>
+{% endfor %}
+</div>

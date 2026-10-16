@@ -3,7 +3,6 @@ from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib.staticfiles.urls import staticfiles_urlpatterns
-from core import health as health_views
 from payroll import views as payroll_views
 import importlib.util
 
@@ -14,15 +13,17 @@ handler404 = "django.views.defaults.page_not_found"
 handler500 = "django.views.defaults.server_error"
 
 urlpatterns = [
-    path("health/", health_views.health, name="health"),
-    path("ready/", health_views.ready, name="ready"),
     path("admin/", admin.site.urls),
+    path("approvals/", include("approvals.urls", namespace="approvals")),
+    path("api/v1/approvals/", include("approvals.api_urls", namespace="approval_api")),
     path("", payroll_views.index, name="root"),
     path("marketing/", include("marketing.urls", namespace="marketing")),
     path("users/", include("users.urls", namespace="users")),
     # path("account/", include("django.contrib.auth.urls")),
     path("", include("payroll.urls", namespace="payroll")),
     path("accounting/", include("accounting.urls", namespace="accounting")),
+    path("inventory/", include("inventory.urls", namespace="inventory")),
+    path("webhooks/", include("webhooks.urls", namespace="webhooks")),
     # path(
     #     "__reload__/",
     #     include("django_browser_reload.urls"),

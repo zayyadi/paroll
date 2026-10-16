@@ -1,3 +1,6 @@
+from tests.approval_helpers import (
+    approved_operation_for,
+)
 from datetime import date
 from decimal import Decimal
 
@@ -46,7 +49,7 @@ class AccountingTenantScopingTests(TestCase):
             Account.AccountType.REVENUE,
         )
 
-        journal = create_journal_with_entries(
+        journal = approved_operation_for("accounting.change_journal")(create_journal_with_entries,
             company=self.company_a,
             date=date(2026, 5, 1),
             description="Tenant A sale",
@@ -79,7 +82,7 @@ class AccountingTenantScopingTests(TestCase):
         )
 
         with self.assertRaises(ValueError):
-            create_journal_with_entries(
+            approved_operation_for("accounting.change_journal")(create_journal_with_entries,
                 company=self.company_a,
                 date=date(2026, 5, 1),
                 description="Cross tenant journal",
@@ -113,7 +116,7 @@ class AccountingTenantScopingTests(TestCase):
             Account.AccountType.REVENUE,
         )
 
-        create_journal_with_entries(
+        approved_operation_for("accounting.change_journal")(create_journal_with_entries,
             company=self.company_a,
             date=date(2026, 5, 1),
             description="Tenant A sale",
@@ -127,7 +130,7 @@ class AccountingTenantScopingTests(TestCase):
             ],
             auto_post=True,
         )
-        create_journal_with_entries(
+        approved_operation_for("accounting.change_journal")(create_journal_with_entries,
             company=self.company_b,
             date=date(2026, 5, 1),
             description="Tenant B sale",

@@ -18,29 +18,7 @@
         </div>
     </div>
 
-    <!-- Leave balances -->
-    <div class="grid grid-cols-2 gap-4 md:grid-cols-5">
-        <div class="bento-card p-4 text-center">
-            <p class="text-xs font-bold uppercase tracking-[0.14em] text-secondary-500">Annual</p>
-            <p class="mt-1 font-headline text-2xl font-extrabold tabular-nums text-secondary-900">{{ leave_balances.annual|default:0 }}</p>
-        </div>
-        <div class="bento-card p-4 text-center">
-            <p class="text-xs font-bold uppercase tracking-[0.14em] text-secondary-500">Sick</p>
-            <p class="mt-1 font-headline text-2xl font-extrabold tabular-nums text-secondary-900">{{ leave_balances.sick|default:0 }}</p>
-        </div>
-        <div class="bento-card p-4 text-center">
-            <p class="text-xs font-bold uppercase tracking-[0.14em] text-secondary-500">Casual</p>
-            <p class="mt-1 font-headline text-2xl font-extrabold tabular-nums text-secondary-900">{{ leave_balances.casual|default:0 }}</p>
-        </div>
-        <div class="bento-card p-4 text-center">
-            <p class="text-xs font-bold uppercase tracking-[0.14em] text-secondary-500">Maternity</p>
-            <p class="mt-1 font-headline text-2xl font-extrabold tabular-nums text-secondary-900">{{ leave_balances.maternity|default:0 }}</p>
-        </div>
-        <div class="bento-card p-4 text-center">
-            <p class="text-xs font-bold uppercase tracking-[0.14em] text-secondary-500">Paternity</p>
-            <p class="mt-1 font-headline text-2xl font-extrabold tabular-nums text-secondary-900">{{ leave_balances.paternity|default:0 }}</p>
-        </div>
-    </div>
+    {% include "employee/_leave_balance_cards.html" %}
 
     <form method="post" class="space-y-6">
         {% csrf_token %}
@@ -56,6 +34,7 @@
             {% include "employee/_form_section_header.html" with number="01" title="Leave Details" subtitle="Type of leave and the dates you need" %}
             <div class="mt-6 grid grid-cols-1 gap-x-6 gap-y-5 md:grid-cols-2">
                 {% include "employee/_form_field.html" with field=form.leave_type %}
+                {% include "employee/_form_field.html" with field=form.is_half_day %}
                 {% include "employee/_form_field.html" with field=form.start_date %}
                 {% include "employee/_form_field.html" with field=form.end_date %}
                 <div class="md:col-span-2">

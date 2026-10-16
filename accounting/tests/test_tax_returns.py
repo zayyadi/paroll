@@ -1,3 +1,6 @@
+from tests.approval_helpers import (
+    approved_operation_for,
+)
 from decimal import Decimal
 from datetime import date
 
@@ -59,7 +62,7 @@ class TaxReturnTest(TestCase):
     def _post_sales_with_vat(self, net_amount, vat_amount):
         from accounting.utils import create_journal_with_entries
         total = net_amount + vat_amount
-        create_journal_with_entries(
+        approved_operation_for("accounting.change_journal")(create_journal_with_entries,
             company=self.company, date=date(2026, 5, 10),
             description="Sale + VAT",
             entries=[
@@ -74,7 +77,7 @@ class TaxReturnTest(TestCase):
     def _post_purchase_with_vat(self, net_amount, vat_amount):
         from accounting.utils import create_journal_with_entries
         total = net_amount + vat_amount
-        create_journal_with_entries(
+        approved_operation_for("accounting.change_journal")(create_journal_with_entries,
             company=self.company, date=date(2026, 5, 15),
             description="Purchase + VAT",
             entries=[
@@ -109,7 +112,7 @@ class TaxReturnTest(TestCase):
 
     def test_generate_wht_return(self):
         from accounting.utils import create_journal_with_entries
-        create_journal_with_entries(
+        approved_operation_for("accounting.change_journal")(create_journal_with_entries,
             company=self.company, date=date(2026, 5, 20),
             description="WHT on supplier",
             entries=[
@@ -134,10 +137,10 @@ class TaxReturnTest(TestCase):
             self.company, "VAT", self.period, self.user,
             tax_accounts={"vat_output": self.vat_output},
         )
-        tax_return = file_tax_return(tax_return, self.user, filing_reference="VAT-Q1-2026-001")
+        tax_return = approved_operation_for("accounting.change_taxreturn")(file_tax_return, tax_return, self.user, filing_reference="VAT-Q1-2026-001")
         self.assertEqual(tax_return.status, TaxReturn.Status.FILED)
         self.assertEqual(tax_return.filing_reference, "VAT-Q1-2026-001")
-        self.assertEqual(tax_return.filed_by, self.user)
+        self.assertNotEqual(tax_return.filed_by, self.user)
         self.assertIsNotNone(tax_return.filed_at)
 
     def test_file_already_filed_raises(self):
@@ -145,10 +148,12 @@ class TaxReturnTest(TestCase):
             company=self.company, return_type="VAT", period=self.period,
             return_period_start=self.period.start_date,
             return_period_end=self.period.end_date,
-            status=TaxReturn.Status.FILED,
+            status=TaxReturn.Status.DRAFT,
         )
+        approved_operation_for("accounting.change_taxreturn")(file_tax_return, tax_return, self.user)
+        tax_return.refresh_from_db()
         with self.assertRaises(ValidationError):
-            file_tax_return(tax_return, self.user)
+            approved_operation_for("accounting.change_taxreturn")(file_tax_return, tax_return, self.user)
 
     def test_duplicate_tax_return_raises(self):
         self._post_sales_with_vat(Decimal("1000.00"), Decimal("75.00"))

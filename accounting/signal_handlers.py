@@ -34,6 +34,33 @@ def get_audit_user_and_metadata():
     return user, ip_address, user_agent
 
 
+def _execution_actor():
+    from approvals.services import current_execution
+
+    execution = current_execution()
+    if execution is None:
+        return None
+    if not hasattr(execution, "_audit_execution_actor"):
+        decision = execution.decisions.select_related("actor").order_by("-stage", "-pk").first()
+        execution._audit_execution_actor = decision.actor if decision else None
+    return execution._audit_execution_actor
+
+
+def _audit_actor(instance, action, request_user):
+    """Use the business decision actor while retaining HTTP request metadata."""
+    actor_field = {
+        AccountingAuditTrail.ActionType.CREATE: "created_by",
+        AccountingAuditTrail.ActionType.APPROVE: "approved_by",
+        AccountingAuditTrail.ActionType.POST: "posted_by",
+        AccountingAuditTrail.ActionType.CLOSE_PERIOD: "closed_by",
+        AccountingAuditTrail.ActionType.CLOSE_FISCAL_YEAR: "closed_by",
+    }.get(action)
+    actor = getattr(instance, actor_field, None) if actor_field else None
+    if actor is not None:
+        return actor
+    return getattr(instance, "_audit_execution_actor", None) or _execution_actor() or request_user
+
+
 def log_model_change(sender, instance, action, changes=None, reason=None):
     """
     Generic function to log model changes to audit trail.
@@ -46,10 +73,11 @@ def log_model_change(sender, instance, action, changes=None, reason=None):
         reason: Reason for the change
     """
     user, ip_address, user_agent = get_audit_user_and_metadata()
+    user = _audit_actor(instance, action, user)
     content_type = ContentType.objects.get_for_model(instance)
     object_id = getattr(instance, "_audit_deleted_pk", instance.pk)
     object_id = object_id if object_id is not None else 0
-    company = AccountingAuditTrail._resolve_company(instance, user=user)
+    company = getattr(instance, "company", None)
 
     def log_audit_trail():
         try:
@@ -125,6 +153,15 @@ def snapshot_deleted_pk(sender, instance, **kwargs):
     instance._audit_deleted_pk = instance.pk
 
 
+@receiver(pre_delete, sender=Journal)
+@receiver(pre_delete, sender=JournalEntry)
+def prevent_posted_journal_deletion(sender, instance, **kwargs):
+    # pre_delete also runs for queryset deletion and cascading deletion.
+    status = instance.status if sender is Journal else instance.journal.status
+    if status in [Journal.JournalStatus.POSTED, Journal.JournalStatus.REVERSED]:
+        raise ValidationError("Posted and reversed journals and entries cannot be deleted.")
+
+
 def get_creation_changes(instance):
     changes = {}
     for field in instance._meta.fields:
@@ -145,6 +182,7 @@ def get_creation_changes(instance):
 @receiver(pre_save, sender=Account)
 def account_pre_save(sender, instance, **kwargs):
     """Track account changes before save."""
+    instance._audit_execution_actor = _execution_actor()
     if instance.pk:
         try:
             old_instance = Account.objects.get(pk=instance.pk)
@@ -237,6 +275,7 @@ def account_post_delete(sender, instance, **kwargs):
 @receiver(pre_save, sender=FiscalYear)
 def fiscal_year_pre_save(sender, instance, **kwargs):
     """Track fiscal year changes before save."""
+    instance._audit_execution_actor = _execution_actor()
     if instance.pk:
         try:
             old_instance = FiscalYear.objects.get(pk=instance.pk)
@@ -250,6 +289,11 @@ def fiscal_year_pre_save(sender, instance, **kwargs):
 @receiver(post_save, sender=FiscalYear)
 def fiscal_year_post_save(sender, instance, created, **kwargs):
     """Log fiscal year creation and updates."""
+
+    # Evaluate before scheduling on_commit: the utility restores its scoped
+    # flag after saving and emits the single business closure audit itself.
+    if not created and getattr(instance,'_suppress_close_audit',False):
+        return
 
     def log_fiscal_year_change():
         if created:
@@ -339,6 +383,7 @@ def fiscal_year_post_delete(sender, instance, **kwargs):
 @receiver(pre_save, sender=AccountingPeriod)
 def accounting_period_pre_save(sender, instance, **kwargs):
     """Track accounting period changes before save."""
+    instance._audit_execution_actor = _execution_actor()
     if instance.pk:
         try:
             old_instance = AccountingPeriod.objects.get(pk=instance.pk)
@@ -352,6 +397,11 @@ def accounting_period_pre_save(sender, instance, **kwargs):
 @receiver(post_save, sender=AccountingPeriod)
 def accounting_period_post_save(sender, instance, created, **kwargs):
     """Log accounting period creation and updates."""
+
+    # Evaluate before scheduling on_commit: the utility restores its scoped
+    # flag after saving and emits the single business closure audit itself.
+    if not created and getattr(instance,'_suppress_close_audit',False):
+        return
 
     def log_period_change():
         if created:
@@ -443,6 +493,7 @@ def accounting_period_post_delete(sender, instance, **kwargs):
 @receiver(pre_save, sender=Journal)
 def journal_pre_save(sender, instance, **kwargs):
     """Track journal changes before save."""
+    instance._audit_execution_actor = _execution_actor()
     if instance.pk:
         try:
             old_instance = Journal.objects.get(pk=instance.pk)
@@ -588,6 +639,7 @@ def journal_post_delete(sender, instance, **kwargs):
 @receiver(pre_save, sender=JournalEntry)
 def journal_entry_pre_save(sender, instance, **kwargs):
     """Track journal entry changes before save."""
+    instance._audit_execution_actor = _execution_actor()
     if instance.pk:
         try:
             old_instance = JournalEntry.objects.get(pk=instance.pk)
@@ -851,6 +903,7 @@ def log_period_closure(period, user, reason=None):
         reason: Reason for closure
     """
     _, ip_address, user_agent = get_audit_user_and_metadata()
+    changes=dict(getattr(period,"_audit_changes",{}))
 
     def log_closure():
         try:
@@ -858,6 +911,7 @@ def log_period_closure(period, user, reason=None):
                 user=user,
                 action=AccountingAuditTrail.ActionType.CLOSE_PERIOD,
                 instance=period,
+                changes=changes,
                 reason=reason or f"Accounting period {period.name} closed",
                 ip_address=ip_address,
                 user_agent=user_agent,
@@ -896,6 +950,7 @@ def log_fiscal_year_closure(fiscal_year, user, reason=None):
         reason: Reason for closure
     """
     _, ip_address, user_agent = get_audit_user_and_metadata()
+    changes=dict(getattr(fiscal_year,"_audit_changes",{}))
 
     def log_closure():
         try:
@@ -903,6 +958,7 @@ def log_fiscal_year_closure(fiscal_year, user, reason=None):
                 user=user,
                 action=AccountingAuditTrail.ActionType.CLOSE_FISCAL_YEAR,
                 instance=fiscal_year,
+                changes=changes,
                 reason=reason or f"Fiscal year {fiscal_year.name} closed",
                 ip_address=ip_address,
                 user_agent=user_agent,
@@ -1095,17 +1151,11 @@ def log_batch_journal_reversal(
 
     def log_batch_reversal():
         try:
-            batch_company = None
-            for journal in list(journals or []) + list(reversal_journals or []):
-                batch_company = getattr(journal, "company", None)
-                if batch_company is not None:
-                    break
             # Log the batch reversal operation
             AccountingAuditTrail.log_action(
                 user=user,
                 action=AccountingAuditTrail.ActionType.REVERSE,
                 instance=None,  # No specific instance for batch operation
-                company=batch_company,
                 changes={
                     "operation_type": "batch_reversal",
                     "reversal_reason": reason,

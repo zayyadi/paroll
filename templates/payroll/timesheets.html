@@ -1,0 +1,17 @@
+{% extends "base_new.html" %}
+{% block content %}<div class="max-w-7xl mx-auto p-6 space-y-6">
+<h1 class="text-2xl font-bold">Timesheets</h1>
+<p>Save a week starting on Monday, then submit it for independent approval. Saving an existing draft updates its hours.</p>
+<form method="post">{% csrf_token %}{{ form.as_p }}<button class="btn-primary" type="submit">Save my timesheet</button></form>
+<table class="min-w-full"><thead><tr><th>Employee</th><th>Week</th><th>Hours</th><th>Status</th><th>Actions</th></tr></thead><tbody>
+{% for sheet in sheets %}<tr><td>{{ sheet.employee }}</td><td>{{ sheet.week_start }}</td><td>{{ sheet.total_hours }}</td><td>{{ sheet.get_status_display }}</td><td>
+<form method="post" action="{% url 'payroll:timesheet_action' sheet.pk %}">{% csrf_token %}
+{% if sheet.employee.user_id == request.user.pk %}
+{% if sheet.status == 'draft' or sheet.status == 'rejected' %}<button name="action" value="submit">Submit</button>{% endif %}
+{% if sheet.status == 'submitted' %}<button name="action" value="withdraw">Withdraw</button>{% endif %}
+{% endif %}
+{% if sheet.can_decide %}<input name="comment" aria-label="Decision comment (required for rejection)"><button name="action" value="approve">Approve</button><button name="action" value="reject">Reject</button>{% endif %}
+</form></td></tr>{% empty %}<tr><td colspan="5">No timesheets yet.</td></tr>{% endfor %}
+</tbody></table>
+{% include "payroll/_hr_pagination.html" with page=sheets %}
+</div>{% endblock %}

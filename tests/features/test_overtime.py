@@ -15,8 +15,13 @@ class OvertimePolicyTest(TestCase):
         self.user = User.objects.create_user(
             email="hr@test.com", password="testpass123", is_staff=True
         )
+        self.user.company = self.company
         self.user.active_company = self.company
         self.user.save()
+        from django.contrib.auth.models import Permission
+        self.checker = User.objects.create_user(email="independent@example.test", password="x", company=self.company)
+        for codename in ['change_overtimeentry']:
+            self.checker.user_permissions.add(Permission.objects.get(content_type__app_label="payroll", codename=codename))
         self.employee = self.user.employee_user
         self.employee.company = self.company
         self.employee.first_name = "John"
@@ -91,7 +96,7 @@ class OvertimePolicyTest(TestCase):
             date="2026-06-10", hours=Decimal("2.00"),
             rate_multiplier=Decimal("1.50"),
         )
-        approve_overtime(entry=entry, approved_by=self.user)
+        approve_overtime(entry=entry, approved_by=self.checker)
         entry.refresh_from_db()
         self.assertEqual(entry.status, "APPROVED")
-        self.assertEqual(entry.approved_by, self.user)
+        self.assertEqual(entry.approved_by, self.checker)

@@ -1,25 +1,93 @@
 {% extends "base_new.html" %}
-{% load crispy_forms_tags %}
+{% load static widget_tweaks %}
 
-{% block page_header %}{% if form.instance.pk %}Update Appraisal{% else %}Create Appraisal{% endif %}{% endblock %}
+{% block page_eyebrow %}Performance reviews{% endblock %}
+{% block page_header %}{% if form.instance.pk %}Edit appraisal cycle{% else %}Create appraisal cycle{% endif %}{% endblock %}
+{% block page_description %}Set the review period and give your team a clear starting point for their performance conversations.{% endblock %}
+{% block breadcrumbs %}
+<nav aria-label="Breadcrumb" class="flex items-center gap-2 text-sm">
+    <a href="{% url 'payroll:appraisal_list' %}" class="text-primary-600 hover:underline">Appraisals</a>
+    <span aria-hidden="true" class="text-secondary-400">/</span>
+    <span aria-current="page">{% if form.instance.pk %}Edit cycle{% else %}New cycle{% endif %}</span>
+</nav>
+{% endblock %}
+{% block extra_head %}
+{{ block.super }}
+<link rel="stylesheet" href="{% static 'css/appraisal-form.css' %}">
+{% endblock %}
 
 {% block content %}
-<div class="max-w-3xl mx-auto space-y-6">
-    <div class="bg-white rounded-xl shadow-soft p-6 border border-secondary-100">
-        <h2 class="text-lg font-semibold text-secondary-900">
-            {% if form.instance.pk %}Edit Appraisal Cycle{% else %}New Appraisal Cycle{% endif %}
-        </h2>
-        <p class="mt-1 text-sm text-secondary-600">Define the appraisal period and title for your review cycle.</p>
-    </div>
-
-    <form method="post" class="bg-white rounded-xl shadow-soft p-6 border border-secondary-100">
+<div class="appraisal-editor">
+    <form method="post" class="appraisal-card" aria-labelledby="cycle-details-title">
         {% csrf_token %}
-        {{ form|crispy }}
-        <div class="flex justify-end mt-6">
-            <button type="submit" class="btn-primary px-6 py-2.5 text-white rounded-xl font-medium">
-                {% if form.instance.pk %}Save Changes{% else %}Create Appraisal{% endif %}
-            </button>
+        <div class="appraisal-card-heading">
+            <span class="appraisal-heading-icon" aria-hidden="true"><i data-lucide="clipboard-list"></i></span>
+            <div>
+                <h2 id="cycle-details-title">Cycle details</h2>
+                <p>A name and a review window are all you need to get started.</p>
+            </div>
+        </div>
+
+        <div class="appraisal-fields">
+            {% if form.errors %}
+            <div class="appraisal-error-summary" role="alert">
+                <i data-lucide="alert-circle" aria-hidden="true"></i>
+                <div>
+                    <strong>Check the details below.</strong>
+                    <p>Please correct the highlighted fields and try again.</p>
+                    {% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            <div class="appraisal-field {% if form.name.errors %}has-error{% endif %}">
+                <label for="{{ form.name.id_for_label }}">Cycle name{% if form.name.field.required %}<span aria-hidden="true">*</span>{% endif %}</label>
+                {% render_field form.name class="appraisal-input" placeholder="e.g. Q4 2026 performance review" aria-describedby="cycle-name-hint cycle-name-errors" %}
+                <p id="cycle-name-hint" class="appraisal-field-hint">Choose a name your employees and reviewers will recognise.</p>
+                <div id="cycle-name-errors" class="appraisal-field-errors">{% for error in form.name.errors %}<p>{{ error }}</p>{% endfor %}</div>
+            </div>
+
+            <fieldset class="appraisal-period">
+                <legend>Review period</legend>
+                <p class="appraisal-field-hint">The dates this appraisal cycle covers.</p>
+                <div class="appraisal-date-grid">
+                    <div class="appraisal-field {% if form.start_date.errors %}has-error{% endif %}">
+                        <label for="{{ form.start_date.id_for_label }}">Start date{% if form.start_date.field.required %}<span aria-hidden="true">*</span>{% endif %}</label>
+                        {% render_field form.start_date class="appraisal-input" aria-describedby="cycle-start-errors" %}
+                        <div id="cycle-start-errors" class="appraisal-field-errors">{% for error in form.start_date.errors %}<p>{{ error }}</p>{% endfor %}</div>
+                    </div>
+                    <div class="appraisal-field {% if form.end_date.errors %}has-error{% endif %}">
+                        <label for="{{ form.end_date.id_for_label }}">End date{% if form.end_date.field.required %}<span aria-hidden="true">*</span>{% endif %}</label>
+                        {% render_field form.end_date class="appraisal-input" aria-describedby="cycle-end-hint cycle-end-errors" %}
+                        <p id="cycle-end-hint" class="appraisal-field-hint">On or after the start date.</p>
+                        <div id="cycle-end-errors" class="appraisal-field-errors">{% for error in form.end_date.errors %}<p>{{ error }}</p>{% endfor %}</div>
+                    </div>
+                </div>
+            </fieldset>
+        </div>
+
+        <div class="appraisal-form-footer">
+            <p><i data-lucide="info" aria-hidden="true"></i>Fields marked <span aria-hidden="true">*</span> are required.</p>
+            <div class="appraisal-actions">
+                <a href="{% url 'payroll:appraisal_list' %}" class="appraisal-cancel">Cancel</a>
+                <button type="submit" class="btn-primary appraisal-submit">
+                    {% if form.instance.pk %}Save changes{% else %}Create cycle{% endif %}
+                    <i data-lucide="arrow-right" aria-hidden="true"></i>
+                </button>
+            </div>
         </div>
     </form>
+
+    <aside class="appraisal-guide" aria-labelledby="appraisal-guide-title">
+        <div class="appraisal-guide-kicker"><i data-lucide="sparkles" aria-hidden="true"></i>A clear path to better reviews</div>
+        <h2 id="appraisal-guide-title">Start with a shared review window.</h2>
+        <p class="appraisal-guide-intro">Bring employees and reviewers together around the same period and expectations.</p>
+        <ol class="appraisal-next-steps">
+            <li class="is-current"><span aria-hidden="true">1</span><div><h3>Create your cycle</h3><p>Name the cycle and set its dates.</p></div></li>
+            <li><span aria-hidden="true">2</span><div><h3>Assign your reviewers</h3><p>Pair employees with the people reviewing their work.</p></div></li>
+            <li><span aria-hidden="true">3</span><div><h3>Capture performance</h3><p>Collect assessments, ratings and feedback.</p></div></li>
+        </ol>
+        <div class="appraisal-guide-note"><i data-lucide="users" aria-hidden="true"></i><p>Employee and reviewer assignments come after creating the cycle.</p></div>
+    </aside>
 </div>
 {% endblock %}

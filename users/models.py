@@ -38,6 +38,7 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     )
     is_staff = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)
+    registration_pending = models.BooleanField(default=False, editable=False)
     is_manager = models.BooleanField(default=False)
     date_joined = models.DateTimeField(default=timezone.now)
 

@@ -1,3 +1,9 @@
+from tests.approval_helpers import (
+    approved_operation_for,
+    approve_journal,
+    approve_request,
+)
+from approvals.models import ApprovalRequest
 """
 View tests for all accounting views.
 Tests view functionality, permissions, and responses.
@@ -257,7 +263,7 @@ class JournalViewTest(TestCase):
     def test_journal_approve_view(self):
         """Test journal approve view"""
         # Create pending journal
-        pending_journal = JournalFactory.create_journal("Pending Journal")
+        pending_journal = JournalFactory.create_journal_with_entries("Pending Journal", user=UserFactory.create_accountant(email="pending-maker@test.com"))
         pending_journal.status = Journal.JournalStatus.PENDING_APPROVAL
         pending_journal.save()
 
@@ -277,9 +283,8 @@ class JournalViewTest(TestCase):
     def test_journal_post_view(self):
         """Test journal post view"""
         # Create approved journal
-        approved_journal = JournalFactory.create_journal("Approved Journal")
-        approved_journal.status = Journal.JournalStatus.APPROVED
-        approved_journal.save()
+        approved_journal = JournalFactory.create_journal_with_entries("Approved Journal", user=self.accountant)
+        approve_journal(approved_journal)
 
         self.client.force_login(self.accountant)
         response = self.client.post(
@@ -289,10 +294,14 @@ class JournalViewTest(TestCase):
         # Should redirect to journal detail
         self.assertEqual(response.status_code, 302)
 
+        # Posting waits for the independent decision.
+        approved_journal.refresh_from_db()
+        self.assertEqual(approved_journal.status, Journal.JournalStatus.APPROVED)
+        approve_request(ApprovalRequest.objects.latest("pk"))
         # Check journal was posted
         approved_journal.refresh_from_db()
         self.assertEqual(approved_journal.status, Journal.JournalStatus.POSTED)
-        self.assertEqual(approved_journal.posted_by, self.accountant)
+        self.assertNotEqual(approved_journal.posted_by, self.accountant)
 
 
 class JournalPaginationViewTest(TestCase):
@@ -428,6 +437,9 @@ class AccountingPeriodViewTest(TestCase):
         # Should redirect to period detail
         self.assertEqual(response.status_code, 302)
 
+        self.period.refresh_from_db()
+        self.assertFalse(self.period.is_closed)
+        approve_request(ApprovalRequest.objects.latest("pk"))
         # Check period was closed
         self.period.refresh_from_db()
         self.assertTrue(self.period.is_closed)
@@ -464,12 +476,8 @@ class AuditTrailViewTest(TestCase):
 
     def test_audit_trail_detail_view(self):
         """Test audit trail detail view"""
-        # Create audit trail entry scoped to the auditor's company
-        from company.utils import get_user_company
-
-        company = get_user_company(self.auditor)
+        # Create audit trail entry
         audit_entry = AccountingAuditTrail.objects.create(
-            company=company,
             user=self.auditor,
             action=AccountingAuditTrail.ActionType.CREATE,
             content_type=ContentType.objects.get_for_model(self.account),
@@ -587,6 +595,9 @@ class JournalReversalViewTest(TestCase):
         # Should redirect to journal detail
         self.assertEqual(response.status_code, 302)
 
+        self.journal.refresh_from_db()
+        self.assertEqual(self.journal.status, Journal.JournalStatus.POSTED)
+        approve_request(ApprovalRequest.objects.latest("pk"))
         # Check journal was reversed
         self.journal.refresh_from_db()
         self.assertEqual(self.journal.status, Journal.JournalStatus.REVERSED)
@@ -638,12 +649,14 @@ class JournalReversalViewTest(TestCase):
             {
                 "journals": [self.journal.pk, journal2.pk],
                 "reason": "Batch reversal test",
+                "confirm_reversal": "on",
             },
         )
 
         # Should redirect to journal list
         self.assertEqual(response.status_code, 302)
 
+        approve_request(ApprovalRequest.objects.latest("pk"))
         # Check journals were reversed
         self.journal.refresh_from_db()
         journal2.refresh_from_db()
@@ -653,7 +666,7 @@ class JournalReversalViewTest(TestCase):
     def test_journal_reversal_history_view(self):
         """Test journal reversal history view"""
         # Reverse the journal first
-        reversal_journal = self.journal.reverse(self.accountant, "Test reversal")
+        reversal_journal = approved_operation_for("accounting.change_journal")(self.journal.reverse,self.accountant, "Test reversal")
 
         self.client.force_login(self.accountant)
         response = self.client.get(

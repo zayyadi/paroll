@@ -112,7 +112,11 @@ def request_iou(request, kind="iou"):
             iou.is_ewa = is_ewa
             if is_ewa:
                 iou.tenor = 1
-            iou.save()
+            from payroll.services.hr_workflow import submit_hr_request
+            with transaction.atomic():
+                iou.requested_by = request.user
+                iou.save()
+                submit_hr_request(iou, request.user)
             messages.success(
                 request,
                 "Advance request submitted for approval."
@@ -153,11 +157,25 @@ def approve_iou(request, iou_id):
     if request.method == "POST":
         form = IOUApprovalForm(request.POST, instance=iou)
         if form.is_valid():
-            form.save()
-            messages.success(request, "IOU approved successfully.")
-            return redirect(
-                "payroll:iou_history"
-            )  # Assuming iou_history is the correct name
+            from payroll.services.hr_workflow import decide_iou
+            decision = "REJECT" if form.cleaned_data.get("status") == "REJECTED" else "APPROVE"
+            iou.refresh_from_db()
+            changed_terms = {name: str(form.cleaned_data[name]) for name in ("tenor", "repayment_deduction_percentage")
+                             if name in form.cleaned_data and form.cleaned_data[name] != getattr(iou, name)}
+            payload = changed_terms or None if decision == "APPROVE" else None
+            try:
+                result = decide_iou(iou=iou, actor=request.user, decision=decision, payload=payload,
+                                    comment=form.cleaned_data.get("comment", ""))
+            except ValidationError as exc:
+                form.add_error(None, "; ".join(exc.messages))
+            else:
+                if result.status == "PENDING":
+                    messages.info(request, "Approval recorded; awaiting the next stage.")
+                elif result.status == "REJECTED":
+                    messages.success(request, "IOU request rejected.")
+                else:
+                    messages.success(request, "IOU approval completed.")
+                return redirect("payroll:iou_history")
     else:
         form = IOUApprovalForm(instance=iou)
     return render(request, "iou/approve_iou.html", {"form": form, "iou": iou})

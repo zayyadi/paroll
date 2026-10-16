@@ -5,10 +5,13 @@ from django.utils import timezone
 from django.db import transaction
 
 
-def calculate_overtime_for_attendance(*, attendance: Any) -> Optional[Any]:
+@transaction.atomic
+def calculate_overtime_for_attendance(*, attendance: Any, requested_by: Any = None) -> Optional[Any]:
     from payroll.models.workforce import OvertimePolicy, OvertimeEntry
     from datetime import datetime, date as date_type
 
+    if attendance.company_id != attendance.employee.company_id:
+        raise ValueError("Attendance and employee must belong to the same company.")
     policy = OvertimePolicy.objects.filter(
         company=attendance.company, is_active=True
     ).first()
@@ -34,6 +37,9 @@ def calculate_overtime_for_attendance(*, attendance: Any) -> Optional[Any]:
     else:
         rate = policy.weekday_rate_multiplier
 
+    maker = requested_by or attendance.employee.user
+    if maker is None:
+        raise ValueError("An explicit overtime requester is required.")
     entry = OvertimeEntry.objects.create(
         company=attendance.company,
         employee=attendance.employee,
@@ -41,25 +47,22 @@ def calculate_overtime_for_attendance(*, attendance: Any) -> Optional[Any]:
         date=attendance.work_date,
         hours=overtime_hours,
         rate_multiplier=rate,
-        status="APPROVED" if not policy.requires_approval else "PENDING",
+        status="PENDING",
+        requested_by=maker,
     )
+    from payroll.services.hr_workflow import submit_hr_request
+    submit_hr_request(entry, maker)
     return entry
 
 
-def approve_overtime(*, entry: Any, approved_by: Any) -> Any:
-    entry.status = "APPROVED"
-    entry.approved_by = approved_by
-    entry.approved_at = timezone.now()
-    entry.save(update_fields=["status", "approved_by", "approved_at"])
-    return entry
+def approve_overtime(*, entry: Any, approved_by: Any, comment: str = "") -> Any:
+    from payroll.services.hr_workflow import decide
+    return decide(entry, "overtime.approve", approved_by, "APPROVE", comment)
 
 
-def reject_overtime(*, entry: Any, approved_by: Any) -> Any:
-    entry.status = "REJECTED"
-    entry.approved_by = approved_by
-    entry.approved_at = timezone.now()
-    entry.save(update_fields=["status", "approved_by", "approved_at"])
-    return entry
+def reject_overtime(*, entry: Any, approved_by: Any, comment: str = "") -> Any:
+    from payroll.services.hr_workflow import decide
+    return decide(entry, "overtime.approve", approved_by, "REJECT", comment)
 
 
 def get_overtime_allowance(
@@ -69,13 +72,17 @@ def get_overtime_allowance(
 
     entries = OvertimeEntry.objects.filter(
         employee=employee,
+        company=employee.company,
         status="APPROVED",
         date__range=(pay_period_start, pay_period_end),
     )
+    from payroll.services.timesheet_service import payable_week_starts, week_start_for
+    payable = payable_week_starts(employee, pay_period_start, pay_period_end)
     total_ot_hours = sum(
-        float(e.hours) * float(e.rate_multiplier) for e in entries
+        (e.hours * e.rate_multiplier for e in entries
+         if payable is None or week_start_for(e.date) in payable), Decimal("0")
     )
     if total_ot_hours <= 0:
         return Decimal("0.00")
     hourly_rate = employee.employee_pay.basic / Decimal("176")
-    return (Decimal(str(total_ot_hours)) * hourly_rate).quantize(Decimal("0.01"))
+    return (total_ot_hours * hourly_rate).quantize(Decimal("0.01"))

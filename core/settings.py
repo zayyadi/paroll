@@ -1,4 +1,5 @@
 import os
+import socket
 import sys
 from datetime import timedelta
 from celery.schedules import crontab
@@ -9,6 +10,54 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 def env_bool(name: str, default: bool = False) -> bool:
     return os.getenv(name, str(default)).lower() in {"1", "true", "yes", "on"}
+
+
+def _redis_host_resolves(host: str) -> bool:
+    try:
+        socket.gethostbyname(host)
+        return True
+    except OSError:
+        return False
+
+
+def _normalize_redis_url(url: str) -> str:
+    """Rewrite unresolvable redis hostnames (e.g. docker-only ``redis``) to localhost.
+
+    Keeps one .env working both inside docker (``redis`` resolves) and for
+    local runs (only 127.0.0.1:6379 reachable).
+    """
+    try:
+        from urllib.parse import urlparse, urlunparse
+
+        parts = urlparse(url)
+        if parts.scheme.startswith("redis") and parts.hostname:
+            if not _redis_host_resolves(parts.hostname):
+                fallback = parts._replace(
+                    netloc=f"127.0.0.1:{parts.port or 6379}",
+                )
+                return urlunparse(fallback)
+    except Exception:
+        pass
+    return url
+
+
+# Celery (and kombu) prefer os.environ over Django settings for
+# CELERY_BROKER_URL / CELERY_RESULT_BACKEND, and core/celery.py loads .env
+# (docker hostname ``redis``) into os.environ via dotenv. Rewrite
+# unresolvable redis hostnames in environ itself so every reader --
+# settings-based or environ-based -- gets a reachable URL in local runs.
+for _redis_env_key in (
+    "CELERY_BROKER_URL",
+    "CELERY_RESULT_BACKEND",
+    "CELERY_BROKER_READ_URL",
+    "CELERY_BROKER_WRITE_URL",
+    "REDIS_LOCATION",
+):
+    _raw_redis_url = os.environ.get(_redis_env_key)
+    if _raw_redis_url:
+        _fixed_redis_url = _normalize_redis_url(_raw_redis_url)
+        if _fixed_redis_url != _raw_redis_url:
+            os.environ[_redis_env_key] = _fixed_redis_url
 
 
 DEBUG = env_bool("DEBUG", False)
@@ -55,9 +104,12 @@ INSTALLED_APPS = [
     "social_django",
     "accounting",
     "company",
+    "approvals.apps.ApprovalsConfig",
+    "inventory",
     "standup",
     "marketing",
     "compliance",
+    "webhooks",
     # Channels for real-time notifications
     "channels",
     "channels_redis",
@@ -73,12 +125,13 @@ INTERNAL_IPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
-    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
+    "api.middleware.ApiVersionMiddleware",
     "core.middleware.DevNoCacheMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "approvals.middleware.ApprovalActorMiddleware",
     "company.middleware.ActiveCompanyMiddleware",
     "accounting.middleware.AuditTrailMiddleware",
     "accounting.middleware.SystemUserMiddleware",
@@ -143,7 +196,9 @@ else:
     CACHES = {
         "default": {
             "BACKEND": "django_redis.cache.RedisCache",
-            "LOCATION": os.environ.get("REDIS_LOCATION", "redis://127.0.0.1:6379/1"),
+            "LOCATION": _normalize_redis_url(
+                os.environ.get("REDIS_LOCATION", "redis://127.0.0.1:6379/1")
+            ),
             "OPTIONS": {
                 "CLIENT_CLASS": "django_redis.client.DefaultClient",
             },
@@ -234,7 +289,7 @@ CRISPY_ALLOWED_TEMPLATE_PACKS = ["tailwind"]
 
 CRISPY_TEMPLATE_PACK = "tailwind"
 
-STATIC_URL = "/static/"
+STATIC_URL = "static/"
 MEDIA_URL = "/media/"
 
 MEDIA_ROOT = os.path.join(BASE_DIR, "media")
@@ -242,17 +297,6 @@ MEDIA_ROOT = os.path.join(BASE_DIR, "media")
 STATICFILES_DIRS = [os.path.join(BASE_DIR, "static")]
 
 STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
-
-STORAGES = {
-    "default": {
-        "BACKEND": "django.core.files.storage.FileSystemStorage",
-    },
-    "staticfiles": {
-        # CompressedStaticFilesStorage (not Manifest) so a missing .map
-        # reference in vendored CSS never breaks collectstatic deploys.
-        "BACKEND": "whitenoise.storage.CompressedStaticFilesStorage",
-    },
-}
 
 
 SOCIAL_AUTH_JSONFIELD_ENABLED = True
@@ -300,6 +344,9 @@ EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD")
 EMAIL_PORT = int(os.environ.get("EMAIL_PORT", 587))
 
 EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "True").lower() == "true"
+
+# Bound SMTP so a slow provider can't hang a worker forever.
+EMAIL_TIMEOUT = int(os.getenv("EMAIL_TIMEOUT", "10"))
 
 DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL")
 
@@ -392,12 +439,24 @@ EMAIL_NOTIFICATION_REPLY_TO = os.getenv(
 # CELERY CONFIGURATION
 # ============================================================================
 
-# Celery broker and backend (Redis)
-CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL", "redis://127.0.0.1:6379/2")
-
-CELERY_RESULT_BACKEND = os.environ.get(
-    "CELERY_RESULT_BACKEND", "redis://127.0.0.1:6379/2"
+# Celery broker and backend (Redis).
+# Unresolvable docker-only hostnames fall back to localhost for local runs.
+CELERY_BROKER_URL = _normalize_redis_url(
+    os.environ.get("CELERY_BROKER_URL", "redis://127.0.0.1:6379/2")
 )
+
+CELERY_RESULT_BACKEND = _normalize_redis_url(
+    os.environ.get("CELERY_RESULT_BACKEND", "redis://127.0.0.1:6379/2")
+)
+
+# Fire-and-forget notifications: never write task results to the backend.
+# This removes the result-store as a failure point (no more
+# "Retry limit exceeded ... result store backend" crashes taking down workers).
+CELERY_TASK_IGNORE_RESULT = True
+
+# Survive broker restarts / cold starts instead of crashing the worker.
+CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
+CELERY_BROKER_CONNECTION_RETRY = True
 
 # Celery timezone
 CELERY_TIMEZONE = TIME_ZONE
@@ -435,14 +494,6 @@ CELERY_TASK_RETRY_JITTER = True
 CELERY_TASK_TRACK_STARTED = True
 
 CELERY_TASK_SEND_SENT_EVENT = True
-
-# Publish resilience: routes publish via core.messaging.publish(), which
-# already fails fast. These defaults make even direct apply_async() calls
-# fail fast instead of stalling requests on broker reconnect loops.
-# Worker-side reliability comes from task autoretry, not publish retries.
-CELERY_TASK_PUBLISH_RETRY = False
-CELERY_BROKER_CONNECTION_TIMEOUT = int(os.getenv("CELERY_BROKER_CONNECTION_TIMEOUT", "5"))
-CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
 
 # Celery worker settings
 CELERY_WORKER_CONCURRENCY = 4
@@ -489,7 +540,23 @@ CELERY_TASK_ROUTES = {
         "queue": "notifications_normal",
         "routing_key": "notifications.normal",
     },
-    "payroll.send_single_payslip": {
+    "payroll.send_single_payslip_email": {
+        "queue": "notifications_normal",
+        "routing_key": "notifications.normal",
+    },
+    "payroll.handle_leave_request_signal": {
+        "queue": "notifications_normal",
+        "routing_key": "notifications.normal",
+    },
+    "payroll.handle_iou_signal": {
+        "queue": "notifications_normal",
+        "routing_key": "notifications.normal",
+    },
+    "payroll.handle_payroll_run_signal": {
+        "queue": "notifications_normal",
+        "routing_key": "notifications.normal",
+    },
+    "payroll.handle_appraisal_assignment_signal": {
         "queue": "notifications_normal",
         "routing_key": "notifications.normal",
     },
@@ -578,31 +645,28 @@ CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
 # ============================================================================
 
 # Channel layers for WebSocket communication
+# NOTE: Celery eager mode is intentionally NOT tied to this flag. Background
+# delivery must stay async (worker/thread) even when the Django cache is
+# local-memory, otherwise SMTP/PDF work blocks web requests.
+CELERY_TASK_ALWAYS_EAGER = env_bool("CELERY_TASK_ALWAYS_EAGER", False)
+CELERY_TASK_EAGER_PROPAGATES = env_bool("CELERY_TASK_EAGER_PROPAGATES", False)
 if DISABLE_REDIS_CACHE:
     CHANNEL_LAYERS = {
         "default": {
             "BACKEND": "channels.layers.InMemoryChannelLayer",
         }
     }
-    # Run Celery tasks synchronously when Redis is disabled so bare-dev
-    # doesn't require a broker. Production MUST set CELERY_TASK_ALWAYS_EAGER
-    # explicitly to False (or run with Redis): eager mode executes every
-    # "background" task — SMTP, SMS, PDF rendering — inside the request
-    # thread, which is exactly the blocking behaviour core/messaging exists
-    # to prevent.
-    if os.getenv("CELERY_TASK_ALWAYS_EAGER") is None:
-        CELERY_TASK_ALWAYS_EAGER = DISABLE_REDIS_CACHE
-    else:
-        CELERY_TASK_ALWAYS_EAGER = env_bool("CELERY_TASK_ALWAYS_EAGER", False)
-    CELERY_TASK_EAGER_PROPAGATES = True
 else:
+    _channel_redis_host = os.environ.get("REDIS_HOST", "127.0.0.1")
+    if not _redis_host_resolves(_channel_redis_host):
+        _channel_redis_host = "127.0.0.1"
     CHANNEL_LAYERS = {
         "default": {
             "BACKEND": "channels_redis.core.RedisChannelLayer",
             "CONFIG": {
                 "hosts": [
                     "redis://{host}:{port}/{db}".format(
-                        host=os.environ.get("REDIS_HOST", "127.0.0.1"),
+                        host=_channel_redis_host,
                         port=int(os.environ.get("REDIS_PORT", "6379")),
                         db=int(os.environ.get("REDIS_DB", "3")),
                     )
@@ -656,11 +720,13 @@ LOGGING["loggers"]["channels"] = {
 }
 
 REST_FRAMEWORK = {
+    "EXCEPTION_HANDLER": "approvals.api_errors.workflow_exception_handler",
     "DEFAULT_AUTHENTICATION_CLASSES": [
         "rest_framework.authentication.SessionAuthentication",
     ],
     "DEFAULT_PERMISSION_CLASSES": [
         "rest_framework.permissions.IsAuthenticated",
+        "api.scopes.TokenScopePermission",
     ],
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
     "PAGE_SIZE": int(os.getenv("API_PAGE_SIZE", "25")),
@@ -740,6 +806,7 @@ MOBILE_API = {
     "TERMS_URL": os.getenv("MOBILE_TERMS_URL", "/legal/terms/"),
     "ENABLE_PAYROLL": env_bool("MOBILE_ENABLE_PAYROLL", True),
     "ENABLE_ACCOUNTING": env_bool("MOBILE_ENABLE_ACCOUNTING", True),
+    "ENABLE_INVENTORY": env_bool("MOBILE_ENABLE_INVENTORY", True),
     "ENABLE_STANDUPS": env_bool("MOBILE_ENABLE_STANDUPS", True),
     "ENABLE_NOTIFICATIONS": env_bool("MOBILE_ENABLE_NOTIFICATIONS", True),
 }

@@ -7,8 +7,11 @@
 <div class="max-w-5xl mx-auto space-y-6">
     <form method="post" class="bg-white rounded-xl shadow-soft p-6 border border-secondary-100 space-y-6">
         {% csrf_token %}
+        {{ form.non_field_errors }}
+        {{ rating_formset.non_form_errors }}
+        <p class="text-sm text-secondary-600">Drafts are private. Submission locks this assessment until an independent approver publishes it.</p>
         <div>
-            <h3 class="text-lg font-semibold text-secondary-900 mb-2">Self Assessment</h3>
+            <h3 class="text-lg font-semibold text-secondary-900 mb-2">Reviewer Assessment</h3>
             {{ form.self_assessment|as_crispy_field }}
         </div>
 
@@ -31,9 +34,10 @@
             </div>
         </div>
 
-        <div class="flex justify-end pt-2">
-            <button type="submit" class="btn-primary px-6 py-2.5 text-white rounded-xl font-medium">
-                {% if form.instance.pk %}Save Review{% else %}Submit Review{% endif %}
+        <div class="flex justify-end gap-3 pt-2">
+            <button type="submit" name="action" value="draft" class="px-6 py-2.5 border rounded-xl">Save draft</button>
+            <button type="submit" name="action" value="submit" class="btn-primary px-6 py-2.5 text-white rounded-xl font-medium">
+                Submit for publication approval
             </button>
         </div>
     </form>

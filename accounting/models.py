@@ -30,6 +30,14 @@ class BaseModel(models.Model):
     created_at = models.DateTimeField(auto_now_add=True, null=True, blank=True)
     updated_at = models.DateTimeField(auto_now=True, null=True, blank=True)
 
+    from approvals.guards import ApprovalControlledQuerySet
+    objects = ApprovalControlledQuerySet.as_manager()
+
+    def save(self, *args, **kwargs):
+        from approvals.guards import guard_source_save
+        guard_source_save(self, update_fields=kwargs.get("update_fields"))
+        return super().save(*args, **kwargs)
+
     class Meta:
         abstract = True
 
@@ -102,13 +110,13 @@ class Account(BaseModel):
         if cached and self.pk:
             return self.current_balance
         debits = (
-            self.entries.filter(entry_type="DEBIT").aggregate(total=Sum("amount"))[
+            self.entries.filter(entry_type="DEBIT", journal__status__in=["POSTED", "REVERSED"]).aggregate(total=Sum("amount"))[
                 "total"
             ]
             or 0
         )
         credits = (
-            self.entries.filter(entry_type="CREDIT").aggregate(total=Sum("amount"))[
+            self.entries.filter(entry_type="CREDIT", journal__status__in=["POSTED", "REVERSED"]).aggregate(total=Sum("amount"))[
                 "total"
             ]
             or 0
@@ -216,6 +224,7 @@ class CurrencyRevaluation(BaseModel):
     memo = models.TextField(blank=True)
 
     class Meta:
+        base_manager_name = "objects"
         ordering = ["-revaluation_date", "-created_at"]
         constraints = [
             models.UniqueConstraint(
@@ -426,6 +435,7 @@ class TaxReturn(BaseModel):
     notes = models.TextField(blank=True)
 
     class Meta:
+        base_manager_name = "objects"
         ordering = ["-return_period_end", "-created_at"]
         constraints = [
             models.UniqueConstraint(
@@ -472,6 +482,7 @@ class Budget(BaseModel):
     )
 
     class Meta:
+        base_manager_name = "objects"
         ordering = ["-fiscal_year__year", "name"]
         constraints = [
             models.UniqueConstraint(
@@ -528,6 +539,7 @@ class AccountReconciliation(BaseModel):
     notes = models.TextField(blank=True)
 
     class Meta:
+        base_manager_name = "objects"
         ordering = ["-created_at"]
 
     def __str__(self):
@@ -705,6 +717,7 @@ class FiscalYear(BaseModel):
     )
 
     class Meta:
+        base_manager_name = "objects"
         ordering = ["-year"]
         verbose_name = "Fiscal Year"
         verbose_name_plural = "Fiscal Years"
@@ -780,6 +793,7 @@ class AccountingPeriod(BaseModel):
     )
 
     class Meta:
+        base_manager_name = "objects"
         ordering = ["fiscal_year", "period_number"]
         verbose_name = "Accounting Period"
         verbose_name_plural = "Accounting Periods"
@@ -905,6 +919,8 @@ class AccountingAuditTrail(BaseModel):
     company = models.ForeignKey(
         "company.Company",
         on_delete=models.CASCADE,
+        null=True,
+        blank=True,
         related_name="accounting_audit_trails",
     )
     user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
@@ -960,86 +976,6 @@ class AccountingAuditTrail(BaseModel):
         return value
 
     @classmethod
-    def _resolve_company(cls, instance, user=None, company=None):
-        """Resolve the tenant company for an audit row.
-
-        Follows FK chains so child rows without a direct ``company`` FK
-        (e.g. ``JournalEntry`` via ``journal``, ``Allowance`` via
-        ``employee``) still get scoped correctly. Explicit ``company``
-        wins; otherwise instance chain, then user, then request context.
-        Returns None when no tenant is determinable (caller must skip).
-        """
-        if company is not None:
-            return company
-
-        def _company_of(obj):
-            if obj is None:
-                return None
-            try:
-                return getattr(obj, "company", None)
-            except Exception:
-                return None
-
-        if instance is not None:
-            direct = _company_of(instance)
-            if direct is not None:
-                return direct
-            for attr in (
-                "journal",
-                "case",
-                "fiscal_year",
-                "period",
-                "employee",
-                "employee_id",
-                "pays",
-                "payroll_entry",
-                "payroll_run",
-                "payday",
-                "iou",
-                "supplier",
-                "customer",
-                "item",
-                "location",
-                "warehouse",
-                "team",
-                "member",
-                "account",
-            ):
-                try:
-                    parent = getattr(instance, attr, None)
-                except Exception:
-                    continue
-                resolved = _company_of(parent)
-                if resolved is not None:
-                    return resolved
-                if parent is not None:
-                    for nested in ("employee", "journal"):
-                        try:
-                            grandparent = getattr(parent, nested, None)
-                        except Exception:
-                            continue
-                        resolved = _company_of(grandparent)
-                        if resolved is not None:
-                            return resolved
-        if user is not None:
-            for attr in ("active_company", "company"):
-                try:
-                    resolved = getattr(user, attr, None)
-                except Exception:
-                    continue
-                if resolved is not None:
-                    return resolved
-        try:
-            from company.tenancy import get_current_company
-
-            current = get_current_company()
-            if current is not None:
-                return current
-        except Exception:
-            pass
-        return None
-
-    @classmethod
     def log_action(
         cls,
         user,
@@ -1065,12 +1001,7 @@ class AccountingAuditTrail(BaseModel):
             if object_id is not None
             else (instance.pk if instance is not None and instance.pk is not None else 0)
         )
-        company = cls._resolve_company(instance, user=user, company=company)
-        if company is None:
-            # No tenant determinable (e.g. system action with no company
-            # context). Skip rather than write an unscoped row or break the
-            # caller's transaction with a NOT NULL violation.
-            return None
+        company = company if company is not None else getattr(instance, "company", None)
         safe_changes = cls._make_json_safe(changes or {})
 
         def create_audit_entry():
@@ -1113,7 +1044,55 @@ class AccountingAuditTrail(BaseModel):
                 create_audit_entry()
 
 
+class JournalQuerySet(BaseModel.ApprovalControlledQuerySet):
+    def bulk_create(self, objs, *args, **kwargs):
+        objs = list(objs)
+        if any(obj.status in ["POSTED", "REVERSED"] for obj in objs):
+            raise ValidationError("Create a draft journal before posting.")
+        return super().bulk_create(objs, *args, **kwargs)
+
+    def delete(self):
+        if self.filter(status__in=["POSTED", "REVERSED"]).exists():
+            raise ValidationError("Posted and reversed journals cannot be deleted.")
+        return super().delete()
+
+    def update(self, **kwargs):
+        if kwargs.get("status") in ["APPROVED", "POSTED", "REVERSED", "CANCELLED"] or "approval_request" in kwargs or "approval_request_id" in kwargs:
+            raise ValidationError("Use journal posting or reversal to finalize a journal.")
+        if self.filter(status__in=["POSTED", "REVERSED"]).exists():
+            raise ValidationError("Posted and reversed journals are immutable; use a reversal.")
+        return super().update(**kwargs)
+
+
+class JournalEntryQuerySet(models.QuerySet):
+    def bulk_create(self, objs, *args, **kwargs):
+        if kwargs.get("update_conflicts") or (len(args) > 2 and args[2]):
+            raise ValidationError("Posted ledger records cannot be replaced through bulk conflict updates.")
+        objs = list(objs)
+        journal_ids = {obj.journal_id for obj in objs}
+        if Journal.objects.filter(pk__in=journal_ids, status__in=["POSTED", "REVERSED"]).exists():
+            raise ValidationError("Cannot add entries to a posted or reversed journal.")
+        return super().bulk_create(objs, *args, **kwargs)
+
+    def delete(self):
+        if self.filter(journal__status__in=["POSTED", "REVERSED"]).exists():
+            raise ValidationError("Posted and reversed journal entries cannot be deleted.")
+        return super().delete()
+
+    def update(self, **kwargs):
+        if self.filter(journal__status__in=["POSTED", "REVERSED"]).exists():
+            raise ValidationError("Posted and reversed journal entries are immutable.")
+        target_journal = kwargs.get("journal_id", kwargs.get("journal"))
+        if target_journal is not None:
+            target_id = getattr(target_journal, "pk", target_journal)
+            if Journal.objects.filter(pk=target_id, status__in=["POSTED", "REVERSED"]).exists():
+                raise ValidationError("Cannot move entries into a posted or reversed journal.")
+        return super().update(**kwargs)
+
+
 class Journal(BaseModel):
+    objects = JournalQuerySet.as_manager()
+
     class JournalStatus(models.TextChoices):
         DRAFT = "DRAFT", _("Draft")
         PENDING_APPROVAL = "PENDING_APPROVAL", _("Pending Approval")
@@ -1134,6 +1113,11 @@ class Journal(BaseModel):
     )
     status = models.CharField(
         max_length=20, choices=JournalStatus.choices, default=JournalStatus.DRAFT
+    )
+
+    approval_request = models.ForeignKey(
+        'approvals.ApprovalRequest', on_delete=models.PROTECT, null=True, blank=True,
+        related_name='authorized_journals',
     )
 
     # Audit fields
@@ -1182,6 +1166,26 @@ class Journal(BaseModel):
         return f"{self.transaction_number} - {self.description} ({self.get_status_display()})"
 
     def save(self, *args, **kwargs):
+        allow_reversal = kwargs.pop("allow_reversal", False)
+        posting = kwargs.pop("_posting", False)
+        if not self.pk and self.status in [self.JournalStatus.POSTED, self.JournalStatus.REVERSED]:
+            raise ValidationError("Create a draft journal before posting.")
+        if self.pk:
+            original = type(self).objects.filter(pk=self.pk).first()
+            if original and original.status in [self.JournalStatus.POSTED, self.JournalStatus.REVERSED]:
+                allowed = {"updated_at"}
+                if allow_reversal and original.status == self.JournalStatus.POSTED and self.status == self.JournalStatus.REVERSED:
+                    allowed.update({"status", "reversal_reason"})
+                if any(
+                    field.name not in allowed
+                    and getattr(original, field.attname) != getattr(self, field.attname)
+                    for field in self._meta.concrete_fields
+                ):
+                    raise ValidationError("Posted and reversed journals are immutable; use a reversal.")
+            elif original and self.status == self.JournalStatus.POSTED:
+                if not posting or original.status != self.JournalStatus.APPROVED:
+                    raise ValidationError("Use journal.post() to finalize a journal.")
+                self.validate_entries()
         if self.period_id and not self.company_id:
             self.company = self.period.company
         if not self.company_id and self.created_by_id:
@@ -1238,6 +1242,11 @@ class Journal(BaseModel):
 
         super(Journal, self).save(*args, **kwargs)
 
+    def delete(self, *args, **kwargs):
+        if type(self).objects.filter(pk=self.pk, status__in=["POSTED", "REVERSED"]).exists():
+            raise ValidationError("Posted and reversed journals cannot be deleted.")
+        return super().delete(*args, **kwargs)
+
     def clean(self):
         if self.period_id and self.company_id != self.period.company_id:
             raise ValidationError("Journal company must match accounting period company")
@@ -1250,6 +1259,8 @@ class Journal(BaseModel):
 
     def validate_entries(self):
         """Validates that sum of debits equals sum of credits"""
+        if not self.entries.exists():
+            raise ValidationError("A posted journal must have entries.")
         debits = (
             self.entries.filter(entry_type="DEBIT").aggregate(total=Sum("amount"))[
                 "total"
@@ -1277,27 +1288,52 @@ class Journal(BaseModel):
         self.save()
 
     def approve(self, user):
-        """Approve the journal"""
+        from approvals.services import current_execution, request_or_decide
+        execution = current_execution()
+        if execution is None:
+            result = request_or_decide(source=self, action='journal.approve', actor=user)
+            self.refresh_from_db()
+            return result
+        if self.company_id != execution.company_id:
+            raise ValidationError('The journal is outside the approved company.')
         if self.status != self.JournalStatus.PENDING_APPROVAL:
-            raise ValidationError("Only pending journals can be approved")
-
+            raise ValidationError('Only pending journals can be approved')
         self.status = self.JournalStatus.APPROVED
-        self.approved_by = user
+        self.approval_request = execution
+        self.approved_by = user or execution.decisions.order_by('-stage').first().actor
         self.approved_at = timezone.now()
         self.save()
 
-        # Signal will automatically log the approval through signal handlers
 
+    @transaction.atomic
     def post(self, user):
         """Mark the journal as posted"""
         if self.status != self.JournalStatus.APPROVED:
             raise ValidationError("Only approved journals can be posted")
 
+        from approvals.services import current_execution
+        from approvals.permissions import require_company_authority
+        execution = current_execution()
+        if not execution:
+            require_company_authority(user, self.company, 'accounting.change_journal')
+            if not self.approval_request_id or self.approval_request.status != 'APPROVED' or self.approval_request.object_id != self.pk or self.approval_request.content_type.model_class() != type(self):
+                raise ValidationError('A completed independent approval is required before posting.')
+        elif execution.company_id != self.company_id:
+            raise ValidationError('The journal is outside the approved company.')
         self.validate_entries()
         self.status = self.JournalStatus.POSTED
         self.posted_by = user
         self.posted_at = timezone.now()
-        self.save()
+        if execution is None:
+            from approvals.services import authorize_approved_execution
+            with authorize_approved_execution(self.approval_request, user):
+                self.save(_posting=True)
+        else:
+            self.save(_posting=True)
+
+        # Financial state must be correct inside the transaction, before commit.
+        for account in Account.objects.filter(pk__in=self.entries.values("account_id")).distinct():
+            account.recompute_balance()
 
         # Signal will automatically log the posting through signal handlers
 
@@ -1344,13 +1380,13 @@ class Journal(BaseModel):
             # Mark original journal as reversed
             self.status = self.JournalStatus.REVERSED
             self.reversal_reason = reason
-            self.save(update_fields=["status", "reversal_reason", "updated_at"])
+            self.save(update_fields=["status", "reversal_reason", "updated_at"], allow_reversal=True)
 
             return reversal_journal
 
     def add_entry(self, account, entry_type, amount, memo=None):
         """Helper to add a journal entry"""
-        if self.status in [self.JournalStatus.POSTED, self.JournalStatus.CANCELLED]:
+        if self.status in [self.JournalStatus.POSTED, self.JournalStatus.REVERSED, self.JournalStatus.CANCELLED]:
             raise ValidationError(
                 "Cannot add entries to a posted or cancelled journal."
             )
@@ -1367,6 +1403,7 @@ class Journal(BaseModel):
         )
 
     class Meta:
+        base_manager_name = "objects"
         verbose_name = "Journal"
         verbose_name_plural = "Journals"
         ordering = ["-date", "-created_at"]
@@ -1379,6 +1416,8 @@ class Journal(BaseModel):
 
 
 class JournalEntry(BaseModel):
+    objects = JournalEntryQuerySet.as_manager()
+
     class EntryType(models.TextChoices):
         DEBIT = "DEBIT", _("Debit")
         CREDIT = "CREDIT", _("Credit")
@@ -1405,6 +1444,20 @@ class JournalEntry(BaseModel):
     def __str__(self):
         return f"{self.journal.transaction_number} - {self.get_entry_type_display()} {self.amount:.2f} to {self.account.name}"
 
+    def save(self, *args, **kwargs):
+        if Journal.objects.filter(pk=self.journal_id, status__in=[Journal.JournalStatus.POSTED, Journal.JournalStatus.REVERSED]).exists():
+            raise ValidationError("Cannot add or change entries in a posted or reversed journal.")
+        if self.pk:
+            original = type(self).objects.filter(pk=self.pk).select_related("journal").first()
+            if original and original.journal.status in [Journal.JournalStatus.POSTED, Journal.JournalStatus.REVERSED]:
+                raise ValidationError("Posted and reversed journal entries are immutable.")
+        super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        if type(self).objects.filter(pk=self.pk, journal__status__in=["POSTED", "REVERSED"]).exists():
+            raise ValidationError("Posted and reversed journal entries cannot be deleted.")
+        return super().delete(*args, **kwargs)
+
     def clean(self):
         if self.amount is None:
             return
@@ -1418,6 +1471,7 @@ class JournalEntry(BaseModel):
             raise ValidationError("Account must belong to the journal company")
 
     class Meta:
+        base_manager_name = "objects"
         verbose_name = "Journal Entry"
         verbose_name_plural = "Journal Entries"
         ordering = ["journal__date", "entry_type", "account__name"]
@@ -1463,6 +1517,7 @@ class DisciplinaryCase(BaseModel):
     company = models.ForeignKey(
         "company.Company",
         on_delete=models.CASCADE,
+        null=True,
         blank=True,
         related_name="disciplinary_cases",
         db_index=True,
@@ -1530,6 +1585,10 @@ class DisciplinaryCase(BaseModel):
     closed_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
+        permissions = [("review_hr_disciplinarycase", "Can approve HR lead disciplinary decisions"),
+                       ("review_panel_disciplinarycase", "Can approve panel disciplinary decisions"),
+                       ("review_executive_disciplinarycase", "Can approve executive disciplinary decisions")]
+        base_manager_name = "objects"
         ordering = ["-created_at"]
         verbose_name = "Disciplinary Case"
         verbose_name_plural = "Disciplinary Cases"
@@ -1578,30 +1637,18 @@ class DisciplinaryCase(BaseModel):
             self.case_number = f"{prefix}{str(next_number).zfill(5)}"
 
         self.required_review_level = self.compute_required_review_level()
+        if kwargs.get("update_fields") is not None:
+            kwargs["update_fields"] = set(kwargs["update_fields"]) | {"required_review_level"}
         super().save(*args, **kwargs)
 
     def compute_required_review_level(self):
-        if self.violation_level in [
-            self.ViolationLevel.LEVEL_4,
-            self.ViolationLevel.LEVEL_5,
-        ]:
-            return self.ReviewLevel.PANEL
-
-        if self.violation_level == self.ViolationLevel.LEVEL_3:
-            return self.ReviewLevel.PANEL
-
-        if self.repeat_offense_suspected:
-            return self.ReviewLevel.HR_LEAD
-
-        if self.power_imbalance_flag or self.conflict_of_interest_flag:
-            return self.ReviewLevel.PANEL
-
         if self.emergency_case:
             return self.ReviewLevel.EXECUTIVE
-
-        if self.violation_level == self.ViolationLevel.LEVEL_2:
+        if (self.violation_level in [self.ViolationLevel.LEVEL_3, self.ViolationLevel.LEVEL_4, self.ViolationLevel.LEVEL_5]
+                or self.power_imbalance_flag or self.conflict_of_interest_flag):
+            return self.ReviewLevel.PANEL
+        if self.violation_level == self.ViolationLevel.LEVEL_2 or self.repeat_offense_suspected:
             return self.ReviewLevel.HR_LEAD
-
         return self.ReviewLevel.MANAGER
 
     def mark_due_process_notice(self):
@@ -1616,24 +1663,11 @@ class DisciplinaryCase(BaseModel):
         self.status = self.Status.UNDER_INVESTIGATION
         self.save(update_fields=["status", "updated_at"])
 
-    def decide(self, finding, decided_by, rationale):
-        self.finding = finding
-        self.decision_rationale = rationale
-        self.decided_by = decided_by
-        self.decision_at = timezone.now()
-        self.appeal_window_ends_at = timezone.now() + timedelta(days=10)
-        self.status = self.Status.DECIDED
-        self.save(
-            update_fields=[
-                "finding",
-                "decision_rationale",
-                "decided_by",
-                "decision_at",
-                "appeal_window_ends_at",
-                "status",
-                "updated_at",
-            ]
-        )
+    def decide(self, finding, decided_by, rationale, findings_summary="", **workflow_options):
+        from accounting.discipline_approval_actions import submit_case_decision
+        actor = workflow_options.get("approval_actor") or decided_by
+        return submit_case_decision(case=self, actor=actor, finding=finding, rationale=rationale,
+                                    findings_summary=findings_summary)
 
     def close_case(self):
         self.status = self.Status.CLOSED
@@ -1741,6 +1775,8 @@ class DisciplinaryEvidence(BaseModel):
 
 
 class DisciplinarySanction(BaseModel):
+    employment_effect_snapshot = models.JSONField(default=dict, blank=True)
+
     class SanctionType(models.TextChoices):
         COACHING = "COACHING", "Coaching"
         WRITTEN_WARNING = "WRITTEN_WARNING", "Written Warning"
@@ -1754,6 +1790,7 @@ class DisciplinarySanction(BaseModel):
         TERMINATION = "TERMINATION", "Termination"
 
     class Status(models.TextChoices):
+        PENDING = "PENDING", _("Pending approval")
         ACTIVE = "ACTIVE", "Active"
         COMPLETED = "COMPLETED", "Completed"
         REVOKED = "REVOKED", "Revoked"
@@ -1764,7 +1801,7 @@ class DisciplinarySanction(BaseModel):
         related_name="sanctions",
     )
     sanction_type = models.CharField(max_length=30, choices=SanctionType.choices)
-    status = models.CharField(max_length=15, choices=Status.choices, default=Status.ACTIVE)
+    status = models.CharField(max_length=15, choices=Status.choices, default=Status.PENDING)
     rationale = models.TextField()
     effective_date = models.DateField(default=timezone.now)
     duration_days = models.PositiveIntegerField(null=True, blank=True)
@@ -1779,6 +1816,7 @@ class DisciplinarySanction(BaseModel):
     )
 
     class Meta:
+        base_manager_name = "objects"
         ordering = ["-created_at"]
         verbose_name = "Disciplinary Sanction"
         verbose_name_plural = "Disciplinary Sanctions"
@@ -1829,11 +1867,8 @@ class DisciplinarySanction(BaseModel):
         return sanction_end >= period_start
 
     def _apply_employment_effects(self):
-        # Deprecated: HR employment effects now live in
-        # payroll/discipline/services.apply_termination_effects, wired via
-        # payroll/discipline/signals.py. Kept as no-op so ledger never
-        # imports payroll (ADR-0002). Remove with the table move.
-        return
+        from accounting.discipline_services import apply_termination
+        apply_termination(self)
 
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)
@@ -1886,6 +1921,7 @@ class DisciplinaryAppeal(BaseModel):
     outcome_notes = models.TextField(blank=True)
 
     class Meta:
+        base_manager_name = "objects"
         ordering = ["-created_at"]
         verbose_name = "Disciplinary Appeal"
         verbose_name_plural = "Disciplinary Appeals"
@@ -1894,6 +1930,8 @@ class DisciplinaryAppeal(BaseModel):
         return f"Appeal for {self.case.case_number}"
 
     def clean(self):
+        if not self.pk and self.case_id and self.case.status not in {DisciplinaryCase.Status.DECIDED, DisciplinaryCase.Status.CLOSED}:
+            raise ValidationError("A finalized case decision is required before filing an appeal.")
         if (
             not self.pk
             and self.case.appeal_window_ends_at

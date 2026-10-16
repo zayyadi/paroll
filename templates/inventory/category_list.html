@@ -1,0 +1,41 @@
+{% extends "inventory/base.html" %}
+
+{% block inventory_content %}
+<div class="bg-white rounded-lg shadow-soft">
+    <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+        <h3 class="text-lg font-semibold text-secondary-900">Categories</h3>
+        <a href="{% url 'inventory:category_create' %}" class="btn-primary inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white">
+            <i data-lucide="plus" class="mr-2 h-4 w-4"></i>
+            New Category
+        </a>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">Category</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">Costing</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">Inventory Account</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">Opening Equity</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">Gain</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">Shrinkage</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+                {% for category in categories %}
+                <tr class="table-row-hover">
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-secondary-900">{{ category.name }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-secondary-500">{{ category.get_costing_method_display }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-secondary-500">{{ category.inventory_account|default:"-" }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-secondary-500">{{ category.opening_balance_equity_account|default:"-" }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-secondary-500">{{ category.adjustment_gain_account|default:"-" }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-secondary-500">{{ category.shrinkage_expense_account|default:"-" }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="6" class="px-6 py-8 text-center text-sm text-secondary-500">No categories.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

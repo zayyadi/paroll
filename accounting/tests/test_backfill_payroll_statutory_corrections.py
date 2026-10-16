@@ -1,3 +1,8 @@
+from tests.approval_helpers import (
+    approved_operation_for,
+)
+from tests.approval_helpers import approval_user, approve_request
+from approvals.models import ApprovalRequest
 from datetime import date
 from decimal import Decimal, ROUND_HALF_UP
 from io import StringIO
@@ -17,6 +22,7 @@ class BackfillPayrollStatutoryCorrectionsCommandTests(TestCase):
     def setUp(self):
         self.company = Company.objects.create(name="Backfill Co")
         self._ensure_accounts()
+        self.maker = approval_user(self.company, ["accounting.change_journal"])
 
     def _q(self, value):
         return Decimal(value).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
@@ -29,7 +35,7 @@ class BackfillPayrollStatutoryCorrectionsCommandTests(TestCase):
             ("2150", "NHF Payable", Account.AccountType.LIABILITY),
         ]:
             Account.objects.get_or_create(
-                account_number=account_number,
+                company=self.company, account_number=account_number,
                 defaults={"name": name, "type": account_type},
             )
 
@@ -75,30 +81,30 @@ class BackfillPayrollStatutoryCorrectionsCommandTests(TestCase):
         annual_employee_health = Decimal(payroll.employee_health or 0)
         annual_employer_health = Decimal(payroll.emplyr_health or 0)
 
-        journal = create_journal_with_entries(
-            date=date.today().replace(day=1),
+        journal = approved_operation_for("accounting.change_journal")(create_journal_with_entries,
+            company=self.company, date=date.today().replace(day=1),
             description=f"Payroll for period: {payroll_run.save_month_str}",
             entries=[
                 {
-                    "account": Account.objects.get(account_number="6010"),
+                    "account": Account.objects.get(company=self.company, account_number="6010"),
                     "entry_type": "DEBIT",
                     "amount": annual_nhf + annual_employee_health,
                     "memo": "Buggy annual employee statutory expense",
                 },
                 {
-                    "account": Account.objects.get(account_number="6030"),
+                    "account": Account.objects.get(company=self.company, account_number="6030"),
                     "entry_type": "DEBIT",
                     "amount": annual_employer_health,
                     "memo": "Buggy annual employer health expense",
                 },
                 {
-                    "account": Account.objects.get(account_number="2150"),
+                    "account": Account.objects.get(company=self.company, account_number="2150"),
                     "entry_type": "CREDIT",
                     "amount": annual_nhf,
                     "memo": "Buggy annual NHF payable",
                 },
                 {
-                    "account": Account.objects.get(account_number="2130"),
+                    "account": Account.objects.get(company=self.company, account_number="2130"),
                     "entry_type": "CREDIT",
                     "amount": annual_employee_health + annual_employer_health,
                     "memo": "Buggy annual health payable",
@@ -119,7 +125,14 @@ class BackfillPayrollStatutoryCorrectionsCommandTests(TestCase):
 
     def _run_command(self, *args):
         out = StringIO()
-        call_command("backfill_payroll_statutory_corrections", *args, stdout=out)
+        command_args = list(args)
+        if "--apply" in command_args:
+            command_args.extend(["--requested-by", str(self.maker.pk)])
+        call_command("backfill_payroll_statutory_corrections", *command_args, stdout=out)
+        pending = ApprovalRequest.objects.filter(company=self.company, requester=self.maker, action="accounting.journal.create_posted", status="PENDING")
+        for request in pending:
+            self.assertFalse(Journal.objects.filter(description__startswith="Payroll statutory correction:").exists())
+            approve_request(request)
         return out.getvalue()
 
     def _get_correction_journals(self, original_journal):
@@ -189,6 +202,6 @@ class BackfillPayrollStatutoryCorrectionsCommandTests(TestCase):
         first_output = self._run_command("--apply")
         second_output = self._run_command("--apply")
 
-        self.assertIn("created=1", first_output)
+        self.assertIn("queued=1", first_output)
         self.assertIn("already_corrected=1", second_output)
         self.assertEqual(self._get_correction_journals(fixture["journal"]).count(), 1)

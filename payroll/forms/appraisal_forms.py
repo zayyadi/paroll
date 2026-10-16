@@ -45,6 +45,8 @@ class ReviewForm(forms.ModelForm):
     class Meta:
         model = models.Review
         fields = ["self_assessment"]
+        labels = {"self_assessment": "Reviewer assessment"}
+        help_texts = {"self_assessment": "Summarize the employee’s performance with supporting examples."}
 
 
 

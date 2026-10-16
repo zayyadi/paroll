@@ -370,41 +370,42 @@ def monthly_cost_breakdown(config) -> dict:
     """
     Monthly employer-vs-employee cost figures for one pay config.
 
-    Base net delegates to the canonical monthly_net_pay; employer-cost
-    extras (pension, NHIA, NSITF, ITF) extend it. Conventions match the
-    Cost of Employment report: annual stored fields divided by 12; PAYE
-    and water monthly; NSITF 1% of monthly basic.
+    Conventions match the Cost of Employment report: annual stored fields
+    (gross, pension, NHF, NHIA, ITF) are divided by 12; PAYE and water are
+    monthly; NSITF is 1% of monthly basic. Employer cost = gross + all
+    employer-funded levies (pension, NHIA, NSITF, ITF).
+
+    All annual→monthly divisions and the employee net route through the
+    canonical calculator (``payroll.services.payroll_calc``); employee
+    pension enters as the canonical rule's ``deductions_monthly``. Each
+    monthly figure is quantised to kobo before the canonical net is taken, so
+    the report's net still matches its own displayed rows exactly.
     """
-    from payroll.services.payroll_calc import monthly_net_pay
+    from payroll.services.payroll_calc import annual_to_monthly, monthly_net_pay
 
     cents = Decimal("0.01")
-    base = monthly_net_pay(
-        gross_annual=Decimal(config.gross_income or 0),
-        employee_health_annual=Decimal(config.employee_health or 0),
-        nhf_annual=Decimal(config.nhf or 0),
-        payee_monthly=Decimal(config.payee or 0),
-        water_monthly=Decimal(config.water_rate or 0),
-    )
-    gross = (base["monthly_gross"]).quantize(cents)
+    # Round each monthly row to kobo first (report convention), then feed the
+    # already-monthly figures back through the canonical annual→monthly rule
+    # (x * 12 / 12 is exact) so the net comes from the one canonical formula.
+    gross = annual_to_monthly(config.gross_income).quantize(cents)
+    employee_pension = annual_to_monthly(config.pension_employee).quantize(cents)
+    employee_nhf = annual_to_monthly(config.nhf).quantize(cents)
+    employee_nhia = annual_to_monthly(config.employee_health).quantize(cents)
     employee_paye = Decimal(config.payee or 0).quantize(cents)
-    employee_pension = (
-        Decimal(config.pension_employee or 0) / Decimal("12")
-    ).quantize(cents)
-    employee_nhf = (base["monthly_nhf"]).quantize(cents)
-    employee_nhia = (base["monthly_health"]).quantize(cents)
     employee_water = Decimal(config.water_rate or 0).quantize(cents)
-    # Report net includes the employee pension slice; the canonical base
-    # covers gross - health - nhf - paye - water, so subtract pension here
-    # to preserve Cost of Employment semantics.
-    net_pay = (base["net"] - employee_pension).quantize(cents)
-    employer_pension = (
-        Decimal(config.pension_employer or 0) / Decimal("12")
-    ).quantize(cents)
-    employer_nhia = (
-        Decimal(config.emplyr_health or 0) / Decimal("12")
-    ).quantize(cents)
+    calc = monthly_net_pay(
+        gross_annual=gross * 12,
+        employee_health_annual=employee_nhia * 12,
+        nhf_annual=employee_nhf * 12,
+        payee_monthly=employee_paye,
+        water_monthly=employee_water,
+        deductions_monthly=employee_pension,
+    )
+    net_pay = calc["net"].quantize(cents)
+    employer_pension = annual_to_monthly(config.pension_employer).quantize(cents)
+    employer_nhia = annual_to_monthly(config.emplyr_health).quantize(cents)
     employer_nsitf = Decimal(config.nsitf or 0).quantize(cents)
-    employer_itf = (Decimal(config.itf or 0) / Decimal("12")).quantize(cents)
+    employer_itf = annual_to_monthly(config.itf).quantize(cents)
     employer_cost = (
         gross + employer_pension + employer_nhia + employer_nsitf + employer_itf
     ).quantize(cents)
@@ -581,11 +582,14 @@ def get_water_rate(self):
 
 def get_net_pay(self):
     """
-    Monthly base net pay (before PayrollEntry allowances/deductions).
+    Calculates the net pay for an employee.
 
-    Delegates to payroll.services.payroll_calc.monthly_net_pay — the
-    canonical rule. See CONTEXT.md: Payroll = annual config, PayrollEntry
-    = per-employee period inputs, Payslip = locked result.
+    Note: This function assumes that get_gross_income returns an annual value
+    and divides it by 12 to get the monthly gross income.
+
+    The arithmetic is delegated to the canonical
+    ``payroll.services.payroll_calc.monthly_net_pay``; this wrapper only
+    resolves which pay config to read and its annual→monthly inputs.
     """
     from payroll.services.payroll_calc import monthly_net_pay
 

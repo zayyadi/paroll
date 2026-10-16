@@ -1,3 +1,6 @@
+from tests.approval_helpers import (
+    approve_journal,
+)
 from datetime import date
 
 from django.contrib.auth import get_user_model
@@ -57,7 +60,7 @@ class JournalWorkflowUITests(TestCase):
             description=description,
             date=date(2026, 5, 20),
             period=self.period,
-            status=status,
+            status=Journal.JournalStatus.DRAFT,
             created_by=self.user,
         )
         JournalEntry.objects.create(
@@ -72,6 +75,12 @@ class JournalWorkflowUITests(TestCase):
             entry_type=JournalEntry.EntryType.CREDIT,
             amount=1000,
         )
+        if status != Journal.JournalStatus.DRAFT:
+            journal.submit_for_approval()
+            if status in (Journal.JournalStatus.APPROVED, Journal.JournalStatus.POSTED):
+                approve_journal(journal)
+            if status == Journal.JournalStatus.POSTED:
+                journal.post(journal.approved_by)
         return journal
 
     def test_journal_list_exposes_workflow_links(self):

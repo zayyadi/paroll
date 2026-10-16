@@ -106,6 +106,7 @@ class PayrollEntryResource(resources.ModelResource):
 
 class IOUResource(resources.ModelResource):
     class Meta:
+        exclude = ("requested_by", "status", "approved_at")
         model = IOU
 
 
@@ -116,6 +117,7 @@ class DepartmentResource(resources.ModelResource):
 
 class LeaveRequestResource(resources.ModelResource):
     class Meta:
+        exclude = ("requested_by", "status", "approved_at")
         model = LeaveRequest
 
 
@@ -261,20 +263,22 @@ class CompanyHealthInsuranceTierInline(admin.TabularInline):
     extra = 1
 
 
+from approvals.domain_admin import CompanyWorkflowAdminMixin
+
 @admin.register(PayrollRun)
-class PayrollRunAdmin(ImportExportModelAdmin):
+class PayrollRunAdmin(CompanyWorkflowAdminMixin, ImportExportModelAdmin):
     resource_class = PayrollRunResource
     inlines = (PayrollInline,)
     list_display = ["name", "company", "paydays", "status", "is_active", "closed"]
     list_display_links = ["name"]
-    list_editable = ["status", "is_active"]
+    list_editable = ["is_active"]
     list_filter = ["company", "status", "is_active", "closed", "paydays"]
     search_fields = ["name"]
     date_hierarchy = "paydays"
 
     def get_queryset(self, request):
         # Default manager only returns active runs; admin should see all.
-        return self.model.all_objects.select_related("company")
+        return super().get_queryset(request).select_related("company")
 
 
 admin.site.unregister(Group)
@@ -299,6 +303,48 @@ class LeaveRequestAdmin(ImportExportModelAdmin):
     date_hierarchy = "start_date"
 
 
+    readonly_fields = ("requested_by", "status", "approved_by", "manager_approved_by", "manager_approved_at", "hr_approved_at")
+
+    def get_queryset(self, request):
+        from company.utils import get_user_company
+        from approvals.permissions import user_in_company, has_company_permission
+        queryset = super().get_queryset(request)
+        company = get_user_company(request.user)
+        if not user_in_company(request.user, company):
+            return queryset.none()
+        queryset = queryset.filter(employee__company=company)
+        if not has_company_permission(request.user, company, "payroll.change_leaverequest"):
+            queryset = queryset.filter(employee__user=request.user)
+        return queryset
+
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        from company.utils import get_user_company
+        from approvals.permissions import user_in_company
+        company = get_user_company(request.user)
+        if db_field.name in {"employee", "employee_id", "attendance", "company"}:
+            related = db_field.remote_field.model
+            queryset = related.objects.all()
+            kwargs["queryset"] = (queryset.filter(**({"pk":company.pk} if db_field.name == "company" else {"company":company}))
+                                   if user_in_company(request.user, company) else queryset.none())
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)
+
+    def has_import_permission(self, request):
+        return False
+
+    def save_model(self, request, obj, form, change):
+        from django.db import transaction
+        from approvals.permissions import require_company_authority
+        from payroll.services.hr_workflow import submit_hr_request
+        employee = getattr(obj, "employee", None) or getattr(obj, "employee_id", None)
+        require_company_authority(request.user, employee.company, "payroll.change_leaverequest")
+        with transaction.atomic():
+            if not change:
+                obj.requested_by = request.user
+            super().save_model(request, obj, form, change)
+            if not change:
+                submit_hr_request(obj, request.user)
+
+
 admin.site.register(Group, GroupAdmin)
 
 
@@ -309,6 +355,7 @@ class PermissionAdmin(admin.ModelAdmin):
 
 
 admin.site.register(Permission, PermissionAdmin)
+
 
 
 @admin.register(EmployeeProfile)
@@ -489,7 +536,46 @@ class IOUAdmin(ImportExportModelAdmin):
     list_filter = ("status", "tenor", "created_at", "approved_at")
     search_fields = ("employee_id__first_name", "employee_id__last_name", "reason")
     date_hierarchy = "created_at"
-    readonly_fields = ("created_at",)
+    readonly_fields = ("created_at", "requested_by", "status", "approved_at")
+
+    def get_queryset(self, request):
+        from company.utils import get_user_company
+        from approvals.permissions import user_in_company, has_company_permission
+        queryset = super().get_queryset(request)
+        company = get_user_company(request.user)
+        if not user_in_company(request.user, company):
+            return queryset.none()
+        queryset = queryset.filter(employee_id__company=company)
+        if not has_company_permission(request.user, company, "payroll.change_iou"):
+            queryset = queryset.filter(employee_id__user=request.user)
+        return queryset
+
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        from company.utils import get_user_company
+        from approvals.permissions import user_in_company
+        company = get_user_company(request.user)
+        if db_field.name in {"employee", "employee_id", "attendance", "company"}:
+            related = db_field.remote_field.model
+            queryset = related.objects.all()
+            kwargs["queryset"] = (queryset.filter(**({"pk":company.pk} if db_field.name == "company" else {"company":company}))
+                                   if user_in_company(request.user, company) else queryset.none())
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)
+
+    def has_import_permission(self, request):
+        return False
+
+    def save_model(self, request, obj, form, change):
+        from django.db import transaction
+        from approvals.permissions import require_company_authority
+        from payroll.services.hr_workflow import submit_hr_request
+        employee = getattr(obj, "employee", None) or getattr(obj, "employee_id", None)
+        require_company_authority(request.user, employee.company, "payroll.change_iou")
+        with transaction.atomic():
+            if not change:
+                obj.requested_by = request.user
+            super().save_model(request, obj, form, change)
+            if not change:
+                submit_hr_request(obj, request.user)
 
 
 @admin.register(Allowance)
@@ -741,9 +827,47 @@ class RatingInline(admin.TabularInline):
     extra = 1
 
 
+class AppraisalCompanyAdminScope:
+    def get_queryset(self, request):
+        from company.utils import get_user_company
+        company = get_user_company(request.user)
+        path = "company" if self.model is Appraisal else "appraisal__company"
+        queryset = super().get_queryset(request)
+        return queryset.filter(**{path: company}) if company else queryset.none()
+
+    def has_import_permission(self, request):
+        return False
+
+    def has_add_permission(self, request):
+        from company.utils import get_user_company
+        return bool(get_user_company(request.user)) and super().has_add_permission(request)
+
+    def save_model(self, request, obj, form, change):
+        from company.utils import get_user_company
+        from django.core.exceptions import PermissionDenied
+        company = get_user_company(request.user)
+        if not company:
+            raise PermissionDenied("Company context is required.")
+        if self.model is Appraisal:
+            obj.company = company
+        elif obj.appraisal.company_id != company.pk:
+            raise PermissionDenied("Assignment must belong to your company.")
+        obj.full_clean()
+        return super().save_model(request, obj, form, change)
+
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        from company.utils import get_user_company
+        company = get_user_company(request.user)
+        if db_field.name in {"appraisal", "appraisee", "appraiser"}:
+            target = db_field.remote_field.model
+            kwargs["queryset"] = target.objects.filter(company=company) if company else target.objects.none()
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)
+
+
 @admin.register(Appraisal)
-class AppraisalAdmin(ImportExportModelAdmin):
+class AppraisalAdmin(AppraisalCompanyAdminScope, ImportExportModelAdmin):
     resource_class = AppraisalResource
+    readonly_fields = ("company",)
     list_display = ("name", "start_date", "end_date")
     search_fields = ("name",)
 
@@ -755,23 +879,60 @@ class MetricAdmin(ImportExportModelAdmin):
     search_fields = ("name",)
 
 
+class ReviewAdminScope:
+    def get_queryset(self, request):
+        from company.utils import get_user_company
+        company = get_user_company(request.user)
+        queryset = super().get_queryset(request)
+        path = "appraisal__company" if self.model is Review else "review__appraisal__company"
+        if not company:
+            return queryset.none()
+        queryset = queryset.filter(**{path: company})
+        profile = getattr(request.user, "employee_user", None)
+        if not request.user.has_perm("payroll.publish_review"):
+            from django.db.models import Q
+            prefix = "" if self.model is Review else "review__"
+            return queryset.filter(Q(**{prefix + "reviewer": profile}) | Q(**{prefix + "employee": profile, prefix + "status": "PUBLISHED"})) if profile else queryset.none()
+        return queryset
+
+    def has_import_permission(self, request):
+        return False
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        if obj is None:
+            return super().has_change_permission(request, obj)
+        review = obj if self.model is Review else obj.review
+        profile = getattr(request.user, "employee_user", None)
+        return profile is not None and review.reviewer_id == profile.pk and review.status == "DRAFT" and super().has_change_permission(request, obj)
+
+    def has_delete_permission(self, request, obj=None):
+        if obj is None:
+            return False
+        return self.has_change_permission(request, obj) and super().has_delete_permission(request, obj)
+
+
 @admin.register(Review)
-class ReviewAdmin(ImportExportModelAdmin):
+class ReviewAdmin(ReviewAdminScope, ImportExportModelAdmin):
     resource_class = ReviewResource
-    list_display = ("appraisal", "employee", "reviewer")
+    list_display = ("appraisal", "employee", "reviewer", "status")
+    readonly_fields = ("appraisal", "employee", "reviewer", "status", "published_at", "published_by")
     search_fields = ("appraisal__name", "employee__first_name", "reviewer__first_name")
     inlines = [RatingInline]
 
 
 @admin.register(Rating)
-class RatingAdmin(ImportExportModelAdmin):
+class RatingAdmin(ReviewAdminScope, ImportExportModelAdmin):
     resource_class = RatingResource
     list_display = ("review", "metric", "rating")
+    readonly_fields = ("review",)
     search_fields = ("review__appraisal__name", "metric__name")
 
 
 @admin.register(AppraisalAssignment)
-class AppraisalAssignmentAdmin(ImportExportModelAdmin):
+class AppraisalAssignmentAdmin(AppraisalCompanyAdminScope, ImportExportModelAdmin):
     resource_class = AppraisalAssignmentResource
     list_display = ("appraisal", "appraisee", "appraiser")
     search_fields = (
@@ -803,8 +964,34 @@ class JobRequisitionAdmin(admin.ModelAdmin):
     search_fields = ("title", "position__title", "hiring_manager__email")
 
 
+class HRCompanyWorkflowAdminMixin(CompanyWorkflowAdminMixin):
+    """Keep workforce administration within the selected company's authority."""
+    workflow_fields = {"status", "current_stage", "requested_by", "created_by", "initiated_by",
+                       "approved_by", "approved_at", "completed_at", "accepted_at", "hired_at"}
+
+    def get_readonly_fields(self, request, obj=None):
+        fields = list(super().get_readonly_fields(request, obj))
+        fields.extend(field.name for field in self.model._meta.fields if field.name in self.workflow_fields)
+        return tuple(dict.fromkeys(fields))
+
+    def has_import_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        if obj is not None and getattr(obj, "status", "") in {"accepted", "declined", "withdrawn", "sent", "APPROVED", "REJECTED", "COMPLETED"}:
+            return False
+        return super().has_change_permission(request, obj)
+
+    def save_model(self, request, obj, form, change):
+        if not change:
+            for name in ("requested_by", "created_by", "initiated_by"):
+                if any(field.name == name for field in self.model._meta.fields):
+                    setattr(obj, name, request.user)
+        return super().save_model(request, obj, form, change)
+
+
 @admin.register(HiringCandidate)
-class HiringCandidateAdmin(admin.ModelAdmin):
+class HiringCandidateAdmin(HRCompanyWorkflowAdminMixin, admin.ModelAdmin):
     list_display = ("first_name", "last_name", "email", "requisition", "current_stage", "status", "applied_at")
     list_filter = ("company", "status", "current_stage")
     search_fields = ("first_name", "last_name", "email", "requisition__title")
@@ -818,7 +1005,7 @@ class HiringStageScorecardAdmin(admin.ModelAdmin):
 
 
 @admin.register(JobOffer)
-class JobOfferAdmin(admin.ModelAdmin):
+class JobOfferAdmin(HRCompanyWorkflowAdminMixin, admin.ModelAdmin):
     list_display = ("candidate", "title", "salary_amount", "currency", "status", "start_date")
     list_filter = ("company", "status", "start_date")
     search_fields = ("candidate__first_name", "candidate__last_name", "candidate__email", "title")
@@ -944,14 +1131,14 @@ class BenefitEnrollmentAdmin(admin.ModelAdmin):
 
 
 @admin.register(EmployeeTransfer)
-class EmployeeTransferAdmin(admin.ModelAdmin):
+class EmployeeTransferAdmin(HRCompanyWorkflowAdminMixin, admin.ModelAdmin):
     list_display = ("employee", "from_department", "to_department", "effective_date", "status")
     list_filter = ("status", "company")
     search_fields = ("employee__first_name", "employee__last_name")
 
 
 @admin.register(Promotion)
-class PromotionAdmin(admin.ModelAdmin):
+class PromotionAdmin(HRCompanyWorkflowAdminMixin, admin.ModelAdmin):
     list_display = ("employee", "old_title", "new_title", "effective_date", "status")
     list_filter = ("status", "company")
     search_fields = ("employee__first_name", "employee__last_name")
@@ -972,7 +1159,7 @@ class EmploymentContractAdmin(admin.ModelAdmin):
 
 
 @admin.register(OffboardingChecklist)
-class OffboardingChecklistAdmin(admin.ModelAdmin):
+class OffboardingChecklistAdmin(HRCompanyWorkflowAdminMixin, admin.ModelAdmin):
     list_display = ("employee", "reason", "last_working_day", "status")
     list_filter = ("status", "reason", "company")
     search_fields = ("employee__first_name", "employee__last_name")
@@ -995,6 +1182,47 @@ class OvertimeEntryAdmin(admin.ModelAdmin):
     list_display = ("employee", "date", "hours", "rate_multiplier", "status")
     list_filter = ("status", "company")
     search_fields = ("employee__first_name", "employee__last_name")
+
+    readonly_fields = ("requested_by", "status")
+
+    def get_queryset(self, request):
+        from company.utils import get_user_company
+        from approvals.permissions import user_in_company, has_company_permission
+        queryset = super().get_queryset(request)
+        company = get_user_company(request.user)
+        if not user_in_company(request.user, company):
+            return queryset.none()
+        queryset = queryset.filter(company=company)
+        if not has_company_permission(request.user, company, "payroll.change_overtimeentry"):
+            queryset = queryset.filter(employee__user=request.user)
+        return queryset
+
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        from company.utils import get_user_company
+        from approvals.permissions import user_in_company
+        company = get_user_company(request.user)
+        if db_field.name in {"employee", "employee_id", "attendance", "company"}:
+            related = db_field.remote_field.model
+            queryset = related.objects.all()
+            kwargs["queryset"] = (queryset.filter(**({"pk":company.pk} if db_field.name == "company" else {"company":company}))
+                                   if user_in_company(request.user, company) else queryset.none())
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)
+
+    def has_import_permission(self, request):
+        return False
+
+    def save_model(self, request, obj, form, change):
+        from django.db import transaction
+        from approvals.permissions import require_company_authority
+        from payroll.services.hr_workflow import submit_hr_request
+        employee = getattr(obj, "employee", None) or getattr(obj, "employee_id", None)
+        require_company_authority(request.user, employee.company, "payroll.change_overtimeentry")
+        with transaction.atomic():
+            if not change:
+                obj.requested_by = request.user
+            super().save_model(request, obj, form, change)
+            if not change:
+                submit_hr_request(obj, request.user)
 
 
 @admin.register(Shift)
@@ -1021,3 +1249,12 @@ class BankPaymentFileAdmin(admin.ModelAdmin):
     list_display = ("bank_name", "payroll_run", "total_records", "total_amount", "status")
     list_filter = ("status", "bank_code", "company")
     search_fields = ("bank_name",)
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False

@@ -23,8 +23,20 @@ from payroll.forms._helpers import (
 )
 
 class LeaveRequestForm(forms.ModelForm):
-    def __init__(self, *args, **kwargs):
+    leave_type = forms.ChoiceField()
+
+    def __init__(self, *args, company=None, employee=None, **kwargs):
         super().__init__(*args, **kwargs)
+        from payroll.services.leave_type_service import ensure_default_leave_types
+        if employee is None and self.instance.employee_id:
+            employee = self.instance.employee
+        company = company or (employee.company if employee else None)
+        self.fields["leave_type"].choices = (
+            [(row.code, row.name) for row in ensure_default_leave_types(company)]
+            if company else []
+        )
+        if employee:
+            self.instance.employee = employee
         input_class = (
             "w-full px-4 py-2.5 border border-secondary-300 rounded-xl "
             "focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm bg-white"
@@ -42,7 +54,7 @@ class LeaveRequestForm(forms.ModelForm):
 
     class Meta:
         model = models.LeaveRequest
-        fields = ["leave_type", "start_date", "end_date", "reason"]
+        fields = ["leave_type", "start_date", "end_date", "is_half_day", "reason"]
         widgets = {
             "start_date": forms.DateInput(attrs={"type": "date"}),
             "end_date": forms.DateInput(attrs={"type": "date"}),

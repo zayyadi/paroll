@@ -1,4 +1,10 @@
-"""Thin signal handlers for notification side effects."""
+"""Thin signal handlers for notification side effects.
+
+All handlers are fire-and-forget: they only enqueue a Celery task via
+``transaction.on_commit`` and never block the request or fail the core
+DB write. Heavy work (notification fan-out, email rendering, SMTP/Twilio
+network I/O) runs in ``payroll.tasks.signal_tasks`` workers.
+"""
 
 from __future__ import annotations
 
@@ -7,6 +13,7 @@ from typing import Any
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.db import transaction
 from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
 from django.urls import reverse
@@ -21,6 +28,32 @@ from users.email_backend import send_mail as custom_send_mail
 logger = logging.getLogger(__name__)
 User = get_user_model()
 event_dispatcher = EventDispatcher()
+
+
+def _enqueue_after_commit(task_name: str, *, args: list | tuple | None = None, kwargs: dict | None = None) -> None:
+    """Enqueue a Celery task after DB commit without ever raising.
+
+    Core actions (leave/IOU/payroll saves, page renders) must succeed even
+    when the broker is down, so every failure here is logged, never raised.
+    Broker outages fall back to a daemon thread via core.background.
+    """
+    try:
+        def _enqueue() -> None:
+            try:
+                from core.background import send_celery_task
+
+                send_celery_task(
+                    task_name,
+                    args=list(args or []),
+                    kwargs=dict(kwargs or {}),
+                    queue="notifications_normal",
+                )
+            except Exception as exc:
+                logger.exception("Failed to enqueue background task %s: %s", task_name, exc)
+
+        transaction.on_commit(_enqueue)
+    except Exception as exc:
+        logger.exception("Failed to schedule background task %s: %s", task_name, exc)
 
 
 def _notification_signals_enabled() -> bool:
@@ -58,10 +91,13 @@ def handle_leave_request_signal(
 ) -> None:
     if not _notification_signals_enabled():
         return
-    try:
-        _notification_service().handle_leave_request_saved(instance, created=created)
-    except Exception as exc:
-        logger.error("Error handling leave request signal: %s", exc)
+    # Capture the pre_save snapshot now; it won't survive to the worker.
+    previous_status = getattr(instance, "_previous_status", None)
+    _enqueue_after_commit(
+        "payroll.handle_leave_request_signal",
+        args=[instance.pk, created],
+        kwargs={"previous_status": previous_status},
+    )
 
 
 @receiver(post_save, sender=IOU)
@@ -73,10 +109,12 @@ def handle_iou_signal(
 ) -> None:
     if not _notification_signals_enabled():
         return
-    try:
-        _notification_service().handle_iou_saved(instance, created=created)
-    except Exception as exc:
-        logger.error("Error handling IOU signal: %s", exc)
+    previous_status = getattr(instance, "_previous_status", None)
+    _enqueue_after_commit(
+        "payroll.handle_iou_signal",
+        args=[instance.pk, created],
+        kwargs={"previous_status": previous_status},
+    )
 
 
 @receiver(post_save, sender=PayrollRun)
@@ -88,10 +126,12 @@ def handle_payroll_signal(
 ) -> None:
     if not _notification_signals_enabled():
         return
-    try:
-        _notification_service().handle_payroll_run_saved(instance, created=created)
-    except Exception as exc:
-        logger.error("Error handling payroll signal: %s", exc)
+    previous_is_active = bool(getattr(instance, "_previous_is_active", False))
+    _enqueue_after_commit(
+        "payroll.handle_payroll_run_signal",
+        args=[instance.pk, created],
+        kwargs={"previous_is_active": previous_is_active},
+    )
 
 
 @receiver(post_save, sender=AppraisalAssignment)
@@ -103,13 +143,10 @@ def handle_appraisal_signal(
 ) -> None:
     if not _notification_signals_enabled():
         return
-    try:
-        _notification_service().handle_appraisal_assignment_saved(
-            instance,
-            created=created,
-        )
-    except Exception as exc:
-        logger.error("Error handling appraisal signal: %s", exc)
+    _enqueue_after_commit(
+        "payroll.handle_appraisal_assignment_signal",
+        args=[instance.pk, created],
+    )
 
 
 def create_notification(

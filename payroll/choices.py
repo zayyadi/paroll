@@ -22,6 +22,7 @@ ALLOWANCES = (
     ("LV", "Leave Allowance"),
     ("13th", "13th Month"),
     ("Ovr", "Overtime"),
+    ("Retro", "Retroactive Pay"),
 )
 
 DEDUCTIONS = (

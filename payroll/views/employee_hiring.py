@@ -237,7 +237,7 @@ def hiring_candidate_advance(request, candidate_id):
     )
     try:
         models.advance_candidate(candidate, next_stage, advanced_by=request.user)
-        messages.success(request, f"Candidate moved to {next_stage.name}.")
+        messages.success(request, f"Hiring workflow updated for {next_stage.name}.")
     except ValueError as exc:
         messages.error(request, str(exc))
     return redirect("payroll:hiring_workspace")
@@ -264,7 +264,9 @@ def hiring_offer_create(request, candidate_id):
         )
         offer.expires_at = form.cleaned_data["expires_at"]
         offer.save(update_fields=["expires_at", "updated_at"])
-        messages.success(request, "Offer created and candidate marked as offer stage.")
+        from approvals.services import submit_approval
+        submit_approval(source=offer, action="hiring.offer.release", requester=request.user)
+        messages.success(request, "Draft offer submitted for release approval.")
     else:
         messages.error(request, "Could not create offer. Check the offer fields.")
     return redirect("payroll:hiring_workspace")

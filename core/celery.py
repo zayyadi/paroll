@@ -85,6 +85,26 @@ app.conf.task_routes = {
         "queue": "notifications_normal",
         "routing_key": "notifications.normal",
     },
+    "payroll.send_single_payslip_email": {
+        "queue": "notifications_normal",
+        "routing_key": "notifications.normal",
+    },
+    "payroll.handle_leave_request_signal": {
+        "queue": "notifications_normal",
+        "routing_key": "notifications.normal",
+    },
+    "payroll.handle_iou_signal": {
+        "queue": "notifications_normal",
+        "routing_key": "notifications.normal",
+    },
+    "payroll.handle_payroll_run_signal": {
+        "queue": "notifications_normal",
+        "routing_key": "notifications.normal",
+    },
+    "payroll.handle_appraisal_assignment_signal": {
+        "queue": "notifications_normal",
+        "routing_key": "notifications.normal",
+    },
     # Low priority tasks (digests, cleanup, etc.)
     "payroll.tasks.notification_tasks.send_digest_task": {
         "queue": "notifications_low",
@@ -245,12 +265,19 @@ app.conf.beat_schedule = {
 # ============================================================================
 # RESULT BACKEND
 # ============================================================================
+# Fire-and-forget notifications: skip result storage so a dead result
+# backend can never crash workers ("Retry limit exceeded ... result store").
+app.conf.task_ignore_result = True
 # Use Redis as result backend for task tracking
 app.conf.result_backend_transport_options = {
     "retry_policy": {
         "timeout": 5.0,
     },
 }
+
+# Survive broker restarts / cold starts instead of crashing the worker.
+app.conf.broker_connection_retry_on_startup = True
+app.conf.broker_connection_retry = True
 
 # ============================================================================
 # SECURITY

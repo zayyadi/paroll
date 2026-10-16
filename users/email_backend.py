@@ -72,24 +72,59 @@ def send_mail(
     recipient_list,
     fail_silently=False,
     attachments=None,
+    **kwargs,
 ):
-    payload = _pack_email_payload(
-        {
-            "subject": subject,
-            "template_name": template_name,
-            "context": context,
-            "from_email": from_email,
-            "recipient_list": recipient_list,
-            "fail_silently": fail_silently,
-            "attachments": attachments,
-        }
-    )
+    """Queue email delivery in the background; never block or fail the caller.
+
+    Extra kwargs (e.g. ``html_email_template_name`` from Django's
+    PasswordResetForm flow) are accepted and ignored so core auth actions
+    keep succeeding. Template rendering + SMTP happen in the Celery worker,
+    so this only does a fast broker enqueue (pickle + sign + delay).
+    """
+    if kwargs:
+        logger.debug("Ignoring extra send_mail kwargs: %s", sorted(kwargs))
+    try:
+        payload = _pack_email_payload(
+            {
+                "subject": subject,
+                "template_name": template_name,
+                "context": context,
+                "from_email": from_email,
+                "recipient_list": recipient_list,
+                "fail_silently": fail_silently,
+                "attachments": attachments,
+            }
+        )
+    except Exception:
+        logger.exception(
+            "Failed to pack email payload for recipients=%s",
+            recipient_list,
+        )
+        return None
 
     try:
         return send_custom_mail_task.delay(payload)
     except Exception:
         logger.exception(
-            "Failed to enqueue email delivery task for recipients=%s",
+            "Broker unavailable, delivering email in background thread for recipients=%s",
             recipient_list,
         )
+        try:
+            from core.background import run_in_background_thread
+
+            def _deliver_now():
+                try:
+                    _send_mail_now(**_unpack_email_payload(payload))
+                except Exception:
+                    logger.exception(
+                        "Background-thread email delivery failed for recipients=%s",
+                        recipient_list,
+                    )
+
+            run_in_background_thread(_deliver_now)
+        except Exception:
+            logger.exception(
+                "Failed to enqueue email delivery task for recipients=%s",
+                recipient_list,
+            )
         return None

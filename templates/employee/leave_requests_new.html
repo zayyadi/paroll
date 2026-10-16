@@ -18,6 +18,7 @@
         <div class="bg-white rounded-xl shadow-soft p-4"><p class="text-xs uppercase text-secondary-500">Annual balance</p><p class="text-2xl font-semibold">{{ leave_balances.annual|default:0 }}</p></div>
     </div>
 
+    {% include "employee/_leave_balance_cards.html" %}
     <section class="table-shell">
         <div class="flex items-center justify-between px-7 py-6">
             <h2 class="font-headline text-lg font-bold text-primary-800 flex items-center">

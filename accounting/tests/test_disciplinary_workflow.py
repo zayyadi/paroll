@@ -1,3 +1,6 @@
+from tests.approval_helpers import (
+    approve_source,
+)
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from django.test import TestCase, override_settings
@@ -164,6 +167,14 @@ class DisciplinaryWorkflowTests(TestCase):
             reporter=self.user,
             violation_level=DisciplinaryCase.ViolationLevel.LEVEL_5,
         )
+        from django.contrib.auth.models import Permission
+        from tests.approval_helpers import approval_user
+        from approvals.services import decide_approval
+        self.user.user_permissions.add(Permission.objects.get(content_type__app_label="accounting", codename="change_disciplinarycase"))
+        decision = case.decide(finding="SUBSTANTIATED", decided_by=self.user, rationale="Verified critical finding")
+        panel_reviewer = approval_user(self.company, ["accounting.review_panel_disciplinarycase"])
+        decide_approval(approval=decision, actor=panel_reviewer)
+        case.refresh_from_db()
         sanction = DisciplinarySanction.objects.create(
             case=case,
             sanction_type=DisciplinarySanction.SanctionType.TERMINATION,
@@ -172,6 +183,7 @@ class DisciplinaryWorkflowTests(TestCase):
             created_by=self.user,
         )
 
+        approve_source(sanction, "discipline.sanction", maker=self.user)
         self.respondent.refresh_from_db()
         employee_profile.refresh_from_db()
 

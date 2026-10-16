@@ -1,6 +1,8 @@
+version: '3.8'
+
 services:
   db:
-    image: docker.io/library/postgres:16-alpine
+    image: postgres:16-alpine
     restart: unless-stopped
     environment:
       POSTGRES_DB: ${DB_NAME:-payroll_db}
@@ -15,7 +17,7 @@ services:
       retries: 5
 
   redis:
-    image: docker.io/library/redis:7-alpine
+    image: redis:7-alpine
     restart: unless-stopped
     command: redis-server --appendonly yes
     volumes:
@@ -28,40 +30,23 @@ services:
 
   web:
     image: ${IMAGE_REF:?Set IMAGE_REF to the image tag to deploy}
-    build:
-      context: .
-      dockerfile: Dockerfile
     restart: unless-stopped
-    command: gunicorn core.wsgi:application --bind 0.0.0.0:8000 --workers 3 --timeout 60 --access-logfile - --error-logfile -
-    # Localhost-only: Nginx on the host is the sole front door. Publishing to
-    # the world invites scanners whose half-open connections park sync workers
-    # until WORKER TIMEOUT murders them (see web logs: "no URI read").
+    command: gunicorn core.wsgi:application --bind 0.0.0.0:8000
     ports:
-      - "127.0.0.1:8000:8000"
+      - "8000:8000"
     env_file:
       - ./.env
     environment:
       - DJANGO_SETTINGS_MODULE=${DJANGO_SETTINGS_MODULE:-core.settings_saas}
     volumes:
-      - ./staticfiles:/app/staticfiles:U
-      - ./media:/app/media:U
+      - staticfiles:/app/staticfiles
+      - media:/app/media
     depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/')\""]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 20s
+      - db
+      - redis
 
   celery-worker:
     image: ${IMAGE_REF:?Set IMAGE_REF to the image tag to deploy}
-    build:
-      context: .
-      dockerfile: Dockerfile
     restart: unless-stopped
     command: celery -A core worker -l INFO -Q notifications_critical,notifications_high,notifications_normal,notifications_low --concurrency=4
     env_file:
@@ -71,16 +56,11 @@ services:
       - CELERY_RESULT_BACKEND=redis://redis:6379/2
       - DJANGO_SETTINGS_MODULE=${DJANGO_SETTINGS_MODULE:-core.settings_saas}
     depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
+      - db
+      - redis
 
   celery-beat:
     image: ${IMAGE_REF:?Set IMAGE_REF to the image tag to deploy}
-    build:
-      context: .
-      dockerfile: Dockerfile
     restart: unless-stopped
     command: celery -A core beat -l INFO --scheduler django_celery_beat.schedulers:DatabaseScheduler
     env_file:
@@ -90,40 +70,30 @@ services:
       - CELERY_RESULT_BACKEND=redis://redis:6379/2
       - DJANGO_SETTINGS_MODULE=${DJANGO_SETTINGS_MODULE:-core.settings_saas}
     depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
+      - db
+      - redis
 
   daphne:
     image: ${IMAGE_REF:?Set IMAGE_REF to the image tag to deploy}
-    build:
-      context: .
-      dockerfile: Dockerfile
     restart: unless-stopped
     command: daphne -b 0.0.0.0 -p 8001 core.asgi:application
     ports:
-      - "127.0.0.1:8001:8001"
+      - "8001:8001"
     env_file:
       - ./.env
     environment:
       - DJANGO_SETTINGS_MODULE=${DJANGO_SETTINGS_MODULE:-core.settings_saas}
     volumes:
-      - ./staticfiles:/app/staticfiles:U
-      - ./media:/app/media:U
+      - staticfiles:/app/staticfiles
+      - media:/app/media
     depends_on:
-      redis:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8001/health/')\""]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 20s
+      - redis
 
 volumes:
   postgres_data:
   redis_data:
+  staticfiles:
+  media:
 
 networks:
   default:

@@ -1,10 +1,16 @@
+from tests.approval_helpers import (
+    approve_journal,
+    post_journal as approved_post_journal,
+)
 from decimal import Decimal
 
+from django import forms
 from django.test import TestCase
 
 from accounting.forms import BalanceAdjustmentForm, CorrectionEntryForm, JournalPartialReversalForm
 from accounting.models import Account, Journal, JournalEntry
 from company.models import Company
+import inventory.forms as inventory_forms
 
 
 class AccountingDecimalCapacityTests(TestCase):
@@ -43,7 +49,7 @@ class AccountingDecimalCapacityTests(TestCase):
             company=self.company,
             description="Large journal",
             period=None,
-            status=Journal.JournalStatus.POSTED,
+            status=Journal.JournalStatus.DRAFT,
         )
         entry = JournalEntry.objects.create(
             journal=journal,
@@ -51,6 +57,14 @@ class AccountingDecimalCapacityTests(TestCase):
             entry_type=JournalEntry.EntryType.DEBIT,
             amount=Decimal("15000000000.00"),
         )
+
+        JournalEntry.objects.create(
+            journal=journal, account=self.equity, entry_type="CREDIT",
+            amount=Decimal("15000000000.00"),
+        )
+        journal.submit_for_approval()
+        approve_journal(journal)
+        approved_post_journal(journal)
 
         partial_form = JournalPartialReversalForm(
             [entry],
@@ -70,3 +84,33 @@ class AccountingDecimalCapacityTests(TestCase):
 
         self.assertTrue(partial_form.is_valid(), partial_form.errors.as_data())
         self.assertTrue(correction_form.is_valid(), correction_form.errors.as_data())
+
+
+class InventoryDecimalCapacityTests(TestCase):
+    def test_inventory_action_form_decimal_fields_allow_more_than_10_integer_digits(self):
+        exempt_rate_fields = {"vat_rate", "wht_rate"}
+        checked_fields = []
+
+        for form_class in vars(inventory_forms).values():
+            if not isinstance(form_class, type) or not issubclass(form_class, forms.Form):
+                continue
+            try:
+                form = form_class()
+            except TypeError:
+                continue
+
+            for field_name, field in form.fields.items():
+                if not isinstance(field, forms.DecimalField):
+                    continue
+                if field_name in exempt_rate_fields or field_name.endswith("_rate"):
+                    continue
+                checked_fields.append(f"{form_class.__name__}.{field_name}")
+                self.assertGreaterEqual(
+                    field.max_digits - field.decimal_places,
+                    12,
+                    f"{form_class.__name__}.{field_name} allows only "
+                    f"{field.max_digits - field.decimal_places} integer digits",
+                )
+
+        self.assertIn("PurchaseOrderForm.unit_cost", checked_fields)
+        self.assertIn("CustomerPaymentForm.amount", checked_fields)

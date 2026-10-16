@@ -2,6 +2,7 @@ from django.contrib.auth.decorators import login_required, permission_required
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.http import FileResponse
+from django.core.exceptions import ValidationError
 
 from company.utils import get_user_company
 from payroll.models.payroll import PayrollRun, BankPaymentFile
@@ -20,6 +21,20 @@ def bank_payment_list(request):
     files = BankPaymentFile.objects.filter(
         company=company
     ).select_related("payroll_run", "created_by")
+    from approvals.models import ApprovalRequest
+    from approvals.permissions import has_company_permission
+    from django.contrib.contenttypes.models import ContentType
+    can_manage = has_company_permission(request.user, company, 'payroll.change_payrollrun')
+    files = list(files)
+    requests = ApprovalRequest.objects.filter(company=company, action='bank_payment.submit',
+        content_type=ContentType.objects.get_for_model(BankPaymentFile), object_id__in=[item.pk for item in files]).prefetch_related('decisions').order_by('pk')
+    by_file = {approval.object_id:approval for approval in requests}
+    for item in files:
+        approval = by_file.get(item.pk)
+        item.can_submit = can_manage and item.created_by_id in (None, request.user.pk) and not (approval and approval.status == 'PENDING')
+        final = max((decision for decision in approval.decisions.all() if decision.decision == 'APPROVE'), key=lambda decision:decision.stage, default=None) if approval else None
+        item.can_confirm = bool(can_manage and approval and approval.status == 'APPROVED' and final and final.actor_id == request.user.pk)
+        item.pending_approval_id = approval.pk if approval and approval.status == 'PENDING' else None
     return render(request, "payroll/bank_payment_list.html", {
         "payment_files": files,
         "page_title": "Bank Payment Files",
@@ -92,8 +107,12 @@ def bank_payment_submit(request, pk):
 
     if request.method == "POST":
         reference = request.POST.get("reference_number", "")
-        mark_submitted(payment_file=payment_file, reference_number=reference)
-        messages.success(request, "Payment file marked as submitted.")
+        try:
+            approval = mark_submitted(payment_file=payment_file, reference_number=reference)
+            from approvals.proposals import pending_response
+            return pending_response(request, approval)
+        except ValidationError as exc:
+            messages.error(request, " ".join(exc.messages))
 
     return redirect("payroll:bank_payment_list")
 
@@ -105,7 +124,10 @@ def bank_payment_confirm(request, pk):
     payment_file = get_object_or_404(BankPaymentFile, pk=pk, company=company)
 
     if request.method == "POST":
-        mark_confirmed(payment_file=payment_file)
-        messages.success(request, "Payment file confirmed.")
+        try:
+            mark_confirmed(payment_file=payment_file)
+            messages.success(request, "Payment file confirmed.")
+        except ValidationError as exc:
+            messages.error(request, " ".join(exc.messages))
 
     return redirect("payroll:bank_payment_list")

@@ -1,0 +1,79 @@
+{% extends "inventory/base.html" %}
+
+{% block inventory_content %}
+<div class="space-y-6">
+    <div class="bg-white rounded-lg shadow-soft">
+        <div class="px-6 py-4 border-b border-gray-200 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div>
+                <h3 class="text-lg font-semibold text-secondary-900">Posting Account Setup</h3>
+                <p class="mt-1 text-sm text-secondary-600">Recommended accounts for VAT, WHT, receivables, payables, inventory valuation, sales, and COGS.</p>
+            </div>
+            <div class="flex flex-wrap gap-2">
+                <a href="{% url 'accounting:account_create' %}" class="inline-flex items-center px-4 py-2 border border-secondary-300 text-sm font-medium rounded-md text-secondary-700 bg-white hover:bg-secondary-50">
+                    <i data-lucide="plus" class="mr-2 h-4 w-4"></i>
+                    New Account
+                </a>
+                <form method="post">
+                    {% csrf_token %}
+                    <button type="submit" class="btn-primary inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white">
+                        <i data-lucide="sparkles" class="mr-2 h-4 w-4"></i>
+                        Create Recommended
+                    </button>
+                </form>
+            </div>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-secondary-200">
+                <thead class="bg-secondary-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-secondary-600">Account</th>
+                        <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-secondary-600">Number</th>
+                        <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-secondary-600">Type</th>
+                        <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-secondary-600">Status</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-secondary-100">
+                    {% for recommendation in recommendations %}
+                    <tr>
+                        <td class="px-6 py-4">
+                            <p class="text-sm font-medium text-secondary-900">{{ recommendation.name }}</p>
+                            <p class="mt-1 text-xs text-secondary-500">{{ recommendation.description }}</p>
+                        </td>
+                        <td class="px-6 py-4 text-sm text-secondary-700">{{ recommendation.account_number }}</td>
+                        <td class="px-6 py-4 text-sm text-secondary-700">{{ recommendation.type }}</td>
+                        <td class="px-6 py-4">
+                            {% if recommendation.account %}
+                            <a href="{% url 'accounting:account_detail' recommendation.account.pk %}" class="inline-flex items-center rounded-md bg-success-50 px-2.5 py-1 text-xs font-semibold text-success-700">
+                                <i data-lucide="check" class="mr-1 h-3 w-3"></i>
+                                Created
+                            </a>
+                            {% else %}
+                            <span class="inline-flex items-center rounded-md bg-warning-50 px-2.5 py-1 text-xs font-semibold text-warning-700">Missing</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="bg-white rounded-lg shadow-soft p-6">
+        <h4 class="text-base font-semibold text-secondary-900">Where These Accounts Are Used</h4>
+        <div class="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-secondary-700">
+            <div class="rounded-lg border border-secondary-200 p-4">
+                <p class="font-semibold text-secondary-900">Purchasing</p>
+                <p class="mt-1">Inventory Asset, Trade Payables, Input VAT, and WHT Payable support goods receipt and supplier payment posting.</p>
+            </div>
+            <div class="rounded-lg border border-secondary-200 p-4">
+                <p class="font-semibold text-secondary-900">Sales</p>
+                <p class="mt-1">Trade Receivables, Wholesale Sales, Output VAT, WHT Receivable, Inventory Asset, and COGS support wholesale invoices.</p>
+            </div>
+            <div class="rounded-lg border border-secondary-200 p-4">
+                <p class="font-semibold text-secondary-900">Warehouse Control</p>
+                <p class="mt-1">Opening Balance Equity, Inventory Adjustment Gain, and Inventory Shrinkage support count, expiry, and breakage postings.</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

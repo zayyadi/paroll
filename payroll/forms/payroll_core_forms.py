@@ -137,8 +137,10 @@ class PayrollRunForm(forms.ModelForm):
 
         # For newly-created payroll runs, defer closure until after M2M entries
         # are persisted so close-trigger posting can see linked payroll entries.
-        if is_new and requested_closed:
+        if requested_closed:
             obj.closed = False
+        if is_new:
+            obj.requested_by = self.user
 
         company = get_user_company(self.user)
         if company and not obj.company_id:
@@ -146,9 +148,9 @@ class PayrollRunForm(forms.ModelForm):
         if commit:
             obj.save()
             self.save_m2m()
-            if is_new and requested_closed:
-                obj.closed = True
-                obj.save(update_fields=["closed"])
+            if requested_closed:
+                from payroll.financial_approval_actions import request_payroll_lock
+                obj._approval_request = request_payroll_lock(obj, self.user)
         return obj
 
     def clean_payroll_payday(self):
@@ -307,6 +309,7 @@ class PayrollRunCreateForm(forms.Form):
             is_active=self.cleaned_data.get("is_active", False),
             closed=False,
             company=company,
+            requested_by=self.user,
         )
 
         skipped_employees = []
@@ -332,8 +335,8 @@ class PayrollRunCreateForm(forms.Form):
             PayrollRunEntry.objects.create(payroll_run=payt, payroll_entry=payvar)
 
         if requested_closed:
-            payt.closed = True
-            payt.save(update_fields=["closed"])
+            from payroll.financial_approval_actions import request_payroll_lock
+            payt._approval_request = request_payroll_lock(payt, self.user)
 
         payt._skipped_employee_reasons = skipped_employees
         return payt

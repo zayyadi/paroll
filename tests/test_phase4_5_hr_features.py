@@ -31,6 +31,15 @@ from payroll.tasks.retention_tasks import apply_hr_retention_task
 User = get_user_model()
 
 
+
+from tests.approval_helpers import approve_source, approve_request, approval_user
+
+def _approved_leave(**kwargs):
+    source = LeaveRequest.objects.create(**kwargs)
+    approve_source(source, "leave.approve")
+    return source
+
+
 class Phase4HRFeatureTests(TestCase):
     def setUp(self):
         self.company = Company.objects.create(name="Phase 4 Co")
@@ -74,13 +83,12 @@ class Phase4HRFeatureTests(TestCase):
         self.assertEqual(carryover.days, 5)
 
     def test_leave_calendar_view_lists_approved_leave(self):
-        leave = LeaveRequest.objects.create(
+        leave = _approved_leave(
             employee=self.employee,
             leave_type="ANNUAL",
             start_date=date(2026, 6, 1),
             end_date=date(2026, 6, 2),
             reason="Rest",
-            status="APPROVED",
             hr_override=True,
         )
         self.client.force_login(self.user)
@@ -123,6 +131,8 @@ class Phase4HRFeatureTests(TestCase):
                 "reason": "Family rest updated",
             },
         )
+        checker = approval_user(self.company, ["payroll.change_leaverequest", "payroll.delete_leaverequest"])
+        self.client.force_login(checker)
         approve_response = self.client.post(
             reverse("payroll:approve_leave", args=[leave.pk])
         )
@@ -145,7 +155,7 @@ class Phase4HRFeatureTests(TestCase):
             status="PENDING",
         )
         reject_response = self.client.post(
-            reverse("payroll:reject_leave", args=[second_leave.pk])
+            reverse("payroll:reject_leave", args=[second_leave.pk]), {"comment":"Fixture rejection reason"}
         )
         second_leave.refresh_from_db()
         delete_response = self.client.get(
@@ -154,8 +164,8 @@ class Phase4HRFeatureTests(TestCase):
 
         self.assertEqual(reject_response.status_code, 302)
         self.assertEqual(second_leave.status, "REJECTED")
-        self.assertEqual(delete_response.status_code, 302)
-        self.assertFalse(LeaveRequest.objects.filter(pk=second_leave.pk).exists())
+        self.assertEqual(delete_response.status_code, 403)
+        self.assertTrue(LeaveRequest.objects.filter(pk=second_leave.pk).exists())
 
     def test_candidate_consent_audit_and_reconsent_workflow(self):
         candidate = HiringCandidate.objects.create(
@@ -223,9 +233,12 @@ class Phase4HRFeatureTests(TestCase):
             incident_date=date(2022, 1, 1),
             allegation_summary="Old case",
             violation_level=DisciplinaryCase.ViolationLevel.LEVEL_1,
-            status=DisciplinaryCase.Status.CLOSED,
         )
 
+        maker = approval_user(self.company, ["accounting.change_disciplinarycase"])
+        approve_request(case.decide(finding="SUBSTANTIATED", decided_by=maker, rationale="Historical reviewed finding"))
+        case.refresh_from_db()
+        approve_request(case.close_case(approval_actor=maker))
         result = apply_hr_retention_task()
 
         candidate.refresh_from_db()
@@ -233,4 +246,11 @@ class Phase4HRFeatureTests(TestCase):
         self.assertEqual(result["policy_id"], policy.pk)
         self.assertTrue(candidate.email.startswith("deleted-candidate-"))
         self.assertFalse(SurveyResponse.objects.filter(pk=response.pk).exists())
+        self.assertEqual(result["disciplinary_requires_approval"], 1)
+        self.assertEqual(case.allegation_summary, "Old case")
+        queued = apply_hr_retention_task(requested_by_id=maker.pk)
+        self.assertEqual(queued["disciplinary_queued"], 1)
+        from approvals.models import ApprovalRequest
+        approve_request(ApprovalRequest.objects.get(action="discipline.anonymize", status="PENDING"))
+        case.refresh_from_db()
         self.assertTrue(case.allegation_summary.startswith("Archived disciplinary case"))

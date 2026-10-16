@@ -1,3 +1,6 @@
+from tests.approval_helpers import (
+    approve_journal,
+)
 from datetime import date
 
 from django.contrib.auth import get_user_model
@@ -74,8 +77,7 @@ class JournalApprovalPageTests(TestCase):
         self.assertContains(response, self.journal.description)
 
     def test_approve_post_for_non_pending_journal_does_not_500(self):
-        self.journal.status = Journal.JournalStatus.APPROVED
-        self.journal.save(update_fields=["status"])
+        approve_journal(self.journal)
 
         response = self.client.post(
             reverse("accounting:journal_approve", kwargs={"pk": self.journal.pk}),

@@ -1,13 +1,18 @@
-from django.core.management.base import BaseCommand
+from django.core.management.base import BaseCommand, CommandError
+from django.contrib.auth import get_user_model
+from django.core.exceptions import PermissionDenied, ValidationError
+from approvals.access import selected_company
 
 from payroll.models import LeaveRequest
-from payroll.services.leave_allowance import process_leave_allowance_for_request
+from payroll.financial_approval_actions import request_leave_allowance_backfill
 
 
 class Command(BaseCommand):
-    help = "Process automatic leave allowances for approved leave requests."
+    help = "Queue independent financial approval for missing historical leave allowances."
 
     def add_arguments(self, parser):
+        parser.add_argument('--requested-by', type=int, help='Active company finance user submitting the corrections.')
+        parser.add_argument('--approval-key', help='New submission key prefix when revising a cancelled or rejected request.')
         parser.add_argument(
             "--leave-id",
             type=int,
@@ -38,7 +43,17 @@ class Command(BaseCommand):
         if options["leave_id"]:
             queryset = queryset.filter(pk=options["leave_id"])
 
-        processed = 0
+        actor = None
+        if not options['dry_run']:
+            if not options['requested_by']:
+                raise CommandError('--requested-by is required to queue financial corrections.')
+            try:
+                actor = get_user_model().objects.get(pk=options['requested_by'], is_active=True)
+                company = selected_company(actor)
+            except (get_user_model().DoesNotExist, PermissionDenied) as exc:
+                raise CommandError('Choose an active requester with a selected company.') from exc
+            queryset = queryset.filter(employee__company=company)
+        queued = 0
         skipped = 0
         for leave_request in queryset.order_by("created_at"):
             if options["dry_run"]:
@@ -47,11 +62,13 @@ class Command(BaseCommand):
                 )
                 continue
 
-            allowance = process_leave_allowance_for_request(
-                leave_request,
-                queue_email=not options["skip_email"],
-            )
-            if allowance is None:
+            try:
+                approval = request_leave_allowance_backfill(leave_request=leave_request, actor=actor,
+                    queue_email=not options['skip_email'],
+                    approval_key=f"{options['approval_key']}:{leave_request.pk}" if options['approval_key'] else None)
+            except (PermissionDenied, ValidationError) as exc:
+                raise CommandError(str(exc)) from exc
+            if approval is None:
                 skipped += 1
                 self.stdout.write(
                     self.style.WARNING(
@@ -60,10 +77,10 @@ class Command(BaseCommand):
                 )
                 continue
 
-            processed += 1
+            queued += 1
             self.stdout.write(
                 self.style.SUCCESS(
-                    f"Processed leave #{leave_request.pk}: allowance #{allowance.pk} amount={allowance.amount}"
+                    f"Queued leave #{leave_request.pk}: approval #{approval.pk}"
                 )
             )
 
@@ -72,6 +89,6 @@ class Command(BaseCommand):
         else:
             self.stdout.write(
                 self.style.SUCCESS(
-                    f"Processed {processed} leave allowance(s); skipped {skipped}."
+                    f"Queued {queued} leave allowance approval(s); skipped {skipped}."
                 )
             )
