@@ -28,3 +28,4 @@ class CompanyMembershipAdmin(admin.ModelAdmin):
     list_display = ("user", "company", "role", "is_default", "created_at")
     list_filter = ("role", "is_default", "company")
     search_fields = ("user__email", "company__name")
+    filter_horizontal = ("groups",)

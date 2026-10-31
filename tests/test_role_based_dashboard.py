@@ -344,7 +344,8 @@ class DashboardMetricsTests(TestCase):
             email="metrics-super@example.com", password="password123"
         )
         cls.superuser.company = cls.company
-        cls.superuser.save(update_fields=["company"])
+        cls.superuser.active_company = cls.company
+        cls.superuser.save(update_fields=["company", "active_company"])
 
         # Employee with full payroll setup (salary config + bank details)
         cls.ready_user = User.objects.create_user(

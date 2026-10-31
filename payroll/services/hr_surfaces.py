@@ -1,4 +1,11 @@
 """Shared company-scoped access for the HR product surfaces."""
+from __future__ import annotations
+
+from datetime import date
+from decimal import Decimal
+from typing import Any, Optional
+
+from django.db.models import QuerySet
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import transaction
 from company.utils import get_user_company
@@ -14,19 +21,19 @@ RESOURCES = {
 }
 
 
-def active_company(user):
+def active_company(user: Any) -> Any:
     company = get_user_company(user)
     if not user_in_company(user, company):
         raise PermissionDenied("Select a company you belong to.")
     return company
 
 
-def require_permission(user, company, permission):
+def require_permission(user: Any, company: Any, permission: str) -> None:
     if not has_company_permission(user, company, permission):
         raise PermissionDenied("You do not have permission for this company resource.")
 
 
-def timesheets_for(user):
+def timesheets_for(user: Any) -> QuerySet:
     company = active_company(user)
     rows = models.Timesheet.objects.filter(company=company, employee__company=company)
     if not (has_company_permission(user, company, "payroll.view_timesheet") or
@@ -36,7 +43,14 @@ def timesheets_for(user):
 
 
 @transaction.atomic
-def save_timesheet(*, actor, week_start=None, total_hours=None, notes="", pk=None):
+def save_timesheet(
+    *,
+    actor: Any,
+    week_start: Optional[date] = None,
+    total_hours: Optional[Decimal] = None,
+    notes: str = "",
+    pk: Optional[int] = None,
+) -> models.Timesheet:
     from payroll.services.timesheet_service import get_or_create_timesheet
     company = active_company(actor)
     if pk:

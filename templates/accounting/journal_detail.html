@@ -227,6 +227,14 @@
                 </button>
             </form>
             {% endif %}
+            {% if can_revoke_approval %}
+            <form method="post" action="{% url 'accounting:journal_revoke_approval' journal.pk %}" class="inline-flex flex-wrap gap-2">
+                {% csrf_token %}
+                <label class="sr-only" for="revocation-reason">Approval revocation reason</label>
+                <input id="revocation-reason" name="reason" required placeholder="Reason for revoking approval" class="rounded-md border border-secondary-300 px-3 py-2">
+                <button type="submit" class="rounded-md border border-warning-300 px-4 py-2 text-warning-700">Request approval revocation</button>
+            </form>
+            {% endif %}
             {% if can_reverse %}
             <a href="{% url 'accounting:journal_reversal_initiation' journal.pk %}" class="inline-flex items-center px-4 py-2 border border-warning-300 text-sm font-medium rounded-md text-warning-700 bg-warning-50 hover:bg-warning-100">
                 <i data-lucide="rotate-ccw" class="mr-2 h-4 w-4"></i>

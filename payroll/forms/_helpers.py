@@ -127,3 +127,37 @@ def _normalize_month_widget_data(args, kwargs, field_name):
         return (data, *args[1:]), kwargs
     kwargs["data"] = data
     return args, kwargs
+
+
+def scope_choice_fields_to_company(form, company):
+    """Limit every model-choice field on ``form`` to ``company``'s rows.
+
+    A field's queryset is filtered on the first of ``company``,
+    ``employee__company`` or ``employee_id__company`` its model has; with no
+    company every choice is removed. Stops a posted id from attaching another
+    tenant's employee, IOU or leave request.
+    """
+    for field in form.fields.values():
+        queryset = getattr(field, "queryset", None)
+        if queryset is None:
+            continue
+        if company is None:
+            field.queryset = queryset.none()
+            continue
+        names = {f.name for f in queryset.model._meta.get_fields()}
+        for path, owner in (
+            ("company", "company"),
+            ("employee__company", "employee"),
+            ("employee_id__company", "employee_id"),
+        ):
+            if owner in names:
+                field.queryset = queryset.filter(**{path: company})
+                break
+
+
+class CompanyScopedModelForm(forms.ModelForm):
+    """ModelForm whose choice fields only offer the given company's rows."""
+
+    def __init__(self, *args, company=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        scope_choice_fields_to_company(self, company)

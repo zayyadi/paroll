@@ -513,6 +513,8 @@ urlpatterns = [
     path("offboarding/<int:pk>/", views.offboarding_detail, name="offboarding_detail"),
     path("offboarding/<int:pk>/task/<int:task_id>/complete/", views.offboarding_task_complete, name="offboarding_task_complete"),
     path("offboarding/<int:pk>/settlement/", views.offboarding_calculate_settlement, name="offboarding_settlement"),
+    path("offboarding/<int:pk>/settlement/edit/", views.offboarding_settlement_edit, name="offboarding_settlement_edit"),
+    path("offboarding/<int:pk>/settlement/submit/", views.offboarding_settlement_submit, name="offboarding_settlement_submit"),
     path("offboarding/<int:pk>/complete/", views.offboarding_complete, name="offboarding_complete"),
     # Overtime
     path("overtime/policy/", views.overtime_policy_form, name="overtime_policy"),

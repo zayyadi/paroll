@@ -436,8 +436,10 @@ class AttendanceViewTests(TestCase):
         _approved_leave(
             employee=self.employee_profile,
             leave_type="ANNUAL",
-            start_date=date.today(),
-            end_date=date.today(),
+            # Five days around today always include working days, so the
+            # leave is valid even when the suite runs on a weekend.
+            start_date=date.today() - timezone.timedelta(days=2),
+            end_date=date.today() + timezone.timedelta(days=2),
             reason="Out today",
         )
 

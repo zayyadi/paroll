@@ -41,6 +41,11 @@ class AddDeduction(PermissionRequiredMixin, CreateView):
     )  # Redirect to HR dashboard or a list of deductions
     permission_required = "payroll.add_deduction"
 
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["company"] = get_user_company(self.request.user)
+        return kwargs
+
     def dispatch(self, request, *args, **kwargs):
         # Check if user can modify payroll data (auditors have view-only access)
         if not can_modify_payroll_data(request.user):

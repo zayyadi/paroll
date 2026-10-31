@@ -442,3 +442,28 @@ class RentDeclarationForm(forms.ModelForm):
         if not current - 1 <= tax_year <= current:
             raise forms.ValidationError("Declare rent for this year or last year.")
         return tax_year
+
+
+class ExitSettlementForm(forms.ModelForm):
+    """HR-entered amounts on a draft exit settlement. Computed amounts (final
+    salary, leave encashment, IOU and asset recovery, PAYE) are not editable."""
+
+    class Meta:
+        model = models.ExitSettlement
+        fields = [
+            "gratuity",
+            "loss_of_office_compensation",
+            "other_payables",
+            "other_receivables",
+            "notes",
+        ]
+        labels = {
+            "loss_of_office_compensation": "Compensation for loss of office",
+            "other_payables": "Other payables (bonus, commission)",
+            "other_receivables": "Other deductions (damages, advances)",
+        }
+        widgets = {"notes": forms.Textarea(attrs={"rows": 3})}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        _apply_standard_widget_classes(self.fields)

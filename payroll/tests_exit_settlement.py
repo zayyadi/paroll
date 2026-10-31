@@ -351,3 +351,90 @@ class ExitTaxTests(ExitSettlementFixture):
         debits = sum((e.amount for e in journal.entries.filter(entry_type="DEBIT")), Decimal("0"))
         credits = sum((e.amount for e in journal.entries.filter(entry_type="CREDIT")), Decimal("0"))
         self.assertEqual(debits, credits)
+
+
+class SettlementScreenTests(ExitSettlementFixture):
+    """HR builds, edits and submits the settlement from the offboarding page."""
+
+    def setUp(self):
+        super().setUp()
+        from django.urls import reverse
+
+        self.officer = approval_user(
+            self.company,
+            [
+                "payroll.change_exitsettlement",
+                "payroll.change_employeeprofile",
+                "payroll.view_employeeprofile",
+            ],
+        )
+        self.officer.set_password("pw")
+        self.officer.save()
+        # The approval engine only accepts submissions from the initiator.
+        self.checklist.initiated_by = self.officer
+        self.checklist.save(update_fields=["initiated_by"])
+        self.client.login(email=self.officer.email, password="pw")
+        self.detail_url = reverse("payroll:offboarding_detail", args=[self.checklist.pk])
+        self.calculate_url = reverse("payroll:offboarding_settlement", args=[self.checklist.pk])
+        self.edit_url = reverse("payroll:offboarding_settlement_edit", args=[self.checklist.pk])
+        self.submit_url = reverse("payroll:offboarding_settlement_submit", args=[self.checklist.pk])
+
+    def _edit(self, **amounts):
+        data = {
+            "gratuity": "0",
+            "loss_of_office_compensation": "0",
+            "other_payables": "0",
+            "other_receivables": "0",
+            "notes": "",
+        }
+        data.update(amounts)
+        return self.client.post(self.edit_url, data)
+
+    def test_calculate_builds_the_statement(self):
+        self.client.post(self.calculate_url)
+
+        settlement = ExitSettlement.objects.get(checklist=self.checklist)
+        self.assertEqual(settlement.final_month_salary, Decimal("480000.00"))
+        response = self.client.get(self.detail_url)
+        self.assertContains(response, "Exit Settlement")
+        self.assertContains(response, "Save amounts")
+
+    def test_saving_gratuity_recomputes_paye(self):
+        self.client.post(self.calculate_url)
+        self._edit(gratuity="1000000", loss_of_office_compensation="55000000")
+
+        settlement = ExitSettlement.objects.get(checklist=self.checklist)
+        self.assertEqual(settlement.gratuity, Decimal("1000000.00"))
+        self.assertEqual(settlement.paye_on_exit, Decimal("1360800.00"))
+
+    def test_submitted_settlement_is_locked_until_decided(self):
+        self.client.post(self.calculate_url)
+        self.client.post(self.submit_url)
+        self._edit(gratuity="999")
+
+        settlement = ExitSettlement.objects.get(checklist=self.checklist)
+        self.assertEqual(settlement.gratuity, Decimal("0.00"))
+        response = self.client.get(self.detail_url)
+        self.assertContains(response, "Awaiting approval")
+        self.assertNotContains(response, "Save amounts")
+
+    def test_edit_needs_settlement_permission(self):
+        self.client.post(self.calculate_url)
+        viewer = approval_user(self.company, ["payroll.view_employeeprofile"])
+        viewer.set_password("pw")
+        viewer.save()
+        self.client.login(email=viewer.email, password="pw")
+
+        self.assertEqual(self._edit(gratuity="1").status_code, 403)
+
+    def test_task_complete_marks_the_task_done(self):
+        from django.urls import reverse
+
+        from payroll.models.workforce import OffboardingTask
+
+        task = OffboardingTask.objects.create(checklist=self.checklist, title="Return laptop")
+        self.client.post(
+            reverse("payroll:offboarding_task_complete", args=[self.checklist.pk, task.pk])
+        )
+        task.refresh_from_db()
+        self.assertTrue(task.is_completed)

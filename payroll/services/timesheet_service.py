@@ -201,7 +201,9 @@ def unapproved_hours_in_period(
     return unapproved
 
 
-def payable_week_starts(employee, period_start, period_end):
+def payable_week_starts(
+    employee: Any, period_start: date, period_end: date
+) -> set[date] | None:
     """None means approval is optional; otherwise return certified weeks only.
 
     Fixed salary and absence deductions are not hourly earnings. This filter

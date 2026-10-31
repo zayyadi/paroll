@@ -1,4 +1,5 @@
 {% extends "base_new.html" %}
+{% load approval_workflow %}
 {% load hr_approval_controls %}
 {% block content %}
 <div class="max-w-7xl mx-auto px-4 py-8">
@@ -45,6 +46,7 @@
             {% endif %}
           </td>
         </tr>
+        <tr><td colspan="6">{% approval_workflow e collapsed=True %}</td></tr>
         {% empty %}
         <tr><td colspan="6" class="px-6 py-4 text-center text-gray-500">No overtime entries.</td></tr>
         {% endfor %}

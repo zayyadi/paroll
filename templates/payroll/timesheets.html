@@ -1,4 +1,5 @@
 {% extends "base_new.html" %}
+{% load approval_workflow %}
 {% block content %}<div class="max-w-7xl mx-auto p-6 space-y-6">
 <h1 class="text-2xl font-bold">Timesheets</h1>
 <p>Save a week starting on Monday, then submit it for independent approval. Saving an existing draft updates its hours.</p>
@@ -11,7 +12,7 @@
 {% if sheet.status == 'submitted' %}<button name="action" value="withdraw">Withdraw</button>{% endif %}
 {% endif %}
 {% if sheet.can_decide %}<input name="comment" aria-label="Decision comment (required for rejection)"><button name="action" value="approve">Approve</button><button name="action" value="reject">Reject</button>{% endif %}
-</form></td></tr>{% empty %}<tr><td colspan="5">No timesheets yet.</td></tr>{% endfor %}
+</form></td></tr><tr><td colspan="5">{% approval_workflow sheet collapsed=True %}</td></tr>{% empty %}<tr><td colspan="5">No timesheets yet.</td></tr>{% endfor %}
 </tbody></table>
 {% include "payroll/_hr_pagination.html" with page=sheets %}
 </div>{% endblock %}

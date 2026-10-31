@@ -74,6 +74,8 @@ class StandupTaskTests(TestCase):
             name="Backend Daily",
             slug="backend-daily",
             timezone_name="UTC",
+            # Daily, so the tasks run regardless of the weekday the suite runs on.
+            cadence=StandupTeam.CADENCE_DAILY,
             reminder_time=self.current_time,
             deadline_time=self.current_time,
         )

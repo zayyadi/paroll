@@ -15,11 +15,25 @@ def journal_beneficiaries(source):
 
 
 def journal_snapshot(source):
-    return {'id':source.pk,'company_id':source.company_id,'date':source.date,'period_id':source.period_id,
+    snapshot = {'id':source.pk,'company_id':source.company_id,'date':source.date,'period_id':source.period_id,
             'description':source.description,'created_by_id':source.created_by_id,
             'content_type_id':source.content_type_id,'object_id':source.object_id,
             'beneficiary_ids': journal_beneficiaries(source),
             'entries':list(source.entries.order_by('pk').values('id','account_id','account__name','account__account_number','entry_type','amount','memo'))}
+    # Preserve existing request hashes until a revocation actually occurs.
+    from approvals.models import ApprovalRequest
+    from django.contrib.contenttypes.models import ContentType
+    revision = ApprovalRequest.objects.filter(
+        company=source.company, content_type=ContentType.objects.get_for_model(source),
+        object_id=source.pk, action='journal.revoke_approval', status='APPROVED',
+    ).order_by('-pk').values_list('pk', flat=True).first()
+    execution = current_execution()
+    if (execution and execution.action == 'journal.revoke_approval'
+            and execution.object_id == source.pk and execution.company_id == source.company_id):
+        revision = execution.pk
+    if revision:
+        snapshot['approval_revision_id'] = revision
+    return snapshot
 
 
 def validate_journal(source, payload):
@@ -42,6 +56,46 @@ register_action(ApprovalAction(
     apply=apply_journal, reject=reject_journal, validate=validate_journal, snapshot=journal_snapshot,
     requester=lambda source:source.created_by, beneficiaries=journal_beneficiaries,
     amount=lambda source,payload: source.entries.filter(entry_type='DEBIT').aggregate(total=Sum('amount'))['total'],
+))
+
+
+def revocation_snapshot(source):
+    return {**journal_snapshot(source), 'approval_grant_id': source.approval_request_id,
+            'approved_by_id': source.approved_by_id, 'approved_at': source.approved_at}
+
+
+def validate_revocation(source, payload):
+    if source.status != models.Journal.JournalStatus.APPROVED:
+        raise ValidationError('Only approved, unposted journals can have approval revoked.')
+    reason = payload.get('reason')
+    if not isinstance(reason, str) or not reason.strip():
+        raise ValidationError('An approval revocation reason is required.')
+
+
+def apply_revocation(source, actor, payload):
+    from approvals.guards import require_approved_context
+    from approvals.services import _event
+    require_approved_context(source, 'journal.revoke_approval')
+    original_grant = source.approval_request_id
+    source.status = models.Journal.JournalStatus.DRAFT
+    source.approval_request = None
+    source.approved_by = None
+    source.approved_at = None
+    source.save(update_fields=['status', 'approval_request', 'approved_by', 'approved_at', 'updated_at'])
+    _event(current_execution(), actor, 'APPROVAL_REVOKED',
+           original_approval_id=original_grant, reason=payload['reason'])
+    models.AccountingAuditTrail.log_action(
+        user=actor, action=models.AccountingAuditTrail.ActionType.UPDATE, instance=source,
+        reason=f"Approval revoked; returned to Draft. {payload['reason']}",
+    )
+
+
+register_action(ApprovalAction(
+    key='journal.revoke_approval', model_label='accounting.Journal',
+    permission='accounting.change_journal', apply=apply_revocation,
+    validate=validate_revocation, snapshot=revocation_snapshot,
+    requester=lambda source: source.created_by, beneficiaries=journal_beneficiaries,
+    amount=lambda source, payload: source.entries.filter(entry_type='DEBIT').aggregate(total=Sum('amount'))['total'],
 ))
 
 # Parameter proposals bind amounts, source references and reasons before these public effects.

@@ -45,6 +45,16 @@ class CompanyMembership(models.Model):
         related_name="memberships",
     )
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default=ROLE_MEMBER)
+    groups = models.ManyToManyField(
+        "auth.Group",
+        blank=True,
+        related_name="company_memberships",
+        help_text=(
+            "Permission groups the user holds in this company. When empty, the "
+            "user's own groups apply in their primary company, and owners and "
+            "admins get the Admin group elsewhere."
+        ),
+    )
     is_default = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
