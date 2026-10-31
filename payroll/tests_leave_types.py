@@ -267,3 +267,48 @@ class PendingHRStateTests(LeaveTypeFixture):
         leave.save(update_fields=["status"])
         with self.assertRaises(VE):
             overlap_probe().full_clean()
+
+
+class LeaveWorkingDayTests(LeaveTypeFixture):
+    """Leave must cover at least one working day.
+
+    A weekend-only request deducts nothing, so it used to pass validation and
+    then fail at approval with the ledger's "non-zero number of days" error.
+    """
+
+    SATURDAY = date(2026, 6, 6)
+    SUNDAY = date(2026, 6, 7)
+    MONDAY = date(2026, 6, 8)
+
+    def test_weekend_only_leave_is_rejected_at_submission(self):
+        with self.assertRaisesMessage(ValidationError, "at least one working day"):
+            self._leave(start_date=self.SATURDAY, end_date=self.SUNDAY)
+        self.assertFalse(LeaveRequest.objects.exists())
+
+    def test_half_day_on_a_weekend_is_rejected(self):
+        with self.assertRaisesMessage(ValidationError, "at least one working day"):
+            self._leave(
+                leave_type="CASUAL",
+                start_date=self.SATURDAY,
+                end_date=self.SATURDAY,
+                is_half_day=True,
+            )
+
+    def test_leave_spanning_a_weekend_counts_only_working_days(self):
+        leave = self._leave(start_date=self.SATURDAY, end_date=self.MONDAY)
+        self.assertEqual(leave.duration, 1)
+
+    def test_leave_form_reports_the_error_on_the_form(self):
+        from payroll.forms.leave_forms import LeaveRequestForm
+
+        form = LeaveRequestForm(
+            {
+                "leave_type": "ANNUAL",
+                "start_date": self.SATURDAY.isoformat(),
+                "end_date": self.SUNDAY.isoformat(),
+                "reason": "Weekend trip",
+            },
+            employee=self.employee,
+        )
+        self.assertFalse(form.is_valid())
+        self.assertIn("at least one working day", str(form.errors))

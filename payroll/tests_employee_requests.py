@@ -220,8 +220,8 @@ class EmployeeRequestAccessTests(TestCase):
         request = LeaveRequest.objects.create(
             employee=self.other_employee,
             leave_type="ANNUAL",
-            start_date=date(2026, 8, 1),
-            end_date=date(2026, 8, 1),
+            start_date=date(2026, 8, 4),
+            end_date=date(2026, 8, 4),
             reason="Needs approval",
         )
 
