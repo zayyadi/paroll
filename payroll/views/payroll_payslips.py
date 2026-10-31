@@ -32,7 +32,10 @@ CACHE_TTL = getattr(settings, "CACHE_TTL", DEFAULT_TIMEOUT)
 logger = logging.getLogger(__name__)
 from payroll.models import PayslipEmailJob, PayrollEntry
 from payroll.forms import PayrollRunForm, PayrollRunCreateForm, PayrollEntryCreateForm
-from payroll.services.payslips import resolve_payslip_run_entry
+from payroll.services.payslips import (
+    can_view_payslip,
+    resolve_payslip_run_entry,
+)
 from users.email_backend import send_mail as custom_send_mail
 from core.settings import DEFAULT_FROM_EMAIL
 import io
@@ -181,7 +184,7 @@ def list_payslip(request, emp_slug):
         or request.user.has_perm("payroll.view_payroll")
         or is_auditor(request.user)
     ):
-        raise HttpResponseForbidden("You are not authorized to view this payslip.")
+        return HttpResponseForbidden("You are not authorized to view this payslip.")
 
     pay = PayrollRunEntry.objects.filter(
         payroll_entry__pays__slug=emp_slug,
@@ -238,14 +241,9 @@ def payslip_detail(request, id):
     pay_id = resolve_payslip_run_entry(id)
     if pay_id is None:
         raise Http404("No PayrollRunEntry matches the given query.")
-    target_employee_user = pay_id.payroll_entry.pays.user
 
     # Enforce object-level access to prevent horizontal privilege escalation.
-    if not (
-        request.user == target_employee_user
-        or request.user.has_perm("payroll.view_payroll")
-        or is_auditor(request.user)
-    ):
+    if not can_view_payslip(request.user, pay_id):
         return HttpResponseForbidden("You are not authorized to view this payslip.")
 
     num2word = utils.format_currency_words_with_kobo(pay_id.payroll_entry.netpay)

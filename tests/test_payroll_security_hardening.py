@@ -77,6 +77,49 @@ class PayrollSecurityHardeningTests(TestCase):
         )
         self.assertEqual(response.status_code, 403)
 
+    def _cross_tenant_payroll_viewer(self):
+        from django.contrib.auth.models import Permission
+
+        other_company = Company.objects.create(name="Tenant B")
+        viewer = self.User.objects.create_user(
+            email="hr-b@example.com",
+            first_name="Hr",
+            last_name="B",
+            password="StrongPass123!",
+            company=other_company,
+            active_company=other_company,
+        )
+        viewer.user_permissions.add(Permission.objects.get(codename="view_payroll"))
+        return viewer
+
+    def test_payslip_detail_blocks_payroll_viewer_from_other_company(self):
+        viewer = self._cross_tenant_payroll_viewer()
+        self.client.login(email=viewer.email, password="StrongPass123!")
+        response = self.client.get(
+            reverse("payroll:payslip", kwargs={"id": self.run_entry.id})
+        )
+        self.assertEqual(response.status_code, 403)
+
+    def test_payslip_pdf_blocks_payroll_viewer_from_other_company(self):
+        viewer = self._cross_tenant_payroll_viewer()
+        self.client.login(email=viewer.email, password="StrongPass123!")
+        response = self.client.get(
+            reverse("payroll:payslip_pdf", kwargs={"id": self.run_entry.id})
+        )
+        self.assertEqual(response.status_code, 403)
+
+    def test_payslip_detail_allows_payroll_viewer_in_same_company(self):
+        from django.contrib.auth.models import Permission
+
+        self.other_user.user_permissions.add(
+            Permission.objects.get(codename="view_payroll")
+        )
+        self.client.login(email=self.other_user.email, password="StrongPass123!")
+        response = self.client.get(
+            reverse("payroll:payslip", kwargs={"id": self.run_entry.id})
+        )
+        self.assertEqual(response.status_code, 200)
+
     def test_request_iou_requires_login(self):
         response = self.client.get(reverse("payroll:request_iou"))
         self.assertEqual(response.status_code, 302)

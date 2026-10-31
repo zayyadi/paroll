@@ -23,7 +23,10 @@ from payroll.models import (
 from payroll import utils
 from company.utils import get_user_company
 from accounting.permissions import is_auditor
-from payroll.services.payslips import resolve_payslip_run_entry
+from payroll.services.payslips import (
+    can_view_payslip,
+    resolve_payslip_run_entry,
+)
 from payroll.services.employee_data_export import _simple_pdf
 from payroll.services.compliance import compliance_summary
 from payroll.views.payroll_helpers import payroll_runs_distinct_by_period
@@ -67,12 +70,7 @@ def payslip(request, id):
     pay_id = resolve_payslip_run_entry(id)
     if pay_id is None:
         raise Http404("No PayrollRunEntry matches the given query.")
-    target_employee_user = pay_id.payroll_entry.pays.user
-    if not (
-        request.user == target_employee_user
-        or request.user.has_perm("payroll.view_payroll")
-        or is_auditor(request.user)
-    ):
+    if not can_view_payslip(request.user, pay_id):
         return HttpResponseForbidden("You are not authorized to view this payslip.")
 
     num2word = utils.format_currency_words_with_kobo(pay_id.payroll_entry.netpay)
@@ -194,12 +192,7 @@ def payslip_pdf(request, id):
     if pay_id is None:
         raise Http404("No PayrollRunEntry matches the given query.")
 
-    target_employee_profile = pay_id.payroll_entry.pays
-    if not (
-        request.user == target_employee_profile.user
-        or request.user.has_perm("payroll.view_payroll")
-        or is_auditor(request.user)
-    ):
+    if not can_view_payslip(request.user, pay_id):
         return HttpResponseForbidden("You are not authorized to view this payslip PDF.")
 
     payroll_entry = pay_id.payroll_entry
