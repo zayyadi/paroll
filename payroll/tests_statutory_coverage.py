@@ -126,17 +126,17 @@ class MonthlyAmountTests(StatutoryCoverageFixture):
             (self.config.pension / Decimal("12")).quantize(Decimal("0.01")),
         )
 
-    def test_nhf_amount_is_monthly_stored_field(self):
+    def test_nhf_amount_is_annual_divided_by_twelve(self):
         amounts = compliance.period_remittance_amounts(self.company, self.run)
-        self.assertEqual(amounts["nhf"], self.config.nhf)
+        self.assertEqual(amounts["nhf"], (self.config.nhf / Decimal("12")).quantize(Decimal("0.01")))
         self.assertGreater(amounts["nhf"], 0)
 
-    def test_nhia_amount_is_monthly_stored_field(self):
+    def test_nhia_amount_is_annual_divided_by_twelve(self):
         amounts = compliance.period_remittance_amounts(self.company, self.run)
-        self.assertEqual(amounts["nhia"], self.config.nhif)
+        self.assertEqual(amounts["nhia"], (self.config.nhif / Decimal("12")).quantize(Decimal("0.01")))
         self.assertGreater(amounts["nhia"], 0)
 
-    def test_nsitf_amount_is_one_percent_of_monthly_basic(self):
+    def test_nsitf_amount_is_one_percent_of_monthly_gross(self):
         amounts = compliance.period_remittance_amounts(self.company, self.run)
         self.assertEqual(amounts["nsitf"], Decimal("1200.00"))
 
@@ -196,8 +196,8 @@ class OverduePenaltyTests(StatutoryCoverageFixture):
         pension = self._by_key(self._obligations(date(2026, 8, 1)), "pension")
         self.assertEqual(pension["status"], "overdue")
         self.assertEqual(pension["penalty"]["rate"], "2% per month")
-        # 21,600 x 2% x 2 months (Jun 10 -> Aug 1 = 52 days -> ceil/30).
-        self.assertEqual(pension["penalty"]["amount"], Decimal("864.00"))
+        # 12,960 x 2% x 2 months (Jun 10 -> Aug 1 = 52 days -> ceil/30).
+        self.assertEqual(pension["penalty"]["amount"], Decimal("518.40"))
 
     def test_nhf_overdue_penalty_is_note_only(self):
         nhf = self._by_key(self._obligations(date(2026, 8, 1)), "nhf")
@@ -315,6 +315,7 @@ class ObligationAmountMatchesStoredFieldTests(StatutoryCoverageFixture):
             by_key["pension"]["amount"],
             (config.pension / Decimal("12")).quantize(Decimal("0.01")),
         )
-        self.assertEqual(by_key["nhf"]["amount"], config.nhf)
-        self.assertEqual(by_key["nhia"]["amount"], config.nhif)
-        self.assertEqual(by_key["nsitf"]["amount"], config.nsitf)
+        monthly = lambda value: (value / Decimal("12")).quantize(Decimal("0.01"))
+        self.assertEqual(by_key["nhf"]["amount"], monthly(config.nhf))
+        self.assertEqual(by_key["nhia"]["amount"], monthly(config.nhif))
+        self.assertEqual(by_key["nsitf"]["amount"], monthly(config.nsitf))

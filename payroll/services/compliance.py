@@ -45,6 +45,7 @@ from payroll.models import (
     PublicHoliday,
     RemittanceRecord,
 )
+from payroll.services.payroll_calc import annual_to_monthly
 
 # ---------------------------------------------------------------------------
 # Obligation definitions
@@ -250,8 +251,8 @@ def period_remittance_amounts(company: Any, run: Any) -> dict:
     """
     Monthly remittance amounts for a pay run.
 
-    Stored-field conventions: ``payee``, ``nhf`` and ``nhif`` are monthly;
-    ``pension`` is annual (basic x 12 x rate) and is divided by 12.
+    Stored-field conventions (see ``Payroll``): ``payee`` is monthly; the
+    other figures are annual and are divided by 12.
     """
     cents = Decimal("0.01")
     aggregate = PayrollRunEntry.objects.filter(
@@ -266,10 +267,10 @@ def period_remittance_amounts(company: Any, run: Any) -> dict:
     )
     return {
         "paye": _decimal(aggregate["payee"]).quantize(cents),
-        "pension": (_decimal(aggregate["pension"]) / Decimal("12")).quantize(cents),
-        "nhf": _decimal(aggregate["nhf"]).quantize(cents),
-        "nhia": _decimal(aggregate["nhia"]).quantize(cents),
-        "nsitf": _decimal(aggregate["nsitf"]).quantize(cents),
+        "pension": annual_to_monthly(aggregate["pension"]).quantize(cents),
+        "nhf": annual_to_monthly(aggregate["nhf"]).quantize(cents),
+        "nhia": annual_to_monthly(aggregate["nhia"]).quantize(cents),
+        "nsitf": annual_to_monthly(aggregate["nsitf"]).quantize(cents),
     }
 
 

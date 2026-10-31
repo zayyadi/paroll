@@ -483,17 +483,18 @@ class PayrollDashboardCostSummaryTests(TestCase):
         self.client.force_login(self.user)
 
     def test_dashboard_shows_employer_cost_vs_net_pay(self):
-        # One employee at 120,000 basic: monthly gross 72,000, net pay 55,640
-        # (PAYE 6,560 + employee pension 9,600 + water 200), employer cost
-        # 85,200 (gross + employer pension 12,000 + NSITF 1,200).
+        # One employee at 120,000 monthly gross: net pay 106,904 (PAYE 7,136
+        # + employee pension 5,760 + water 200), employer cost 128,400
+        # (gross + employer pension 7,200 + NSITF 1,200). Pension is on
+        # basic + housing + transport (72,000 a month).
         response = self.client.get(reverse("payroll:dashboard"))
         self.assertEqual(response.status_code, 200)
         content = response.content.decode()
         self.assertIn("Cost of employment", content)
-        self.assertIn("₦85,200", content)
-        self.assertIn("₦55,640", content)
+        self.assertIn("₦128,400", content)
+        self.assertIn("₦106,904", content)
         self.assertIn("Pension (ER)", content)
-        self.assertIn("₦12,000", content)
+        self.assertIn("₦7,200", content)
         self.assertIn("NSITF", content)
         self.assertIn("₦1,200", content)
 
@@ -507,10 +508,10 @@ class PayrollDashboardCostSummaryTests(TestCase):
         response = self.client.get(reverse("payroll:dashboard"))
         self.assertEqual(response.status_code, 200)
         content = response.content.decode()
-        # ITF = 1% of 864,000 annual gross / 12 = 720 per month; employer
-        # cost rises from 85,200 to 85,920.
-        self.assertIn("₦720", content)
-        self.assertIn("₦85,920", content)
+        # ITF = 1% of 1,440,000 annual gross / 12 = 1,200 per month; employer
+        # cost rises from 128,400 to 129,600.
+        self.assertIn("ITF", content)
+        self.assertIn("₦129,600", content)
 
 
 class PayrollDashboardComplianceSummaryTests(TestCase):
@@ -560,8 +561,8 @@ class PayrollDashboardComplianceSummaryTests(TestCase):
         content = response.content.decode()
         self.assertIn("Statutory compliance", content)
         # PAYE + pension + NSITF + the annual return are overdue. The exposed
-        # amount is PAYE 6,560 + pension 21,600 + NSITF 1,200 = 29,360.
-        self.assertIn("4 remittances · ₦29,360 exposed", content)
+        # amount is PAYE 7,136 + pension 12,960 + NSITF 1,200 = 21,296.
+        self.assertIn("4 remittances · ₦21,296 exposed", content)
         self.assertIn("All remaining items are overdue.", content)
 
     def test_dashboard_shows_next_due(self):

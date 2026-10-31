@@ -198,8 +198,15 @@ def get_basic(self):
     )
 
 
+def bht_income(self):
+    """Annual basic + housing + transport: the PRA 2014 pension base."""
+    return get_transport(self) + get_housing(self) + get_basic(self)
+
+
 def gross_income(self):
-    gi = get_transport(self) + get_housing(self) + get_basic(self)
+    """Annual gross emoluments (monthly gross x 12), including the part of
+    gross not split into basic/housing/transport (other allowances)."""
+    gi = Decimal(self.get_annual_gross)
     logger.debug("gross_income=%s", gi)
     return gi
 
@@ -219,7 +226,7 @@ def get_pension_employee(self, as_of=None):
     percentage = _pension_percentage(
         self, "pension_employee_percentage", DEFAULT_PENSION_EMPLOYEE_PERCENTAGE, as_of
     )
-    pension = calculate_percentage(self.get_annual_gross, percentage)
+    pension = calculate_percentage(bht_income(self), percentage)
     logger.debug("pension_employee=%s", pension)
     return pension
 
@@ -228,7 +235,7 @@ def get_pension_employer(self, as_of=None):
     percentage = _pension_percentage(
         self, "pension_employer_percentage", DEFAULT_PENSION_EMPLOYER_PERCENTAGE, as_of
     )
-    return calculate_percentage(self.get_annual_gross, percentage)
+    return calculate_percentage(bht_income(self), percentage)
 
 
 def get_pension(self, as_of=None):
@@ -301,16 +308,14 @@ def _get_health_percentages(self) -> tuple[Decimal, Decimal]:
 
 
 def _health_contribution_base(self, basis: str) -> Decimal:
-    """Monthly base the NHIA percentage applies to for the given basis."""
+    """Monthly base the NHIA percentage applies to for the given basis:
+    monthly basic, or monthly consolidated (basic + housing + transport)."""
     if basis == "consolidated":
-        annual_gross = getattr(self, "gross_income", None)
-        if annual_gross is None:
-            annual_gross = getattr(self, "get_gross_income", Decimal("0")) or Decimal("0")
-        return Decimal(annual_gross) / Decimal("12")
-    return Decimal(getattr(self, "basic_salary", Decimal("0")) or Decimal("0"))
+        return bht_income(self) / Decimal("12")
+    return get_basic(self) / Decimal("12")
 
 
-def calc_employee_health_contrib(self) -> Decimal:
+def _monthly_employee_health(self) -> Decimal:
     if not self.is_nhif:
         return Decimal(0.0)
 
@@ -327,7 +332,12 @@ def calc_employee_health_contrib(self) -> Decimal:
     return employee_contrib
 
 
-def calc_employer_health_contrib(self) -> Decimal:
+def calc_employee_health_contrib(self) -> Decimal:
+    """Annual employee NHIA contribution."""
+    return _monthly_employee_health(self) * Decimal("12")
+
+
+def _monthly_employer_health(self) -> Decimal:
     if not self.is_nhif:
         return Decimal(0.0)
 
@@ -339,6 +349,11 @@ def calc_employer_health_contrib(self) -> Decimal:
         # Employer tops the negotiated premium up to the employee's statutory share.
         return max(premium - employee_contrib, Decimal("0.00"))
     return base * employer_percentage / Decimal("100")
+
+
+def calc_employer_health_contrib(self) -> Decimal:
+    """Annual employer NHIA contribution."""
+    return _monthly_employer_health(self) * Decimal("12")
 
 
 def calc_health_contrib(self) -> Decimal:
@@ -353,10 +368,10 @@ def _employer_levy_applies(self, field_name: str, default: bool) -> bool:
 
 
 def get_nsitf(self) -> Decimal:
-    """NSITF Employees' Compensation: 1% of monthly basic, employer-paid."""
+    """NSITF Employees' Compensation: 1% of annual gross, employer-paid."""
     if not _employer_levy_applies(self, "nsitf_applicable", True):
         return Decimal("0.00")
-    return self.basic_salary * Decimal("1") / Decimal("100")
+    return Decimal(self.get_annual_gross) * Decimal("1") / Decimal("100")
 
 
 def get_itf(self) -> Decimal:
@@ -370,9 +385,8 @@ def monthly_cost_breakdown(config) -> dict:
     """
     Monthly employer-vs-employee cost figures for one pay config.
 
-    Conventions match the Cost of Employment report: annual stored fields
-    (gross, pension, NHF, NHIA, ITF) are divided by 12; PAYE and water are
-    monthly; NSITF is 1% of monthly basic. Employer cost = gross + all
+    Stored fields are annual except PAYE and water (see ``Payroll``), so
+    every other row is divided by 12. Employer cost = gross + all
     employer-funded levies (pension, NHIA, NSITF, ITF).
 
     All annual→monthly divisions and the employee net route through the
@@ -395,16 +409,16 @@ def monthly_cost_breakdown(config) -> dict:
     employee_water = Decimal(config.water_rate or 0).quantize(cents)
     calc = monthly_net_pay(
         gross_annual=gross * 12,
+        pension_employee_annual=employee_pension * 12,
         employee_health_annual=employee_nhia * 12,
         nhf_annual=employee_nhf * 12,
         payee_monthly=employee_paye,
         water_monthly=employee_water,
-        deductions_monthly=employee_pension,
     )
     net_pay = calc["net"].quantize(cents)
     employer_pension = annual_to_monthly(config.pension_employer).quantize(cents)
     employer_nhia = annual_to_monthly(config.emplyr_health).quantize(cents)
-    employer_nsitf = Decimal(config.nsitf or 0).quantize(cents)
+    employer_nsitf = annual_to_monthly(config.nsitf).quantize(cents)
     employer_itf = annual_to_monthly(config.itf).quantize(cents)
     employer_cost = (
         gross + employer_pension + employer_nhia + employer_nsitf + employer_itf
@@ -584,8 +598,8 @@ def get_net_pay(self):
     """
     Calculates the net pay for an employee.
 
-    Note: This function assumes that get_gross_income returns an annual value
-    and divides it by 12 to get the monthly gross income.
+    Reads the config's stored annual figures (see ``Payroll``) and returns
+    the monthly net.
 
     The arithmetic is delegated to the canonical
     ``payroll.services.payroll_calc.monthly_net_pay``; this wrapper only
@@ -608,6 +622,9 @@ def get_net_pay(self):
     if annual_gross <= 0:
         annual_gross = gross_income(payroll)
 
+    pension_employee = Decimal(
+        getattr(payroll, "pension_employee", Decimal("0.00")) or Decimal("0.00")
+    )
     employee_health = Decimal(
         getattr(payroll, "employee_health", Decimal("0.00")) or Decimal("0.00")
     )
@@ -621,6 +638,7 @@ def get_net_pay(self):
 
     return monthly_net_pay(
         gross_annual=annual_gross,
+        pension_employee_annual=pension_employee,
         employee_health_annual=employee_health,
         nhf_annual=nhf,
         payee_monthly=payee,

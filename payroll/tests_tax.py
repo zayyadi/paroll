@@ -102,32 +102,35 @@ class NigeriaTaxComputationTests(TestCase):
             basic_salary=Decimal("400000"),
             annual_gross=Decimal("4800000"),
         )
-        self.assertEqual(utils.calc_employee_health_contrib(payroll), Decimal("20000"))
-        self.assertEqual(utils.calc_employer_health_contrib(payroll), Decimal("40000"))
-        self.assertEqual(utils.calc_health_contrib(payroll), Decimal("60000"))
+        # Basic is 40% of gross: 160,000 a month. NHIA 5% / 10% of that is
+        # 8,000 / 16,000 a month, stored annually.
+        self.assertEqual(utils.calc_employee_health_contrib(payroll), Decimal("96000"))
+        self.assertEqual(utils.calc_employer_health_contrib(payroll), Decimal("192000"))
+        self.assertEqual(utils.calc_health_contrib(payroll), Decimal("288000"))
 
     def test_nhif_statutory_5_10_applies_at_all_salary_levels(self):
         payroll = DummyPayroll(
             basic_salary=Decimal("999999"),
             annual_gross=Decimal("11999988"),
         )
+        # Monthly basic 399,999.60 -> 19,999.98 / 39,999.96 a month, annual.
         self.assertEqual(
-            utils.calc_employee_health_contrib(payroll), Decimal("49999.95")
+            utils.calc_employee_health_contrib(payroll), Decimal("239999.76")
         )
         self.assertEqual(
-            utils.calc_employer_health_contrib(payroll), Decimal("99999.9")
+            utils.calc_employer_health_contrib(payroll), Decimal("479999.52")
         )
-        self.assertEqual(utils.calc_health_contrib(payroll), Decimal("149999.85"))
+        self.assertEqual(utils.calc_health_contrib(payroll), Decimal("719999.28"))
 
         high_payroll = DummyPayroll(
             basic_salary=Decimal("1000000"),
             annual_gross=Decimal("12000000"),
         )
         self.assertEqual(
-            utils.calc_employee_health_contrib(high_payroll), Decimal("50000")
+            utils.calc_employee_health_contrib(high_payroll), Decimal("240000")
         )
         self.assertEqual(
-            utils.calc_employer_health_contrib(high_payroll), Decimal("100000")
+            utils.calc_employer_health_contrib(high_payroll), Decimal("480000")
         )
 
     def test_nhif_disabled_returns_zero_for_all_health_contributions(self):
@@ -191,18 +194,19 @@ class StatutoryRateVersionTests(TestCase):
             basic_salary=Decimal("100000"),
             annual_gross=Decimal("1200000"),
         )
-        # No CompanyPayrollSetting -> statutory version percentages (8/10, 2.5).
+        # No CompanyPayrollSetting -> statutory version percentages (8/10,
+        # 2.5), on basic + housing + transport (60% of 1,200,000 = 720,000).
         self.assertEqual(
             utils.get_pension_employee(payroll, as_of=date(2025, 6, 1)),
-            Decimal("96000"),
+            Decimal("57600"),
         )
         self.assertEqual(
             utils.get_pension_employee(payroll, as_of=date(2026, 6, 1)),
-            Decimal("96000"),
+            Decimal("57600"),
         )
         self.assertEqual(
             utils.get_pension_employer(payroll, as_of=date(2026, 6, 1)),
-            Decimal("120000"),
+            Decimal("72000"),
         )
 
 
@@ -229,9 +233,10 @@ class NhisEngineTests(TestCase):
         self.setting.save(update_fields=["health_basis"])
 
         payroll = self._make_payroll(Decimal("400000"))
-        monthly_consolidated = payroll.gross_income / Decimal("12")
-        expected_employee = (monthly_consolidated * Decimal("1.75")) / Decimal("100")
-        expected_employer = (monthly_consolidated * Decimal("3.25")) / Decimal("100")
+        # Consolidated = basic + housing + transport; stored annually.
+        monthly_consolidated = payroll.bht / Decimal("12")
+        expected_employee = monthly_consolidated * Decimal("1.75") / Decimal("100") * 12
+        expected_employer = monthly_consolidated * Decimal("3.25") / Decimal("100") * 12
 
         self.assertEqual(
             payroll.employee_health, expected_employee.quantize(Decimal("0.01"))
@@ -245,11 +250,12 @@ class NhisEngineTests(TestCase):
         self.setting.save(update_fields=["hmo_monthly_premium"])
 
         payroll = self._make_payroll(Decimal("400000"))
-        # Employee keeps the statutory 5% of basic (20,000); the employer
-        # pays the negotiated premium minus the employee share.
-        self.assertEqual(payroll.employee_health, Decimal("20000.00"))
-        self.assertEqual(payroll.emplyr_health, Decimal("30000.00"))
-        self.assertEqual(payroll.nhif, Decimal("50000.00"))
+        # Employee keeps the statutory 5% of monthly basic (160,000 -> 8,000);
+        # the employer pays the negotiated premium minus the employee share
+        # (42,000). Stored annually.
+        self.assertEqual(payroll.employee_health, Decimal("96000.00"))
+        self.assertEqual(payroll.emplyr_health, Decimal("504000.00"))
+        self.assertEqual(payroll.nhif, Decimal("600000.00"))
 
     def test_configured_health_tier_still_overrides_statutory_split(self):
         from payroll.models import CompanyHealthInsuranceTier
@@ -264,8 +270,9 @@ class NhisEngineTests(TestCase):
         )
 
         payroll = self._make_payroll(Decimal("400000"))
-        self.assertEqual(payroll.employee_health, Decimal("12000.00"))
-        self.assertEqual(payroll.emplyr_health, Decimal("28000.00"))
+        # 3% / 7% of monthly basic 160,000, stored annually.
+        self.assertEqual(payroll.employee_health, Decimal("57600.00"))
+        self.assertEqual(payroll.emplyr_health, Decimal("134400.00"))
 
     def test_health_contribution_summary_reflects_mode(self):
         summary = utils.health_contribution_summary(self._make_payroll(Decimal("400000")))
@@ -462,13 +469,14 @@ class PensionReportMonthlyTests(TestCase):
         self.assertEqual(response.status_code, 200)
         content = response.content.decode()
         self.assertIn("Pension Contribution (Monthly)", content)
-        # Stored annual pension is 259,200 (employee 115,200 + employer
-        # 144,000); the monthly remittance is 21,600 with a 9,600 / 12,000
+        # Pension base is basic + housing + transport (864,000 a year).
+        # Stored annual pension is 155,520 (employee 69,120 + employer
+        # 86,400); the monthly remittance is 12,960 with a 5,760 / 7,200
         # employee / employer split.
-        self.assertIn("₦21,600.00", content)
-        self.assertIn("₦9,600.00 / ₦12,000.00", content)
+        self.assertIn("₦12,960.00", content)
+        self.assertIn("₦5,760.00 / ₦7,200.00", content)
         # The annual figure must not be shown anywhere on the page.
-        self.assertNotIn("₦259,200", content)
+        self.assertNotIn("₦155,520", content)
 
     def test_pension_report_download_exports_monthly_amounts(self):
         response = self.client.get(
@@ -669,11 +677,11 @@ class ComplianceCalendarTests(TestCase):
     def test_period_remittance_amounts_are_monthly(self):
         amounts = compliance.period_remittance_amounts(self.company, self.payroll_run)
         # payee = annual PAYE / 12. Taxable income deducts the employee
-        # pension (8% x 1,440,000 = 115,200): 1,324,800 @ NTA bands =
-        # 78,720/yr -> 6,560/mo. Pension is stored annual, divided by 12.
+        # pension (8% x BHT 864,000 = 69,120): 1,370,880 @ NTA bands =
+        # 85,632/yr -> 7,136/mo. Pension is stored annual, divided by 12.
         # NHF/NHIA absent (no is_housing / is_nhif on the config).
-        self.assertEqual(amounts["paye"], Decimal("6560.00"))
-        self.assertEqual(amounts["pension"], Decimal("21600.00"))
+        self.assertEqual(amounts["paye"], Decimal("7136.00"))
+        self.assertEqual(amounts["pension"], Decimal("12960.00"))
         self.assertEqual(amounts["nhf"], Decimal("0.00"))
         self.assertEqual(amounts["nhia"], Decimal("0.00"))
 
@@ -759,8 +767,8 @@ class ComplianceCalendarTests(TestCase):
         pension = next(o for o in obligations if o["key"] == "pension")
         self.assertEqual(pension["status"], "overdue")
         self.assertEqual(pension["penalty"]["rate"], "2% per month")
-        # 21,600 x 2% x 2 months overdue (Jun 10 -> Aug 1 = 52 days -> ceil/30).
-        self.assertEqual(pension["penalty"]["amount"], Decimal("864.00"))
+        # 12,960 x 2% x 2 months overdue (Jun 10 -> Aug 1 = 52 days -> ceil/30).
+        self.assertEqual(pension["penalty"]["amount"], Decimal("518.40"))
 
     def test_pension_due_date_uses_company_public_holidays(self):
         PublicHoliday.objects.create(

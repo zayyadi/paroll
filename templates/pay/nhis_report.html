@@ -1,5 +1,6 @@
 {% extends "base_new.html" %}
 {% load static %}
+{% load mathfilters %}
 {% load humanize %}
 
 {% block page_header %}NHIS Report for {{ dates }}{% endblock %}
@@ -113,7 +114,7 @@
                         <td class="px-6 py-4 text-sm text-secondary-900">{{ payrol.payroll_entry.pays.first_name }} {{ payrol.payroll_entry.pays.last_name }}</td>
                         <td class="px-6 py-4 text-sm text-secondary-900">{{ payrol.payroll_entry.pays.get_hmo_provider_display|default:"N/A" }}</td>
                         <td class="px-6 py-4 text-sm text-secondary-900">{{ payrol.payroll_entry.pays.bank_account_number|default:"N/A" }}</td>
-                        <td class="px-6 py-4 text-sm text-secondary-900 text-right font-medium">₦{{ payrol.payroll_entry.pays.employee_pay.nhif|default:0|intcomma }}</td>
+                        <td class="px-6 py-4 text-sm text-secondary-900 text-right font-medium">₦{{ payrol.payroll_entry.pays.employee_pay.nhif|div:12|floatformat:2|default:0|intcomma }}</td>
                     </tr>
                     {% endfor %}
                     <tr class="bg-secondary-100 font-semibold">

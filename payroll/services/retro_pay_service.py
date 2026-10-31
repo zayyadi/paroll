@@ -45,6 +45,7 @@ def monthly_net_for(config: Payroll) -> Decimal:
     """Canonical monthly net pay for a salary config."""
     return monthly_net_pay(
         gross_annual=config.gross_income,
+        pension_employee_annual=config.pension_employee,
         employee_health_annual=config.employee_health,
         nhf_annual=config.nhf,
         payee_monthly=config.payee,

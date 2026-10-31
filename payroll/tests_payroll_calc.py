@@ -9,10 +9,9 @@ definitions all route through ``payroll.services.payroll_calc``:
 - ``payroll.utils.monthly_cost_breakdown``    -> ``annual_to_monthly`` +
   ``monthly_net_pay``
 
-These tests assert each delegating function still returns exactly the value the
-pre-migration implementation returned (behaviour-preserving refactor), and that
-the pension ``/12`` discrepancy between the employer-cost view and the payslip
-path is documented and pinned.
+These tests assert each delegating function returns exactly the value of an
+independent transcription of the canonical rule, and that the payslip path and
+the employer-cost view agree on net pay (employee pension is deducted in both).
 """
 from datetime import date
 from decimal import Decimal
@@ -60,8 +59,10 @@ def _legacy_get_net_pay(config):
     water_rate = Decimal(
         getattr(config, "water_rate", Decimal("0.00")) or Decimal("0.00")
     )
+    pension_employee = Decimal(config.pension_employee or 0)
     return (
         (annual_gross / Decimal("12"))
+        - (pension_employee / Decimal("12"))
         - (employee_health / Decimal("12"))
         - (nhf / Decimal("12"))
         - payee
@@ -95,7 +96,7 @@ def _legacy_monthly_cost_breakdown(config):
     employer_nhia = (
         Decimal(config.emplyr_health or 0) / Decimal("12")
     ).quantize(CENTS)
-    employer_nsitf = Decimal(config.nsitf or 0).quantize(CENTS)
+    employer_nsitf = (Decimal(config.nsitf or 0) / Decimal("12")).quantize(CENTS)
     employer_itf = (Decimal(config.itf or 0) / Decimal("12")).quantize(CENTS)
     employer_cost = (
         gross + employer_pension + employer_nhia + employer_nsitf + employer_itf
@@ -220,6 +221,7 @@ class GetNetPayParityTests(NetPayFixtureBase):
         config.refresh_from_db()
         expected = monthly_net_pay(
             gross_annual=utils.gross_income(config),
+            pension_employee_annual=config.pension_employee,
             employee_health_annual=config.employee_health,
             nhf_annual=config.nhf,
             payee_monthly=config.payee,
@@ -234,6 +236,7 @@ class GetNetPayParityTests(NetPayFixtureBase):
         config = self._attach_config("200000.00")
         expected = monthly_net_pay(
             gross_annual=config.gross_income,
+            pension_employee_annual=config.pension_employee,
             employee_health_annual=config.employee_health,
             nhf_annual=config.nhf,
             payee_monthly=config.payee,
@@ -291,22 +294,14 @@ class MonthlyCostBreakdownParityTests(NetPayFixtureBase):
         )
 
 
-class PensionDiscrepancyDocumentationTests(NetPayFixtureBase):
-    """Pin the known ``pension/12`` divergence between the two views.
+class NetPayViewsAgreeTests(NetPayFixtureBase):
+    """The payslip net and the employer-cost view's net are the same figure."""
 
-    ``utils.get_net_pay`` (payslip/net-pay path) does NOT subtract employee
-    pension; ``utils.monthly_cost_breakdown`` (employer-cost report) DOES. This
-    is pre-existing, load-bearing behaviour shared by the accounting postings
-    and the Cost of Employment report, so this refactor preserves it and pins
-    it here rather than silently changing money semantics.
-    """
-
-    def test_cost_breakdown_net_is_lower_than_get_net_pay_by_pension(self):
+    def test_cost_breakdown_net_equals_get_net_pay(self):
         config = self._attach_config("120000.00")
         breakdown_net = utils.monthly_cost_breakdown(config)["net_pay"]
-        payslip_net = utils.get_net_pay(self.employee)
-        expected_gap = (config.pension_employee / Decimal("12")).quantize(CENTS)
-        self.assertEqual(breakdown_net, payslip_net - expected_gap)
+        payslip_net = utils.get_net_pay(self.employee).quantize(CENTS)
+        self.assertEqual(breakdown_net, payslip_net)
 
 
 class PayrollEntryNetPayParityTests(NetPayFixtureBase):

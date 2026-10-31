@@ -502,6 +502,15 @@ class RemittanceRecord(CompanyOwnedModel):
 
 
 class Payroll(models.Model):
+    """Salary terms for one employee, with derived statutory figures.
+
+    ``basic_salary`` is the MONTHLY GROSS. Every derived amount stored here is
+    ANNUAL (gross_income, bht, basic, housing, transport, pension_*, nhf,
+    employee_health, emplyr_health, nhif, nsitf, itf, taxable_income) except
+    ``payee`` and ``water_rate``, which are MONTHLY. Convert annual figures
+    with ``payroll.services.payroll_calc.annual_to_monthly``.
+    """
+
     class Meta:
         base_manager_name = "all_objects"
 
@@ -664,8 +673,8 @@ class Payroll(models.Model):
 
     @property
     def get_nsitf(self):
-        # NSITF Employees' Compensation: 1% of monthly basic salary, employer-funded.
-        return self.basic_salary * Decimal(1) / Decimal(100)
+        """NSITF Employees' Compensation: 1% of annual gross, employer-funded."""
+        return self.get_annual_gross * Decimal(1) / Decimal(100)
 
     @property
     def get_itf(self):
@@ -711,7 +720,7 @@ class Payroll(models.Model):
         self.basic = utils.get_basic(self)  # noqa: F405
         self.housing = utils.get_housing(self)  # noqa: F405
         self.transport = utils.get_transport(self)  # noqa: F405
-        self.bht = utils.gross_income(self)  # noqa: F405
+        self.bht = utils.bht_income(self)  # noqa: F405
         self.pension_employee = utils.get_pension_employee(self)  # noqa: F405
         self.pension_employer = utils.get_pension_employer(self)  # noqa: F405
         self.pension = utils.get_pension(self)  # noqa: F405

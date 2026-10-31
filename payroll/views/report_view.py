@@ -23,6 +23,7 @@ from payroll.models import (
 from payroll import utils
 from company.utils import get_user_company
 from accounting.permissions import is_auditor
+from payroll.services.payroll_calc import annual_to_monthly
 from payroll.services.payslips import (
     can_view_payslip,
     resolve_payslip_run_entry,
@@ -91,6 +92,16 @@ def payslip(request, id):
 
 
 # Helper function for Excel report generation (remains unchanged from previous step)
+def _monthly_amount(annual):
+    """Monthly figure (kobo) for a stored annual amount or annual sum."""
+    return annual_to_monthly(annual).quantize(Decimal("0.01"))
+
+
+def _monthly_last_column(rows):
+    """Report rows with the trailing stored-annual amount shown monthly."""
+    return [(*row[:-1], _monthly_amount(row[-1])) for row in rows]
+
+
 def generate_excel_report(
     filename_base,
     sheet_name_base,
@@ -491,9 +502,10 @@ def nhis_report(request, pay_id):
         "pay/nhis_report.html",
         {
             "payroll": payroll_data,
-            "total": nhis_total["payroll_entry__pays__employee_pay__nhif__sum"],
-            "employee_total": nhis_split["employee"],
-            "employer_total": nhis_split["employer"],
+            # Stored NHIA figures are annual; the report shows the month.
+            "total": _monthly_amount(nhis_total["payroll_entry__pays__employee_pay__nhif__sum"]),
+            "employee_total": _monthly_amount(nhis_split["employee"]),
+            "employer_total": _monthly_amount(nhis_split["employer"]),
             "mode": _nhis_mode_label(company),
             "dates": dates,
         },
@@ -525,6 +537,7 @@ def nhis_report_download(request, pay_id):
         "payroll_entry__pays__bank_account_number",
         "payroll_entry__pays__employee_pay__nhif",
     )
+    data_rows = _monthly_last_column(data_rows)
     _log_payroll_report_sensitive_access(
         request=request,
         payroll_entries=PayrollRunEntry.objects.filter(
@@ -578,7 +591,8 @@ def nhf_report(request, pay_id):
         "pay/nhf_report.html",
         {
             "payroll": payroll_data,
-            "total": nhf_total["payroll_entry__pays__employee_pay__nhf__sum"],
+            # Stored NHF is annual; the report shows the month.
+            "total": _monthly_amount(nhf_total["payroll_entry__pays__employee_pay__nhf__sum"]),
             "dates": dates,
         },
     )
@@ -607,6 +621,7 @@ def nhf_report_download(request, pay_id):
         "payroll_entry__pays__bank_account_number",
         "payroll_entry__pays__employee_pay__nhf",
     )
+    data_rows = _monthly_last_column(data_rows)
     _log_payroll_report_sensitive_access(
         request=request,
         payroll_entries=PayrollRunEntry.objects.filter(
@@ -870,16 +885,9 @@ def pension_report_download(request, pay_id):
         "payroll_entry__pays__employee_pay__basic_salary",
         "payroll_entry__pays__employee_pay__pension",
     )
-    # Stored pension is annual; export the monthly remittance (÷12) so the
+    # Stored pension is annual; export the monthly remittance so the
     # workbook matches the on-page report and the compliance calendar.
-    cents = Decimal("0.01")
-    data_rows = [
-        (
-            *row[:-1],
-            (Decimal(row[-1] or 0) / Decimal("12")).quantize(cents),
-        )
-        for row in raw_rows
-    ]
+    data_rows = _monthly_last_column(raw_rows)
     _log_payroll_report_sensitive_access(
         request=request,
         payroll_entries=PayrollRunEntry.objects.filter(

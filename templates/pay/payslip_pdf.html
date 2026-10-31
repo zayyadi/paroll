@@ -236,12 +236,16 @@
             <td class="money">{{ payroll.pays.employee_pay.housing|div:12|floatformat:2|intcomma }}</td>
           </tr>
           <tr>
-            <td>Other Allowances</td>
+            <td>Other Emoluments</td>
+            <td class="money">{{ payroll.pays.employee_pay.gross_income|sub:payroll.pays.employee_pay.bht|div:12|floatformat:2|intcomma }}</td>
+          </tr>
+          <tr>
+            <td>Period Allowances</td>
             <td class="money">{{ payroll.calc_allowance|floatformat:2|intcomma }}</td>
           </tr>
           <tr class="total-row">
             <td>Gross for Period</td>
-            <td class="money">{{ payroll.pays.employee_pay.gross_income|div:12|floatformat:2|intcomma }}</td>
+            <td class="money">{{ payroll.pays.employee_pay.gross_income|div:12|add:payroll.calc_allowance|floatformat:2|intcomma }}</td>
           </tr>
         </tbody>
       </table>

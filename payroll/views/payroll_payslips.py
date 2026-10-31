@@ -32,6 +32,7 @@ CACHE_TTL = getattr(settings, "CACHE_TTL", DEFAULT_TIMEOUT)
 logger = logging.getLogger(__name__)
 from payroll.models import PayslipEmailJob, PayrollEntry
 from payroll.forms import PayrollRunForm, PayrollRunCreateForm, PayrollEntryCreateForm
+from payroll.services.payroll_calc import annual_to_monthly
 from payroll.services.payslips import (
     can_view_payslip,
     resolve_payslip_run_entry,
@@ -250,42 +251,32 @@ def payslip_detail(request, id):
     dates = utils.convert_month_to_word(str(pay_id.payroll_run.paydays))
     payroll_record = pay_id.payroll_entry.pays.employee_pay
 
-    pay_id_nhif = payroll_record.nhif if payroll_record else Decimal("0.00")
-    pay_id_basic = payroll_record.basic if payroll_record else Decimal("0.00")
-    pay_id_nhf = payroll_record.nhf if payroll_record else Decimal("0.00")
-    pay_id_nsitf = (
-        (payroll_record.nsitf or Decimal("0.00")) / 12
-        if payroll_record
-        else Decimal("0.00")
+    # Stored config figures are annual except PAYE and water (see Payroll);
+    # the payslip shows monthly amounts only.
+    zero = Decimal("0.00")
+    breakdown = utils.monthly_cost_breakdown(payroll_record) if payroll_record else {}
+
+    def _monthly(field):
+        if not payroll_record:
+            return zero
+        return annual_to_monthly(getattr(payroll_record, field)).quantize(Decimal("0.01"))
+
+    pay_id_basic = _monthly("basic")
+    pay_id_housing = _monthly("housing")
+    pay_id_transport = _monthly("transport")
+    pay_id_taxable = _monthly("taxable_income")
+    pay_id_gross = breakdown.get("gross", zero)
+    pay_id_other_emoluments = pay_id_gross - pay_id_basic - pay_id_housing - pay_id_transport
+    pay_id_pension = breakdown.get("employee_pension", zero)
+    pay_id_nhf = breakdown.get("employee_nhf", zero)
+    pay_id_nhif = breakdown.get("employee_nhia", zero)
+    pay_id_nsitf = breakdown.get("employer_nsitf", zero)
+    pay_id_payee = breakdown.get("employee_paye", zero)
+    pay_id_water = breakdown.get("employee_water", zero)
+    pay_id_net = pay_id.payroll_entry.netpay
+    pay_id_statutory_total = (
+        pay_id_pension + pay_id_nhf + pay_id_nhif + pay_id_payee + pay_id_water
     )
-    pay_id_payee = payroll_record.payee if payroll_record else Decimal("0.00")
-    pay_id_pension = (
-        (payroll_record.pension or Decimal("0.00")) / 12
-        if payroll_record
-        else Decimal("0.00")
-    )
-    pay_id_gross = (
-        (payroll_record.gross_income or Decimal("0.00")) / 12
-        if payroll_record
-        else Decimal("0.00")
-    )
-    pay_id_net = pay_id.payroll_entry.netpay / 12
-    pay_id_housing = (
-        (payroll_record.housing or Decimal("0.00")) / 12
-        if payroll_record
-        else Decimal("0.00")
-    )
-    pay_id_transport = (
-        (payroll_record.transport or Decimal("0.00")) / 12
-        if payroll_record
-        else Decimal("0.00")
-    )
-    pay_id_taxable = (
-        (payroll_record.taxable_income or Decimal("0.00")) / 12
-        if payroll_record
-        else Decimal("0.00")
-    )
-    pay_id_water = payroll_record.water_rate if payroll_record else Decimal("0.00")
     iou_deductions = (
         pay_id.payroll_entry.pays.iou_deductions.filter(payday=pay_id.payroll_run)
         .select_related("iou")
@@ -310,6 +301,8 @@ def payslip_detail(request, id):
         "pay_id_transport": pay_id_transport,
         "pay_id_taxable": pay_id_taxable,
         "pay_id_water_rate": pay_id_water,
+        "pay_id_statutory_total": pay_id_statutory_total,
+        "pay_id_other_emoluments": pay_id_other_emoluments,
         "iou_deductions": iou_deductions,
         "iou_deduction_total": iou_deduction_total,
         "is_auditor": is_auditor(request.user),  # Add auditor flag for template
