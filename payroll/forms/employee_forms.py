@@ -92,7 +92,8 @@ class EmployeeProfileForm(forms.ModelForm):
             "pension_rsa",
             # "nin",
             "tin_no",
-            "rent_paid",
+            "nhf_consent_at",
+            "nhf_consent_note",
             "emergency_contact_name",
             "emergency_contact_relationship",
             "emergency_contact_phone",
@@ -145,9 +146,9 @@ class EmployeeProfileForm(forms.ModelForm):
                     "class": "h-10 border mt-1 rounded px-4 w-full bg-gray-50",
                 }
             ),
-            "rent_paid": forms.TextInput(
+            "nhf_consent_at": forms.DateTimeInput(
                 attrs={
-                    "label": "block text-white text-sm font-bold mb-2",
+                    "type": "datetime-local",
                     "class": "h-10 border mt-1 rounded px-4 w-full bg-gray-50",
                 }
             ),
@@ -406,3 +407,38 @@ class EmployeeProfileUpdateForm(forms.ModelForm):
 
 
 
+
+
+RENT_DOCUMENT_EXTENSIONS = (".pdf", ".jpg", ".jpeg", ".png")
+RENT_DOCUMENT_MAX_BYTES = 5 * 1024 * 1024
+
+
+class RentDeclarationForm(forms.ModelForm):
+    """Employee self-service: declare a year's rent with proof."""
+
+    class Meta:
+        model = models.RentDeclaration
+        fields = ["tax_year", "annual_rent", "landlord_name", "property_address", "document"]
+        labels = {"annual_rent": "Annual rent paid (₦)"}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["document"].required = True
+        self.fields["tax_year"].initial = timezone.localdate().year
+        _apply_standard_widget_classes(self.fields)
+
+    def clean_document(self):
+        document = self.cleaned_data["document"]
+        name = (document.name or "").lower()
+        if not name.endswith(RENT_DOCUMENT_EXTENSIONS):
+            raise forms.ValidationError("Upload a PDF, JPG or PNG file.")
+        if document.size > RENT_DOCUMENT_MAX_BYTES:
+            raise forms.ValidationError("The file must be 5 MB or smaller.")
+        return document
+
+    def clean_tax_year(self):
+        tax_year = self.cleaned_data["tax_year"]
+        current = timezone.localdate().year
+        if not current - 1 <= tax_year <= current:
+            raise forms.ValidationError("Declare rent for this year or last year.")
+        return tax_year

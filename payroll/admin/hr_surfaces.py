@@ -95,7 +95,7 @@ class TimesheetAdmin(WorkflowReadAdmin):
 
 @admin.register(models.ExitSettlement)
 class ExitSettlementAdmin(WorkflowReadAdmin):
-    list_display = ("employee", "last_working_day", "status")
+    list_display = ("employee", "last_working_day", "gratuity", "paye_on_exit", "status")
 
 
 @admin.register(models.LeaveLedgerEntry)

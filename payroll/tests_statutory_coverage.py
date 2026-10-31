@@ -17,6 +17,7 @@ from decimal import Decimal
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
+from django.utils import timezone
 
 from company.models import Company
 from payroll import utils
@@ -61,7 +62,8 @@ class StatutoryCoverageFixture(TestCase):
         self.employee = EmployeeProfile.objects.get(user=self.user)
         self.employee.company = self.company
         self.employee.status = "active"
-        self.employee.save(update_fields=["company", "status"])
+        self.employee.nhf_consent_at = timezone.now()  # voluntary NHF needs consent
+        self.employee.save(update_fields=["company", "status", "nhf_consent_at"])
 
         # Enable every scheme: housing (NHF), NHIA, and both annual levies.
         CompanyPayrollSetting.objects.create(
@@ -75,6 +77,7 @@ class StatutoryCoverageFixture(TestCase):
         )
         self.employee.employee_pay = config
         self.employee.save(update_fields=["employee_pay"])
+        config.refresh_from_db()
         self.config = config
 
         self.run = PayrollRun.objects.create(

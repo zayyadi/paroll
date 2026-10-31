@@ -10,6 +10,7 @@ from io import StringIO
 from django.contrib.contenttypes.models import ContentType
 from django.core.management import call_command
 from django.test import TestCase
+from django.utils import timezone
 
 from accounting.models import Account, Journal
 from accounting.utils import create_journal_with_entries
@@ -61,7 +62,9 @@ class BackfillPayrollStatutoryCorrectionsCommandTests(TestCase):
         employee.slug = f"ada-backfill-{employee.pk}"
         employee.employee_pay = payroll
         employee.status = "active"
+        employee.nhf_consent_at = timezone.now()  # voluntary NHF needs consent
         employee.save()
+        payroll.refresh_from_db()
 
         payroll_entry = PayrollEntry.objects.create(
             company=self.company,

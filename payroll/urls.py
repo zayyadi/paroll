@@ -23,6 +23,13 @@ urlpatterns = [
         name="acknowledge_document",
     ),
     path("documents/overview/", views.document_overview, name="document_overview"),
+    path("rent-relief/", views.my_rent_declarations, name="my_rent_declarations"),
+    path("rent-relief/review/", views.rent_declaration_review, name="rent_declaration_review"),
+    path(
+        "rent-relief/<int:pk>/decide/",
+        views.decide_rent_declaration,
+        name="decide_rent_declaration",
+    ),
     path("assets/", views.my_assets, name="my_assets"),
     path("assets/overview/", views.asset_overview, name="asset_overview"),
     path("assets/<int:asset_id>/return/", views.return_asset, name="return_asset"),

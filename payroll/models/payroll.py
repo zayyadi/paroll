@@ -424,6 +424,23 @@ class StatutoryRateVersion(models.Model):
         default=Decimal("2.50"),
         validators=[MinValueValidator(Decimal("0")), MaxValueValidator(Decimal("100"))],
     )
+
+    gratuity_taxable = models.BooleanField(
+        default=True,
+        help_text="Whether gratuity paid at exit is taxed through PAYE.",
+    )
+    loss_of_office_exemption = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        default=Decimal("50000000.00"),
+        help_text=(
+            "Tax-free amount of compensation for loss of office; only the "
+            "excess is taxed through PAYE. Leave blank when such compensation "
+            "is outside PAYE (pre-2026: capital gains tax)."
+        ),
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -1000,6 +1017,14 @@ class PayrollEntry(models.Model):
         decimal_places=2,
         blank=True,
     )
+    statutory_snapshot = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text=(
+            "Monthly statutory figures captured when net pay was calculated; "
+            "frozen once the run is locked. See payroll.services.payroll_figures."
+        ),
+    )
 
     objects = PayrollEntryManager()
     all_objects = PayrollEntryQuerySet.as_manager()
@@ -1252,12 +1277,21 @@ class PayrollEntry(models.Model):
 
     @property
     def total_deductions(self) -> Decimal:
-        total = self.calc_deduction + self.employee_health + self.nhf
-        _deduction_debug_print(
-            f"Total deductions rollup for payroll_entry_id={self.pk}: "
-            f"calc_deduction={self.calc_deduction}, employee_health={self.employee_health}, nhf={self.nhf}, total={total}."
+        """Monthly statutory deductions plus this period's other deductions."""
+        f = self.figures
+        return (
+            f["employee_pension"]
+            + f["employee_nhf"]
+            + f["employee_nhia"]
+            + f["employee_paye"]
+            + f["employee_water"]
+            + self.calc_deduction
         )
-        return total
+
+    @property
+    def gross_for_period(self) -> Decimal:
+        """Monthly gross plus this period's allowances."""
+        return self.figures["gross"] + self.calc_allowance
 
     @property
     def get_netpay(self):
@@ -1277,8 +1311,21 @@ class PayrollEntry(models.Model):
             type(self).all_objects.filter(pk=self.pk)._assert_editable()
         if self.pays and self.pays.company_id and not self.company_id:
             self.company_id = self.pays.company_id
+        from payroll.services.payroll_figures import snapshot_for
+
         self.netpay = self.get_netpay
+        self.statutory_snapshot = snapshot_for(self.pays.employee_pay)
+        update_fields = kwargs.get("update_fields")
+        if update_fields is not None and "netpay" in update_fields:
+            kwargs["update_fields"] = {*update_fields, "statutory_snapshot"}
         super(PayrollEntry, self).save(*args, **kwargs)
+
+    @property
+    def figures(self) -> dict:
+        """Monthly statutory figures for this entry (snapshot or live)."""
+        from payroll.services.payroll_figures import entry_figures
+
+        return entry_figures(self)
 
     def delete(self, *args, **kwargs):
         return type(self).all_objects.filter(pk=self.pk).delete()

@@ -74,3 +74,4 @@ settings.json
 design/
 # Generated employee documents (contain personal data)
 media/contracts/
+media/rent_declarations/

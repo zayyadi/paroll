@@ -18,6 +18,7 @@ DEFAULT_TRANSPORT_PERCENTAGE = Decimal("10")
 DEFAULT_PENSION_EMPLOYEE_PERCENTAGE = Decimal("8")
 DEFAULT_PENSION_EMPLOYER_PERCENTAGE = Decimal("10")
 DEFAULT_NHF_PERCENTAGE = Decimal("2.5")
+LOSS_OF_OFFICE_EXEMPTION = Decimal("50000000")
 
 # Nigeria Tax Act 2025 (effective Jan 1, 2026): annual taxable income bands.
 # Tuple format: (upper threshold, rate percent). Final band is open-ended.
@@ -91,6 +92,8 @@ def statutory_rates_for(as_of=None):
             "pension_employee_percentage": DEFAULT_PENSION_EMPLOYEE_PERCENTAGE,
             "pension_employer_percentage": DEFAULT_PENSION_EMPLOYER_PERCENTAGE,
             "nhf_percentage": DEFAULT_NHF_PERCENTAGE,
+            "gratuity_taxable": True,
+            "loss_of_office_exemption": LOSS_OF_OFFICE_EXEMPTION,
         }
 
     return {
@@ -106,6 +109,12 @@ def statutory_rates_for(as_of=None):
             resolved.pension_employer_percentage
         ),
         "nhf_percentage": Decimal(resolved.nhf_percentage),
+        "gratuity_taxable": resolved.gratuity_taxable,
+        "loss_of_office_exemption": (
+            Decimal(resolved.loss_of_office_exemption)
+            if resolved.loss_of_office_exemption is not None
+            else None
+        ),
     }
 
 
@@ -244,11 +253,24 @@ def get_pension(self, as_of=None):
     )
 
 
+def _has_nhf_consent(payroll) -> bool:
+    """Whether the employee on this config consented to voluntary NHF."""
+    if not getattr(payroll, "pk", None):
+        return False
+    profile = payroll.employee_pay.first()
+    return bool(profile and profile.nhf_consent_at)
+
+
 def calc_housing(self, as_of=None) -> Decimal:
-    # NHF is deducted when the legacy is_housing switch is on or the employee
-    # is classified under either NHF scheme (compulsory/voluntary).
+    # Compulsory (public-sector) NHF is always deducted. Voluntary NHF,
+    # including the legacy is_housing switch, needs the employee's consent.
     nhf_scheme = getattr(self, "nhf_scheme", "none") or "none"
-    if self.is_housing or nhf_scheme != "none":
+    if nhf_scheme == "none" and self.is_housing:
+        nhf_scheme = "voluntary"
+    deduct = nhf_scheme == "compulsory" or (
+        nhf_scheme == "voluntary" and _has_nhf_consent(self)
+    )
+    if deduct:
         nhf_percentage = _get_setting_percentage(self, "nhf_percentage", None)
         if nhf_percentage is None:
             nhf_percentage = statutory_rates_for(as_of)["nhf_percentage"]
@@ -534,8 +556,8 @@ def compute_annual_paye(annual_taxable_income: Decimal, as_of=None) -> Decimal:
 
 
 def calculate_taxable_income(self) -> Decimal:
-    # Taxable income is based on annual gross income minus applicable reliefs.
-    # Rent relief is employee-specific via get_rent_relief(self).
+    # Taxable income is annual gross less pension, NHF, NHIA and rent relief
+    # (Nigeria Tax Act 2025; the CRA no longer applies).
     calc = _annual_gross_for_tax(self) - get_total_relief(self)
 
     if calc <= 0:

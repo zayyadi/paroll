@@ -15,6 +15,7 @@ from .employee_appraisal import *
 from .employee_review import *
 from .employee_transfer import *
 from .offboarding import *
+from .rent_relief import *
 
 # Payroll views
 from .payroll_helpers import *

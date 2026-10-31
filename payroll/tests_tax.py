@@ -7,6 +7,7 @@ from django.test import TestCase
 from company.models import Company
 from django.contrib.auth import get_user_model
 from django.urls import reverse
+from django.utils import timezone
 from payroll import utils
 from payroll.models import (
     CompanyPayrollSetting,
@@ -306,7 +307,9 @@ class StatutorySchemeFlagTests(TestCase):
     def test_legacy_is_housing_is_preserved_as_voluntary(self):
         payroll = self._make_payroll(Decimal("200000"), is_housing=True)
         self.assertEqual(payroll.nhf_scheme, "voluntary")
-        self.assertGreater(payroll.nhf, 0)
+        # Voluntary NHF is only deducted once an employee has consented; this
+        # config has no employee yet (see tests_statutory_units.NhfConsentTests).
+        self.assertEqual(payroll.nhf, Decimal("0.00"))
 
     def test_nhf_scheme_none_means_no_nhf(self):
         payroll = self._make_payroll(Decimal("200000"))
@@ -699,11 +702,14 @@ class ComplianceCalendarTests(TestCase):
         self.assertNotIn("nhia", keys)
 
     def test_nhf_obligation_included_when_deduction_exists(self):
+        self.employee.nhf_consent_at = timezone.now()
+        self.employee.save()
         config = self.employee.employee_pay
         from payroll.financial_approval_actions import change_salary
         from tests.approval_helpers import approved_operation_for
         approved_operation_for('payroll.change_payroll')(change_salary, employee=self.employee,
             basic_salary=config.basic_salary, salary_options={'is_housing': True})
+        self._recalculate_run()
         obligations = compliance.compliance_obligations(
             self.company, as_of=date(2026, 6, 5)
         )
@@ -910,11 +916,20 @@ class ComplianceCalendarTests(TestCase):
 
     def _enable_all_schemes(self):
         """Turn on NHF and NHIA amounts so all five schemes produce rows."""
+        self.employee.nhf_consent_at = timezone.now()
+        self.employee.save()
         config = self.employee.employee_pay
         from payroll.financial_approval_actions import change_salary
         from tests.approval_helpers import approved_operation_for
         approved_operation_for('payroll.change_payroll')(change_salary, employee=self.employee,
             basic_salary=config.basic_salary, salary_options={'nhf_scheme':'voluntary', 'is_nhif':True})
+        self._recalculate_run()
+
+    def _recalculate_run(self):
+        """Recalculate the (unlocked) run after a salary change, as the
+        payroll workflow does before review; entries freeze their figures."""
+        for membership in self.payroll_run.payroll_run_entries.all():
+            membership.payroll_entry.save()
 
     def test_scheme_breakdown_groups_overdue_by_scheme(self):
         self._enable_all_schemes()

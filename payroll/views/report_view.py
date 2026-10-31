@@ -23,7 +23,7 @@ from payroll.models import (
 from payroll import utils
 from company.utils import get_user_company
 from accounting.permissions import is_auditor
-from payroll.services.payroll_calc import annual_to_monthly
+from payroll.services.payroll_figures import sum_figures
 from payroll.services.payslips import (
     can_view_payslip,
     resolve_payslip_run_entry,
@@ -92,14 +92,34 @@ def payslip(request, id):
 
 
 # Helper function for Excel report generation (remains unchanged from previous step)
-def _monthly_amount(annual):
-    """Monthly figure (kobo) for a stored annual amount or annual sum."""
-    return annual_to_monthly(annual).quantize(Decimal("0.01"))
+def _run_totals(payroll_data):
+    """Monthly figure totals across a run's entries (frozen per entry)."""
+    entries = [run_entry.payroll_entry for run_entry in payroll_data.select_related(
+        "payroll_entry__pays__employee_pay"
+    )]
+    return {key: value.quantize(Decimal("0.01")) for key, value in sum_figures(entries).items()}
 
 
-def _monthly_last_column(rows):
-    """Report rows with the trailing stored-annual amount shown monthly."""
-    return [(*row[:-1], _monthly_amount(row[-1])) for row in rows]
+def _resolve(obj, path):
+    for name in path.split("__"):
+        obj = getattr(obj, name, None) if obj is not None else None
+    return obj
+
+
+def _figure_rows(payroll_data, fields, figure_keys, trailing_fields=()):
+    """Export rows: entry attributes, the entry's monthly figures, then any
+    trailing entry attributes."""
+    rows = []
+    for run_entry in payroll_data.select_related("payroll_entry__pays__employee_pay"):
+        figures = run_entry.payroll_entry.figures
+        rows.append(
+            (
+                *(_resolve(run_entry, path) for path in fields),
+                *(figures[key].quantize(Decimal("0.01")) for key in figure_keys),
+                *(_resolve(run_entry, path) for path in trailing_fields),
+            )
+        )
+    return rows
 
 
 def generate_excel_report(
@@ -342,17 +362,17 @@ def _cost_of_employment_rows(payroll_data):
     """
     Per-employee monthly employer-vs-employee cost rows for a pay run.
 
-    Delegates the per-config math to ``utils.monthly_cost_breakdown`` so the
-    report and the payroll dashboard summary can never drift apart.
+    Reads the figures frozen on each entry (``payroll_figures``), which use
+    the same math as ``utils.monthly_cost_breakdown`` and the dashboard.
     """
     rows = []
     totals = {key: Decimal("0.00") for key in COST_REPORT_KEYS}
 
     for entry in payroll_data:
-        config = entry.payroll_entry.pays.employee_pay
-        if config is None:
+        payroll_entry = entry.payroll_entry
+        if payroll_entry.pays.employee_pay is None and not payroll_entry.statutory_snapshot:
             continue
-        values = utils.monthly_cost_breakdown(config)
+        values = payroll_entry.figures
         rows.append({"employee": entry.payroll_entry.pays, **values})
         for key in COST_REPORT_KEYS:
             totals[key] += values[key]
@@ -485,11 +505,7 @@ def nhis_report(request, pay_id):
         payroll_entry__company=company,
     )
     dates = utils.convert_month_to_word(str(pay_period_obj.paydays))
-    nhis_total = payroll_data.aggregate(Sum("payroll_entry__pays__employee_pay__nhif"))
-    nhis_split = payroll_data.aggregate(
-        employee=Sum("payroll_entry__pays__employee_pay__employee_health"),
-        employer=Sum("payroll_entry__pays__employee_pay__emplyr_health"),
-    )
+    totals = _run_totals(payroll_data)
     _log_payroll_report_sensitive_access(
         request=request,
         payroll_entries=payroll_data,
@@ -502,10 +518,9 @@ def nhis_report(request, pay_id):
         "pay/nhis_report.html",
         {
             "payroll": payroll_data,
-            # Stored NHIA figures are annual; the report shows the month.
-            "total": _monthly_amount(nhis_total["payroll_entry__pays__employee_pay__nhif__sum"]),
-            "employee_total": _monthly_amount(nhis_split["employee"]),
-            "employer_total": _monthly_amount(nhis_split["employer"]),
+            "total": totals["nhia_total"],
+            "employee_total": totals["employee_nhia"],
+            "employer_total": totals["employer_nhia"],
             "mode": _nhis_mode_label(company),
             "dates": dates,
         },
@@ -525,19 +540,21 @@ def nhis_report_download(request, pay_id):
         "Account No.",
         "Health insurance payment",
     ]
-    data_rows = PayrollRunEntry.objects.filter(
-        payroll_run_id=pay_id,
-        payroll_entry__company=company,
-    ).values_list(
-        "payroll_entry__pays__emp_id",
-        "payroll_entry__pays__first_name",
-        "payroll_entry__pays__last_name",
-        "payroll_entry__pays__hmo_provider",
-        "payroll_entry__pays__bank",
-        "payroll_entry__pays__bank_account_number",
-        "payroll_entry__pays__employee_pay__nhif",
+    data_rows = _figure_rows(
+        PayrollRunEntry.objects.filter(
+            payroll_run_id=pay_id,
+            payroll_entry__company=company,
+        ),
+        (
+            "payroll_entry__pays__emp_id",
+            "payroll_entry__pays__first_name",
+            "payroll_entry__pays__last_name",
+            "payroll_entry__pays__hmo_provider",
+            "payroll_entry__pays__bank",
+            "payroll_entry__pays__bank_account_number",
+        ),
+        ("nhia_total",),
     )
-    data_rows = _monthly_last_column(data_rows)
     _log_payroll_report_sensitive_access(
         request=request,
         payroll_entries=PayrollRunEntry.objects.filter(
@@ -578,7 +595,7 @@ def nhf_report(request, pay_id):
         payroll_entry__company=company,
     )
     dates = utils.convert_month_to_word(str(pay_period_obj.paydays))
-    nhf_total = payroll_data.aggregate(Sum("payroll_entry__pays__employee_pay__nhf"))
+    totals = _run_totals(payroll_data)
     _log_payroll_report_sensitive_access(
         request=request,
         payroll_entries=payroll_data,
@@ -591,8 +608,7 @@ def nhf_report(request, pay_id):
         "pay/nhf_report.html",
         {
             "payroll": payroll_data,
-            # Stored NHF is annual; the report shows the month.
-            "total": _monthly_amount(nhf_total["payroll_entry__pays__employee_pay__nhf__sum"]),
+            "total": totals["employee_nhf"],
             "dates": dates,
         },
     )
@@ -610,18 +626,20 @@ def nhf_report_download(request, pay_id):
         "Account No.",
         "National Housing Fund payment",
     ]
-    data_rows = PayrollRunEntry.objects.filter(
-        payroll_run_id=pay_id,
-        payroll_entry__company=company,
-    ).values_list(
-        "payroll_entry__pays__emp_id",
-        "payroll_entry__pays__first_name",
-        "payroll_entry__pays__last_name",
-        "payroll_entry__pays__bank",
-        "payroll_entry__pays__bank_account_number",
-        "payroll_entry__pays__employee_pay__nhf",
+    data_rows = _figure_rows(
+        PayrollRunEntry.objects.filter(
+            payroll_run_id=pay_id,
+            payroll_entry__company=company,
+        ),
+        (
+            "payroll_entry__pays__emp_id",
+            "payroll_entry__pays__first_name",
+            "payroll_entry__pays__last_name",
+            "payroll_entry__pays__bank",
+            "payroll_entry__pays__bank_account_number",
+        ),
+        ("employee_nhf",),
     )
-    data_rows = _monthly_last_column(data_rows)
     _log_payroll_report_sensitive_access(
         request=request,
         payroll_entries=PayrollRunEntry.objects.filter(
@@ -668,7 +686,7 @@ def payee_report(request, pay_id):
         payroll_entry__company=company,
     )
     dates = utils.convert_month_to_word(str(pay_period_obj.paydays))
-    payee_total = payroll_data.aggregate(Sum("payroll_entry__pays__employee_pay__payee"))
+    totals = _run_totals(payroll_data)
     _log_payroll_report_sensitive_access(
         request=request,
         payroll_entries=payroll_data,
@@ -681,7 +699,7 @@ def payee_report(request, pay_id):
         "pay/payee_report_new.html",
         {
             "payroll": payroll_data,
-            "total": payee_total["payroll_entry__pays__employee_pay__payee__sum"],
+            "total": totals["employee_paye"],
             "dates": dates,
         },
     )
@@ -699,16 +717,18 @@ def payee_report_download(request, pay_id):
         "Gross Pay",
         "Payee Amount",
     ]
-    data_rows = PayrollRunEntry.objects.filter(
-        payroll_run_id=pay_id,
-        payroll_entry__company=company,
-    ).values_list(
-        "payroll_entry__pays__emp_id",
-        "payroll_entry__pays__first_name",
-        "payroll_entry__pays__last_name",
-        "payroll_entry__pays__tin_no",
-        "payroll_entry__pays__employee_pay__basic_salary",
-        "payroll_entry__pays__employee_pay__payee",
+    data_rows = _figure_rows(
+        PayrollRunEntry.objects.filter(
+            payroll_run_id=pay_id,
+            payroll_entry__company=company,
+        ),
+        (
+            "payroll_entry__pays__emp_id",
+            "payroll_entry__pays__first_name",
+            "payroll_entry__pays__last_name",
+            "payroll_entry__pays__tin_no",
+        ),
+        ("gross", "employee_paye"),
     )
     _log_payroll_report_sensitive_access(
         request=request,
@@ -809,27 +829,8 @@ def pension_report(request, pay_id):
         payroll_entry__company=company,
     ).select_related("payroll_entry__pays__employee_pay")
     dates = utils.convert_month_to_word(str(pay_period_obj.paydays))
-    pension_total = payroll_data.aggregate(
-        Sum("payroll_entry__pays__employee_pay__pension")
-    )
-    pension_split = payroll_data.aggregate(
-        employee=Sum("payroll_entry__pays__employee_pay__pension_employee"),
-        employer=Sum("payroll_entry__pays__employee_pay__pension_employer"),
-    )
-    # Stored pension fields are annual (basic x 12 x rate); the report shows
-    # the monthly remittance (÷12) so it agrees with the compliance calendar
-    # and the cost-of-employment report.
-    cents = Decimal("0.01")
-    rows = [
-        (
-            entry,
-            (
-                Decimal(entry.payroll_entry.pays.employee_pay.pension or 0)
-                / Decimal("12")
-            ).quantize(cents),
-        )
-        for entry in payroll_data
-    ]
+    totals = _run_totals(payroll_data)
+    rows = [(entry, entry.payroll_entry.figures) for entry in payroll_data]
     _log_payroll_report_sensitive_access(
         request=request,
         payroll_entries=payroll_data,
@@ -842,19 +843,9 @@ def pension_report(request, pay_id):
         "pay/pension_report_new.html",
         {
             "rows": rows,
-            "total": (
-                Decimal(
-                    pension_total["payroll_entry__pays__employee_pay__pension__sum"]
-                    or 0
-                )
-                / Decimal("12")
-            ).quantize(cents),
-            "employee_total": (
-                Decimal(pension_split["employee"] or 0) / Decimal("12")
-            ).quantize(cents),
-            "employer_total": (
-                Decimal(pension_split["employer"] or 0) / Decimal("12")
-            ).quantize(cents),
+            "total": totals["pension_total"],
+            "employee_total": totals["employee_pension"],
+            "employer_total": totals["employer_pension"],
             "dates": dates,
         },
     )
@@ -873,21 +864,20 @@ def pension_report_download(request, pay_id):
         "Gross Pay",
         "Total Pension Contribution",
     ]
-    raw_rows = PayrollRunEntry.objects.filter(
-        payroll_run_id=pay_id,
-        payroll_entry__company=company,
-    ).values_list(
-        "payroll_entry__pays__emp_id",
-        "payroll_entry__pays__first_name",
-        "payroll_entry__pays__last_name",
-        "payroll_entry__pays__pension_fund_manager",
-        "payroll_entry__pays__pension_rsa",
-        "payroll_entry__pays__employee_pay__basic_salary",
-        "payroll_entry__pays__employee_pay__pension",
+    data_rows = _figure_rows(
+        PayrollRunEntry.objects.filter(
+            payroll_run_id=pay_id,
+            payroll_entry__company=company,
+        ),
+        (
+            "payroll_entry__pays__emp_id",
+            "payroll_entry__pays__first_name",
+            "payroll_entry__pays__last_name",
+            "payroll_entry__pays__pension_fund_manager",
+            "payroll_entry__pays__pension_rsa",
+        ),
+        ("gross", "pension_total"),
     )
-    # Stored pension is annual; export the monthly remittance so the
-    # workbook matches the on-page report and the compliance calendar.
-    data_rows = _monthly_last_column(raw_rows)
     _log_payroll_report_sensitive_access(
         request=request,
         payroll_entries=PayrollRunEntry.objects.filter(
@@ -925,17 +915,14 @@ def varview_download(request, paydays):
         "Pension Contribution",
         "Net Pay",
     ]
-    data_rows = PayrollRunEntry.objects.filter(
-        payroll_run=pay_period,
-        payroll_entry__company=company,
-    ).values_list(
-        "payroll_entry__pays__first_name",
-        "payroll_entry__pays__last_name",
-        "payroll_entry__pays__employee_pay__basic_salary",
-        "payroll_entry__pays__employee_pay__water_rate",
-        "payroll_entry__pays__employee_pay__payee",
-        "payroll_entry__pays__employee_pay__pension_employee",
-        "payroll_entry__netpay",
+    data_rows = _figure_rows(
+        PayrollRunEntry.objects.filter(
+            payroll_run=pay_period,
+            payroll_entry__company=company,
+        ),
+        ("payroll_entry__pays__first_name", "payroll_entry__pays__last_name"),
+        ("gross", "employee_water", "employee_paye", "employee_pension"),
+        trailing_fields=("payroll_entry__netpay",),
     )
     return generate_excel_report(
         "payroll_report",

@@ -13,6 +13,7 @@ from .employee_profile import (
     Promotion,
     ContractTemplate,
     EmploymentContract,
+    RentDeclaration,
 )
 from .payroll import (
     Payroll,

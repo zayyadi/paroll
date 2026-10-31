@@ -173,8 +173,11 @@ class PayrollClosePostingTests(TestCase):
             + (Decimal(employee.employee_pay.pension_employee or 0) / Decimal("12"))
             + (Decimal(employee.employee_pay.nhf or 0) / Decimal("12"))
             + (Decimal(employee.employee_pay.employee_health or 0) / Decimal("12"))
+            + Decimal(employee.employee_pay.water_rate or 0)
         )
         self.assertEqual(self._q(salary_debit), self._q(expected_salary_debit))
+        # With every employee deduction posted, salary expense is the gross.
+        self.assertEqual(self._q(salary_debit), self._q(employee.employee_pay.basic_salary))
 
     def test_close_payroll_maps_iou_and_other_deductions_to_liabilities(self):
         _, employee, entry = self._create_employee_stack()
@@ -222,7 +225,11 @@ class PayrollClosePostingTests(TestCase):
             or Decimal("0.00")
         )
 
-        self.assertEqual(self._q(other_ded_credit), Decimal("500.00"))
+        # The misc deduction plus the monthly water rate.
+        self.assertEqual(
+            self._q(other_ded_credit),
+            self._q(Decimal("500.00") + employee.employee_pay.water_rate),
+        )
         self.assertEqual(self._q(iou_recovery_credit), Decimal("250.00"))
 
     def test_close_payroll_posts_each_payroll_component_to_its_account(self):
@@ -264,6 +271,7 @@ class PayrollClosePostingTests(TestCase):
             + (Decimal(payroll.pension_employee or 0) / Decimal("12"))
             + (Decimal(payroll.nhf or 0) / Decimal("12"))
             + (Decimal(payroll.employee_health or 0) / Decimal("12"))
+            + Decimal(payroll.water_rate or 0)
             + Decimal("500.00")
             + Decimal("250.00"),
             ("6015", "DEBIT"): Decimal("1000.00"),
@@ -282,7 +290,7 @@ class PayrollClosePostingTests(TestCase):
                 + Decimal(payroll.emplyr_health or 0)
             ) / Decimal("12"),
             ("2150", "CREDIT"): Decimal(payroll.nhf or 0) / Decimal("12"),
-            ("2160", "CREDIT"): Decimal("500.00"),
+            ("2160", "CREDIT"): Decimal("500.00") + Decimal(payroll.water_rate or 0),
         }
 
         for (account_number, entry_type), amount in expected.items():

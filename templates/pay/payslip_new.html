@@ -115,7 +115,7 @@
                             </tr>
                             <tr class="bg-success-50">
                                 <td class="px-4 py-2 font-semibold text-success-800">Gross for Period</td>
-                                <td class="px-4 py-2 text-right font-semibold text-success-800 tabular-nums">{{ pay_id_gross|add:pay.payroll_entry.calc_allowance|floatformat:2|intcomma }}</td>
+                                <td class="px-4 py-2 text-right font-semibold text-success-800 tabular-nums">{{ pay.payroll_entry.gross_for_period|floatformat:2|intcomma }}</td>
                             </tr>
                         </tbody>
                     </table>
@@ -161,7 +161,7 @@
                             </tr>
                             <tr class="bg-danger-50">
                                 <td class="px-4 py-2 font-semibold text-danger-700">Total Deductions</td>
-                                <td class="px-4 py-2 text-right font-semibold text-danger-700 tabular-nums">{{ pay_id_statutory_total|add:pay.payroll_entry.calc_deduction|floatformat:2|intcomma }}</td>
+                                <td class="px-4 py-2 text-right font-semibold text-danger-700 tabular-nums">{{ pay.payroll_entry.total_deductions|floatformat:2|intcomma }}</td>
                             </tr>
                         </tbody>
                     </table>

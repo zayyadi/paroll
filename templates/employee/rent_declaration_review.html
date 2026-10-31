@@ -1,0 +1,87 @@
+{% extends "base_new.html" %}
+{% load humanize %}
+
+{% block page_header %}Rent Declarations{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <section class="bento-card">
+        <p class="text-[10px] font-bold uppercase tracking-[0.24em] text-secondary-500">Awaiting Review</p>
+        <h2 class="mt-2 font-headline text-2xl font-extrabold text-primary-800">{{ pending|length }} pending</h2>
+        <p class="mt-2 text-sm text-secondary-500">Check the proof matches the declared rent. Approving applies the relief to the employee's PAYE immediately.</p>
+        <div class="mt-6 overflow-x-auto rounded-2xl border border-outline-variant">
+            <table class="min-w-full">
+                <thead class="bg-surface-container-low">
+                    <tr>
+                        <th class="px-4 py-3 text-left text-xs font-bold uppercase tracking-[0.12em] text-secondary-500">Employee</th>
+                        <th class="px-4 py-3 text-left text-xs font-bold uppercase tracking-[0.12em] text-secondary-500">Year</th>
+                        <th class="px-4 py-3 text-right text-xs font-bold uppercase tracking-[0.12em] text-secondary-500">Annual Rent</th>
+                        <th class="px-4 py-3 text-left text-xs font-bold uppercase tracking-[0.12em] text-secondary-500">Proof</th>
+                        <th class="px-4 py-3 text-left text-xs font-bold uppercase tracking-[0.12em] text-secondary-500">Decision</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-outline-variant/30">
+                    {% for declaration in pending %}
+                    <tr>
+                        <td class="px-4 py-4 text-sm font-semibold text-on-surface">{{ declaration.employee.first_name }} {{ declaration.employee.last_name }}</td>
+                        <td class="px-4 py-4 text-sm text-on-surface-variant tabular-nums">{{ declaration.tax_year }}</td>
+                        <td class="px-4 py-4 text-right text-sm text-on-surface-variant tabular-nums">₦{{ declaration.annual_rent|floatformat:2|intcomma }}</td>
+                        <td class="px-4 py-4 text-sm">
+                            {% if declaration.document %}<a href="{{ declaration.document.url }}" target="_blank" rel="noopener" class="font-semibold text-primary-700 underline">View proof</a>{% else %}<span class="text-secondary-500">None</span>{% endif %}
+                        </td>
+                        <td class="px-4 py-4 text-sm">
+                            <form method="post" action="{% url 'payroll:decide_rent_declaration' declaration.pk %}" class="flex flex-wrap items-center gap-2">
+                                {% csrf_token %}
+                                <input type="text" name="note" placeholder="Note (required to reject)" class="h-9 rounded-xl border border-outline-variant px-3 text-sm">
+                                <button type="submit" name="decision" value="approve" class="btn-primary editorial-action rounded-2xl px-4 py-2 text-xs font-bold text-white">Approve</button>
+                                <button type="submit" name="decision" value="reject" class="rounded-2xl border border-outline-variant px-4 py-2 text-xs font-bold text-danger-700">Reject</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" class="px-4 py-8 text-center text-sm text-secondary-500">Nothing to review.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <section class="bento-card">
+        <p class="text-[10px] font-bold uppercase tracking-[0.24em] text-secondary-500">Recent Decisions</p>
+        <div class="mt-6 overflow-x-auto rounded-2xl border border-outline-variant">
+            <table class="min-w-full">
+                <thead class="bg-surface-container-low">
+                    <tr>
+                        <th class="px-4 py-3 text-left text-xs font-bold uppercase tracking-[0.12em] text-secondary-500">Employee</th>
+                        <th class="px-4 py-3 text-left text-xs font-bold uppercase tracking-[0.12em] text-secondary-500">Year</th>
+                        <th class="px-4 py-3 text-right text-xs font-bold uppercase tracking-[0.12em] text-secondary-500">Annual Rent</th>
+                        <th class="px-4 py-3 text-left text-xs font-bold uppercase tracking-[0.12em] text-secondary-500">Status</th>
+                        <th class="px-4 py-3 text-left text-xs font-bold uppercase tracking-[0.12em] text-secondary-500">Reviewed</th>
+                        <th class="px-4 py-3 text-left text-xs font-bold uppercase tracking-[0.12em] text-secondary-500">Note</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-outline-variant/30">
+                    {% for declaration in decided %}
+                    <tr>
+                        <td class="px-4 py-4 text-sm font-semibold text-on-surface">{{ declaration.employee.first_name }} {{ declaration.employee.last_name }}</td>
+                        <td class="px-4 py-4 text-sm text-on-surface-variant tabular-nums">{{ declaration.tax_year }}</td>
+                        <td class="px-4 py-4 text-right text-sm text-on-surface-variant tabular-nums">₦{{ declaration.annual_rent|floatformat:2|intcomma }}</td>
+                        <td class="px-4 py-4 text-sm">
+                            {% if declaration.status == "approved" %}<span class="chip chip-success">Approved</span>{% else %}<span class="chip chip-danger">Rejected</span>{% endif %}
+                        </td>
+                        <td class="px-4 py-4 text-sm text-on-surface-variant">{{ declaration.reviewed_by.get_full_name|default:"-" }} · {{ declaration.reviewed_at|date:"d M Y" }}</td>
+                        <td class="px-4 py-4 text-sm text-on-surface-variant">{{ declaration.review_note|default:"-" }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="px-4 py-8 text-center text-sm text-secondary-500">No decisions yet.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+</div>
+{% endblock %}
