@@ -1,0 +1,80 @@
+{% extends "base_new.html" %}
+{% load humanize crispy_forms_tags %}
+{% block title %}{{ project.code }}{% endblock %}
+{% block content %}
+<div class="mx-auto max-w-7xl space-y-6 p-6">
+  <a class="text-sm text-secondary-500" href="{% url 'projects:list' %}">← Projects</a>
+  <div class="flex flex-wrap items-start justify-between gap-4">
+    <div>
+      <p class="text-xs font-bold uppercase tracking-[.2em] text-secondary-500">{{ project.code }}{% if project.client %} · {{ project.client }}{% endif %}</p>
+      <h1 class="font-headline text-3xl font-bold text-primary-800">{{ project.name }}</h1>
+      <p class="mt-1 text-sm">{{ project.get_status_display }}{% if project.manager %} · Managed by {{ project.manager }}{% endif %}{% if project.start_date %} · {{ project.start_date }}{% if project.end_date %} to {{ project.end_date }}{% endif %}{% endif %}</p>
+    </div>
+    {% if can_edit %}<a class="btn-primary" href="{% url 'projects:edit' project.pk %}">Edit project</a>{% endif %}
+  </div>
+  {% if project.description %}<p class="max-w-3xl text-sm text-secondary-600">{{ project.description|linebreaksbr }}</p>{% endif %}
+
+  <div class="grid gap-4 md:grid-cols-4">
+    <div class="editorial-panel p-6"><p class="text-xs uppercase text-secondary-500">Approved hours</p><strong class="text-2xl tabular-nums">{{ summary.approved_hours }}</strong></div>
+    <div class="editorial-panel p-6"><p class="text-xs uppercase text-secondary-500">Awaiting approval</p><strong class="text-2xl tabular-nums">{{ summary.pending_hours }}</strong></div>
+    {% if can_view_costs %}
+    <div class="editorial-panel p-6"><p class="text-xs uppercase text-secondary-500">Labour cost to date</p><strong class="text-2xl tabular-nums">₦{{ summary.cost|floatformat:2|intcomma }}</strong></div>
+    <div class="editorial-panel p-6"><p class="text-xs uppercase text-secondary-500">Budget</p>
+      {% if project.budget is not None %}<strong class="text-2xl tabular-nums">{{ summary.budget_used_percent|default:"0" }}% used</strong><p class="text-sm">₦{{ summary.budget_remaining|floatformat:2|intcomma }} left of ₦{{ project.budget|floatformat:2|intcomma }}</p>{% else %}<strong class="text-2xl">—</strong>{% endif %}
+    </div>
+    {% endif %}
+  </div>
+
+  <section class="table-shell overflow-x-auto">
+    <h2 class="px-6 pt-5 font-headline text-xl font-bold text-primary-800">Tasks</h2>
+    <table class="min-w-full text-sm">
+      <thead><tr><th class="text-left">Task</th><th class="text-left">Assignee</th><th class="text-left">Due</th><th class="text-right">Estimate (h)</th><th class="text-left">Status</th><th></th></tr></thead>
+      <tbody>
+      {% for task in tasks %}
+        <tr>
+          <td><strong>{{ task.title }}</strong>{% if task.description %}<br><small class="text-secondary-500">{{ task.description|truncatechars:90 }}</small>{% endif %}</td>
+          <td>{{ task.assignee|default:"—" }}</td>
+          <td>{{ task.due_date|default:"—" }}</td>
+          <td class="text-right tabular-nums">{{ task.estimate_hours|default:"—" }}</td>
+          <td>
+            {% if can_change_task %}
+            <form method="post" action="{% url 'projects:task_status' task.pk %}">{% csrf_token %}
+              <select name="status" aria-label="Status of {{ task.title }}" onchange="this.form.submit()" class="rounded-lg border px-2 py-1">
+                {% for value, label in status_choices %}<option value="{{ value }}" {% if value == task.status %}selected{% endif %}>{{ label }}</option>{% endfor %}
+              </select>
+              <noscript><button type="submit">Update</button></noscript>
+            </form>
+            {% else %}{{ task.get_status_display }}{% endif %}
+          </td>
+          <td>{% if can_change_task %}<a class="text-sm font-bold" href="{% url 'projects:task_edit' task.pk %}">Edit</a>{% endif %}</td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="6" class="py-8 text-center text-secondary-500">No tasks yet.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </section>
+
+  {% if task_form %}
+  <form method="post" class="editorial-panel p-7 space-y-4">{% csrf_token %}
+    <h2 class="font-headline text-xl font-bold text-primary-800">Add a task</h2>
+    {{ task_form|crispy }}
+    <button class="btn-primary" type="submit">Add task</button>
+  </form>
+  {% endif %}
+
+  <section class="table-shell overflow-x-auto">
+    <h2 class="px-6 pt-5 font-headline text-xl font-bold text-primary-800">Approved hours by person</h2>
+    <table class="min-w-full text-sm">
+      <thead><tr><th class="text-left">Employee</th><th class="text-right">Hours</th></tr></thead>
+      <tbody>
+      {% for row in summary.hours_by_employee %}
+        <tr><td>{{ row.timesheet__employee__first_name }} {{ row.timesheet__employee__last_name }}</td><td class="text-right tabular-nums">{{ row.total }}</td></tr>
+      {% empty %}
+        <tr><td colspan="2" class="py-8 text-center text-secondary-500">No approved time yet.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </section>
+</div>
+{% endblock %}

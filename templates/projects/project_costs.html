@@ -1,0 +1,57 @@
+{% extends "base_new.html" %}
+{% load humanize %}
+{% block title %}Project costs{% endblock %}
+{% block content %}
+<div class="mx-auto max-w-7xl space-y-6 p-6">
+  <a class="text-sm text-secondary-500" href="{% url 'projects:list' %}">← Projects</a>
+  <div>
+    <h1 class="font-headline text-3xl font-bold text-primary-800">Project costs</h1>
+    <p class="text-sm text-secondary-500">Each employee's employer cost for the run (gross, employer pension, NHIA, NSITF, ITF and the period's allowances) is split across projects by their approved project hours that month. Hours not booked to a project stay unallocated.</p>
+  </div>
+  {% if runs %}
+  <div class="flex flex-wrap items-end gap-3">
+    <form method="get" class="flex items-center gap-3 text-sm">
+      <label for="run">Payroll run</label>
+      <select id="run" name="run" onchange="this.form.submit()" class="rounded-lg border px-3 py-2">
+        {% for r in runs %}<option value="{{ r.pk }}" {% if run and r.pk == run.pk %}selected{% endif %}>{{ r.name }} ({{ r.paydays }})</option>{% endfor %}
+      </select>
+    </form>
+    {% if can_allocate and run %}
+    <form method="post">{% csrf_token %}<input type="hidden" name="run" value="{{ run.pk }}"><button class="btn-primary" type="submit">{% if summary.has_allocations %}Recalculate{% else %}Calculate{% endif %} project costs</button></form>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  {% if summary %}
+  <div class="grid gap-4 md:grid-cols-3">
+    <div class="editorial-panel p-6"><p class="text-xs uppercase text-secondary-500">Run employer cost</p><strong class="text-2xl tabular-nums">₦{{ summary.total_cost|floatformat:2|intcomma }}</strong></div>
+    <div class="editorial-panel p-6"><p class="text-xs uppercase text-secondary-500">Allocated to projects</p><strong class="text-2xl tabular-nums">₦{{ summary.allocated|floatformat:2|intcomma }}</strong></div>
+    <div class="editorial-panel p-6"><p class="text-xs uppercase text-secondary-500">Unallocated (overhead)</p><strong class="text-2xl tabular-nums">₦{{ summary.unallocated|floatformat:2|intcomma }}</strong></div>
+  </div>
+  <section class="table-shell overflow-x-auto">
+    <table class="min-w-full text-sm">
+      <thead><tr><th class="text-left">Project</th><th class="text-left">Employee</th><th class="text-right">Project hours</th><th class="text-right">All approved hours</th><th class="text-right">Employer cost</th><th class="text-right">Allocated</th></tr></thead>
+      <tbody>
+      {% for bucket in summary.projects %}
+        {% for row in bucket.rows %}
+        <tr>
+          <td>{% if forloop.first %}<a class="font-bold" href="{% url 'projects:detail' bucket.project.pk %}">{{ bucket.project }}</a>{% endif %}</td>
+          <td>{{ row.employee }}</td>
+          <td class="text-right tabular-nums">{{ row.hours }}</td>
+          <td class="text-right tabular-nums">{{ row.employee_hours }}</td>
+          <td class="text-right tabular-nums">₦{{ row.employee_cost|floatformat:2|intcomma }}</td>
+          <td class="text-right tabular-nums">₦{{ row.amount|floatformat:2|intcomma }}</td>
+        </tr>
+        {% endfor %}
+        <tr class="font-bold"><td colspan="2">{{ bucket.project.code }} total</td><td class="text-right tabular-nums">{{ bucket.hours }}</td><td></td><td></td><td class="text-right tabular-nums">₦{{ bucket.amount|floatformat:2|intcomma }}</td></tr>
+      {% empty %}
+        <tr><td colspan="6" class="py-10 text-center text-secondary-500">{% if summary.has_allocations %}No project time{% else %}Not calculated yet for this run{% endif %}.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </section>
+  {% elif not runs %}
+  <p class="text-secondary-500">There are no payroll runs yet.</p>
+  {% endif %}
+</div>
+{% endblock %}

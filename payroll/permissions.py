@@ -233,6 +233,24 @@ def setup_groups_and_permissions():
         f"Configured Employee group with {len(employee_permissions_list)} permissions."
     )
 
+    # Projects: Admin runs projects and costing; supervisors manage tasks;
+    # HR can look. Booking your own time needs no permission.
+    project_grants = {
+        admin_group: [
+            "view_project", "add_project", "change_project",
+            "view_task", "add_task", "change_task",
+            "view_projectcostallocation", "add_projectcostallocation",
+        ],
+        supervisor_group: ["view_project", "view_task", "add_task", "change_task"],
+        hr_group: ["view_project", "view_task"],
+    }
+    for group, codenames in project_grants.items():
+        group.permissions.add(
+            *Permission.objects.filter(
+                content_type__app_label="projects", codename__in=codenames
+            )
+        )
+
     print("Default groups and permissions configuration complete.")
 
 

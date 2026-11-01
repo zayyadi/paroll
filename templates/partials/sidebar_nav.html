@@ -496,6 +496,8 @@
     {% endif %}
 {% if request.user.is_authenticated %}
 <a href="{% url 'payroll:timesheets' %}" class="sidebar-link">Timesheets</a>
+{% if perms.projects.view_project %}<a href="{% url 'projects:list' %}" class="sidebar-link {% if request.resolver_match.app_name == 'projects' and request.resolver_match.url_name != 'costs' %}active{% endif %}">Projects</a>{% endif %}
+{% if perms.projects.view_projectcostallocation %}<a href="{% url 'projects:costs' %}" class="sidebar-link {% if request.resolver_match.app_name == 'projects' and request.resolver_match.url_name == 'costs' %}active{% endif %}">Project costs</a>{% endif %}
 {% if perms.payroll.view_leavetype %}<a href="{% url 'payroll:leave_types' %}" class="sidebar-link">Leave types</a>{% endif %}
 {% if perms.payroll.view_employeeprofile and perms.payroll.view_payrollentry %}<a href="{% url 'payroll:people_analytics' %}" class="sidebar-link">People analytics</a>{% endif %}
 {% if perms.payroll.view_exitsettlement %}<a href="{% url 'payroll:hr_records' 'exit-settlements' %}" class="sidebar-link">Exit settlements</a>{% endif %}

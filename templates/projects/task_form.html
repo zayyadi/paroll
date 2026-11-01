@@ -1,0 +1,13 @@
+{% extends "base_new.html" %}
+{% load crispy_forms_tags %}
+{% block title %}Edit task{% endblock %}
+{% block content %}
+<div class="mx-auto max-w-3xl space-y-6 p-6">
+  <a class="text-sm text-secondary-500" href="{% url 'projects:detail' task.project_id %}">← {{ task.project }}</a>
+  <h1 class="font-headline text-3xl font-bold text-primary-800">Edit task</h1>
+  <form method="post" class="editorial-panel p-7 space-y-4">{% csrf_token %}
+    {{ form|crispy }}
+    <button class="btn-primary" type="submit">Save task</button>
+  </form>
+</div>
+{% endblock %}

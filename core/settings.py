@@ -110,6 +110,7 @@ INSTALLED_APPS = [
     "marketing",
     "compliance",
     "webhooks",
+    "projects",
     # Channels for real-time notifications
     "channels",
     "channels_redis",
