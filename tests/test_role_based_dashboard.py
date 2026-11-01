@@ -437,11 +437,11 @@ class DashboardMetricsTests(TestCase):
         self.assertNotIn("+12.4%", content)
 
     def test_discipline_case_board_shows_real_aggregates(self):
-        from accounting.models import DisciplinaryCase
+        from payroll.models import DisciplinaryCase
 
         from tests.approval_helpers import approve_request, approval_user
         case = DisciplinaryCase.objects.create(company=self.company, allegation_summary="Documented case", allegation_details="Verified evidence")
-        maker = approval_user(self.company, ["accounting.change_disciplinarycase"])
+        maker = approval_user(self.company, ["payroll.change_disciplinarycase"])
         approve_request(case.decide(finding="SUBSTANTIATED", decided_by=maker, rationale="Verified finding"))
         response = self.client.get(reverse("payroll:discipline_case_list"))
         self.assertEqual(response.status_code, 200)

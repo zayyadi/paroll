@@ -133,6 +133,7 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "approvals.middleware.ApprovalActorMiddleware",
     "company.middleware.ActiveCompanyMiddleware",
+    "core.middleware.InventoryFeatureMiddleware",
     "accounting.middleware.AuditTrailMiddleware",
     "accounting.middleware.SystemUserMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
@@ -161,6 +162,7 @@ TEMPLATES = [
                 "company.context_processors.tenant_context",
                 "core.context_processors.branding",
                 "core.context_processors.user_roles",
+                "core.context_processors.features",
             ],
         },
     },
@@ -370,6 +372,10 @@ ALLOW_DEFAULT_COMPANY_FALLBACK = env_bool("ALLOW_DEFAULT_COMPANY_FALLBACK", Fals
 # results. Flip together with ALLOW_DEFAULT_COMPANY_FALLBACK off once the
 # tenant-scoping adoption is complete (see plans/TENANT_ISOLATION_ACCEPTANCE_MATRIX.md).
 TENANT_SCOPING_ENFORCED = env_bool("TENANT_SCOPING_ENFORCED", False)
+
+# Inventory is hidden unless switched on: pages and API return 404 and the
+# sidebar omits it. Code and tables are kept (core.middleware).
+INVENTORY_ENABLED = env_bool("INVENTORY_ENABLED", False)
 
 REGISTRATION_OTP_TIMEOUT_SECONDS = int(
     os.getenv("REGISTRATION_OTP_TIMEOUT_SECONDS", "600")

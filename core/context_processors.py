@@ -61,3 +61,8 @@ def user_roles(request):
         }
     )
     return flags
+
+
+def features(request):
+    """Optional product areas the templates show or hide."""
+    return {"inventory_enabled": getattr(settings, "INVENTORY_ENABLED", False)}

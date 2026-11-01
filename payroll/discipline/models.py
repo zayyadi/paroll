@@ -13,7 +13,7 @@ Migration plan (for a future release):
 6. Run makemigrations to drop old tables
 """
 
-from accounting.models import (
+from payroll.models import (
     DisciplinaryCase,
     DisciplinarySanction,
     DisciplinaryEvidence,

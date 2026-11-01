@@ -8,13 +8,13 @@ from django.utils import timezone
 from approvals.registry import ApprovalAction, register_action
 from approvals.permissions import require_company_authority
 from approvals.services import submit_approval, current_execution
-from accounting.models import DisciplinaryCase, DisciplinaryAppeal, DisciplinaryCaseAudit
+from payroll.models import DisciplinaryCase, DisciplinaryAppeal, DisciplinaryCaseAudit
 
 REVIEW_PERMISSIONS = {
-    "MANAGER": "accounting.change_disciplinarycase",
-    "HR_LEAD": "accounting.review_hr_disciplinarycase",
-    "PANEL": "accounting.review_panel_disciplinarycase",
-    "EXECUTIVE": "accounting.review_executive_disciplinarycase",
+    "MANAGER": "payroll.change_disciplinarycase",
+    "HR_LEAD": "payroll.review_hr_disciplinarycase",
+    "PANEL": "payroll.review_panel_disciplinarycase",
+    "EXECUTIVE": "payroll.review_executive_disciplinarycase",
 }
 
 def decision_action(case: DisciplinaryCase) -> str:
@@ -68,7 +68,7 @@ def apply_decision(case: DisciplinaryCase, actor: Any, payload: dict[str, Any]) 
 
 @transaction.atomic
 def submit_case_decision(*, case: DisciplinaryCase, actor: Any, finding: str, rationale: str, findings_summary: str = "") -> Any:
-    require_company_authority(actor, case.company, "accounting.change_disciplinarycase")
+    require_company_authority(actor, case.company, "payroll.change_disciplinarycase")
     return submit_approval(source=case, action=decision_action(case), requester=actor,
                            payload={"finding": finding, "rationale": rationale, "findings_summary": findings_summary})
 
@@ -82,7 +82,7 @@ def validate_appeal(appeal: DisciplinaryAppeal, payload: dict[str, Any]) -> None
 
 @transaction.atomic
 def submit_appeal_review(*, appeal: DisciplinaryAppeal, actor: Any, status: str, outcome_notes: str) -> Any:
-    require_company_authority(actor, appeal.case.company, "accounting.change_disciplinaryappeal")
+    require_company_authority(actor, appeal.case.company, "payroll.change_disciplinaryappeal")
     return submit_approval(source=appeal, action=appeal_action(appeal.case), requester=actor,
                            payload={"status": status, "outcome_notes": outcome_notes})
 
@@ -115,11 +115,11 @@ def apply_appeal(appeal: DisciplinaryAppeal, actor: Any, payload: dict[str, Any]
 
 for level, permission in REVIEW_PERMISSIONS.items():
     suffix = "." + level.lower() if level != "MANAGER" else ""
-    register_action(ApprovalAction(key="discipline.decide" + suffix, model_label="accounting.DisciplinaryCase",
+    register_action(ApprovalAction(key="discipline.decide" + suffix, model_label="payroll.DisciplinaryCase",
         permission=permission, apply=apply_decision, validate=validate_decision, snapshot=case_snapshot,
         requester=None, beneficiaries=case_parties))
-    register_action(ApprovalAction(key="discipline.appeal.review" + suffix, model_label="accounting.DisciplinaryAppeal",
-        permission="accounting.change_disciplinaryappeal" if level == "MANAGER" else permission,
+    register_action(ApprovalAction(key="discipline.appeal.review" + suffix, model_label="payroll.DisciplinaryAppeal",
+        permission="payroll.change_disciplinaryappeal" if level == "MANAGER" else permission,
         apply=apply_appeal, validate=validate_appeal, snapshot=appeal_snapshot,
         requester=None, beneficiaries=appeal_conflicts, company=lambda source: source.case.company))
 
@@ -160,6 +160,6 @@ def apply_anonymization(case: DisciplinaryCase, actor: Any, payload: dict[str, A
     _audit(case, actor, DisciplinaryCaseAudit.Action.STATUS_CHANGED,
            {"operation": "narrative_anonymized", "approval_id": current_execution().pk})
 
-register_action(ApprovalAction(key="discipline.anonymize", model_label="accounting.DisciplinaryCase",
-    permission="accounting.change_disciplinarycase", requester=None, beneficiaries=case_parties,
+register_action(ApprovalAction(key="discipline.anonymize", model_label="payroll.DisciplinaryCase",
+    permission="payroll.change_disciplinarycase", requester=None, beneficiaries=case_parties,
     snapshot=anonymization_snapshot, validate=validate_anonymization, apply=apply_anonymization))

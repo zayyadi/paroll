@@ -111,3 +111,7 @@ AUTHENTICATION_BACKENDS = tuple(
         and _is_installed("social_django")
     )
 )
+
+# Inventory code is kept, so keep testing it; tests/test_inventory_feature_flag.py
+# covers the hidden default.
+INVENTORY_ENABLED = True

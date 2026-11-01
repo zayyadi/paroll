@@ -34,15 +34,9 @@ from .models import (
     FiscalYear,
     AccountingPeriod,
     AccountingAuditTrail,
-    DisciplinaryCase,
-    DisciplinaryEvidence,
-    DisciplinarySanction,
-    DisciplinaryAppeal,
-    DisciplinaryCaseAudit,
     AccountReconciliation,
     BankTransaction,
     ReconciliationItem,
-    log_disciplinary_case_audit,
     CostCenter,
     Budget,
     BudgetLine,
@@ -53,6 +47,14 @@ from .models import (
     TaxReturnLine,
     JournalAttachment,
     RecurringJournalTemplate,
+)
+from payroll.models import (
+    DisciplinaryCase,
+    DisciplinaryEvidence,
+    DisciplinarySanction,
+    DisciplinaryAppeal,
+    DisciplinaryCaseAudit,
+    log_disciplinary_case_audit,
 )
 from .forms import (
     JournalForm,
@@ -2022,7 +2024,7 @@ class DisciplinarySanctionCreateView(
     def form_valid(self, form):
         from approvals.permissions import require_company_authority
         from approvals.services import submit_approval
-        require_company_authority(self.request.user, self.disciplinary_case.company, "accounting.change_disciplinarysanction")
+        require_company_authority(self.request.user, self.disciplinary_case.company, "payroll.change_disciplinarysanction")
         try:
             with transaction.atomic():
                 self.object = form.save()
@@ -2079,7 +2081,7 @@ class DisciplinaryAppealCreateView(
         from approvals.permissions import require_company_authority
         self.disciplinary_case = _get_disciplinary_case_for_user(request.user, kwargs["pk"])
         if request.user.pk not in {self.disciplinary_case.respondent_id, self.disciplinary_case.reporter_id}:
-            require_company_authority(request.user, self.disciplinary_case.company, "accounting.change_disciplinarycase")
+            require_company_authority(request.user, self.disciplinary_case.company, "payroll.change_disciplinarycase")
         return super().dispatch(request, *args, **kwargs)
 
     def get_form(self, form_class=None):

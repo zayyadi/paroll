@@ -47,7 +47,7 @@ def _employee_blocked_for_payday(employee, paydays):
     if user and not user.is_active:
         return True, "disabled user account"
 
-    DisciplinarySanction = apps.get_model("accounting", "DisciplinarySanction")
+    DisciplinarySanction = apps.get_model("payroll", "DisciplinarySanction")
     period_start, period_end = _get_period_bounds(paydays)
     active_sanctions = DisciplinarySanction.objects.filter(
         case__respondent=user,

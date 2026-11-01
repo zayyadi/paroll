@@ -196,7 +196,8 @@
         <span>Reconciliation</span>
     </a>
 
-    {# ── INVENTORY ── #}
+    {# ── INVENTORY (hidden unless INVENTORY_ENABLED) ── #}
+    {% if inventory_enabled %}
     <div class="pt-3 pb-1">
         <p class="px-3 text-[10px] font-bold uppercase tracking-[0.24em] text-secondary-400">Inventory</p>
     </div>
@@ -240,6 +241,7 @@
         <i data-lucide="users" class="sidebar-icon h-5 w-5 text-secondary-400"></i>
         <span>Customers</span>
     </a>
+    {% endif %}
 
     {# ── SETTINGS ── #}
     <div class="pt-3 pb-1">

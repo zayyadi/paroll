@@ -164,7 +164,8 @@ else:
         "accounting.year.close", "accounting.change_fiscalyear"
     )(models.FiscalYear.close)
 from accounting import discipline_approval_actions  # Register reviewed findings and appeal outcomes.
-models.DisciplinaryCase.close_case = proposal_operation('discipline.close','accounting.change_disciplinarycase')(models.DisciplinaryCase.close_case)
+from payroll.models import DisciplinaryCase  # noqa: E402
+DisciplinaryCase.close_case = proposal_operation('discipline.close','payroll.change_disciplinarycase')(DisciplinaryCase.close_case)
 
 
 def sanction_snapshot(source):
@@ -190,8 +191,8 @@ def apply_sanction(source,actor,payload):
     source.status=source.Status.ACTIVE
     source.save(update_fields=['status','updated_at'])
 
-register_action(ApprovalAction(key='discipline.sanction',model_label='accounting.DisciplinarySanction',
-    permission='accounting.change_disciplinarysanction',apply=apply_sanction,
+register_action(ApprovalAction(key='discipline.sanction',model_label='payroll.DisciplinarySanction',
+    permission='payroll.change_disciplinarysanction',apply=apply_sanction,
     snapshot=sanction_snapshot,validate=validate_sanction,company=lambda source:source.case.company,
     requester=lambda source:source.created_by,beneficiaries=lambda source:[source.case.respondent_id]))
 

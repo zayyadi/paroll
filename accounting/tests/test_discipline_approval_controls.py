@@ -6,7 +6,7 @@ from django.contrib.contenttypes.models import ContentType
 from approvals.models import ApprovalRequest
 from approvals.services import decide_approval
 from company.models import Company
-from accounting.models import DisciplinaryCase, DisciplinarySanction, DisciplinaryAppeal
+from payroll.models import DisciplinaryCase, DisciplinarySanction, DisciplinaryAppeal
 
 class DisciplineApprovalControlsTests(TestCase):
     def setUp(self):
@@ -16,7 +16,7 @@ class DisciplineApprovalControlsTests(TestCase):
         self.checker=User.objects.create_user(email="discipline-checker@example.test",password="x",company=self.company,active_company=self.company)
         self.respondent=User.objects.create_user(email="discipline-respondent@example.test",password="x",company=self.company,active_company=self.company)
         self.reporter=User.objects.create_user(email="discipline-reporter@example.test",password="x",company=self.company,active_company=self.company)
-        permissions=Permission.objects.filter(content_type__app_label="accounting",codename__in=["change_disciplinarycase","change_disciplinarysanction","change_disciplinaryappeal"])
+        permissions=Permission.objects.filter(content_type__app_label="payroll",codename__in=["change_disciplinarycase","change_disciplinarysanction","change_disciplinaryappeal"])
         self.maker.user_permissions.add(*permissions)
         self.checker.user_permissions.add(*permissions)
         group,_=Group.objects.get_or_create(name="Accountant")
@@ -81,7 +81,7 @@ class DisciplineApprovalControlsTests(TestCase):
         self.assertIn(self.checker.pk,request.beneficiary_ids)
         with self.assertRaises(PermissionDenied): decide_approval(approval=request,actor=self.checker)
         reviewer=get_user_model().objects.create_user(email="independent-appeal-reviewer@example.test",password="x",company=self.company,active_company=self.company)
-        reviewer.user_permissions.add(Permission.objects.get(content_type__app_label="accounting",codename="change_disciplinaryappeal"))
+        reviewer.user_permissions.add(Permission.objects.get(content_type__app_label="payroll",codename="change_disciplinaryappeal"))
         decide_approval(approval=request,actor=reviewer)
         appeal.refresh_from_db()
         self.case.refresh_from_db()
@@ -104,7 +104,7 @@ class DisciplineApprovalControlsTests(TestCase):
         request=self.case.decide(finding="SUBSTANTIATED",decided_by=self.maker,rationale="Verified serious finding")
         self.assertEqual(request.action,"discipline.decide.panel")
         with self.assertRaises(PermissionDenied): decide_approval(approval=request,actor=self.checker)
-        self.checker.user_permissions.add(Permission.objects.get(content_type__app_label="accounting",codename="review_panel_disciplinarycase"))
+        self.checker.user_permissions.add(Permission.objects.get(content_type__app_label="payroll",codename="review_panel_disciplinarycase"))
         for name in ("_perm_cache","_user_perm_cache","_group_perm_cache"):
             if hasattr(self.checker,name): delattr(self.checker,name)
         decide_approval(approval=request,actor=self.checker)
@@ -128,7 +128,7 @@ class DisciplineApprovalControlsTests(TestCase):
         from accounting.discipline_services import execute_approved_sanction
         self.case.violation_level="LEVEL_3"
         self.case.save(update_fields=["violation_level"])
-        self.checker.user_permissions.add(Permission.objects.get(content_type__app_label="accounting",codename="review_panel_disciplinarycase"))
+        self.checker.user_permissions.add(Permission.objects.get(content_type__app_label="payroll",codename="review_panel_disciplinarycase"))
         self.approve_case()
         sanction=DisciplinarySanction.objects.create(case=self.case,created_by=self.maker,sanction_type="TERMINATION",rationale="Approved outcome",effective_date=date(2099,1,1))
         request=submit_approval(source=sanction,action="discipline.sanction",requester=self.maker)
@@ -151,7 +151,7 @@ class DisciplineApprovalControlsTests(TestCase):
         from accounting.discipline_approval_actions import submit_appeal_review
         self.case.violation_level="LEVEL_3"
         self.case.save(update_fields=["violation_level"])
-        self.checker.user_permissions.add(Permission.objects.get(content_type__app_label="accounting",codename="review_panel_disciplinarycase"))
+        self.checker.user_permissions.add(Permission.objects.get(content_type__app_label="payroll",codename="review_panel_disciplinarycase"))
         self.approve_case()
         sanction=DisciplinarySanction.objects.create(case=self.case,created_by=self.maker,sanction_type="TERMINATION",rationale="Approved outcome",effective_date="2020-01-01")
         request=submit_approval(source=sanction,action="discipline.sanction",requester=self.maker)
@@ -161,7 +161,7 @@ class DisciplineApprovalControlsTests(TestCase):
         appeal=DisciplinaryAppeal.objects.create(case=self.case,appellant=self.respondent,grounds="NEW_EVIDENCE",details="Exonerating records")
         request=submit_appeal_review(appeal=appeal,actor=self.maker,status="OVERTURNED",outcome_notes="Exonerating evidence verified")
         reviewer=get_user_model().objects.create_user(email="panel-appeal-reviewer@example.test",password="x",company=self.company,active_company=self.company)
-        reviewer.user_permissions.add(Permission.objects.get(content_type__app_label="accounting",codename="review_panel_disciplinarycase"))
+        reviewer.user_permissions.add(Permission.objects.get(content_type__app_label="payroll",codename="review_panel_disciplinarycase"))
         decide_approval(approval=request,actor=reviewer)
         sanction.refresh_from_db()
         self.respondent.refresh_from_db()

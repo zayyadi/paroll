@@ -6,7 +6,7 @@ from typing import Any
 
 from django.utils import timezone
 
-from accounting.models import DisciplinaryCase
+from payroll.models import DisciplinaryCase
 from payroll.models import HRRetentionPolicy, HiringCandidate, SurveyResponse
 
 
@@ -47,7 +47,7 @@ def apply_hr_retention(
         from approvals.permissions import require_company_authority
         from company.utils import get_user_company
         company = get_user_company(actor)
-        require_company_authority(actor, company, "accounting.change_disciplinarycase")
+        require_company_authority(actor, company, "payroll.change_disciplinarycase")
         if policy is None:
             active_policy = (HRRetentionPolicy.objects.filter(company=company, is_active=True).first()
                              or HRRetentionPolicy.objects.filter(company__isnull=True, is_active=True).first()

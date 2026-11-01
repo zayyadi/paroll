@@ -12,7 +12,8 @@ from django.utils import timezone
 from unittest.mock import patch
 
 from company.models import Company
-from accounting.models import DisciplinaryCase, DisciplinarySanction, Journal, JournalEntry
+from accounting.models import Journal, JournalEntry
+from payroll.models import DisciplinaryCase, DisciplinarySanction
 from payroll.forms import PayrollRunCreateForm, IOURequestForm, IOUApprovalForm
 from payroll.models.utils import AuditTrail
 from payroll.services.ewa import ew_advance_limits
@@ -404,7 +405,7 @@ class PayrollDisciplinaryEligibilityTests(TestCase):
             reporter=self.hr_user,
             violation_level=DisciplinaryCase.ViolationLevel.LEVEL_3,
         )
-        self.hr_user.user_permissions.add(Permission.objects.get(content_type__app_label="accounting", codename="change_disciplinarycase"))
+        self.hr_user.user_permissions.add(Permission.objects.get(content_type__app_label="payroll", codename="change_disciplinarycase"))
         approval = case.decide(finding="SUBSTANTIATED", decided_by=self.hr_user, rationale="Verified findings")
         approve_request(approval)
         case.refresh_from_db()
