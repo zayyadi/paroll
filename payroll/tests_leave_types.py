@@ -312,3 +312,61 @@ class LeaveWorkingDayTests(LeaveTypeFixture):
         )
         self.assertFalse(form.is_valid())
         self.assertIn("at least one working day", str(form.errors))
+
+
+class LeavePublicHolidayTests(LeaveTypeFixture):
+    """Public holidays in the company's calendar are not leave days."""
+
+    MONDAY = date(2026, 6, 8)
+    TUESDAY = date(2026, 6, 9)
+    WEDNESDAY = date(2026, 6, 10)
+    DEMOCRACY_DAY = date(2026, 6, 12)  # a Friday
+
+    def _holiday(self, day, company=None):
+        from payroll.models import PublicHoliday
+
+        return PublicHoliday.objects.create(
+            company=company or self.company, name="Holiday", date=day
+        )
+
+    def test_holiday_inside_the_range_is_not_counted(self):
+        self._holiday(self.TUESDAY)
+        leave = self._leave(start_date=self.MONDAY, end_date=self.WEDNESDAY)
+        self.assertEqual(leave.duration, 2)
+
+    def test_another_companys_holiday_still_counts(self):
+        self._holiday(self.TUESDAY, company=Company.objects.create(name="Elsewhere"))
+        leave = self._leave(start_date=self.MONDAY, end_date=self.WEDNESDAY)
+        self.assertEqual(leave.duration, 3)
+
+    def test_holiday_only_leave_is_rejected(self):
+        self._holiday(self.DEMOCRACY_DAY)
+        with self.assertRaisesMessage(ValidationError, "at least one working day"):
+            self._leave(start_date=self.DEMOCRACY_DAY, end_date=self.DEMOCRACY_DAY)
+
+    def test_half_day_on_a_holiday_is_rejected(self):
+        self._holiday(self.DEMOCRACY_DAY)
+        with self.assertRaisesMessage(ValidationError, "at least one working day"):
+            self._leave(
+                leave_type="CASUAL",
+                start_date=self.DEMOCRACY_DAY,
+                end_date=self.DEMOCRACY_DAY,
+                is_half_day=True,
+            )
+
+    def test_attendance_is_not_marked_as_leave_on_the_holiday(self):
+        from payroll.models import AttendanceRecord
+        from payroll.services.attendance import populate_attendance_for_leave
+
+        self._holiday(self.TUESDAY)
+        leave = self._leave(start_date=self.MONDAY, end_date=self.WEDNESDAY)
+        leave.status = "APPROVED"  # read-only use; not saved
+        populate_attendance_for_leave(leave)
+        self.assertEqual(
+            set(
+                AttendanceRecord.objects.filter(employee=self.employee).values_list(
+                    "work_date", flat=True
+                )
+            ),
+            {self.MONDAY, self.WEDNESDAY},
+        )

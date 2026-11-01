@@ -2339,41 +2339,31 @@ class LeaveRequest(models.Model):
 
         return (self.end_date - self.start_date).days + 1
 
-    @property
-    def duration(self):
+    def working_dates(self) -> list:
+        """Dates in the range that count as leave: weekdays that are not
+        public holidays in the employee's company calendar."""
         if self.start_date > self.end_date:
-            return 0
-
-        total_days = 0
-        current = self.start_date
-
+            return []
         holidays = set(
             PublicHoliday.objects.filter(
-                company=self.employee.company,
+                company_id=self.employee.company_id,
                 date__range=(self.start_date, self.end_date),
             ).values_list("date", flat=True)
         )
+        span = (self.end_date - self.start_date).days + 1
+        days = (self.start_date + timedelta(days=offset) for offset in range(span))
+        return [day for day in days if day.weekday() < 5 and day not in holidays]
 
-        while current <= self.end_date:
-            if current.weekday() < 5:
-                # and current not in holidays:
-                total_days += 1
-            current += timedelta(days=1)
-
-        if self.is_half_day:
+    @property
+    def duration(self):
+        working_days = len(self.working_dates())
+        if self.is_half_day and working_days:
             return 0.5
-
-        return total_days
+        return working_days
 
     @property
     def includes_working_day(self) -> bool:
-        """Whether the date range covers at least one weekday."""
-        span = (self.end_date - self.start_date).days + 1
-        # Any seven consecutive days include a weekday.
-        return span >= 7 or any(
-            (self.start_date + timedelta(days=offset)).weekday() < 5
-            for offset in range(max(span, 0))
-        )
+        return bool(self.working_dates())
 
     def clean(self):
         super().clean()
@@ -2386,11 +2376,12 @@ class LeaveRequest(models.Model):
             raise ValidationError({"leave_type": "Select an active company leave type."})
         if self.start_date > self.end_date:
             raise ValidationError("End date cannot be before start date.")
-        # A weekend-only request deducts no days; reject it here rather than
+        # A request covering only weekends/holidays deducts no days; reject it here rather than
         # letting it fail at approval when the leave ledger refuses a 0-day event.
         if not self.includes_working_day:
             raise ValidationError(
-                "Leave must include at least one working day (Monday to Friday)."
+                "Leave must include at least one working day "
+                "(Monday to Friday, not a public holiday)."
             )
 
         blackout_qs = LeaveBlackoutPeriod.objects.filter(
