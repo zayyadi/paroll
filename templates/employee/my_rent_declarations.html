@@ -1,0 +1,74 @@
+{% extends "base_new.html" %}
+{% load humanize %}
+
+{% block page_header %}Rent Relief{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <section class="grid gap-4 md:grid-cols-2">
+        <div class="bento-card">
+            <p class="text-[10px] font-bold uppercase tracking-[0.24em] text-secondary-500">Relief This Year</p>
+            <p class="mt-3 font-headline text-4xl font-extrabold text-primary-800 tabular-nums">₦{{ current_relief|floatformat:2|intcomma }}</p>
+            <p class="mt-2 text-sm text-secondary-500">20% of approved annual rent, up to ₦500,000. It reduces your taxable income.</p>
+        </div>
+        <div class="bento-card">
+            <p class="text-[10px] font-bold uppercase tracking-[0.24em] text-secondary-500">What You Need</p>
+            <p class="mt-3 text-sm text-on-surface-variant">A rent receipt or tenancy agreement for the year. HR reviews it before the relief applies to your PAYE.</p>
+        </div>
+    </section>
+
+    <section class="bento-card">
+        <p class="text-[10px] font-bold uppercase tracking-[0.24em] text-secondary-500">New Declaration</p>
+        <h2 class="mt-2 font-headline text-2xl font-extrabold text-primary-800">Declare your rent</h2>
+        <form method="post" enctype="multipart/form-data" class="mt-6 space-y-5">
+            {% csrf_token %}
+            {{ form.non_field_errors }}
+            <div class="grid grid-cols-1 gap-x-6 gap-y-5 md:grid-cols-2">
+                {% include "employee/_form_field.html" with field=form.tax_year %}
+                {% include "employee/_form_field.html" with field=form.annual_rent %}
+                {% include "employee/_form_field.html" with field=form.landlord_name %}
+                {% include "employee/_form_field.html" with field=form.property_address %}
+                {% include "employee/_form_field.html" with field=form.document %}
+            </div>
+            <button type="submit" class="btn-primary editorial-action rounded-2xl px-5 py-3 text-sm font-bold text-white">Submit for review</button>
+        </form>
+    </section>
+
+    <section class="bento-card">
+        <p class="text-[10px] font-bold uppercase tracking-[0.24em] text-secondary-500">History</p>
+        <h2 class="mt-2 font-headline text-2xl font-extrabold text-primary-800">Your declarations</h2>
+        <div class="mt-6 overflow-x-auto rounded-2xl border border-outline-variant">
+            <table class="min-w-full">
+                <thead class="bg-surface-container-low">
+                    <tr>
+                        <th class="px-4 py-3 text-left text-xs font-bold uppercase tracking-[0.12em] text-secondary-500">Year</th>
+                        <th class="px-4 py-3 text-right text-xs font-bold uppercase tracking-[0.12em] text-secondary-500">Annual Rent</th>
+                        <th class="px-4 py-3 text-right text-xs font-bold uppercase tracking-[0.12em] text-secondary-500">Relief</th>
+                        <th class="px-4 py-3 text-left text-xs font-bold uppercase tracking-[0.12em] text-secondary-500">Status</th>
+                        <th class="px-4 py-3 text-left text-xs font-bold uppercase tracking-[0.12em] text-secondary-500">Note</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-outline-variant/30">
+                    {% for declaration in declarations %}
+                    <tr>
+                        <td class="px-4 py-4 text-sm font-semibold text-on-surface tabular-nums">{{ declaration.tax_year }}</td>
+                        <td class="px-4 py-4 text-right text-sm text-on-surface-variant tabular-nums">₦{{ declaration.annual_rent|floatformat:2|intcomma }}</td>
+                        <td class="px-4 py-4 text-right text-sm text-on-surface-variant tabular-nums">₦{{ declaration.relief_amount|floatformat:2|intcomma }}</td>
+                        <td class="px-4 py-4 text-sm">
+                            {% if declaration.status == "approved" %}<span class="chip chip-success">Approved</span>
+                            {% elif declaration.status == "rejected" %}<span class="chip chip-danger">Rejected</span>
+                            {% else %}<span class="chip chip-warning">Pending review</span>{% endif %}
+                        </td>
+                        <td class="px-4 py-4 text-sm text-on-surface-variant">{{ declaration.review_note|default:"-" }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" class="px-4 py-8 text-center text-sm text-secondary-500">No rent declarations yet.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+</div>
+{% endblock %}

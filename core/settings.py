@@ -149,6 +149,9 @@ TEMPLATES = [
         "DIRS": [os.path.join(BASE_DIR, "templates")],
         "APP_DIRS": True,
         "OPTIONS": {
+            "libraries": {
+                "approval_workflow": "approvals.templatetags.approval_workflow",
+            },
             "context_processors": [
                 "django.template.context_processors.debug",
                 "django.template.context_processors.request",
@@ -208,7 +211,8 @@ else:
     }
 
 AUTHENTICATION_BACKENDS = (
-    "django.contrib.auth.backends.ModelBackend",
+    # Permissions apply only in the user's active company.
+    "company.permissions_backend.CompanyScopedModelBackend",
     "social_core.backends.github.GithubOAuth2",
     "social_core.backends.twitter.TwitterOAuth",
     "social_core.backends.facebook.FacebookOAuth2",

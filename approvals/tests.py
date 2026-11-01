@@ -267,10 +267,16 @@ class WorkflowTests(TestCase):
         request = self.submit()
         with self.assertRaises(PermissionDenied):
             decide_approval(approval=request, actor=self.checker)
+        # Outside their primary company, owners/admins hold the Admin group's
+        # permissions (company.permissions_backend), not their own.
+        from django.contrib.auth.models import Group
+
+        Group.objects.get_or_create(name="Admin")[0].permissions.add(self.permission)
         membership.role = "admin"
         membership.save()
+        checker = get_user_model().objects.get(pk=self.checker.pk)  # fresh perm cache
         self.assertEqual(
-            decide_approval(approval=request, actor=self.checker).status, "APPROVED"
+            decide_approval(approval=request, actor=checker).status, "APPROVED"
         )
 
     def test_currency_threshold_selects_more_stages_and_zero_threshold_beats_baseline(

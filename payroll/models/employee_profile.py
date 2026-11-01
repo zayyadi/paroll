@@ -134,16 +134,19 @@ class EmployeeProfile(SoftDeleteModel):
         null=True,
         blank=True,
     )
-    rent_paid = models.DecimalField(
-        max_digits=12,
-        default=Decimal(0.0),
-        decimal_places=2,
+    nhf_consent_at = models.DateTimeField(
+        null=True,
         blank=True,
         help_text=(
-            " Annual rent paid by employee. "
-            "This is used to calculate the employee's "
-            "rent relief. "
+            "When the employee consented to voluntary NHF deductions. "
+            "Private-sector NHF is deducted only with consent (Business "
+            "Facilitation Act 2022); public-sector NHF is compulsory."
         ),
+    )
+    nhf_consent_note = models.CharField(
+        max_length=255,
+        blank=True,
+        help_text="How the consent was given (e.g. signed form reference).",
     )
     created = models.DateTimeField(
         default=timezone.now,
@@ -358,15 +361,30 @@ class EmployeeProfile(SoftDeleteModel):
     def display_email(self):
         return self.user.email if self.user and self.user.email else self.email
 
+    def rent_relief_for(self, tax_year: int) -> Decimal:
+        """
+        Annual rent relief (Nigeria Tax Act 2025 s.30(2)(a)(vi)): 20% of the
+        rent on the employee's latest approved declaration for ``tax_year``,
+        capped at N500,000. No approved declaration means no relief.
+        """
+        if not self.pk:
+            return Decimal("0.00")
+        declaration = (
+            self.rent_declarations.filter(
+                tax_year=tax_year, status=RentDeclaration.Status.APPROVED
+            )
+            .order_by("-reviewed_at", "-pk")
+            .first()
+        )
+        if declaration is None:
+            return Decimal("0.00")
+        relief = (declaration.annual_rent * self.RENT_RELIEF_PERCENT) / Decimal("100")
+        return min(relief, self.RENT_RELIEF_CAP)
+
     @property
     def rent_relief_amount(self) -> Decimal:
-        """
-        Annual rent relief value derived from employee's declared annual rent.
-        Capped to align with tax policy rules.
-        """
-        rent_paid = self.rent_paid or Decimal("0.00")
-        relief = (rent_paid * self.RENT_RELIEF_PERCENT) / Decimal("100")
-        return min(relief, self.RENT_RELIEF_CAP)
+        """Rent relief for the current tax year."""
+        return self.rent_relief_for(timezone.localdate().year)
 
     def get_email(self):
         if self.display_email:
@@ -468,6 +486,81 @@ SENSITIVE_EMPLOYEE_FIELDS = frozenset(
         "bank_account_number",
     }
 )
+
+
+def _rent_document_path(instance, filename):
+    return f"rent_declarations/{instance.company_id}/{instance.employee_id}/{filename}"
+
+
+class RentDeclaration(models.Model):
+    """An employee's annual rent, with proof, for rent relief.
+
+    Relief is granted only on an APPROVED declaration: a rent receipt, lease
+    or other proof reviewed by HR (the employer-approved declaration the
+    Nigeria Tax Act 2025 allows). The reviewer cannot be the employee.
+    """
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending review"
+        APPROVED = "approved", "Approved"
+        REJECTED = "rejected", "Rejected"
+
+    company = models.ForeignKey(
+        "company.Company",
+        on_delete=models.CASCADE,
+        related_name="rent_declarations",
+    )
+    employee = models.ForeignKey(
+        EmployeeProfile,
+        on_delete=models.CASCADE,
+        related_name="rent_declarations",
+    )
+    tax_year = models.PositiveIntegerField()
+    annual_rent = models.DecimalField(max_digits=14, decimal_places=2)
+    landlord_name = models.CharField(max_length=200, blank=True)
+    property_address = models.CharField(max_length=255, blank=True)
+    document = models.FileField(
+        upload_to=_rent_document_path,
+        null=True,
+        blank=True,
+        help_text="Rent receipt, tenancy agreement or other proof of rent paid.",
+    )
+    status = models.CharField(
+        max_length=10, choices=Status.choices, default=Status.PENDING
+    )
+    submitted_at = models.DateTimeField(default=timezone.now)
+    reviewed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="reviewed_rent_declarations",
+    )
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    review_note = models.CharField(max_length=255, blank=True)
+
+    class Meta:
+        ordering = ("-tax_year", "-submitted_at")
+        constraints = [
+            models.UniqueConstraint(
+                fields=("employee", "tax_year"),
+                condition=models.Q(status="pending"),
+                name="one_pending_rent_declaration_per_year",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.employee} rent {self.tax_year} ({self.get_status_display()})"
+
+    @property
+    def relief_amount(self) -> Decimal:
+        relief = self.annual_rent * EmployeeProfile.RENT_RELIEF_PERCENT / Decimal("100")
+        return min(relief, EmployeeProfile.RENT_RELIEF_CAP)
+
+    def clean(self):
+        super().clean()
+        if self.annual_rent is not None and self.annual_rent <= 0:
+            raise ValidationError({"annual_rent": "Annual rent must be more than zero."})
 
 
 class SensitiveDataAccess(models.Model):

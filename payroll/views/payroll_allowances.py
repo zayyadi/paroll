@@ -39,7 +39,7 @@ def create_allowance(request):
             "You don't have permission to modify payroll data."
         )
 
-    a_form = AllowanceForm(request.POST or None)
+    a_form = AllowanceForm(request.POST or None, company=get_user_company(request.user))
     if a_form.is_valid():
         a_form.save()
         messages.success(request, "Allowance created successfully")
@@ -59,7 +59,7 @@ def edit_allowance(request, id):
 
     company = get_user_company(request.user)
     var = get_object_or_404(Allowance, id=id, employee__company=company)
-    form = AllowanceForm(request.POST or None, instance=var)
+    form = AllowanceForm(request.POST or None, instance=var, company=company)
     if form.is_valid():
         form.save()
         messages.success(request, "Allowance updated successfully!!")

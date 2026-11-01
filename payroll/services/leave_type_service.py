@@ -137,7 +137,7 @@ __all__ = [
 ]
 
 
-def available_leave_balances(employee, year=None):
+def available_leave_balances(employee: Any, year: Optional[int] = None) -> dict[str, Decimal]:
     """Catalogue balances; legacy counters remain a compatibility read model."""
     from django.db import transaction
     from django.utils import timezone
@@ -161,7 +161,7 @@ def available_leave_balances(employee, year=None):
     return result
 
 
-def leave_balance_cards(employee, year=None):
+def leave_balance_cards(employee: Any, year: Optional[int] = None) -> list[dict[str, Any]]:
     balances = available_leave_balances(employee, year)
     return [{"code": row.code, "name": row.name, "days": balances[row.code]}
             for row in ensure_default_leave_types(employee.company)]

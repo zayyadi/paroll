@@ -41,6 +41,7 @@ from payroll.models import (
     CompanyPayrollSetting,
     CompanyHealthInsuranceTier,
     StatutoryRateVersion,
+    RentDeclaration,
     RemittanceRecord,
     Position,
     HiringCandidate,
@@ -370,7 +371,6 @@ class EmployeeProfileAdmin(ImportExportModelAdmin):
         "company",
         "job_title",
         "date_of_employment",
-        "rent_paid",
         "status",  # Use custom method
     )
     list_filter = (
@@ -437,8 +437,8 @@ class EmployeeProfileAdmin(ImportExportModelAdmin):
                     "bank",
                     "bank_account_name",
                     "bank_account_number",
-                    "rent_paid",
-                    # "rent_relief",
+                    "nhf_consent_at",
+                    "nhf_consent_note",
                 )
             },
         ),
@@ -499,6 +499,14 @@ class CompanyPayrollSettingAdmin(admin.ModelAdmin):
     inlines = (CompanyHealthInsuranceTierInline,)
 
 
+@admin.register(RentDeclaration)
+class RentDeclarationAdmin(admin.ModelAdmin):
+    list_display = ("employee", "company", "tax_year", "annual_rent", "status", "reviewed_by", "reviewed_at")
+    list_filter = ("status", "tax_year", "company")
+    search_fields = ("employee__first_name", "employee__last_name", "employee__emp_id")
+    readonly_fields = ("reviewed_by", "reviewed_at", "submitted_at")
+
+
 @admin.register(StatutoryRateVersion)
 class StatutoryRateVersionAdmin(admin.ModelAdmin):
     list_display = (
@@ -508,6 +516,8 @@ class StatutoryRateVersionAdmin(admin.ModelAdmin):
         "pension_employee_percentage",
         "pension_employer_percentage",
         "nhf_percentage",
+        "gratuity_taxable",
+        "loss_of_office_exemption",
         "updated_at",
     )
     ordering = ("-effective_date",)

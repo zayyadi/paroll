@@ -170,7 +170,8 @@ def handle_payroll_period_closure(payroll_run: PayrollRun) -> None:
                 return
             account = get_account(company, account_key)
             if account is None:
-                return
+                # Skipping one side would leave the payroll cost unrecorded.
+                raise ValueError(f"No ledger account is configured for '{account_key}'.")
             key = (account.id, entry_type, memo)
             if key not in aggregate_entries:
                 aggregate_entries[key] = {
@@ -196,10 +197,13 @@ def handle_payroll_period_closure(payroll_run: PayrollRun) -> None:
 
             employee_name = f"{employee.first_name} {employee.last_name}".strip()
 
-            payee = Decimal(employee_payroll.payee or 0)
-            pension_employee = Decimal(employee_payroll.pension_employee or 0) / Decimal("12")
-            nhf = Decimal(employee_payroll.nhf or 0) / Decimal("12")
-            employee_health = Decimal(employee_payroll.employee_health or 0) / Decimal("12")
+            # Figures frozen on the entry when its net pay was calculated.
+            figures = pay_var.figures
+            payee = figures["employee_paye"]
+            pension_employee = figures["employee_pension"]
+            nhf = figures["employee_nhf"]
+            employee_health = figures["employee_nhia"]
+            water_rate = figures["employee_water"]
 
             other_deduction = Decimal("0.00")
             for deduction in employee.deductions.filter(
@@ -245,8 +249,15 @@ def handle_payroll_period_closure(payroll_run: PayrollRun) -> None:
                 f"Employee health payable - {employee_name}",
             )
 
+            _add_entry(
+                "deductions_payable",
+                "CREDIT",
+                water_rate,
+                f"Water rate payable - {employee_name}",
+            )
+
             employee_liability_total = (
-                payee + pension_employee + nhf + employee_health
+                payee + pension_employee + nhf + employee_health + water_rate
                 + other_deduction + iou_repayment
             )
 
@@ -266,9 +277,9 @@ def handle_payroll_period_closure(payroll_run: PayrollRun) -> None:
                 f"Gross salary expense - {employee_name}",
             )
 
-            pension_employer = Decimal(employee_payroll.pension_employer or 0) / Decimal("12")
-            employer_health = Decimal(employee_payroll.emplyr_health or 0) / Decimal("12")
-            nsitf = Decimal(employee_payroll.nsitf or 0) / Decimal("12")
+            pension_employer = figures["employer_pension"]
+            employer_health = figures["employer_nhia"]
+            nsitf = figures["employer_nsitf"]
 
             _add_entry(
                 "pension_expense",

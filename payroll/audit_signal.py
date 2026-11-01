@@ -1,4 +1,7 @@
-from django.db.models.signals import post_save, post_delete, pre_save
+from contextvars import ContextVar
+
+from django.contrib.auth import get_user_model
+from django.db.models.signals import post_save, post_delete, pre_delete, pre_save
 from django.dispatch import receiver
 from django.contrib.contenttypes.models import ContentType
 from django.utils import timezone
@@ -37,7 +40,29 @@ def _safe_audit_user(instance, *attrs):
             value = getattr(value, attr)
     except Exception:
         return None
+    if isinstance(value, get_user_model()) and value.pk in _users_being_deleted.get():
+        # The user row is removed later in this same cascade; an audit row
+        # pointing at it would leave a dangling foreign key.
+        return None
     return value
+
+
+# Users whose delete is in progress. Their children's post_delete handlers may
+# run before or after the user row itself is removed, depending on the
+# collector's ordering.
+_users_being_deleted: ContextVar[frozenset] = ContextVar(
+    "users_being_deleted", default=frozenset()
+)
+
+
+@receiver(pre_delete, sender=get_user_model())
+def _mark_user_deleting(sender, instance, **kwargs):
+    _users_being_deleted.set(_users_being_deleted.get() | {instance.pk})
+
+
+@receiver(post_delete, sender=get_user_model())
+def _unmark_user_deleting(sender, instance, **kwargs):
+    _users_being_deleted.set(_users_being_deleted.get() - {instance.pk})
 
 
 def log_audit(user, action, instance, changes=None, reason=None):

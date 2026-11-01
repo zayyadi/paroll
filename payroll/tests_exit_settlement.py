@@ -197,7 +197,10 @@ class StatementTests(IOUFixtureMixin, ExitSettlementFixture):
         expected = self.employee.employee_pay.basic / Decimal("12")
         self.assertEqual(settlement.payables_total, expected)
         self.assertEqual(settlement.receivables_total, Decimal("0.00"))
-        self.assertEqual(settlement.net_settlement, expected)
+        # PAYE on the final salary: annual taxable income is 13,708,800
+        # (21% band), so 480,000 more adds 100,800 of tax.
+        self.assertEqual(settlement.paye_on_exit, Decimal("100800.00"))
+        self.assertEqual(settlement.net_settlement, expected - Decimal("100800.00"))
         self.assertTrue(settlement.is_payable)
         # Legacy checklist summary stays in step with the statement's payables.
         self.checklist.refresh_from_db()
@@ -210,7 +213,8 @@ class StatementTests(IOUFixtureMixin, ExitSettlementFixture):
         settlement = self._settlement()
         # payables 480,000 (basic/12) vs receivables 500,000 → leaver owes.
         self.assertEqual(
-            settlement.net_settlement, settlement.payables_total - Decimal("500000")
+            settlement.net_settlement,
+            settlement.payables_total - Decimal("500000") - settlement.paye_on_exit,
         )
         self.assertFalse(settlement.is_payable)
 
@@ -301,3 +305,136 @@ class PostingTests(IOUFixtureMixin, ExitSettlementFixture):
             exit_settlement_service.post_settlement(
                 settlement=settlement, actor=self.hr
             )
+
+
+class ExitTaxTests(ExitSettlementFixture):
+    """Gratuity and loss-of-office compensation under the 2026 and pre-2026
+    rules. Annual taxable income from salary is 13,708,800 (21% band) and the
+    final month's basic is 480,000."""
+
+    def _with_exit_pay(self, last_working_day, gratuity="1000000", compensation="55000000"):
+        self.checklist.last_working_day = last_working_day
+        self.checklist.save(update_fields=["last_working_day"])
+        settlement = self._settlement()
+        settlement.gratuity = Decimal(gratuity)
+        settlement.loss_of_office_compensation = Decimal(compensation)
+        settlement.save()
+        return settlement
+
+    def test_2026_taxes_gratuity_and_compensation_above_50m(self):
+        settlement = self._with_exit_pay(date(2026, 6, 30))
+        # Taxable: 480,000 + 1,000,000 gratuity + 5,000,000 above the N50m
+        # exemption = 6,480,000, all in the 21% band.
+        self.assertEqual(
+            exit_settlement_service.taxable_exit_income(settlement), Decimal("6480000.00")
+        )
+        self.assertEqual(settlement.paye_on_exit, Decimal("1360800.00"))
+
+    def test_compensation_within_exemption_is_tax_free(self):
+        settlement = self._with_exit_pay(date(2026, 6, 30), gratuity="0", compensation="50000000")
+        self.assertEqual(settlement.paye_on_exit, Decimal("100800.00"))
+
+    def test_pre_2026_exit_does_not_tax_gratuity_or_compensation(self):
+        settlement = self._with_exit_pay(date(2025, 12, 31))
+        # Only the final salary is taxed: 480,000 at the 24% top PITA band.
+        self.assertEqual(settlement.paye_on_exit, Decimal("115200.00"))
+
+    def test_posted_journal_credits_paye_and_balances(self):
+        settlement = self._with_exit_pay(date(2026, 6, 30))
+        request = submit_approval(source=settlement, action="exit.settlement", requester=self.hr)
+        approve_request(request)
+        settlement.refresh_from_db()
+
+        journal = settlement.journal
+        paye = journal.entries.get(account__account_number="2110", entry_type="CREDIT")
+        self.assertEqual(paye.amount, Decimal("1360800.00"))
+        debits = sum((e.amount for e in journal.entries.filter(entry_type="DEBIT")), Decimal("0"))
+        credits = sum((e.amount for e in journal.entries.filter(entry_type="CREDIT")), Decimal("0"))
+        self.assertEqual(debits, credits)
+
+
+class SettlementScreenTests(ExitSettlementFixture):
+    """HR builds, edits and submits the settlement from the offboarding page."""
+
+    def setUp(self):
+        super().setUp()
+        from django.urls import reverse
+
+        self.officer = approval_user(
+            self.company,
+            [
+                "payroll.change_exitsettlement",
+                "payroll.change_employeeprofile",
+                "payroll.view_employeeprofile",
+            ],
+        )
+        self.officer.set_password("pw")
+        self.officer.save()
+        # The approval engine only accepts submissions from the initiator.
+        self.checklist.initiated_by = self.officer
+        self.checklist.save(update_fields=["initiated_by"])
+        self.client.login(email=self.officer.email, password="pw")
+        self.detail_url = reverse("payroll:offboarding_detail", args=[self.checklist.pk])
+        self.calculate_url = reverse("payroll:offboarding_settlement", args=[self.checklist.pk])
+        self.edit_url = reverse("payroll:offboarding_settlement_edit", args=[self.checklist.pk])
+        self.submit_url = reverse("payroll:offboarding_settlement_submit", args=[self.checklist.pk])
+
+    def _edit(self, **amounts):
+        data = {
+            "gratuity": "0",
+            "loss_of_office_compensation": "0",
+            "other_payables": "0",
+            "other_receivables": "0",
+            "notes": "",
+        }
+        data.update(amounts)
+        return self.client.post(self.edit_url, data)
+
+    def test_calculate_builds_the_statement(self):
+        self.client.post(self.calculate_url)
+
+        settlement = ExitSettlement.objects.get(checklist=self.checklist)
+        self.assertEqual(settlement.final_month_salary, Decimal("480000.00"))
+        response = self.client.get(self.detail_url)
+        self.assertContains(response, "Exit Settlement")
+        self.assertContains(response, "Save amounts")
+
+    def test_saving_gratuity_recomputes_paye(self):
+        self.client.post(self.calculate_url)
+        self._edit(gratuity="1000000", loss_of_office_compensation="55000000")
+
+        settlement = ExitSettlement.objects.get(checklist=self.checklist)
+        self.assertEqual(settlement.gratuity, Decimal("1000000.00"))
+        self.assertEqual(settlement.paye_on_exit, Decimal("1360800.00"))
+
+    def test_submitted_settlement_is_locked_until_decided(self):
+        self.client.post(self.calculate_url)
+        self.client.post(self.submit_url)
+        self._edit(gratuity="999")
+
+        settlement = ExitSettlement.objects.get(checklist=self.checklist)
+        self.assertEqual(settlement.gratuity, Decimal("0.00"))
+        response = self.client.get(self.detail_url)
+        self.assertContains(response, "Awaiting approval")
+        self.assertNotContains(response, "Save amounts")
+
+    def test_edit_needs_settlement_permission(self):
+        self.client.post(self.calculate_url)
+        viewer = approval_user(self.company, ["payroll.view_employeeprofile"])
+        viewer.set_password("pw")
+        viewer.save()
+        self.client.login(email=viewer.email, password="pw")
+
+        self.assertEqual(self._edit(gratuity="1").status_code, 403)
+
+    def test_task_complete_marks_the_task_done(self):
+        from django.urls import reverse
+
+        from payroll.models.workforce import OffboardingTask
+
+        task = OffboardingTask.objects.create(checklist=self.checklist, title="Return laptop")
+        self.client.post(
+            reverse("payroll:offboarding_task_complete", args=[self.checklist.pk, task.pk])
+        )
+        task.refresh_from_db()
+        self.assertTrue(task.is_completed)

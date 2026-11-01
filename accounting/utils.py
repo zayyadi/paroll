@@ -1564,7 +1564,10 @@ def match_reconciliation_items(reconciliation, matches):
             bank_tx = BankTransaction.objects.get(
                 id=match["bank_transaction_id"], reconciliation=reconciliation
             )
-            journal_entry = JournalEntry.objects.get(id=match["journal_entry_id"])
+            # Only the reconciliation's own company's ledger can be matched.
+            journal_entry = JournalEntry.objects.get(
+                id=match["journal_entry_id"], journal__company=reconciliation.company
+            )
 
             ReconciliationItem.objects.create(
                 reconciliation=reconciliation,

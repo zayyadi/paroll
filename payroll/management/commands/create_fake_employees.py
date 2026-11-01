@@ -140,7 +140,6 @@ class Command(BaseCommand):
                 "pension_rsa": nigerian_pension_rsa(),
                 "hmo_provider": nigerian_hmo_provider(),
                 "pension_fund_manager": nigerian_pension_fund_manager(),
-                "rent_paid": Decimal(random.randint(0, 2500000)),
                 "probation_start_date": None,
                 "probation_end_date": None,
                 "probation_status": "confirmed",

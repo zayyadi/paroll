@@ -42,3 +42,15 @@ class JournalApprovalPreviewTests(TestCase):
         from approvals.presentation import business_fields
         encoded = encode_value({"amounts": {7: Decimal("40.00")}})
         self.assertEqual(business_fields(encoded, company=self.journal.company), [("Amounts / 7", "40.00")])
+
+    def test_journal_document_shows_shared_workflow(self):
+        from django.contrib.auth.models import Permission
+        self.checker.user_permissions.add(Permission.objects.get(
+            content_type__app_label='accounting', codename='view_journal'))
+        self.client.force_login(self.checker)
+        response = self.client.get(reverse('accounting:journal_detail', args=[self.journal.pk]))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Document approval workflow')
+        self.assertContains(response, 'Next:')
+        self.assertContains(response, self.checker.email)
+        self.assertContains(response, reverse('approvals:detail', args=[self.approval.pk]))

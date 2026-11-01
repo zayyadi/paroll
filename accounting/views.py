@@ -3,7 +3,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.views.generic import ListView, DetailView, CreateView, UpdateView, DeleteView
 from django.views.generic.edit import FormView
-from django.http import JsonResponse, HttpResponseForbidden, HttpResponse
+from django.http import Http404, JsonResponse, HttpResponseForbidden, HttpResponse
 from django.urls import reverse_lazy
 from django.db import transaction
 from django.db.models import Sum, Q, Count
@@ -23,6 +23,7 @@ import csv
 from decimal import Decimal, InvalidOperation
 
 from company.utils import get_user_company
+from approvals.models import ApprovalRequest
 
 from .models import (
     Account,
@@ -745,6 +746,9 @@ class JournalDetailView(LoginRequiredMixin, AccountingRoleRequiredMixin, DetailV
     template_name = "accounting/journal_detail.html"
     context_object_name = "journal"
 
+    def get_queryset(self):
+        return Journal.objects.filter(company=get_user_company(self.request.user))
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         journal = self.get_object()
@@ -784,7 +788,25 @@ class JournalDetailView(LoginRequiredMixin, AccountingRoleRequiredMixin, DetailV
         )
         context["can_submit"] = (
             is_accountant(self.request.user)
-            and journal.status == Journal.JournalStatus.DRAFT
+            and journal.created_by_id == self.request.user.pk
+            and (
+                journal.status == Journal.JournalStatus.DRAFT
+                or (
+                    journal.status == Journal.JournalStatus.PENDING_APPROVAL
+                    and not ApprovalRequest.objects.filter(
+                        company=journal.company,
+                        content_type=ContentType.objects.get_for_model(Journal),
+                        object_id=journal.pk,
+                        action="journal.approve",
+                        status="PENDING",
+                    ).exists()
+                )
+            )
+        )
+        context["can_revoke_approval"] = (
+            is_accountant(self.request.user)
+            and journal.created_by_id == self.request.user.pk
+            and journal.status == Journal.JournalStatus.APPROVED
         )
 
         context["is_reversed"] = journal.reversed_journal is not None
@@ -955,13 +977,20 @@ def journal_submit_view(request, pk):
     if request.method != "POST":
         return redirect("accounting:journal_detail", pk=journal.pk)
 
-    if journal.status != Journal.JournalStatus.DRAFT:
-        messages.error(request, "Only draft journals can be submitted for approval.")
-        return redirect("accounting:journal_detail", pk=journal.pk)
-
     try:
-        journal.validate_entries()
-        journal.submit_for_approval()
+        from approvals.services import submit_approval
+
+        with transaction.atomic():
+            journal = Journal.objects.select_for_update().get(pk=journal.pk)
+            if journal.status not in (
+                Journal.JournalStatus.DRAFT,
+                Journal.JournalStatus.PENDING_APPROVAL,
+            ):
+                raise ValidationError("Only draft or pending journals can be submitted for approval.")
+            journal.validate_entries()
+            if journal.status == Journal.JournalStatus.DRAFT:
+                journal.submit_for_approval()
+            submit_approval(source=journal, action="journal.approve", requester=request.user)
         messages.success(request, "Journal submitted for approval.")
     except ValidationError as exc:
         messages.error(request, ", ".join(exc.messages))
@@ -1091,6 +1120,27 @@ class JournalApprovalView(LoginRequiredMixin, JournalApprovalMixin, FormView):
 
 @login_required
 @accountant_required
+def journal_revoke_approval_view(request, pk):
+    journal = get_object_or_404(Journal, pk=pk, company=get_user_company(request.user))
+    if request.method != 'POST':
+        return redirect('accounting:journal_detail', pk=journal.pk)
+    from approvals.permissions import require_company_authority
+    from approvals.proposals import pending_response
+    from approvals.services import submit_approval
+    require_company_authority(request.user, journal.company, 'accounting.change_journal')
+    try:
+        approval = submit_approval(
+            source=journal, action='journal.revoke_approval', requester=request.user,
+            payload={'reason': request.POST.get('reason', '').strip()},
+        )
+        return pending_response(request, approval)
+    except ValidationError as exc:
+        messages.error(request, ', '.join(exc.messages))
+        return redirect('accounting:journal_detail', pk=journal.pk)
+
+
+@login_required
+@accountant_required
 def journal_post_view(request, pk):
     journal = get_object_or_404(
         Journal, pk=pk, company=get_user_company(request.user)
@@ -1099,8 +1149,37 @@ def journal_post_view(request, pk):
         return redirect("accounting:journal_detail", pk=journal.pk)
 
     try:
-        post_journal(journal, request.user)
-        messages.success(request, "Journal posted successfully.")
+        from uuid import uuid4
+        from company.models import ActionProposal
+        from approvals.permissions import require_company_authority
+        from approvals.proposals import pending_response
+
+        with transaction.atomic():
+            journal = Journal.objects.select_for_update().get(pk=journal.pk)
+            require_company_authority(request.user, journal.company, "accounting.change_journal")
+            if journal.status != Journal.JournalStatus.APPROVED:
+                raise ValidationError("Only approved journals can be posted.")
+            proposals = ActionProposal.objects.filter(
+                company=journal.company,
+                action="accounting.journal.post",
+                created_by=request.user,
+                parameters__journal={"__model__": "accounting.journal", "pk": journal.pk},
+            )
+            # A retry while a checker is reviewing must reuse that request.
+            approval = ApprovalRequest.objects.filter(
+                company=journal.company,
+                action="accounting.journal.post",
+                content_type=ContentType.objects.get_for_model(ActionProposal),
+                object_id__in=proposals.values("pk"),
+                status="PENDING",
+            ).first()
+            if approval is None:
+                # A new attempt after rejection/cancellation needs a new key;
+                # preserve explicit client keys for safe replay detection.
+                key = (request.headers.get("Idempotency-Key")
+                       or request.POST.get("_approval_key") or uuid4().hex)
+                approval = post_journal(journal, request.user, approval_key=key)
+        return pending_response(request, approval)
     except ValidationError as exc:
         messages.error(request, ", ".join(exc.messages))
     return redirect("accounting:journal_detail", pk=journal.pk)
@@ -1330,7 +1409,9 @@ class AuditTrailListView(LoginRequiredMixin, AuditorOrFinanceReadMixin, ListView
     paginate_by = 20
 
     def get_queryset(self):
-        queryset = AccountingAuditTrail.objects.all().order_by("-timestamp")
+        queryset = AccountingAuditTrail.objects.filter(
+            company=get_user_company(self.request.user)
+        ).order_by("-timestamp")
 
         user_id = self.request.GET.get("user")
         if user_id:
@@ -1352,7 +1433,10 @@ class AuditTrailListView(LoginRequiredMixin, AuditorOrFinanceReadMixin, ListView
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["action_choices"] = AccountingAuditTrail.ActionType.choices
-        context["users"] = User.objects.all()
+        company = get_user_company(self.request.user)
+        context["users"] = User.objects.filter(
+            Q(company=company) | Q(company_memberships__company=company)
+        ).distinct()
         return context
 
 
@@ -1364,6 +1448,11 @@ class AuditTrailDetailView(LoginRequiredMixin, AuditorOrFinanceReadMixin, Detail
     model = AccountingAuditTrail
     template_name = "accounting/audit_trail_detail.html"
     context_object_name = "audit_log"
+
+    def get_queryset(self):
+        return AccountingAuditTrail.objects.filter(
+            company=get_user_company(self.request.user)
+        )
 
 
 @login_required
@@ -3041,6 +3130,9 @@ class JournalReversalHistoryView(
     template_name = "accounting/journal_reversal_history.html"
     context_object_name = "journal"
 
+    def get_queryset(self):
+        return Journal.objects.filter(company=get_user_company(self.request.user))
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         journal = self.get_object()
@@ -3239,7 +3331,10 @@ class ReconciliationMatchView(LoginRequiredMixin, AccountingRoleRequiredMixin, D
             return redirect("accounting:reconciliation_match", pk=recon.pk)
 
         from .utils import match_reconciliation_items
-        match_reconciliation_items(recon, matches)
+        try:
+            match_reconciliation_items(recon, matches)
+        except (BankTransaction.DoesNotExist, JournalEntry.DoesNotExist):
+            raise Http404("A selected transaction does not belong to this reconciliation.")
         messages.success(request, f"Matched {len(matches)} transactions.")
         return redirect("accounting:reconciliation_detail", pk=recon.pk)
 

@@ -40,11 +40,12 @@ from django.utils import timezone
 from payroll.models import (
     CompanyPayrollSetting,
     Payroll,
+    PayrollEntry,
     PayrollRun,
-    PayrollRunEntry,
     PublicHoliday,
     RemittanceRecord,
 )
+from payroll.services.payroll_figures import sum_figures
 
 # ---------------------------------------------------------------------------
 # Obligation definitions
@@ -248,28 +249,21 @@ def _decimal(value: object) -> Decimal:
 
 def period_remittance_amounts(company: Any, run: Any) -> dict:
     """
-    Monthly remittance amounts for a pay run.
-
-    Stored-field conventions: ``payee``, ``nhf`` and ``nhif`` are monthly;
-    ``pension`` is annual (basic x 12 x rate) and is divided by 12.
+    Monthly remittance amounts for a pay run, from the figures frozen on each
+    payroll entry (see ``payroll.services.payroll_figures``).
     """
     cents = Decimal("0.01")
-    aggregate = PayrollRunEntry.objects.filter(
-        payroll_run=run,
-        payroll_entry__company=company,
-    ).aggregate(
-        payee=Sum("payroll_entry__pays__employee_pay__payee"),
-        pension=Sum("payroll_entry__pays__employee_pay__pension"),
-        nhf=Sum("payroll_entry__pays__employee_pay__nhf"),
-        nhia=Sum("payroll_entry__pays__employee_pay__nhif"),
-        nsitf=Sum("payroll_entry__pays__employee_pay__nsitf"),
-    )
+    entries = PayrollEntry.all_objects.filter(
+        payroll_run_entries__payroll_run=run,
+        company=company,
+    ).select_related("pays__employee_pay")
+    totals = sum_figures(entries)
     return {
-        "paye": _decimal(aggregate["payee"]).quantize(cents),
-        "pension": (_decimal(aggregate["pension"]) / Decimal("12")).quantize(cents),
-        "nhf": _decimal(aggregate["nhf"]).quantize(cents),
-        "nhia": _decimal(aggregate["nhia"]).quantize(cents),
-        "nsitf": _decimal(aggregate["nsitf"]).quantize(cents),
+        "paye": totals["employee_paye"].quantize(cents),
+        "pension": (totals["employee_pension"] + totals["employer_pension"]).quantize(cents),
+        "nhf": totals["employee_nhf"].quantize(cents),
+        "nhia": (totals["employee_nhia"] + totals["employer_nhia"]).quantize(cents),
+        "nsitf": totals["employer_nsitf"].quantize(cents),
     }
 
 

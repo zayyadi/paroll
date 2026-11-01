@@ -183,3 +183,204 @@ class JournalWorkflowUITests(TestCase):
             response, reverse("accounting:journal_detail", kwargs={"pk": journal.pk})
         )
         self.assertTrue(Journal.objects.filter(pk=journal.pk).exists())
+
+    def test_submission_creates_real_request_and_is_idempotent(self):
+        from approvals.models import ApprovalRequest
+        journal = self.create_journal()
+        url = reverse('accounting:journal_submit', args=[journal.pk])
+        self.client.post(url)
+        self.client.post(url)
+        requests = ApprovalRequest.objects.filter(
+            company=self.company, action='journal.approve', object_id=journal.pk)
+        self.assertEqual(requests.count(), 1)
+        approval = requests.get()
+        self.assertEqual(approval.requester_id, self.user.pk)
+        self.assertEqual(approval.status, 'PENDING')
+        self.assertEqual(approval.events.filter(kind='SUBMITTED').count(), 1)
+        response = self.client.get(reverse('accounting:journal_detail', args=[journal.pk]))
+        self.assertNotContains(response, 'This is a preview of the current policy.')
+        self.assertFalse(response.context['can_submit'])
+
+    def test_pending_journal_without_request_can_be_submitted(self):
+        from approvals.models import ApprovalRequest
+        journal = self.create_journal(status=Journal.JournalStatus.PENDING_APPROVAL)
+        detail_url = reverse('accounting:journal_detail', args=[journal.pk])
+        response = self.client.get(detail_url)
+        self.assertTrue(response.context['can_submit'])
+        self.client.post(reverse('accounting:journal_submit', args=[journal.pk]))
+        self.assertTrue(ApprovalRequest.objects.filter(
+            action='journal.approve', object_id=journal.pk, requester=self.user,
+            status='PENDING').exists())
+
+    def test_submission_failure_rolls_back_draft_status(self):
+        from unittest.mock import patch
+        from django.core.exceptions import ValidationError
+        from approvals.models import ApprovalRequest
+        journal = self.create_journal()
+        with patch('approvals.services.submit_approval', side_effect=ValidationError('Invalid policy')):
+            self.client.post(reverse('accounting:journal_submit', args=[journal.pk]))
+        journal.refresh_from_db()
+        self.assertEqual(journal.status, Journal.JournalStatus.DRAFT)
+        self.assertFalse(ApprovalRequest.objects.filter(action='journal.approve', object_id=journal.pk).exists())
+
+    def test_other_accountant_cannot_submit_as_original_maker(self):
+        from approvals.models import ApprovalRequest
+        journal = self.create_journal()
+        other = get_user_model().objects.create_superuser(
+            email='other-journal-ui@test.com', password='x', company=self.company,
+            active_company=self.company)
+        self.client.force_login(other)
+        response = self.client.post(reverse('accounting:journal_submit', args=[journal.pk]))
+        self.assertEqual(response.status_code, 403)
+        journal.refresh_from_db()
+        self.assertEqual(journal.status, Journal.JournalStatus.DRAFT)
+        self.assertFalse(ApprovalRequest.objects.filter(action='journal.approve', object_id=journal.pk).exists())
+
+    def test_posting_retry_after_cancellation_creates_new_request(self):
+        from accounting.utils import post_journal
+        from approvals.models import ApprovalRequest
+        from approvals.services import cancel_approval
+        journal = self.create_journal(status=Journal.JournalStatus.APPROVED)
+        original = post_journal(journal, self.user)
+        cancel_approval(approval=original, actor=self.user, reason='Revise submission')
+        response = self.client.post(reverse('accounting:journal_post', args=[journal.pk]))
+        replacement = ApprovalRequest.objects.filter(
+            company=self.company, action='accounting.journal.post', status='PENDING').get()
+        self.assertNotEqual(replacement.object_id, original.object_id)
+        self.assertRedirects(response, reverse('approvals:detail', args=[replacement.pk]))
+        self.client.post(reverse('accounting:journal_post', args=[journal.pk]))
+        self.assertEqual(ApprovalRequest.objects.filter(
+            company=self.company, action='accounting.journal.post', status='PENDING').count(), 1)
+        journal.refresh_from_db()
+        self.assertEqual(journal.status, Journal.JournalStatus.APPROVED)
+
+    def test_posting_retry_after_rejection_creates_new_request(self):
+        from accounting.utils import post_journal
+        from approvals.models import ApprovalRequest
+        from tests.approval_helpers import reject_request
+        journal = self.create_journal(status=Journal.JournalStatus.APPROVED)
+        original = post_journal(journal, self.user)
+        reject_request(original)
+        response = self.client.post(reverse('accounting:journal_post', args=[journal.pk]))
+        replacement = ApprovalRequest.objects.get(
+            company=self.company, action='accounting.journal.post', status='PENDING')
+        self.assertNotEqual(replacement.object_id, original.object_id)
+        self.assertRedirects(response, reverse('approvals:detail', args=[replacement.pk]))
+
+    def test_explicit_cancelled_posting_key_is_not_silently_replaced(self):
+        from accounting.utils import post_journal
+        from approvals.models import ApprovalRequest
+        from approvals.services import cancel_approval
+        journal = self.create_journal(status=Journal.JournalStatus.APPROVED)
+        original = post_journal(journal, self.user, approval_key='explicit-posting-attempt')
+        cancel_approval(approval=original, actor=self.user, reason='Cancel')
+        self.client.post(reverse('accounting:journal_post', args=[journal.pk]),
+                         {'_approval_key': 'explicit-posting-attempt'})
+        self.assertFalse(ApprovalRequest.objects.filter(
+            company=self.company, action='accounting.journal.post', status='PENDING').exists())
+
+    def test_posted_journal_cannot_create_another_posting_proposal(self):
+        from approvals.models import ApprovalRequest
+        journal = self.create_journal(status=Journal.JournalStatus.POSTED)
+        self.client.post(reverse('accounting:journal_post', args=[journal.pk]))
+        self.assertFalse(ApprovalRequest.objects.filter(
+            company=self.company, action='accounting.journal.post', status='PENDING').exists())
+
+    def test_journal_viewer_prioritizes_pending_posting_over_cancelled_attempt(self):
+        from accounting.utils import post_journal
+        from approvals.services import cancel_approval
+        from approvals.workflow import document_workflows
+        journal = self.create_journal(status=Journal.JournalStatus.APPROVED)
+        original = post_journal(journal, self.user)
+        cancel_approval(approval=original, actor=self.user, reason='Revise')
+        self.client.post(reverse('accounting:journal_post', args=[journal.pk]))
+        workflows = document_workflows(journal, self.user)
+        self.assertEqual(workflows[0]['approval'].status, 'PENDING')
+        self.assertEqual(workflows[0]['approval'].action, 'accounting.journal.post')
+        self.assertTrue(any(w['approval'].pk == original.pk for w in workflows))
+        response = self.client.get(reverse('accounting:journal_detail', args=[journal.pk]))
+        self.assertContains(response, 'This attempt was cancelled.')
+        self.assertContains(response, 'Return to journal to submit a new posting request')
+
+    def test_cancelled_posting_view_has_safe_return_path(self):
+        from accounting.utils import post_journal
+        from approvals.services import cancel_approval
+        journal = self.create_journal(status=Journal.JournalStatus.APPROVED)
+        approval = post_journal(journal, self.user)
+        cancel_approval(approval=approval, actor=self.user, reason='Revise')
+        response = self.client.get(reverse('approvals:detail', args=[approval.pk]))
+        self.assertContains(response, reverse('accounting:journal_detail', args=[journal.pk]))
+        self.assertContains(response, 'This attempt was cancelled.')
+        journal.refresh_from_db()
+        self.assertEqual(journal.status, Journal.JournalStatus.APPROVED)
+
+    def test_revocation_is_independent_and_returns_journal_to_draft(self):
+        from approvals.models import ApprovalRequest
+        from approvals.services import decide_approval
+        from django.core.exceptions import PermissionDenied
+        from tests.approval_helpers import approve_request
+        journal = self.create_journal(status=Journal.JournalStatus.APPROVED)
+        original_grant = journal.approval_request_id
+        response = self.client.post(reverse('accounting:journal_revoke_approval', args=[journal.pk]),
+                                    {'reason': 'Withdraw approval for correction'})
+        approval = ApprovalRequest.objects.get(action='journal.revoke_approval', object_id=journal.pk)
+        self.assertRedirects(response, reverse('approvals:detail', args=[approval.pk]))
+        journal.refresh_from_db()
+        self.assertEqual(journal.status, Journal.JournalStatus.APPROVED)
+        with self.assertRaises(PermissionDenied):
+            decide_approval(approval=approval, actor=self.user)
+        approve_request(approval)
+        journal.refresh_from_db()
+        self.assertEqual(journal.status, Journal.JournalStatus.DRAFT)
+        self.assertIsNone(journal.approval_request_id)
+        self.assertIsNone(journal.approved_by_id)
+        self.assertIsNone(journal.approved_at)
+        self.assertEqual(ApprovalRequest.objects.get(pk=original_grant).status, 'APPROVED')
+        self.assertEqual(approval.events.filter(kind='APPROVAL_REVOKED').count(), 1)
+
+    def test_revoked_journal_can_be_resubmitted_without_reusing_original_grant(self):
+        from approvals.models import ApprovalRequest
+        from tests.approval_helpers import approve_request
+        journal = self.create_journal(status=Journal.JournalStatus.APPROVED)
+        original_grant = journal.approval_request_id
+        self.client.post(reverse('accounting:journal_revoke_approval', args=[journal.pk]), {'reason': 'Correction'})
+        revoke = ApprovalRequest.objects.get(action='journal.revoke_approval', object_id=journal.pk)
+        approve_request(revoke)
+        self.client.post(reverse('accounting:journal_submit', args=[journal.pk]))
+        grant = ApprovalRequest.objects.get(action='journal.approve', object_id=journal.pk, status='PENDING')
+        self.assertNotEqual(grant.pk, original_grant)
+        approve_request(grant)
+        journal.refresh_from_db()
+        self.assertEqual(journal.status, Journal.JournalStatus.APPROVED)
+        self.assertEqual(journal.approval_request_id, grant.pk)
+
+    def test_revocation_rejects_posted_journal_and_missing_reason(self):
+        from approvals.models import ApprovalRequest
+        for journal in (self.create_journal(status=Journal.JournalStatus.POSTED),
+                        self.create_journal(status=Journal.JournalStatus.APPROVED)):
+            payload = {'reason': 'Withdraw'} if journal.status == 'POSTED' else {'reason': ' '}
+            self.client.post(reverse('accounting:journal_revoke_approval', args=[journal.pk]), payload)
+            self.assertFalse(ApprovalRequest.objects.filter(
+                action='journal.revoke_approval', object_id=journal.pk).exists())
+
+    def test_revocation_get_does_not_change_state(self):
+        from approvals.models import ApprovalRequest
+        journal = self.create_journal(status=Journal.JournalStatus.APPROVED)
+        self.client.get(reverse('accounting:journal_revoke_approval', args=[journal.pk]))
+        self.assertFalse(ApprovalRequest.objects.filter(
+            action='journal.revoke_approval', object_id=journal.pk).exists())
+
+    def test_pending_posting_cannot_execute_after_revocation(self):
+        from accounting.utils import post_journal
+        from approvals.models import ApprovalRequest
+        from django.core.exceptions import ValidationError
+        from tests.approval_helpers import approve_request
+        journal = self.create_journal(status=Journal.JournalStatus.APPROVED)
+        posting = post_journal(journal, self.user)
+        self.client.post(reverse('accounting:journal_revoke_approval', args=[journal.pk]), {'reason': 'Correction'})
+        revoke = ApprovalRequest.objects.get(action='journal.revoke_approval', object_id=journal.pk)
+        approve_request(revoke)
+        with self.assertRaises(ValidationError):
+            approve_request(posting)
+        journal.refresh_from_db()
+        self.assertEqual(journal.status, Journal.JournalStatus.DRAFT)

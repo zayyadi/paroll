@@ -109,6 +109,10 @@
         <i data-lucide="files" class="sidebar-icon h-5 w-5 text-secondary-400"></i>
         <span>Documents</span>
     </a>
+    <a href="{% url 'payroll:rent_declaration_review' %}" class="sidebar-link {% if request.resolver_match.url_name == 'rent_declaration_review' %}active{% endif %}">
+        <i data-lucide="house" class="sidebar-icon h-5 w-5 text-secondary-400"></i>
+        <span>Rent Declarations</span>
+    </a>
     <a href="{% url 'payroll:contract_list' %}" class="sidebar-link {% if 'contract' in request.resolver_match.url_name %}active{% endif %}">
         <i data-lucide="file-signature" class="sidebar-icon h-5 w-5 text-secondary-400"></i>
         <span>Contracts</span>
@@ -464,6 +468,10 @@
     <a href="{% url 'payroll:my_documents' %}" class="sidebar-link {% if request.resolver_match.url_name == 'my_documents' %}active{% endif %}">
         <i data-lucide="files" class="sidebar-icon h-5 w-5 text-secondary-400"></i>
         <span>My Documents</span>
+    </a>
+    <a href="{% url 'payroll:my_rent_declarations' %}" class="sidebar-link {% if request.resolver_match.url_name == 'my_rent_declarations' %}active{% endif %}">
+        <i data-lucide="house" class="sidebar-icon h-5 w-5 text-secondary-400"></i>
+        <span>Rent Relief</span>
     </a>
     <a href="{% url 'payroll:my_assets' %}" class="sidebar-link {% if request.resolver_match.url_name == 'my_assets' %}active{% endif %}">
         <i data-lucide="laptop-minimal" class="sidebar-icon h-5 w-5 text-secondary-400"></i>

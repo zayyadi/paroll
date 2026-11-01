@@ -177,6 +177,7 @@
   </style>
 </head>
 <body>
+{% with f=payroll.figures %}
   <div class="header">
     <h1 class="title">Payslip</h1>
     <p class="subtitle">Professional Payroll Statement</p>
@@ -225,23 +226,27 @@
         <tbody>
           <tr>
             <td>Basic Salary</td>
-            <td class="money">{{ payroll.pays.employee_pay.basic|div:12|floatformat:2|intcomma }}</td>
+            <td class="money">{{ f.basic|floatformat:2|intcomma }}</td>
           </tr>
           <tr>
             <td>Transport</td>
-            <td class="money">{{ payroll.pays.employee_pay.transport|div:12|floatformat:2|intcomma }}</td>
+            <td class="money">{{ f.transport|floatformat:2|intcomma }}</td>
           </tr>
           <tr>
             <td>Housing</td>
-            <td class="money">{{ payroll.pays.employee_pay.housing|div:12|floatformat:2|intcomma }}</td>
+            <td class="money">{{ f.housing|floatformat:2|intcomma }}</td>
           </tr>
           <tr>
-            <td>Other Allowances</td>
+            <td>Other Emoluments</td>
+            <td class="money">{{ f.other_emoluments|floatformat:2|intcomma }}</td>
+          </tr>
+          <tr>
+            <td>Period Allowances</td>
             <td class="money">{{ payroll.calc_allowance|floatformat:2|intcomma }}</td>
           </tr>
           <tr class="total-row">
             <td>Gross for Period</td>
-            <td class="money">{{ payroll.pays.employee_pay.gross_income|div:12|floatformat:2|intcomma }}</td>
+            <td class="money">{{ payroll.gross_for_period|floatformat:2|intcomma }}</td>
           </tr>
         </tbody>
       </table>
@@ -258,23 +263,23 @@
         <tbody>
           <tr>
             <td>Employee Pension</td>
-            <td class="money">{{ payroll.pays.employee_pay.pension_employee|div:12|floatformat:2|intcomma }}</td>
+            <td class="money">{{ f.employee_pension|floatformat:2|intcomma }}</td>
           </tr>
           <tr>
             <td>NHF</td>
-            <td class="money">{{ payroll.pays.employee_pay.nhf|div:12|floatformat:2|intcomma }}</td>
+            <td class="money">{{ f.employee_nhf|floatformat:2|intcomma }}</td>
           </tr>
           <tr>
             <td>Health Insurance</td>
-            <td class="money">{{ payroll.pays.employee_pay.employee_health|div:12|floatformat:2|intcomma }}</td>
+            <td class="money">{{ f.employee_nhia|floatformat:2|intcomma }}</td>
           </tr>
           <tr>
             <td>PAYE Tax</td>
-            <td class="money">{{ payroll.pays.employee_pay.payee|floatformat:2|intcomma }}</td>
+            <td class="money">{{ f.employee_paye|floatformat:2|intcomma }}</td>
           </tr>
           <tr>
             <td>Water Rate</td>
-            <td class="money">{{ payroll.pays.employee_pay.water_rate|floatformat:2|intcomma }}</td>
+            <td class="money">{{ f.employee_water|floatformat:2|intcomma }}</td>
           </tr>
           <tr>
             <td>IOU Deductions</td>
@@ -286,9 +291,7 @@
           </tr>
           <tr class="total-row">
             <td>Total Deductions</td>
-            {% with pension_monthly=payroll.pays.employee_pay.pension_employee|div:12 nhf_monthly=payroll.pays.employee_pay.nhf|div:12 health_monthly=payroll.pays.employee_pay.employee_health|div:12 %}
-            <td class="money">{{ pension_monthly|add:nhf_monthly|add:health_monthly|add:payroll.pays.employee_pay.payee|add:payroll.pays.employee_pay.water_rate|add:payroll.calc_deduction|floatformat:2|intcomma }}</td>
-            {% endwith %}
+                        <td class="money">{{ payroll.total_deductions|floatformat:2|intcomma }}</td>
           </tr>
         </tbody>
       </table>
@@ -318,5 +321,6 @@
       Authorized Signatory
     </div>
   </div>
+{% endwith %}
 </body>
 </html>

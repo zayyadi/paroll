@@ -1609,6 +1609,21 @@ class ExitSettlement(SoftDeleteModel):
         max_digits=12, decimal_places=2, default=0,
         help_text="Discretionary add-backs (bonus, commission) reviewed by HR.",
     )
+    gratuity = models.DecimalField(
+        max_digits=14, decimal_places=2, default=0,
+        help_text="Gratuity paid at exit. Taxed through PAYE from 2026.",
+    )
+    loss_of_office_compensation = models.DecimalField(
+        max_digits=14, decimal_places=2, default=0,
+        help_text=(
+            "Compensation for loss of office. Tax-free up to the statutory "
+            "exemption (N50m from 2026); only the excess is taxed."
+        ),
+    )
+    paye_on_exit = models.DecimalField(
+        max_digits=14, decimal_places=2, default=0,
+        help_text="PAYE withheld from the exit payments (computed).",
+    )
 
     # --- Receivables: what the leaver owes the company. ---
     outstanding_iou = models.DecimalField(
@@ -1653,6 +1668,8 @@ class ExitSettlement(SoftDeleteModel):
             self.final_month_salary
             + self.leave_encashment
             + self.other_payables
+            + self.gratuity
+            + self.loss_of_office_compensation
         )
 
     @property
@@ -1666,7 +1683,7 @@ class ExitSettlement(SoftDeleteModel):
     @property
     def net_settlement(self) -> Decimal:
         """Positive: the company pays the leaver. Negative: the leaver repays."""
-        return self.payables_total - self.receivables_total
+        return self.payables_total - self.receivables_total - self.paye_on_exit
 
     @property
     def is_payable(self) -> bool:
@@ -1678,6 +1695,8 @@ class ExitSettlement(SoftDeleteModel):
             "final_month_salary",
             "leave_encashment",
             "other_payables",
+            "gratuity",
+            "loss_of_office_compensation",
             "outstanding_iou",
             "unreturned_assets_value",
             "other_receivables",
@@ -1696,6 +1715,13 @@ class ExitSettlement(SoftDeleteModel):
             ("posted_by_id", "posted_at"),
             update_fields=kwargs.get("update_fields"),
         )
+        if self.status == self.Status.DRAFT:
+            from payroll.services.exit_settlement_service import exit_paye
+
+            self.paye_on_exit = exit_paye(self)
+            update_fields = kwargs.get("update_fields")
+            if update_fields is not None:
+                kwargs["update_fields"] = {*update_fields, "paye_on_exit"}
         return super().save(*args, **kwargs)
 
     def __str__(self):

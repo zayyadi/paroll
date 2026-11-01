@@ -1,0 +1,36 @@
+{% load static %}
+{% if workflows %}
+<section class="approval-workflow-viewer mb-6" aria-label="Document approval workflow">
+  <link rel="stylesheet" href="{% static 'css/approval-workflow.css' %}">
+  {% for workflow in workflows %}
+  <details{% if not collapsed %} open{% endif %}>
+    <summary>
+      <span class="aw-title">Approval workflow · {{ workflow.label }}</span>
+      <span class="aw-status">{% if workflow.preview %}Not submitted{% else %}{{ workflow.approval.get_status_display }}{% endif %}</span>
+      <span class="aw-next">{% if workflow.preview %}Submit this document to start approval. This is a preview of the current policy.{% elif workflow.waiting %}{% if workflow.next_approvers %}Next: {{ workflow.next_approvers|join:", " }}{% else %}<span class="aw-blocked">{% if workflow.blocked_reason %}{{ workflow.blocked_reason }}{% else %}No eligible approver available. Contact your company administrator.{% endif %}</span>{% endif %}{% elif workflow.approval.status == 'CANCELLED' %}This attempt was cancelled. It will not execute the requested action.{% elif workflow.approval.status == 'REJECTED' %}This attempt was rejected. It will not execute the requested action.{% else %}{{ workflow.approval.get_status_display }} · No further approval pending{% endif %}</span>
+    </summary>
+    <div class="aw-body">
+      {% if not workflow.preview %}<p class="aw-muted">Submitted by {{ workflow.requester_name }} · {{ workflow.approval.created_at|date:"d M Y, H:i" }}</p>{% endif %}
+      <ol aria-label="Approval stages">
+        {% for stage in workflow.stages %}
+        <li{% if stage.current %} aria-current="step"{% endif %}>
+          <div class="aw-heading"><span>{{ stage.number }}. {{ stage.name }}</span><span class="aw-status">{{ stage.state }}</span></div>
+          {% if workflow.preview %}
+          <p class="aw-muted">{% if stage.assigned %}Assigned: {{ stage.assigned|join:", " }}{% else %}An independent company user with approval authority{% endif %}</p>
+          {% elif stage.decision %}
+          <p>{{ stage.actor_name }} · <time datetime="{{ stage.decision.created_at|date:'c' }}">{{ stage.decision.created_at|date:"d M Y, H:i" }}</time></p>
+          {% elif workflow.approval.status == 'PENDING' %}
+          {% if stage.assigned %}<p class="aw-muted">Assigned: {{ stage.assigned|join:", " }}</p>{% endif %}
+          {% if stage.eligible %}<p>{% if stage.current %}Waiting for{% else %}Eligible approvers{% endif %}: {{ stage.eligible|join:", " }}</p>{% else %}<p class="aw-blocked">No eligible approver currently available.</p>{% endif %}
+          {% endif %}
+        </li>
+        {% endfor %}
+      </ol>
+      {% if not workflow.preview %}<p class="aw-muted">One eligible person approves each stage. The chain is fixed at submission; availability can change.</p>
+      {% if workflow.can_open_request %}<a href="{% url 'approvals:detail' workflow.approval.pk %}">View approval request and history</a>{% endif %}{% endif %}
+      {% if workflow.document_url %}<p><a href="{{ workflow.document_url }}">Return to journal{% if workflow.approval.status == 'CANCELLED' or workflow.approval.status == 'REJECTED' %} to submit a new posting request{% endif %}</a></p>{% endif %}
+    </div>
+  </details>
+  {% endfor %}
+</section>
+{% endif %}

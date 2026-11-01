@@ -350,10 +350,15 @@ def view_leave_request(request, pk):
 
 
 def _can_view_leave_allowance_slip(user, allowance):
+    """The employee themself, or HR/auditors of the employee's company."""
     employee = allowance.employee
+    if user == employee.user:
+        return True
+    user_company = get_user_company(user)
+    if user_company is None or employee.company_id != user_company.pk:
+        return False
     return (
-        user == employee.user
-        or _can_manage_employee_requests(user)
+        _can_manage_employee_requests(user)
         or user.has_perm("payroll.view_allowance")
         or is_auditor(user)
     )

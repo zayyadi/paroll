@@ -100,7 +100,11 @@ MIDDLEWARE = [
 AUTHENTICATION_BACKENDS = tuple(
     backend
     for backend in AUTHENTICATION_BACKENDS  # noqa: F405
-    if backend == "django.contrib.auth.backends.ModelBackend"
+    if backend
+    in (
+        "django.contrib.auth.backends.ModelBackend",
+        "company.permissions_backend.CompanyScopedModelBackend",
+    )
     or (
         backend.startswith("social_core.backends.")
         and _is_installed("social_core")

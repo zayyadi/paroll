@@ -65,16 +65,16 @@ def shift_template_create(request):
 
     if request.method == "POST":
         name = request.POST.get("name")
+        days = ("monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday")
+        chosen = {day: request.POST.get(day) or None for day in days}
+        allowed = {str(pk) for pk in shifts.values_list("pk", flat=True)}
+        if any(value is not None and value not in allowed for value in chosen.values()):
+            messages.error(request, "Choose shifts from your company only.")
+            return redirect("payroll:shift_template_create")
         template = ShiftTemplate.objects.create(
             company=company,
             name=name,
-            monday_id=request.POST.get("monday") or None,
-            tuesday_id=request.POST.get("tuesday") or None,
-            wednesday_id=request.POST.get("wednesday") or None,
-            thursday_id=request.POST.get("thursday") or None,
-            friday_id=request.POST.get("friday") or None,
-            saturday_id=request.POST.get("saturday") or None,
-            sunday_id=request.POST.get("sunday") or None,
+            **{f"{day}_id": value for day, value in chosen.items()},
         )
         messages.success(request, f"Shift template '{name}' created.")
         return redirect("payroll:shift_template_list")

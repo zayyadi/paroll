@@ -499,8 +499,8 @@ def hr_dashboard(request):
     active_employees_count = employee_qs.filter(status="active").count()
     suspended_employees_count = employee_qs.filter(status="suspended").count()
     terminated_employees_count = employee_qs.filter(status="terminated").count()
-    recent_performance_reviews = models.Appraisal.objects.order_by("-end_date")[:5]
     appraisal_qs = models.Appraisal.objects.filter(company=company)
+    recent_performance_reviews = appraisal_qs.order_by("-end_date")[:5]
     today = timezone.now().date()
 
     # Real readiness + headcount aggregates for the editorial cards

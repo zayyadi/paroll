@@ -1,4 +1,5 @@
 {% extends "base_new.html" %}
+{% load approval_workflow %}
 
 {% block page_header %}Leave Requests{% endblock %}
 
@@ -64,6 +65,7 @@
                             {% endif %}
                         </td>
                     </tr>
+                    <tr><td colspan="6">{% approval_workflow leave_req collapsed=True %}</td></tr>
                     {% empty %}
                     <tr><td colspan="6" class="py-10 text-center text-secondary-500">No leave requests found.</td></tr>
                     {% endfor %}

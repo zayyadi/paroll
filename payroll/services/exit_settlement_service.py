@@ -35,6 +35,8 @@ __all__ = [
     "receivables_for",
     "build_settlement",
     "post_settlement",
+    "taxable_exit_income",
+    "exit_paye",
 ]
 
 
@@ -108,6 +110,41 @@ def receivables_for(employee: Any, *, as_of: Any = None) -> dict:
     }
 
 
+def taxable_exit_income(settlement: Any) -> Decimal:
+    """Exit payments that are taxed through PAYE under the rules in force on
+    the last working day: final salary, leave encashment and other payables;
+    gratuity where taxable; loss-of-office compensation above the exemption."""
+    from payroll.utils import statutory_rates_for
+
+    rates = statutory_rates_for(settlement.last_working_day)
+    taxable = (
+        Decimal(settlement.final_month_salary)
+        + Decimal(settlement.leave_encashment)
+        + Decimal(settlement.other_payables)
+    )
+    if rates["gratuity_taxable"]:
+        taxable += Decimal(settlement.gratuity)
+    exemption = rates["loss_of_office_exemption"]
+    if exemption is not None:
+        taxable += max(Decimal(settlement.loss_of_office_compensation) - exemption, Decimal("0.00"))
+    return taxable
+
+
+def exit_paye(settlement: Any) -> Decimal:
+    """PAYE on the exit payments: the extra annual tax they add on top of the
+    employee's annual taxable income from salary."""
+    from payroll.utils import compute_annual_paye
+
+    taxable_exit = taxable_exit_income(settlement)
+    if taxable_exit <= 0:
+        return Decimal("0.00")
+    config = settlement.employee.employee_pay
+    base = Decimal(config.taxable_income) if config else Decimal("0.00")
+    as_of = settlement.last_working_day
+    extra = compute_annual_paye(base + taxable_exit, as_of=as_of) - compute_annual_paye(base, as_of=as_of)
+    return extra.quantize(Decimal("0.01"))
+
+
 def build_settlement(*, checklist: Any) -> Any:
     """Create (or refresh) the Full-and-Final statement for an offboarding.
 
@@ -163,6 +200,8 @@ def post_settlement(*, settlement: Any, actor: Any = None) -> Any:
     if settlement.status != ExitSettlement.Status.DRAFT:
         raise ValidationError("Only a draft exit settlement can be posted.")
 
+    # Recompute in case the employee's salary changed since the draft saved.
+    settlement.paye_on_exit = exit_paye(settlement)
     company = settlement.company
     working_day = settlement.last_working_day
     entries = []
@@ -172,7 +211,7 @@ def post_settlement(*, settlement: Any, actor: Any = None) -> Any:
                 "account": get_account(company, "salary_expense"),
                 "entry_type": "DEBIT",
                 "amount": settlement.payables_total,
-                "memo": "Final salary and leave encashment at exit",
+                "memo": "Final salary, leave encashment, gratuity and compensation at exit",
             }
         )
     if settlement.receivables_total > 0:
@@ -182,6 +221,15 @@ def post_settlement(*, settlement: Any, actor: Any = None) -> Any:
                 "entry_type": "CREDIT",
                 "amount": settlement.receivables_total,
                 "memo": "IOU and asset recovery at exit",
+            }
+        )
+    if settlement.paye_on_exit > 0:
+        entries.append(
+            {
+                "account": get_account(company, "paye_payable"),
+                "entry_type": "CREDIT",
+                "amount": settlement.paye_on_exit,
+                "memo": "PAYE withheld from exit payments",
             }
         )
     if settlement.net_settlement > 0:
@@ -230,5 +278,7 @@ def post_settlement(*, settlement: Any, actor: Any = None) -> Any:
     settlement.status = "POSTED"
     settlement.posted_by = actor
     settlement.posted_at = timezone.now()
-    settlement.save(update_fields=["status", "posted_by", "posted_at", "journal"])
+    settlement.save(
+        update_fields=["status", "posted_by", "posted_at", "journal", "paye_on_exit"]
+    )
     return settlement

@@ -102,8 +102,8 @@
                     <tr class="hover:bg-secondary-50">
                         <td class="px-6 py-4 text-sm text-secondary-900">{{ pays.payroll_entry.pays.emp_id }}</td>
                         <td class="px-6 py-4 text-sm text-secondary-900">{{ pays.payroll_entry.pays.first_name }} {{ pays.payroll_entry.pays.last_name }}</td>
-                        <td class="px-6 py-4 text-sm text-secondary-900">₦{{ pays.payroll_entry.pays.employee_pay.basic_salary|default:0|intcomma }}</td>
-                        <td class="px-6 py-4 text-sm text-secondary-900">₦{{ pays.payroll_entry.pays.employee_pay.payee|default:0|intcomma }}</td>
+                        <td class="px-6 py-4 text-sm text-secondary-900">₦{{ pays.payroll_entry.figures.gross|floatformat:2|intcomma }}</td>
+                        <td class="px-6 py-4 text-sm text-secondary-900">₦{{ pays.payroll_entry.figures.employee_paye|floatformat:2|intcomma }}</td>
                         <td class="px-6 py-4 text-sm text-secondary-900 text-right font-medium">₦{{ pays.payroll_entry.netpay|default:0|intcomma }}</td>
                     </tr>
                     {% endfor %}

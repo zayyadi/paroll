@@ -478,6 +478,7 @@ class AuditTrailViewTest(TestCase):
         """Test audit trail detail view"""
         # Create audit trail entry
         audit_entry = AccountingAuditTrail.objects.create(
+            company=self.auditor.company,
             user=self.auditor,
             action=AccountingAuditTrail.ActionType.CREATE,
             content_type=ContentType.objects.get_for_model(self.account),

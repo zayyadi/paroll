@@ -1,4 +1,5 @@
 {% extends "base_new.html" %}
+{% load humanize %}
 {% block content %}
 <div class="max-w-4xl mx-auto px-4 py-8">
   <h1 class="text-2xl font-bold mb-6">{{ page_title }}</h1>
@@ -14,7 +15,7 @@
     <div class="flex space-x-3">
       <form method="post" action="{% url 'payroll:offboarding_settlement' checklist.pk %}">
         {% csrf_token %}
-        <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">Calculate Settlement</button>
+        <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">{% if settlement %}Recalculate Settlement{% else %}Calculate Settlement{% endif %}</button>
       </form>
       {% if all_done and checklist.status == 'IN_PROGRESS' %}
       <form method="post" action="{% url 'payroll:offboarding_complete' checklist.pk %}">
@@ -24,6 +25,63 @@
       {% endif %}
     </div>
   </div>
+  {% if settlement %}
+  <div class="bg-white shadow rounded-lg p-6 mb-6">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-lg font-semibold">Exit Settlement</h2>
+      {% if settlement.status == "POSTED" %}
+      <span class="chip chip-success">Posted {{ settlement.posted_at|date:"d M Y" }}</span>
+      {% elif pending_approval %}
+      <a href="{% url 'approvals:detail' pending_approval.pk %}" class="chip chip-warning">Awaiting approval</a>
+      {% else %}
+      <span class="chip chip-info">Draft</span>
+      {% endif %}
+    </div>
+    <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
+      <table class="w-full text-sm">
+        <thead><tr><th class="text-left text-gray-500 pb-2" colspan="2">Payable to employee</th></tr></thead>
+        <tbody class="divide-y">
+          <tr><td class="py-1">Final month salary</td><td class="py-1 text-right tabular-nums">₦{{ settlement.final_month_salary|floatformat:2|intcomma }}</td></tr>
+          <tr><td class="py-1">Leave encashment</td><td class="py-1 text-right tabular-nums">₦{{ settlement.leave_encashment|floatformat:2|intcomma }}</td></tr>
+          <tr><td class="py-1">Gratuity</td><td class="py-1 text-right tabular-nums">₦{{ settlement.gratuity|floatformat:2|intcomma }}</td></tr>
+          <tr><td class="py-1">Compensation for loss of office</td><td class="py-1 text-right tabular-nums">₦{{ settlement.loss_of_office_compensation|floatformat:2|intcomma }}</td></tr>
+          <tr><td class="py-1">Other payables</td><td class="py-1 text-right tabular-nums">₦{{ settlement.other_payables|floatformat:2|intcomma }}</td></tr>
+          <tr class="font-semibold"><td class="py-1">Total payable</td><td class="py-1 text-right tabular-nums">₦{{ settlement.payables_total|floatformat:2|intcomma }}</td></tr>
+        </tbody>
+      </table>
+      <table class="w-full text-sm">
+        <thead><tr><th class="text-left text-gray-500 pb-2" colspan="2">Deducted</th></tr></thead>
+        <tbody class="divide-y">
+          <tr><td class="py-1">PAYE on exit payments</td><td class="py-1 text-right tabular-nums">₦{{ settlement.paye_on_exit|floatformat:2|intcomma }}</td></tr>
+          <tr><td class="py-1">Outstanding IOU</td><td class="py-1 text-right tabular-nums">₦{{ settlement.outstanding_iou|floatformat:2|intcomma }}</td></tr>
+          <tr><td class="py-1">Unreturned assets</td><td class="py-1 text-right tabular-nums">₦{{ settlement.unreturned_assets_value|floatformat:2|intcomma }}</td></tr>
+          <tr><td class="py-1">Other deductions</td><td class="py-1 text-right tabular-nums">₦{{ settlement.other_receivables|floatformat:2|intcomma }}</td></tr>
+          <tr class="font-semibold"><td class="py-1">Net {% if settlement.is_payable %}paid to employee{% else %}owed by employee{% endif %}</td><td class="py-1 text-right tabular-nums">₦{{ settlement.net_settlement|floatformat:2|intcomma }}</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="mt-3 text-xs text-gray-500">PAYE is the extra annual tax the exit payments add to the employee's salary income. From 2026 gratuity is taxed and compensation for loss of office is tax-free up to ₦50,000,000.</p>
+    {% if settlement_form %}
+    <form method="post" action="{% url 'payroll:offboarding_settlement_edit' checklist.pk %}" class="mt-6 space-y-4">
+      {% csrf_token %}
+      <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+        {% include "employee/_form_field.html" with field=settlement_form.gratuity %}
+        {% include "employee/_form_field.html" with field=settlement_form.loss_of_office_compensation %}
+        {% include "employee/_form_field.html" with field=settlement_form.other_payables %}
+        {% include "employee/_form_field.html" with field=settlement_form.other_receivables %}
+      </div>
+      {% include "employee/_form_field.html" with field=settlement_form.notes %}
+      <div class="flex space-x-3">
+        <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">Save amounts</button>
+      </div>
+    </form>
+    <form method="post" action="{% url 'payroll:offboarding_settlement_submit' checklist.pk %}" class="mt-3">
+      {% csrf_token %}
+      <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">Submit for approval</button>
+    </form>
+    {% endif %}
+  </div>
+  {% endif %}
   <div class="bg-white shadow rounded-lg p-6">
     <h2 class="text-lg font-semibold mb-4">Tasks</h2>
     <div class="space-y-3">

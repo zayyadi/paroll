@@ -6,11 +6,12 @@ Unifies three competing definitions:
 - payroll/utils.py:monthly_cost_breakdown (employer-cost view)
 
 Canonical rule (documented here, locked by tests):
-  monthly_gross = annual_gross / 12
+  monthly_gross = annual_gross / 12            (full gross, all allowances)
+  monthly_pension = annual_employee_pension / 12
   monthly_health = annual_employee_health / 12
   monthly_nhf = annual_nhf / 12
-  net = monthly_gross - monthly_health - monthly_nhf - payee_monthly - water_monthly
-        + allowances_monthly - deductions_monthly
+  net = monthly_gross - monthly_pension - monthly_health - monthly_nhf
+        - payee_monthly - water_monthly + allowances_monthly - deductions_monthly
 
 All annual→monthly divisions are explicit per-field. Renderers must NOT divide
 ad hoc (/12 in templates/views). Migrated (locked by payroll/tests_payroll_calc.py
@@ -36,6 +37,7 @@ def _d(value: Numeric) -> Decimal:
 
 def monthly_net_pay(
     gross_annual: Numeric = 0,
+    pension_employee_annual: Numeric = 0,
     employee_health_annual: Numeric = 0,
     nhf_annual: Numeric = 0,
     payee_monthly: Numeric = 0,
@@ -44,6 +46,7 @@ def monthly_net_pay(
     deductions_monthly: Numeric = 0,
 ) -> dict:
     gross_annual = _d(gross_annual)
+    pension_employee_annual = _d(pension_employee_annual)
     employee_health_annual = _d(employee_health_annual)
     nhf_annual = _d(nhf_annual)
     payee_monthly = _d(payee_monthly)
@@ -52,11 +55,13 @@ def monthly_net_pay(
     deductions_monthly = _d(deductions_monthly)
 
     monthly_gross = gross_annual / Decimal(12)
+    monthly_pension = pension_employee_annual / Decimal(12)
     monthly_health = employee_health_annual / Decimal(12)
     monthly_nhf = nhf_annual / Decimal(12)
 
     net = (
         monthly_gross
+        - monthly_pension
         - monthly_health
         - monthly_nhf
         - payee_monthly
@@ -66,6 +71,7 @@ def monthly_net_pay(
     )
     return {
         "monthly_gross": monthly_gross,
+        "monthly_pension": monthly_pension,
         "monthly_health": monthly_health,
         "monthly_nhf": monthly_nhf,
         "payee_monthly": payee_monthly,

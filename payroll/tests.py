@@ -1291,10 +1291,14 @@ class IOUTenorApprovalWorkflowTests(TestCase):
             pays=self.employee,
             status="active",
         )
+        paydays = (timezone.localdate() + timedelta(days=32)).replace(day=1)
+        if paydays.month == 12:
+            # December runs add the 13th-month allowance to net pay.
+            paydays = paydays.replace(year=paydays.year + 1, month=1)
         payroll_run = PayrollRun.objects.create(
             company=self.company,
             name="July Payroll",
-            paydays=(timezone.localdate() + timedelta(days=32)).replace(day=1),
+            paydays=paydays,
             is_active=True,
         )
 

@@ -95,7 +95,7 @@
                         <tbody class="divide-y divide-outline-variant/30">
                             <tr>
                                 <td class="px-4 py-2 text-on-surface-variant">Basic Salary</td>
-                                <td class="px-4 py-2 text-right font-medium text-on-surface tabular-nums">{{ basic|div:12|floatformat:2|intcomma }}</td>
+                                <td class="px-4 py-2 text-right font-medium text-on-surface tabular-nums">{{ basic|floatformat:2|intcomma }}</td>
                             </tr>
                             <tr>
                                 <td class="px-4 py-2 text-on-surface-variant">Transport</td>
@@ -106,12 +106,16 @@
                                 <td class="px-4 py-2 text-right font-medium text-on-surface tabular-nums">{{ pay_id_housing|floatformat:2|intcomma }}</td>
                             </tr>
                             <tr>
-                                <td class="px-4 py-2 text-on-surface-variant">Other Allowances</td>
+                                <td class="px-4 py-2 text-on-surface-variant">Other Emoluments</td>
+                                <td class="px-4 py-2 text-right font-medium text-on-surface tabular-nums">{{ pay_id_other_emoluments|floatformat:2|intcomma }}</td>
+                            </tr>
+                            <tr>
+                                <td class="px-4 py-2 text-on-surface-variant">Period Allowances</td>
                                 <td class="px-4 py-2 text-right font-medium text-on-surface tabular-nums">{{ pay.payroll_entry.calc_allowance|floatformat:2|intcomma }}</td>
                             </tr>
                             <tr class="bg-success-50">
                                 <td class="px-4 py-2 font-semibold text-success-800">Gross for Period</td>
-                                <td class="px-4 py-2 text-right font-semibold text-success-800 tabular-nums">{{ pay_id_gross|floatformat:2|intcomma }}</td>
+                                <td class="px-4 py-2 text-right font-semibold text-success-800 tabular-nums">{{ pay.payroll_entry.gross_for_period|floatformat:2|intcomma }}</td>
                             </tr>
                         </tbody>
                     </table>
@@ -133,11 +137,11 @@
                             </tr>
                             <tr>
                                 <td class="px-4 py-2 text-on-surface-variant">NHF</td>
-                                <td class="px-4 py-2 text-right font-medium text-on-surface tabular-nums">{{ pay_id_nhf|div:12|floatformat:2|intcomma }}</td>
+                                <td class="px-4 py-2 text-right font-medium text-on-surface tabular-nums">{{ pay_id_nhf|floatformat:2|intcomma }}</td>
                             </tr>
                             <tr>
                                 <td class="px-4 py-2 text-on-surface-variant">Health Insurance</td>
-                                <td class="px-4 py-2 text-right font-medium text-on-surface tabular-nums">{{ pay_id_nhif|div:12|floatformat:2|intcomma }}</td>
+                                <td class="px-4 py-2 text-right font-medium text-on-surface tabular-nums">{{ pay_id_nhif|floatformat:2|intcomma }}</td>
                             </tr>
                             <tr>
                                 <td class="px-4 py-2 text-on-surface-variant">PAYE Tax</td>
@@ -157,7 +161,7 @@
                             </tr>
                             <tr class="bg-danger-50">
                                 <td class="px-4 py-2 font-semibold text-danger-700">Total Deductions</td>
-                                <td class="px-4 py-2 text-right font-semibold text-danger-700 tabular-nums">{{ pay_id_pension|add:pay_id_nhf|div:12|add:pay_id_nhif|div:12|add:pay_id_payee|add:pay_id_water_rate|add:pay.payroll_entry.calc_deduction|floatformat:2|intcomma }}</td>
+                                <td class="px-4 py-2 text-right font-semibold text-danger-700 tabular-nums">{{ pay.payroll_entry.total_deductions|floatformat:2|intcomma }}</td>
                             </tr>
                         </tbody>
                     </table>

@@ -424,6 +424,23 @@ class StatutoryRateVersion(models.Model):
         default=Decimal("2.50"),
         validators=[MinValueValidator(Decimal("0")), MaxValueValidator(Decimal("100"))],
     )
+
+    gratuity_taxable = models.BooleanField(
+        default=True,
+        help_text="Whether gratuity paid at exit is taxed through PAYE.",
+    )
+    loss_of_office_exemption = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        default=Decimal("50000000.00"),
+        help_text=(
+            "Tax-free amount of compensation for loss of office; only the "
+            "excess is taxed through PAYE. Leave blank when such compensation "
+            "is outside PAYE (pre-2026: capital gains tax)."
+        ),
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -502,6 +519,15 @@ class RemittanceRecord(CompanyOwnedModel):
 
 
 class Payroll(models.Model):
+    """Salary terms for one employee, with derived statutory figures.
+
+    ``basic_salary`` is the MONTHLY GROSS. Every derived amount stored here is
+    ANNUAL (gross_income, bht, basic, housing, transport, pension_*, nhf,
+    employee_health, emplyr_health, nhif, nsitf, itf, taxable_income) except
+    ``payee`` and ``water_rate``, which are MONTHLY. Convert annual figures
+    with ``payroll.services.payroll_calc.annual_to_monthly``.
+    """
+
     class Meta:
         base_manager_name = "all_objects"
 
@@ -664,8 +690,8 @@ class Payroll(models.Model):
 
     @property
     def get_nsitf(self):
-        # NSITF Employees' Compensation: 1% of monthly basic salary, employer-funded.
-        return self.basic_salary * Decimal(1) / Decimal(100)
+        """NSITF Employees' Compensation: 1% of annual gross, employer-funded."""
+        return self.get_annual_gross * Decimal(1) / Decimal(100)
 
     @property
     def get_itf(self):
@@ -711,7 +737,7 @@ class Payroll(models.Model):
         self.basic = utils.get_basic(self)  # noqa: F405
         self.housing = utils.get_housing(self)  # noqa: F405
         self.transport = utils.get_transport(self)  # noqa: F405
-        self.bht = utils.gross_income(self)  # noqa: F405
+        self.bht = utils.bht_income(self)  # noqa: F405
         self.pension_employee = utils.get_pension_employee(self)  # noqa: F405
         self.pension_employer = utils.get_pension_employer(self)  # noqa: F405
         self.pension = utils.get_pension(self)  # noqa: F405
@@ -991,6 +1017,14 @@ class PayrollEntry(models.Model):
         decimal_places=2,
         blank=True,
     )
+    statutory_snapshot = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text=(
+            "Monthly statutory figures captured when net pay was calculated; "
+            "frozen once the run is locked. See payroll.services.payroll_figures."
+        ),
+    )
 
     objects = PayrollEntryManager()
     all_objects = PayrollEntryQuerySet.as_manager()
@@ -1243,12 +1277,21 @@ class PayrollEntry(models.Model):
 
     @property
     def total_deductions(self) -> Decimal:
-        total = self.calc_deduction + self.employee_health + self.nhf
-        _deduction_debug_print(
-            f"Total deductions rollup for payroll_entry_id={self.pk}: "
-            f"calc_deduction={self.calc_deduction}, employee_health={self.employee_health}, nhf={self.nhf}, total={total}."
+        """Monthly statutory deductions plus this period's other deductions."""
+        f = self.figures
+        return (
+            f["employee_pension"]
+            + f["employee_nhf"]
+            + f["employee_nhia"]
+            + f["employee_paye"]
+            + f["employee_water"]
+            + self.calc_deduction
         )
-        return total
+
+    @property
+    def gross_for_period(self) -> Decimal:
+        """Monthly gross plus this period's allowances."""
+        return self.figures["gross"] + self.calc_allowance
 
     @property
     def get_netpay(self):
@@ -1268,8 +1311,21 @@ class PayrollEntry(models.Model):
             type(self).all_objects.filter(pk=self.pk)._assert_editable()
         if self.pays and self.pays.company_id and not self.company_id:
             self.company_id = self.pays.company_id
+        from payroll.services.payroll_figures import snapshot_for
+
         self.netpay = self.get_netpay
+        self.statutory_snapshot = snapshot_for(self.pays.employee_pay)
+        update_fields = kwargs.get("update_fields")
+        if update_fields is not None and "netpay" in update_fields:
+            kwargs["update_fields"] = {*update_fields, "statutory_snapshot"}
         super(PayrollEntry, self).save(*args, **kwargs)
+
+    @property
+    def figures(self) -> dict:
+        """Monthly statutory figures for this entry (snapshot or live)."""
+        from payroll.services.payroll_figures import entry_figures
+
+        return entry_figures(self)
 
     def delete(self, *args, **kwargs):
         return type(self).all_objects.filter(pk=self.pk).delete()
@@ -2283,31 +2339,31 @@ class LeaveRequest(models.Model):
 
         return (self.end_date - self.start_date).days + 1
 
-    @property
-    def duration(self):
+    def working_dates(self) -> list:
+        """Dates in the range that count as leave: weekdays that are not
+        public holidays in the employee's company calendar."""
         if self.start_date > self.end_date:
-            return 0
-
-        total_days = 0
-        current = self.start_date
-
+            return []
         holidays = set(
             PublicHoliday.objects.filter(
-                company=self.employee.company,
+                company_id=self.employee.company_id,
                 date__range=(self.start_date, self.end_date),
             ).values_list("date", flat=True)
         )
+        span = (self.end_date - self.start_date).days + 1
+        days = (self.start_date + timedelta(days=offset) for offset in range(span))
+        return [day for day in days if day.weekday() < 5 and day not in holidays]
 
-        while current <= self.end_date:
-            if current.weekday() < 5:
-                # and current not in holidays:
-                total_days += 1
-            current += timedelta(days=1)
-
-        if self.is_half_day:
+    @property
+    def duration(self):
+        working_days = len(self.working_dates())
+        if self.is_half_day and working_days:
             return 0.5
+        return working_days
 
-        return total_days
+    @property
+    def includes_working_day(self) -> bool:
+        return bool(self.working_dates())
 
     def clean(self):
         super().clean()
@@ -2320,6 +2376,13 @@ class LeaveRequest(models.Model):
             raise ValidationError({"leave_type": "Select an active company leave type."})
         if self.start_date > self.end_date:
             raise ValidationError("End date cannot be before start date.")
+        # A request covering only weekends/holidays deducts no days; reject it here rather than
+        # letting it fail at approval when the leave ledger refuses a 0-day event.
+        if not self.includes_working_day:
+            raise ValidationError(
+                "Leave must include at least one working day "
+                "(Monday to Friday, not a public holiday)."
+            )
 
         blackout_qs = LeaveBlackoutPeriod.objects.filter(
             company=self.employee.company,

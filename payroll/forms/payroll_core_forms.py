@@ -20,6 +20,7 @@ from payroll.forms._helpers import (
     _parse_json_object,
     _normalize_month_widget_data,
     _get_period_bounds,
+    CompanyScopedModelForm,
 )
 
 class PayrollForm(forms.Form):
@@ -39,14 +40,14 @@ class PayrollForm(forms.Form):
 
 
 
-class AllowanceForm(forms.ModelForm):
+class AllowanceForm(CompanyScopedModelForm):
     class Meta:
         model = models.Allowance
         fields = "__all__"
 
 
 
-class DeductionForm(forms.ModelForm):
+class DeductionForm(CompanyScopedModelForm):
     class Meta:
         model = models.Deduction
         fields = "__all__"

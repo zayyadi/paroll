@@ -1,0 +1,99 @@
+.approval-workflow-viewer {
+  color: #172b3a;
+  font-size: 14px;
+}
+
+.approval-workflow-viewer details {
+  background: #fff;
+  border: 1px solid #d9e2e8;
+  border-radius: 12px;
+  margin-bottom: 12px;
+  overflow: hidden;
+}
+
+.approval-workflow-viewer summary {
+  padding: 18px 22px;
+  cursor: pointer;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  list-style: disclosure-closed;
+}
+
+.approval-workflow-viewer summary:focus-visible {
+  outline: 3px solid #2563eb;
+  outline-offset: -3px;
+}
+
+.approval-workflow-viewer .aw-title {
+  font-weight: 700;
+}
+
+.approval-workflow-viewer .aw-status {
+  border-radius: 20px;
+  padding: 4px 10px;
+  background: #edf2f7;
+  font-size: 12px;
+}
+
+.approval-workflow-viewer .aw-next {
+  flex-basis: 100%;
+  color: #40556a;
+}
+
+.approval-workflow-viewer .aw-body {
+  border-top: 1px solid #e5ebef;
+  padding: 18px 22px;
+}
+
+.approval-workflow-viewer ol {
+  list-style: none;
+  padding: 0;
+  margin: 18px 0;
+}
+
+.approval-workflow-viewer li {
+  border-left: 3px solid #d9e2e8;
+  padding: 0 0 20px 18px;
+  margin-left: 10px;
+}
+
+.approval-workflow-viewer li[aria-current="step"] {
+  border-color: #2563eb;
+}
+
+.approval-workflow-viewer li:last-child {
+  padding-bottom: 0;
+}
+
+.approval-workflow-viewer .aw-heading {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  font-weight: 600;
+}
+
+.approval-workflow-viewer p {
+  margin: 5px 0;
+  overflow-wrap: anywhere;
+}
+
+.approval-workflow-viewer .aw-muted {
+  color: #526578;
+}
+
+.approval-workflow-viewer .aw-blocked {
+  color: #92400e;
+}
+
+.approval-workflow-viewer a {
+  color: #1d4ed8;
+  text-decoration: underline;
+}
+
+.approval-workflow-viewer time {
+  color: #526578;
+}
+

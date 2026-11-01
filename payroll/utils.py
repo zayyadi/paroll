@@ -18,6 +18,7 @@ DEFAULT_TRANSPORT_PERCENTAGE = Decimal("10")
 DEFAULT_PENSION_EMPLOYEE_PERCENTAGE = Decimal("8")
 DEFAULT_PENSION_EMPLOYER_PERCENTAGE = Decimal("10")
 DEFAULT_NHF_PERCENTAGE = Decimal("2.5")
+LOSS_OF_OFFICE_EXEMPTION = Decimal("50000000")
 
 # Nigeria Tax Act 2025 (effective Jan 1, 2026): annual taxable income bands.
 # Tuple format: (upper threshold, rate percent). Final band is open-ended.
@@ -91,6 +92,8 @@ def statutory_rates_for(as_of=None):
             "pension_employee_percentage": DEFAULT_PENSION_EMPLOYEE_PERCENTAGE,
             "pension_employer_percentage": DEFAULT_PENSION_EMPLOYER_PERCENTAGE,
             "nhf_percentage": DEFAULT_NHF_PERCENTAGE,
+            "gratuity_taxable": True,
+            "loss_of_office_exemption": LOSS_OF_OFFICE_EXEMPTION,
         }
 
     return {
@@ -106,6 +109,12 @@ def statutory_rates_for(as_of=None):
             resolved.pension_employer_percentage
         ),
         "nhf_percentage": Decimal(resolved.nhf_percentage),
+        "gratuity_taxable": resolved.gratuity_taxable,
+        "loss_of_office_exemption": (
+            Decimal(resolved.loss_of_office_exemption)
+            if resolved.loss_of_office_exemption is not None
+            else None
+        ),
     }
 
 
@@ -198,8 +207,15 @@ def get_basic(self):
     )
 
 
+def bht_income(self):
+    """Annual basic + housing + transport: the PRA 2014 pension base."""
+    return get_transport(self) + get_housing(self) + get_basic(self)
+
+
 def gross_income(self):
-    gi = get_transport(self) + get_housing(self) + get_basic(self)
+    """Annual gross emoluments (monthly gross x 12), including the part of
+    gross not split into basic/housing/transport (other allowances)."""
+    gi = Decimal(self.get_annual_gross)
     logger.debug("gross_income=%s", gi)
     return gi
 
@@ -219,7 +235,7 @@ def get_pension_employee(self, as_of=None):
     percentage = _pension_percentage(
         self, "pension_employee_percentage", DEFAULT_PENSION_EMPLOYEE_PERCENTAGE, as_of
     )
-    pension = calculate_percentage(self.get_annual_gross, percentage)
+    pension = calculate_percentage(bht_income(self), percentage)
     logger.debug("pension_employee=%s", pension)
     return pension
 
@@ -228,7 +244,7 @@ def get_pension_employer(self, as_of=None):
     percentage = _pension_percentage(
         self, "pension_employer_percentage", DEFAULT_PENSION_EMPLOYER_PERCENTAGE, as_of
     )
-    return calculate_percentage(self.get_annual_gross, percentage)
+    return calculate_percentage(bht_income(self), percentage)
 
 
 def get_pension(self, as_of=None):
@@ -237,11 +253,24 @@ def get_pension(self, as_of=None):
     )
 
 
+def _has_nhf_consent(payroll) -> bool:
+    """Whether the employee on this config consented to voluntary NHF."""
+    if not getattr(payroll, "pk", None):
+        return False
+    profile = payroll.employee_pay.first()
+    return bool(profile and profile.nhf_consent_at)
+
+
 def calc_housing(self, as_of=None) -> Decimal:
-    # NHF is deducted when the legacy is_housing switch is on or the employee
-    # is classified under either NHF scheme (compulsory/voluntary).
+    # Compulsory (public-sector) NHF is always deducted. Voluntary NHF,
+    # including the legacy is_housing switch, needs the employee's consent.
     nhf_scheme = getattr(self, "nhf_scheme", "none") or "none"
-    if self.is_housing or nhf_scheme != "none":
+    if nhf_scheme == "none" and self.is_housing:
+        nhf_scheme = "voluntary"
+    deduct = nhf_scheme == "compulsory" or (
+        nhf_scheme == "voluntary" and _has_nhf_consent(self)
+    )
+    if deduct:
         nhf_percentage = _get_setting_percentage(self, "nhf_percentage", None)
         if nhf_percentage is None:
             nhf_percentage = statutory_rates_for(as_of)["nhf_percentage"]
@@ -301,16 +330,14 @@ def _get_health_percentages(self) -> tuple[Decimal, Decimal]:
 
 
 def _health_contribution_base(self, basis: str) -> Decimal:
-    """Monthly base the NHIA percentage applies to for the given basis."""
+    """Monthly base the NHIA percentage applies to for the given basis:
+    monthly basic, or monthly consolidated (basic + housing + transport)."""
     if basis == "consolidated":
-        annual_gross = getattr(self, "gross_income", None)
-        if annual_gross is None:
-            annual_gross = getattr(self, "get_gross_income", Decimal("0")) or Decimal("0")
-        return Decimal(annual_gross) / Decimal("12")
-    return Decimal(getattr(self, "basic_salary", Decimal("0")) or Decimal("0"))
+        return bht_income(self) / Decimal("12")
+    return get_basic(self) / Decimal("12")
 
 
-def calc_employee_health_contrib(self) -> Decimal:
+def _monthly_employee_health(self) -> Decimal:
     if not self.is_nhif:
         return Decimal(0.0)
 
@@ -327,7 +354,12 @@ def calc_employee_health_contrib(self) -> Decimal:
     return employee_contrib
 
 
-def calc_employer_health_contrib(self) -> Decimal:
+def calc_employee_health_contrib(self) -> Decimal:
+    """Annual employee NHIA contribution."""
+    return _monthly_employee_health(self) * Decimal("12")
+
+
+def _monthly_employer_health(self) -> Decimal:
     if not self.is_nhif:
         return Decimal(0.0)
 
@@ -339,6 +371,11 @@ def calc_employer_health_contrib(self) -> Decimal:
         # Employer tops the negotiated premium up to the employee's statutory share.
         return max(premium - employee_contrib, Decimal("0.00"))
     return base * employer_percentage / Decimal("100")
+
+
+def calc_employer_health_contrib(self) -> Decimal:
+    """Annual employer NHIA contribution."""
+    return _monthly_employer_health(self) * Decimal("12")
 
 
 def calc_health_contrib(self) -> Decimal:
@@ -353,10 +390,10 @@ def _employer_levy_applies(self, field_name: str, default: bool) -> bool:
 
 
 def get_nsitf(self) -> Decimal:
-    """NSITF Employees' Compensation: 1% of monthly basic, employer-paid."""
+    """NSITF Employees' Compensation: 1% of annual gross, employer-paid."""
     if not _employer_levy_applies(self, "nsitf_applicable", True):
         return Decimal("0.00")
-    return self.basic_salary * Decimal("1") / Decimal("100")
+    return Decimal(self.get_annual_gross) * Decimal("1") / Decimal("100")
 
 
 def get_itf(self) -> Decimal:
@@ -370,9 +407,8 @@ def monthly_cost_breakdown(config) -> dict:
     """
     Monthly employer-vs-employee cost figures for one pay config.
 
-    Conventions match the Cost of Employment report: annual stored fields
-    (gross, pension, NHF, NHIA, ITF) are divided by 12; PAYE and water are
-    monthly; NSITF is 1% of monthly basic. Employer cost = gross + all
+    Stored fields are annual except PAYE and water (see ``Payroll``), so
+    every other row is divided by 12. Employer cost = gross + all
     employer-funded levies (pension, NHIA, NSITF, ITF).
 
     All annual→monthly divisions and the employee net route through the
@@ -395,16 +431,16 @@ def monthly_cost_breakdown(config) -> dict:
     employee_water = Decimal(config.water_rate or 0).quantize(cents)
     calc = monthly_net_pay(
         gross_annual=gross * 12,
+        pension_employee_annual=employee_pension * 12,
         employee_health_annual=employee_nhia * 12,
         nhf_annual=employee_nhf * 12,
         payee_monthly=employee_paye,
         water_monthly=employee_water,
-        deductions_monthly=employee_pension,
     )
     net_pay = calc["net"].quantize(cents)
     employer_pension = annual_to_monthly(config.pension_employer).quantize(cents)
     employer_nhia = annual_to_monthly(config.emplyr_health).quantize(cents)
-    employer_nsitf = Decimal(config.nsitf or 0).quantize(cents)
+    employer_nsitf = annual_to_monthly(config.nsitf).quantize(cents)
     employer_itf = annual_to_monthly(config.itf).quantize(cents)
     employer_cost = (
         gross + employer_pension + employer_nhia + employer_nsitf + employer_itf
@@ -520,8 +556,8 @@ def compute_annual_paye(annual_taxable_income: Decimal, as_of=None) -> Decimal:
 
 
 def calculate_taxable_income(self) -> Decimal:
-    # Taxable income is based on annual gross income minus applicable reliefs.
-    # Rent relief is employee-specific via get_rent_relief(self).
+    # Taxable income is annual gross less pension, NHF, NHIA and rent relief
+    # (Nigeria Tax Act 2025; the CRA no longer applies).
     calc = _annual_gross_for_tax(self) - get_total_relief(self)
 
     if calc <= 0:
@@ -584,8 +620,8 @@ def get_net_pay(self):
     """
     Calculates the net pay for an employee.
 
-    Note: This function assumes that get_gross_income returns an annual value
-    and divides it by 12 to get the monthly gross income.
+    Reads the config's stored annual figures (see ``Payroll``) and returns
+    the monthly net.
 
     The arithmetic is delegated to the canonical
     ``payroll.services.payroll_calc.monthly_net_pay``; this wrapper only
@@ -608,6 +644,9 @@ def get_net_pay(self):
     if annual_gross <= 0:
         annual_gross = gross_income(payroll)
 
+    pension_employee = Decimal(
+        getattr(payroll, "pension_employee", Decimal("0.00")) or Decimal("0.00")
+    )
     employee_health = Decimal(
         getattr(payroll, "employee_health", Decimal("0.00")) or Decimal("0.00")
     )
@@ -621,6 +660,7 @@ def get_net_pay(self):
 
     return monthly_net_pay(
         gross_annual=annual_gross,
+        pension_employee_annual=pension_employee,
         employee_health_annual=employee_health,
         nhf_annual=nhf,
         payee_monthly=payee,

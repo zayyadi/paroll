@@ -55,6 +55,11 @@ urlpatterns = [
         name="journal_post",
     ),
     path(
+        "journals/<int:pk>/revoke-approval/",
+        views.journal_revoke_approval_view,
+        name="journal_revoke_approval",
+    ),
+    path(
         "journals/<int:pk>/reverse/",
         views.JournalReversalView.as_view(),
         name="journal_reverse",

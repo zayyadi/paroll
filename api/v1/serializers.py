@@ -52,6 +52,46 @@ from standup.models import (
 User = get_user_model()
 
 
+def _company_path(model) -> str | None:
+    """Lookup from ``model`` to its owning company: ``company`` itself, or one
+    foreign key away (e.g. ``journal__company``)."""
+    fields = {f.name: f for f in model._meta.get_fields()}
+    if "company" in fields:
+        return "company"
+    for field in fields.values():
+        related = getattr(field, "related_model", None)
+        if field.many_to_one and related is not None and any(
+            f.name == "company" for f in related._meta.get_fields()
+        ):
+            return f"{field.name}__company"
+    return None
+
+
+class CompanyScopedRelationsMixin:
+    """Limit every writable related-object field to the requester's company.
+
+    DRF does not call model ``clean()``, so without this a posted id could
+    attach another company's journal, account, team or warehouse.
+    """
+
+    def get_fields(self):
+        fields = super().get_fields()
+        request = self.context.get("request")
+        company = get_user_company(request.user) if request is not None else None
+        for field in fields.values():
+            target = getattr(field, "child_relation", field)
+            queryset = getattr(target, "queryset", None)
+            if queryset is None or getattr(target, "read_only", False):
+                continue
+            if company is None:
+                target.queryset = queryset.none()
+                continue
+            path = _company_path(queryset.model)
+            if path is not None:
+                target.queryset = queryset.filter(**{path: company})
+        return fields
+
+
 class UserLiteSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
@@ -401,7 +441,7 @@ class FiscalYearSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "company", "closed_at", "closed_by", "created_at", "updated_at"]
 
 
-class AccountingPeriodSerializer(serializers.ModelSerializer):
+class AccountingPeriodSerializer(CompanyScopedRelationsMixin, serializers.ModelSerializer):
     class Meta:
         model = AccountingPeriod
         fields = [
@@ -422,7 +462,7 @@ class AccountingPeriodSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "company", "closed_at", "closed_by", "created_at", "updated_at"]
 
 
-class JournalEntrySerializer(serializers.ModelSerializer):
+class JournalEntrySerializer(CompanyScopedRelationsMixin, serializers.ModelSerializer):
     class Meta:
         model = JournalEntry
         fields = [
@@ -439,7 +479,7 @@ class JournalEntrySerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "created_by", "created_at", "updated_at"]
 
 
-class JournalSerializer(serializers.ModelSerializer):
+class JournalSerializer(CompanyScopedRelationsMixin, serializers.ModelSerializer):
     entries = JournalEntrySerializer(many=True, read_only=True)
 
     class Meta:
@@ -497,7 +537,7 @@ class UnitOfMeasureSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "company", "created_at", "updated_at"]
 
 
-class InventoryCategorySerializer(serializers.ModelSerializer):
+class InventoryCategorySerializer(CompanyScopedRelationsMixin, serializers.ModelSerializer):
     class Meta:
         model = InventoryCategory
         fields = [
@@ -517,7 +557,7 @@ class InventoryCategorySerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "company", "created_at", "updated_at"]
 
 
-class InventoryItemSerializer(serializers.ModelSerializer):
+class InventoryItemSerializer(CompanyScopedRelationsMixin, serializers.ModelSerializer):
     stock_on_hand = serializers.SerializerMethodField()
 
     class Meta:
@@ -611,7 +651,7 @@ class WarehouseSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "company", "created_at", "updated_at"]
 
 
-class StockLocationSerializer(serializers.ModelSerializer):
+class StockLocationSerializer(CompanyScopedRelationsMixin, serializers.ModelSerializer):
     class Meta:
         model = StockLocation
         fields = [
@@ -995,7 +1035,7 @@ class StandupTeamSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "company", "created_at", "updated_at"]
 
 
-class StandupTeamMemberSerializer(serializers.ModelSerializer):
+class StandupTeamMemberSerializer(CompanyScopedRelationsMixin, serializers.ModelSerializer):
     employee_name = serializers.CharField(source="employee.__str__", read_only=True)
 
     class Meta:
@@ -1021,7 +1061,7 @@ class StandupTeamMemberSerializer(serializers.ModelSerializer):
         return attrs
 
 
-class StandupQuestionSerializer(serializers.ModelSerializer):
+class StandupQuestionSerializer(CompanyScopedRelationsMixin, serializers.ModelSerializer):
     class Meta:
         model = StandupQuestion
         fields = [
@@ -1096,7 +1136,7 @@ class StandupCheckinSerializer(serializers.ModelSerializer):
         return value
 
 
-class StandupFollowSerializer(serializers.ModelSerializer):
+class StandupFollowSerializer(CompanyScopedRelationsMixin, serializers.ModelSerializer):
     follower_email = serializers.CharField(source="follower.email", read_only=True)
 
     class Meta:

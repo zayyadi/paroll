@@ -399,6 +399,9 @@ class Command(BaseCommand):
 
                 for _ in range(num_requests):
                     start_date = fake.date_between(start_date="-6y", end_date="+6y")
+                    if start_date.weekday() >= 5:
+                        # Leave must include a working day; start on Monday.
+                        start_date += timedelta(days=7 - start_date.weekday())
                     leave_type = random.choice(leave_types)
                     status = random.choice(statuses)
                     if status == "APPROVED" and has_approved_leave:

@@ -32,7 +32,10 @@ CACHE_TTL = getattr(settings, "CACHE_TTL", DEFAULT_TIMEOUT)
 logger = logging.getLogger(__name__)
 from payroll.models import PayslipEmailJob, PayrollEntry
 from payroll.forms import PayrollRunForm, PayrollRunCreateForm, PayrollEntryCreateForm
-from payroll.services.payslips import resolve_payslip_run_entry
+from payroll.services.payslips import (
+    can_view_payslip,
+    resolve_payslip_run_entry,
+)
 from users.email_backend import send_mail as custom_send_mail
 from core.settings import DEFAULT_FROM_EMAIL
 import io
@@ -181,7 +184,7 @@ def list_payslip(request, emp_slug):
         or request.user.has_perm("payroll.view_payroll")
         or is_auditor(request.user)
     ):
-        raise HttpResponseForbidden("You are not authorized to view this payslip.")
+        return HttpResponseForbidden("You are not authorized to view this payslip.")
 
     pay = PayrollRunEntry.objects.filter(
         payroll_entry__pays__slug=emp_slug,
@@ -238,56 +241,29 @@ def payslip_detail(request, id):
     pay_id = resolve_payslip_run_entry(id)
     if pay_id is None:
         raise Http404("No PayrollRunEntry matches the given query.")
-    target_employee_user = pay_id.payroll_entry.pays.user
 
     # Enforce object-level access to prevent horizontal privilege escalation.
-    if not (
-        request.user == target_employee_user
-        or request.user.has_perm("payroll.view_payroll")
-        or is_auditor(request.user)
-    ):
+    if not can_view_payslip(request.user, pay_id):
         return HttpResponseForbidden("You are not authorized to view this payslip.")
 
     num2word = utils.format_currency_words_with_kobo(pay_id.payroll_entry.netpay)
     dates = utils.convert_month_to_word(str(pay_id.payroll_run.paydays))
-    payroll_record = pay_id.payroll_entry.pays.employee_pay
-
-    pay_id_nhif = payroll_record.nhif if payroll_record else Decimal("0.00")
-    pay_id_basic = payroll_record.basic if payroll_record else Decimal("0.00")
-    pay_id_nhf = payroll_record.nhf if payroll_record else Decimal("0.00")
-    pay_id_nsitf = (
-        (payroll_record.nsitf or Decimal("0.00")) / 12
-        if payroll_record
-        else Decimal("0.00")
-    )
-    pay_id_payee = payroll_record.payee if payroll_record else Decimal("0.00")
-    pay_id_pension = (
-        (payroll_record.pension or Decimal("0.00")) / 12
-        if payroll_record
-        else Decimal("0.00")
-    )
-    pay_id_gross = (
-        (payroll_record.gross_income or Decimal("0.00")) / 12
-        if payroll_record
-        else Decimal("0.00")
-    )
-    pay_id_net = pay_id.payroll_entry.netpay / 12
-    pay_id_housing = (
-        (payroll_record.housing or Decimal("0.00")) / 12
-        if payroll_record
-        else Decimal("0.00")
-    )
-    pay_id_transport = (
-        (payroll_record.transport or Decimal("0.00")) / 12
-        if payroll_record
-        else Decimal("0.00")
-    )
-    pay_id_taxable = (
-        (payroll_record.taxable_income or Decimal("0.00")) / 12
-        if payroll_record
-        else Decimal("0.00")
-    )
-    pay_id_water = payroll_record.water_rate if payroll_record else Decimal("0.00")
+    # Figures frozen on the entry for this run (see payroll_figures), so a
+    # later salary change does not rewrite a past payslip.
+    figures = pay_id.payroll_entry.figures
+    pay_id_basic = figures["basic"]
+    pay_id_housing = figures["housing"]
+    pay_id_transport = figures["transport"]
+    pay_id_taxable = figures["taxable_income"]
+    pay_id_gross = figures["gross"]
+    pay_id_other_emoluments = figures["other_emoluments"]
+    pay_id_pension = figures["employee_pension"]
+    pay_id_nhf = figures["employee_nhf"]
+    pay_id_nhif = figures["employee_nhia"]
+    pay_id_nsitf = figures["employer_nsitf"]
+    pay_id_payee = figures["employee_paye"]
+    pay_id_water = figures["employee_water"]
+    pay_id_net = pay_id.payroll_entry.netpay
     iou_deductions = (
         pay_id.payroll_entry.pays.iou_deductions.filter(payday=pay_id.payroll_run)
         .select_related("iou")
@@ -312,6 +288,7 @@ def payslip_detail(request, id):
         "pay_id_transport": pay_id_transport,
         "pay_id_taxable": pay_id_taxable,
         "pay_id_water_rate": pay_id_water,
+        "pay_id_other_emoluments": pay_id_other_emoluments,
         "iou_deductions": iou_deductions,
         "iou_deduction_total": iou_deduction_total,
         "is_auditor": is_auditor(request.user),  # Add auditor flag for template
