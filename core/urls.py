@@ -23,6 +23,7 @@ urlpatterns = [
     path("", include("payroll.urls", namespace="payroll")),
     path("accounting/", include("accounting.urls", namespace="accounting")),
     path("inventory/", include("inventory.urls", namespace="inventory")),
+    path("projects/", include("projects.urls", namespace="projects")),
     path("webhooks/", include("webhooks.urls", namespace="webhooks")),
     # path(
     #     "__reload__/",

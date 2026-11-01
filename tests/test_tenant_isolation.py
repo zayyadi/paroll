@@ -30,7 +30,8 @@ from django.test import TestCase
 from django.urls import reverse
 
 from company.models import Company
-from accounting.models import AccountingPeriod, DisciplinaryCase, FiscalYear, Journal
+from accounting.models import AccountingPeriod, FiscalYear, Journal
+from payroll.models import DisciplinaryCase
 from payroll.models import (
     BankPaymentFile,
     EmployeeProfile,

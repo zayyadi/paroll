@@ -8,7 +8,7 @@ from django.urls import reverse
 from django.utils.encoding import force_bytes
 from django.utils.http import urlsafe_base64_encode
 
-from accounting.models import DisciplinaryCase, DisciplinarySanction
+from payroll.models import DisciplinaryCase, DisciplinarySanction
 from approvals.services import submit_approval, decide_approval
 from company.models import Company
 from tests.approval_helpers import approval_user
@@ -20,7 +20,7 @@ class DisabledRegistrationActivationTests(TestCase):
         cache.clear()
         self.company = Company.objects.create(name="Activation permission tests")
         self.user = get_user_model().objects.create_user(email="terminated@example.test", password="StrongPass123!", company=self.company, active_company=self.company)
-        permissions = ["accounting.change_disciplinarycase", "accounting.change_disciplinarysanction", "accounting.review_panel_disciplinarycase"]
+        permissions = ["payroll.change_disciplinarycase", "payroll.change_disciplinarysanction", "payroll.review_panel_disciplinarycase"]
         maker = approval_user(self.company, permissions)
         checker = approval_user(self.company, permissions)
         reporter = approval_user(self.company)

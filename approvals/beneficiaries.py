@@ -45,7 +45,7 @@ def employee_beneficiaries(value, company):
             visit(item.source)
         if label == 'company.actionproposal':
             visit(item.parameters)
-        if label == 'accounting.disciplinarycase':
+        if label == 'payroll.disciplinarycase':
             result.update(pk for pk in (item.respondent_id, item.reporter_id) if pk)
         for name in ('employee', 'employee_id', 'pays', 'payee', 'payroll_entry', 'allowance', 'iou', 'source_leave_request'):
             related = getattr(item, name, None)

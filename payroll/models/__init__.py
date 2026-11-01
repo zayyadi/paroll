@@ -103,3 +103,11 @@ from .compensation import (
     CompReview,
 )
 from .utils import *
+from .discipline import (
+    DisciplinaryAppeal,
+    DisciplinaryCase,
+    DisciplinaryCaseAudit,
+    DisciplinaryEvidence,
+    DisciplinarySanction,
+    log_disciplinary_case_audit,
+)

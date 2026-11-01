@@ -1,0 +1,13 @@
+{% extends "base_new.html" %}
+{% load crispy_forms_tags %}
+{% block title %}{% if project %}Edit {{ project.code }}{% else %}New project{% endif %}{% endblock %}
+{% block content %}
+<div class="mx-auto max-w-3xl space-y-6 p-6">
+  <a class="text-sm text-secondary-500" href="{% if project %}{% url 'projects:detail' project.pk %}{% else %}{% url 'projects:list' %}{% endif %}">← Back</a>
+  <h1 class="font-headline text-3xl font-bold text-primary-800">{% if project %}Edit {{ project.code }}{% else %}New project{% endif %}</h1>
+  <form method="post" class="editorial-panel p-7 space-y-4">{% csrf_token %}
+    {{ form|crispy }}
+    <button class="btn-primary" type="submit">Save project</button>
+  </form>
+</div>
+{% endblock %}

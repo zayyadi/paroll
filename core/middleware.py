@@ -14,7 +14,10 @@ freshly rendered template. It is a no-op when DEBUG is disabled, so
 production caching behaviour is untouched.
 """
 
+import re
+
 from django.conf import settings
+from django.http import Http404
 
 NO_CACHE_HEADERS = {
     "Cache-Control": "max-age=0, no-cache, no-store, must-revalidate",
@@ -32,3 +35,27 @@ class DevNoCacheMiddleware:
             for header, value in NO_CACHE_HEADERS.items():
                 response[header] = value
         return response
+
+
+# Paths served by the inventory app: its pages and its REST endpoints.
+INVENTORY_PATH = re.compile(r"^/(?:api/(?:v\d+/)?)?inventory/")
+
+
+class InventoryFeatureMiddleware:
+    """Return 404 for inventory pages and API endpoints unless enabled.
+
+    Inventory is outside the HR/payroll/project product, so it is hidden by
+    default. Its code, URLs and tables stay in place (other records may link
+    to inventory documents), and ``INVENTORY_ENABLED=True`` restores it.
+    The setting is read per request.
+    """
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        if not getattr(settings, "INVENTORY_ENABLED", False) and INVENTORY_PATH.match(
+            request.path_info
+        ):
+            raise Http404("Inventory is not enabled.")
+        return self.get_response(request)

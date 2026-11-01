@@ -75,3 +75,7 @@ design/
 # Generated employee documents (contain personal data)
 media/contracts/
 media/rent_declarations/
+
+# Local-only: payroll data exports and other tools' working files
+/payroll_unposted_journal_*.csv
+/.mimocode/

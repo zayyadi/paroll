@@ -1,0 +1,43 @@
+{% extends "base_new.html" %}
+{% load humanize %}
+{% block title %}Projects{% endblock %}
+{% block content %}
+<div class="mx-auto max-w-7xl space-y-6 p-6">
+  <div class="flex flex-wrap items-center justify-between gap-4">
+    <div>
+      <h1 class="font-headline text-3xl font-bold text-primary-800">Projects</h1>
+      <p class="text-sm text-secondary-500">Book timesheet hours to projects; payroll cost follows approved hours.</p>
+    </div>
+    <div class="flex gap-3">
+      {% if can_view_costs %}<a class="rounded-xl border px-4 py-2 text-sm font-bold" href="{% url 'projects:costs' %}">Project costs</a>{% endif %}
+      {% if can_add %}<a class="btn-primary" href="{% url 'projects:create' %}">New project</a>{% endif %}
+    </div>
+  </div>
+  <form method="get" class="flex items-center gap-3 text-sm">
+    <label for="status">Status</label>
+    <select id="status" name="status" onchange="this.form.submit()" class="rounded-lg border px-3 py-2">
+      <option value="">All</option>
+      {% for value, label in statuses %}<option value="{{ value }}" {% if value == status %}selected{% endif %}>{{ label }}</option>{% endfor %}
+    </select>
+  </form>
+  <section class="table-shell overflow-x-auto">
+    <table class="min-w-full text-sm">
+      <thead><tr><th class="text-left">Code</th><th class="text-left">Project</th><th class="text-left">Client</th><th class="text-left">Manager</th><th class="text-left">Status</th><th class="text-right">Budget</th></tr></thead>
+      <tbody>
+      {% for project in projects %}
+        <tr>
+          <td class="font-bold"><a href="{% url 'projects:detail' project.pk %}">{{ project.code }}</a></td>
+          <td><a href="{% url 'projects:detail' project.pk %}">{{ project.name }}</a></td>
+          <td>{{ project.client|default:"—" }}</td>
+          <td>{{ project.manager|default:"—" }}</td>
+          <td><span class="badge {% if project.is_open %}bg-success{% else %}bg-warning{% endif %}">{{ project.get_status_display }}</span></td>
+          <td class="text-right tabular-nums">{% if project.budget is not None %}₦{{ project.budget|floatformat:2|intcomma }}{% else %}—{% endif %}</td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="6" class="py-10 text-center text-secondary-500">No projects yet.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </section>
+</div>
+{% endblock %}

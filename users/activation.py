@@ -19,7 +19,7 @@ def can_activate_registration(user):
         checklist = apps.get_model("payroll", "OffboardingChecklist")
         if checklist.all_objects.filter(employee=employee, status="COMPLETED").exists():
             return False
-    sanction = apps.get_model("accounting", "DisciplinarySanction")
+    sanction = apps.get_model("payroll", "DisciplinarySanction")
     return not sanction.objects.filter(
         case__respondent=user, sanction_type="TERMINATION", status="ACTIVE"
     ).exists()

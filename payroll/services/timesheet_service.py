@@ -132,6 +132,9 @@ def submit_timesheet(*, timesheet: Timesheet, actor: Any) -> "ApprovalRequest":
         )
     if timesheet.total_hours is None or timesheet.total_hours <= 0:
         raise ValidationError("A timesheet needs hours before it can be submitted.")
+    from projects.services import validate_project_time
+
+    validate_project_time(timesheet)
 
     timesheet.status = Timesheet.Status.SUBMITTED
     timesheet.submitted_by = actor

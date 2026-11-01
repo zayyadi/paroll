@@ -15,10 +15,6 @@ from .models import (
     JournalEntry,
     FiscalYear,
     AccountingPeriod,
-    DisciplinaryCase,
-    DisciplinaryEvidence,
-    DisciplinarySanction,
-    DisciplinaryAppeal,
     AccountReconciliation,
     CostCenter,
     Budget,
@@ -30,6 +26,12 @@ from .models import (
     TaxReturnLine,
     JournalAttachment,
     RecurringJournalTemplate,
+)
+from payroll.models import (
+    DisciplinaryCase,
+    DisciplinaryEvidence,
+    DisciplinarySanction,
+    DisciplinaryAppeal,
 )
 from .utils import get_entry_type_for_balance_adjustment
 

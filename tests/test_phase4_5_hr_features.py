@@ -6,7 +6,7 @@ from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
 
-from accounting.models import DisciplinaryCase
+from payroll.models import DisciplinaryCase
 from company.models import Company
 from payroll.models import (
     CandidateConsent,
@@ -235,7 +235,7 @@ class Phase4HRFeatureTests(TestCase):
             violation_level=DisciplinaryCase.ViolationLevel.LEVEL_1,
         )
 
-        maker = approval_user(self.company, ["accounting.change_disciplinarycase"])
+        maker = approval_user(self.company, ["payroll.change_disciplinarycase"])
         approve_request(case.decide(finding="SUBSTANTIATED", decided_by=maker, rationale="Historical reviewed finding"))
         case.refresh_from_db()
         approve_request(case.close_case(approval_actor=maker))

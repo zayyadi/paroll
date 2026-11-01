@@ -5,7 +5,7 @@ from django.apps import apps
 from django.utils import timezone
 from django.core.exceptions import PermissionDenied
 from approvals.services import current_execution, authorize_approved_execution
-from accounting.models import DisciplinarySanction, DisciplinaryCase
+from payroll.models import DisciplinarySanction, DisciplinaryCase
 
 
 def apply_termination(sanction: DisciplinarySanction) -> None:

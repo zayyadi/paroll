@@ -7,7 +7,7 @@ from django.test import TestCase, override_settings
 from django.urls import reverse
 from datetime import date
 
-from accounting.models import (
+from payroll.models import (
     DisciplinaryCase,
     DisciplinaryCaseAudit,
     DisciplinarySanction,
@@ -170,9 +170,9 @@ class DisciplinaryWorkflowTests(TestCase):
         from django.contrib.auth.models import Permission
         from tests.approval_helpers import approval_user
         from approvals.services import decide_approval
-        self.user.user_permissions.add(Permission.objects.get(content_type__app_label="accounting", codename="change_disciplinarycase"))
+        self.user.user_permissions.add(Permission.objects.get(content_type__app_label="payroll", codename="change_disciplinarycase"))
         decision = case.decide(finding="SUBSTANTIATED", decided_by=self.user, rationale="Verified critical finding")
-        panel_reviewer = approval_user(self.company, ["accounting.review_panel_disciplinarycase"])
+        panel_reviewer = approval_user(self.company, ["payroll.review_panel_disciplinarycase"])
         decide_approval(approval=decision, actor=panel_reviewer)
         case.refresh_from_db()
         sanction = DisciplinarySanction.objects.create(

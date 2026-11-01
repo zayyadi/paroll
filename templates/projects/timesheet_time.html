@@ -1,0 +1,34 @@
+{% extends "base_new.html" %}
+{% load crispy_forms_tags %}
+{% block title %}Project time{% endblock %}
+{% block content %}
+<div class="mx-auto max-w-4xl space-y-6 p-6">
+  <a class="text-sm text-secondary-500" href="{% url 'payroll:timesheets' %}">← Timesheets</a>
+  <h1 class="font-headline text-3xl font-bold text-primary-800">Project time · week of {{ sheet.week_start }}</h1>
+  <p class="text-sm">{{ booked }} of {{ sheet.total_hours }} hours booked to projects. Hours not booked to a project count as general time.
+    {% if not editable %}This timesheet is {{ sheet.get_status_display|lower }}, so its project time can't change.{% endif %}</p>
+  <section class="table-shell overflow-x-auto">
+    <table class="min-w-full text-sm">
+      <thead><tr><th class="text-left">Project</th><th class="text-left">Task</th><th class="text-left">Note</th><th class="text-right">Hours</th><th></th></tr></thead>
+      <tbody>
+      {% for entry in entries %}
+        <tr>
+          <td>{{ entry.project }}</td><td>{{ entry.task|default:"—" }}</td><td>{{ entry.note|default:"" }}</td>
+          <td class="text-right tabular-nums">{{ entry.hours }}</td>
+          <td>{% if editable %}<form method="post" action="{% url 'projects:time_entry_delete' entry.pk %}">{% csrf_token %}<button class="text-sm font-bold text-danger-700" type="submit">Remove</button></form>{% endif %}</td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="5" class="py-8 text-center text-secondary-500">No project time on this week.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </section>
+  {% if form %}
+  <form method="post" class="editorial-panel p-7 space-y-4">{% csrf_token %}
+    <h2 class="font-headline text-xl font-bold text-primary-800">Book time</h2>
+    {{ form|crispy }}
+    <button class="btn-primary" type="submit">Add project time</button>
+  </form>
+  {% endif %}
+</div>
+{% endblock %}
