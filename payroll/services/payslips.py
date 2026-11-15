@@ -69,3 +69,22 @@ def can_view_payslip(user: Any, payslip: PayrollRunEntry) -> bool:
         and user_company is not None
         and payslip_company_id == user_company.pk
     )
+
+
+def queue_payslip_emails(payroll_run: Any) -> Any:
+    """
+    Queue payslip email delivery for after the current transaction commits.
+
+    Called when a run is locked (payroll.financial_approval_actions.apply_run),
+    so employees only receive payslips for approved pay. PDF rendering and SMTP
+    delivery happen in Celery.
+    """
+    from django.db import transaction
+
+    from payroll.models import PayslipEmailJob
+
+    if not payroll_run or not getattr(payroll_run, "pk", None):
+        return None
+    job = PayslipEmailJob.objects.create(payroll_run=payroll_run)
+    transaction.on_commit(lambda: job.enqueue())
+    return job

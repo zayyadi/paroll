@@ -26,7 +26,6 @@ from company.utils import get_user_company
 from payroll import utils
 from payroll import models
 from payroll.models import EmployeeProfile, PayrollRun, PayrollRunEntry, Payroll, IOU, AuditTrail
-from payroll.views.payroll_payslips import _queue_payslip_emails_for_payroll_run
 
 CACHE_TTL = getattr(settings, "CACHE_TTL", DEFAULT_TIMEOUT)
 logger = logging.getLogger(__name__)
@@ -100,11 +99,6 @@ def payday_create_new(request):
                 request,
                 f"Pay period '{payt.name}' created successfully with {employee_count} employees.",
             )
-            if _queue_payslip_emails_for_payroll_run(payt):
-                messages.success(
-                    request,
-                    "Payslip emails are being sent in the background.",
-                )
             skipped = getattr(payt, "_skipped_employee_reasons", [])
             if skipped:
                 messages.warning(

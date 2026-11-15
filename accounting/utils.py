@@ -309,6 +309,7 @@ def create_journal_with_entries(
     ip_address=None,
     user_agent=None,
     validate_balances=True,
+    posting_key=None,
 ):
     """
     Create a journal with multiple entries, including validation and audit logging.
@@ -376,6 +377,7 @@ def create_journal_with_entries(
             period=period,
             created_by=user,
             status=Journal.JournalStatus.DRAFT,
+            posting_key=posting_key,
         )
 
         # Set source object if provided

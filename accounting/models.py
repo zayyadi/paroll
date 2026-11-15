@@ -1161,6 +1161,11 @@ class Journal(BaseModel):
     )
     object_id = models.PositiveIntegerField(null=True, blank=True)
     content_object = GenericForeignKey("content_type", "object_id")
+    # Idempotency key for system postings, e.g. "payroll_run:12:accrual".
+    # Unique per company among journals still in effect (not reversed or
+    # cancelled), so a source event can't post twice but can post again
+    # after a reversal.
+    posting_key = models.CharField(max_length=120, null=True, blank=True, db_index=True)
 
     def __str__(self):
         return f"{self.transaction_number} - {self.description} ({self.get_status_display()})"
@@ -1411,6 +1416,12 @@ class Journal(BaseModel):
             models.UniqueConstraint(
                 fields=["company", "transaction_number"],
                 name="uniq_journal_company_transaction_number",
+            ),
+            models.UniqueConstraint(
+                fields=["company", "posting_key"],
+                condition=models.Q(posting_key__isnull=False)
+                & ~models.Q(status__in=["REVERSED", "CANCELLED"]),
+                name="uniq_journal_company_active_posting_key",
             ),
         ]
 

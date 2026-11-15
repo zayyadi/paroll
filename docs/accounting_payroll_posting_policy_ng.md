@@ -3,51 +3,63 @@
 This policy defines the minimum posting standard for payroll accounting in this system, aligned to IFRS-style double-entry discipline and Nigerian statutory payroll components.
 
 ## 1. Core Principles
-- Every payroll close must create a balanced journal (`total debits == total credits`).
+- Every payroll journal must balance (`total debits == total credits`).
+- Payroll is posted in three steps (accrual, salary payment, remittance), so the ledger shows at any time what is owed to staff and to each statutory body.
 - Employee deductions are recognized as liabilities until remitted to authorities or institutions.
 - Employer statutory contributions are recognized as employer expense plus matching liability.
-- Net salary paid is credited to cash/bank.
-- Payroll journals should be posted once per payroll run to avoid duplication.
+- Cash/bank moves only when money actually leaves: at salary payment and at each remittance, never at payroll lock.
+- Each system journal carries a `posting_key`, unique per company among journals still in effect, so a business event posts exactly once.
 
-## 2. Payroll Close Posting Map
-- `Salary Expense (6010)`:
-  - `DEBIT` by `net pay + employee-side deductions/liabilities`.
-- `Cash and Cash Equivalents (1010)`:
-  - `CREDIT` by net pay.
-- `PAYE Tax Payable (2110)`:
-  - `CREDIT` by PAYE amount withheld.
-- `Pension Payable (2120)`:
-  - `CREDIT` by employee pension withheld.
-  - `CREDIT` by employer pension contribution accrued.
-- `NHF Payable (2150)`:
-  - `CREDIT` by NHF amount withheld.
-- `Health Contribution Payable (2130)`:
-  - `CREDIT` by employee health contribution withheld.
-  - `CREDIT` by employer health contribution accrued.
-- `NSITF Expense (6040)`:
-  - `DEBIT` by employer NSITF expense.
-- `NSITF Payable (2140)`:
-  - `CREDIT` by employer NSITF accrued liability.
-- `Other Deductions Payable (2160)`:
-  - `CREDIT` by approved non-IOU deductions.
-- `Employee Advances (1400)`:
-  - `DEBIT` when IOU is disbursed/approved.
-  - `CREDIT` when IOU is recovered via payroll.
+## 2. Accrual: posted when a payroll run is locked
+Trigger: the independently approved `payroll.lock` action. Key: `payroll_run:<id>:accrual`. Amounts come from the figures frozen on each payroll entry.
 
-## 3. Timing and Cutoff
-- Posting trigger: payroll run transition from open to `closed`.
+- `Salaries and Wages Expense (6010)`: `DEBIT` gross pay (net pay + all employee deductions − allowances).
+- `Allowances Expense (6015)`: `DEBIT` period allowances.
+- `Pension Expense – Employer (6020)`: `DEBIT` employer pension.
+- `Health Contribution Expense – Employer (6030)`: `DEBIT` employer health contribution.
+- `NSITF Expense (6040)`: `DEBIT` employer NSITF.
+- `ITF Levy Expense (6050)`: `DEBIT` one twelfth of the annual ITF levy (ITF-liable companies only).
+- `Net Salaries Payable (2105)`: `CREDIT` net pay.
+- `PAYE Tax Payable (2110)`: `CREDIT` PAYE withheld.
+- `Pension Payable (2120)`: `CREDIT` employee pension withheld + employer pension.
+- `Health Contribution Payable (2130)`: `CREDIT` employee + employer health contribution.
+- `NSITF Payable (2140)`: `CREDIT` employer NSITF.
+- `NHF Payable (2150)`: `CREDIT` NHF withheld.
+- `Other Deductions Payable (2160)`: `CREDIT` approved non-IOU deductions.
+- Water rate withheld is credited to `Other Deductions Payable (2160)`.
+- `ITF Payable (2180)`: `CREDIT` ITF accrued.
+- `Employee Advances (1400)`: `CREDIT` IOU recovered via payroll (`DEBIT` when the IOU is approved).
+
+## 3. Salary payment
+Trigger: confirming an independently approved bank payment file, which must cover the whole payroll. Key: `payroll_run:<id>:payment:bank_file:<file id>`.
+
+- `Net Salaries Payable (2105)`: `DEBIT` amount paid.
+- `Bank Accounts (1020)`: `CREDIT` amount paid.
+
+Confirmation also moves the run to **Paid**. Runs locked before this policy (their accrual credited Cash directly) have nothing outstanding, so no payment journal is posted for them.
+
+## 4. Statutory remittance
+Trigger: marking an obligation remitted on the compliance calendar. Like any manual journal, it posts once an accountant independently approves it. Key: `remittance:<record id>`.
+
+- `<body> Payable`: `DEBIT` exactly what that period's accrual journals credited to it (ITF: the whole year).
+- `Bank Accounts (1020)`: `CREDIT` the same amount.
+
+Undoing the remittance raises a reversal request; once approved, the payable reopens. Filing-only obligations (annual PAYE return) post nothing.
+
+## 5. Timing and Cutoff
+- Accrual date: first day of the payroll month. Payment and remittance: the day they are recorded.
 - Deductions and allowances are recognized within the payroll month/year cutoff.
-- IOU repayment is recognized during payroll close to match salary period (not at deduction record creation).
+- IOU repayment is recognized at payroll lock to match the salary period (not at deduction record creation).
 
-## 4. Controls
-- Closed periods must reject new postings.
-- Auto-posted system journals must still preserve audit metadata (`approved_at`, `posted_at`).
-- Duplicate posting signals for the same business event must be disabled.
+## 6. Controls
+- Closed accounting periods reject new postings.
+- A payroll run is locked only through the independent `payroll.lock` approval.
+- Auto-posted system journals preserve audit metadata (`approved_at`, `posted_at`).
+- Corrections are made by reversal, never by editing a posted journal.
 
-## 5. Operational Review Checklist
-- Confirm payroll close journal is `POSTED`.
-- Confirm journal is balanced.
-- Confirm liability accounts reflect statutory and employee deductions.
+## 7. Operational Review Checklist
+- Confirm the payroll accrual journal is `POSTED` and balanced.
+- Confirm Net Salaries Payable (2105) is zero for every Paid run.
+- Confirm each statutory payable (2110–2180) equals the sum of periods not yet marked remitted.
+- Confirm no remittance journal is left pending approval.
 - Confirm expense accounts reflect gross employment cost (employee + employer side).
-- Reconcile `PAYE/Pension/NHF/Health/NSITF` liabilities with remittance reports before payment.
-

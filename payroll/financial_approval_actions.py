@@ -160,6 +160,10 @@ def apply_run(source: Any,actor: Any,payload: dict) -> None:
     source.closed=False
     source.save(update_fields=['status','closed'])
     source.lock()
+    # Employees receive payslips only for approved, posted pay; the job is
+    # enqueued after commit, so a failed lock sends nothing.
+    from payroll.services.payslips import queue_payslip_emails
+    queue_payslip_emails(source)
     # Repayment is finalized only once the approved run has posted successfully.
     iou_ids=source.iou_deductions.values_list('iou_id',flat=True) if hasattr(source,'iou_deductions') else models.IOUDeduction.objects.filter(payday=source).values_list('iou_id',flat=True)
     for iou in models.IOU.objects.filter(pk__in=iou_ids,status='APPROVED',payment_method='SALARY_DEDUCTION'):
