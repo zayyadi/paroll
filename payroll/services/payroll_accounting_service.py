@@ -58,15 +58,18 @@ PAYROLL_ACCOUNTS = {
     "pension_expense": ("Pension Expense (Employer)", "EXPENSE", "6020"),
     "health_expense": ("Health Contribution Expense (Employer)", "EXPENSE", "6030"),
     "nsitf_expense": ("NSITF Expense", "EXPENSE", "6040"),
+    "itf_expense": ("ITF Levy Expense", "EXPENSE", "6050"),
     "cash": ("Cash and Cash Equivalents", "ASSET", "1100"),
     "bank": ("Bank Accounts", "ASSET", "1020"),
     "employee_advances": ("Employee Advances", "ASSET", "1400"),
+    "net_salaries_payable": ("Net Salaries Payable", "LIABILITY", "2105"),
     "paye_payable": ("PAYE Tax Payable", "LIABILITY", "2110"),
     "pension_payable": ("Pension Payable", "LIABILITY", "2120"),
     "health_payable": ("Health Contribution Payable", "LIABILITY", "2130"),
     "nsitf_payable": ("NSITF Payable", "LIABILITY", "2140"),
     "nhf_payable": ("NHF Payable", "LIABILITY", "2150"),
     "deductions_payable": ("Other Deductions Payable", "LIABILITY", "2160"),
+    "itf_payable": ("ITF Payable", "LIABILITY", "2180"),
     "interest_income": ("Interest Income", "REVENUE", "4110"),
 }
 
@@ -138,12 +141,25 @@ def source_journal_exists(
     ).exists()
 
 
+def accrual_posting_key(payroll_run: PayrollRun) -> str:
+    return f"payroll_run:{payroll_run.pk}:accrual"
+
+
 def handle_payroll_period_closure(payroll_run: PayrollRun) -> None:
     """
-    Create comprehensive journal entries when a payroll period is closed.
-    Implements proper double-entry bookkeeping for all payroll transactions.
+    Post the payroll accrual when a run is locked.
+
+    Dr salary, allowance and employer-cost expense; Cr Net Salaries Payable
+    and one payable per body (PAYE, pension, NHF, health, NSITF, ITF, water
+    and other deductions) plus employee advances for IOU recoveries. Cash and
+    bank are not touched here: the confirmed bank payment and each remittance
+    clear these liabilities later (payroll.services.payroll_settlement).
     """
     company = payroll_run.company
+    if Journal.objects.filter(
+        company=company, posting_key=accrual_posting_key(payroll_run)
+    ).exclude(status__in=[Journal.JournalStatus.REVERSED, Journal.JournalStatus.CANCELLED]).exists():
+        return
     if source_journal_exists(payroll_run, "Payroll for period:", company=company):
         return
 
@@ -263,7 +279,12 @@ def handle_payroll_period_closure(payroll_run: PayrollRun) -> None:
 
             allowance = Decimal(pay_var.calc_allowance or 0)
             net_pay = Decimal(pay_var.netpay or 0)
-            _add_entry("cash", "CREDIT", net_pay, f"Net salary payment - {employee_name}")
+            _add_entry(
+                "net_salaries_payable",
+                "CREDIT",
+                net_pay,
+                f"Net salary payable - {employee_name}",
+            )
             _add_entry(
                 "allowance_expense",
                 "DEBIT",
@@ -308,6 +329,11 @@ def handle_payroll_period_closure(payroll_run: PayrollRun) -> None:
             _add_entry("nsitf_expense", "DEBIT", nsitf, f"NSITF expense - {employee_name}")
             _add_entry("nsitf_payable", "CREDIT", nsitf, f"NSITF payable - {employee_name}")
 
+            # Monthly share of the annual ITF levy (zero when not ITF-liable).
+            itf = figures["employer_itf"]
+            _add_entry("itf_expense", "DEBIT", itf, f"ITF levy expense - {employee_name}")
+            _add_entry("itf_payable", "CREDIT", itf, f"ITF payable - {employee_name}")
+
         entries = list(aggregate_entries.values())
 
         if entries:
@@ -326,6 +352,7 @@ def handle_payroll_period_closure(payroll_run: PayrollRun) -> None:
                 source_object=payroll_run,
                 auto_post=True,
                 validate_balances=False,
+                posting_key=accrual_posting_key(payroll_run),
             )
 
             log_accounting_activity(

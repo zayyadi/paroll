@@ -154,7 +154,8 @@ class PayrollClosePostingTests(TestCase):
         self.assertEqual(self._q(debits), self._q(credits))
 
         cash_credit = (
-            journal.entries.filter(account__account_number="1100", entry_type="CREDIT")
+            # Net pay is owed to staff (Net Salaries Payable) until the bank pays it.
+            journal.entries.filter(account__account_number="2105", entry_type="CREDIT")
             .aggregate(total=Sum("amount"))
             .get("total")
             or Decimal("0.00")
@@ -278,7 +279,7 @@ class PayrollClosePostingTests(TestCase):
             ("6020", "DEBIT"): Decimal(payroll.pension_employer or 0) / Decimal("12"),
             ("6030", "DEBIT"): Decimal(payroll.emplyr_health or 0) / Decimal("12"),
             ("6040", "DEBIT"): Decimal(payroll.nsitf or 0) / Decimal("12"),
-            ("1100", "CREDIT"): Decimal(entry.netpay),
+            ("2105", "CREDIT"): Decimal(entry.netpay),
             ("1400", "CREDIT"): Decimal("250.00"),
             ("2110", "CREDIT"): Decimal(payroll.payee or 0),
             ("2120", "CREDIT"): (

@@ -784,10 +784,36 @@ def mark_remittance(request, obligation, period):
         period=period_date,
         defaults={"remitted_on": None},
     )
+    from django.contrib import messages
+    from django.core.exceptions import ValidationError
+
+    from payroll.services.payroll_settlement import record_remittance, reverse_remittance
+
     if request.POST.get("unmark"):
         record.remitted_on = None
+        record.save(update_fields=["remitted_on", "updated_at"])
+        try:
+            if reverse_remittance(record, request.user) is not None:
+                messages.info(
+                    request,
+                    "Reversal of the remittance journal submitted for approval.",
+                )
+        except ValidationError as exc:
+            messages.error(request, " ".join(exc.messages))
     else:
         record.remitted_on = timezone.localdate()
+        # Save before submitting: the approval snapshots the record.
+        record.save(update_fields=["remitted_on", "updated_at"])
+        try:
+            # Dr the body's payable / Cr Bank for what the period accrued;
+            # posts once an accountant independently approves it.
+            if record_remittance(record, request.user) is not None:
+                messages.info(
+                    request,
+                    "Remittance journal submitted for approval; it posts once approved.",
+                )
+        except ValidationError as exc:
+            messages.error(request, " ".join(exc.messages))
         # Fan out a signed webhook when a remittance is filed (P1-9).
         from webhooks.services import emit_event
 
@@ -800,7 +826,6 @@ def mark_remittance(request, obligation, period):
                 "remitted_on": record.remitted_on.isoformat(),
             },
         )
-    record.save(update_fields=["remitted_on", "updated_at"])
     return redirect("payroll:compliance_calendar")
 
 

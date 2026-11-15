@@ -512,7 +512,8 @@ class PayrollRunCreateViewTests(TestCase):
         self.assertContains(response, 'x-init="init()"')
 
     @patch("payroll.models.payroll.PayslipEmailJob.enqueue")
-    def test_create_page_post_redirects_after_queueing_payslip_email(self, mocked_enqueue):
+    def test_create_page_post_redirects_without_emailing_payslips(self, mocked_enqueue):
+        # Payslips are emailed when the run is locked, not when it is drafted.
         self.client.force_login(self.hr_user)
 
         with self.captureOnCommitCallbacks(execute=True):
@@ -533,8 +534,8 @@ class PayrollRunCreateViewTests(TestCase):
             fetch_redirect_response=False,
         )
         self.assertEqual(payroll_run.payroll_run_entries.count(), 1)
-        self.assertEqual(PayslipEmailJob.objects.filter(payroll_run=payroll_run).count(), 1)
-        mocked_enqueue.assert_called_once()
+        self.assertEqual(PayslipEmailJob.objects.filter(payroll_run=payroll_run).count(), 0)
+        mocked_enqueue.assert_not_called()
 
     @patch("payroll.models.payroll.PayslipEmailJob.enqueue")
     def test_create_page_posts_payment_date(self, mocked_enqueue):

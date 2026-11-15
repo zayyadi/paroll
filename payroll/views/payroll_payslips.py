@@ -157,19 +157,10 @@ def _send_payslips_for_payroll_run(payroll_run):
 
 
 def _queue_payslip_emails_for_payroll_run(payroll_run):
-    """
-    Queue payslip email delivery after the payroll run transaction commits.
+    """Kept for existing callers; see payroll.services.payslips."""
+    from payroll.services.payslips import queue_payslip_emails
 
-    The request that creates the pay period should only persist payroll data.
-    PDF rendering and SMTP delivery happen in Celery so slow email providers do
-    not block payroll creation.
-    """
-    if not payroll_run or not getattr(payroll_run, "pk", None):
-        return False
-
-    job = PayslipEmailJob.objects.create(payroll_run=payroll_run)
-    transaction.on_commit(lambda: job.enqueue())
-    return job
+    return queue_payslip_emails(payroll_run) or False
 
 
 @permission_required("payroll.add_payroll", raise_exception=True)

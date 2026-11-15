@@ -77,7 +77,7 @@ class LeaveAllowanceCashIntegrityTests(TestCase):
             "The allowance expense was recognized once at leave approval.",
         )
         cash = payroll_journal.entries.filter(
-            account__account_number="1100", entry_type="CREDIT"
+            account__account_number="2105", entry_type="CREDIT"
         ).aggregate(total=Sum("amount"))["total"]
         self.assertEqual(
             cash,
@@ -127,7 +127,7 @@ class LeaveAllowanceCashIntegrityTests(TestCase):
             Decimal("1500"),
         )
         self.assertEqual(
-            journal.entries.filter(account__account_number="1100", entry_type="CREDIT")
+            journal.entries.filter(account__account_number="2105", entry_type="CREDIT")
             .get()
             .amount,
             entry.netpay,

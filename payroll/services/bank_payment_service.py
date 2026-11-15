@@ -172,6 +172,16 @@ def mark_confirmed(*, payment_file: Any) -> Any:
     current.status = "CONFIRMED"
     current.confirmed_at = timezone.now()
     current.save(update_fields=["status", "confirmed_at"], _validated_transition=True)
+    # Salaries have left the bank: clear Net Salaries Payable for this file.
+    from payroll.services.payroll_settlement import record_salary_payment
+
+    record_salary_payment(
+        payroll_run,
+        actor,
+        amount=current.total_amount,
+        source=current,
+        reference=f"bank_file:{current.pk}",
+    )
     payroll_run.payment_date = timezone.localdate()
     payroll_run.mark_paid(update_fields=["status", "closed", "payment_date"])
     payment_file.refresh_from_db()
